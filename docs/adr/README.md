@@ -26,3 +26,4 @@ New ADRs are created from [`TEMPLATE.md`](TEMPLATE.md). The index of records:
 | ADR | Title | Status |
 |-----|-------|--------|
 | [000](000-migrate-to-rust.md) | Migrate the code base to Rust and drop retail compatibility | Accepted |
+| [001](001-sim-numerics.md) | Simulation numerics — f32, msun-exact entry points, no libm crate for parity code | Accepted |

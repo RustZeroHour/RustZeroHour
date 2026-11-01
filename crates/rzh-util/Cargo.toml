@@ -4,6 +4,8 @@
 #   Core/GameEngine/Include/Common/crc.h
 #   Core/GameEngine/Source/Common/crc.cpp
 #   Core/GameEngine/Source/Common/RandomValue.cpp (non-retail branches)
+#   GeneralsMD/Code/GameEngine/Include/Common/NameKeyGenerator.h
+#   GeneralsMD/Code/GameEngine/Source/Common/NameKeyGenerator.cpp
 #
 # This crate is part of the simulation dependency graph and therefore follows
 # the plan's determinism rules (docs/RUST_MIGRATION_PLAN.md §3.3): no unsafe
@@ -11,13 +13,13 @@
 
 [package]
 name = "rzh-util"
-description = "Zero Hour engine utilities: game CRC and deterministic random number generators"
+description = "Zero Hour engine utilities: game CRC, deterministic RNGs and name-key interning"
 version.workspace = true
 edition.workspace = true
 rust-version.workspace = true
 license.workspace = true
 repository.workspace = true
-keywords = ["gamedev", "rts", "zerohour", "crc", "rng"]
+keywords = ["gamedev", "rts", "zerohour", "crc", "rng", "interning"]
 categories = ["game-development"]
 readme = "README.md"
 

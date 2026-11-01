@@ -1,0 +1,59 @@
+// SPDX-License-Identifier: GPL-3.0-or-later
+// This file is part of RustZeroHour, a derivative of the Zero Hour source
+// release. Copyright 2025 Electronic Arts Inc.; Rust port Copyright 2026 the
+// RustZeroHour contributors.
+//
+//! Deterministic math for the RustZeroHour simulation.
+//!
+//! This crate is the Phase 1 port of the WWMath subset the simulation
+//! depends on (docs/RUST_MIGRATION_PLAN.md §4, Phase 1):
+//!
+//! - [`scalar`]: the `WWMath` constants and the IEEE-754 exact scalar
+//!   helpers (`wwmath.h`).
+//! - [`vector2`], [`vector3`], [`vector4`]: the float vectors.
+//! - [`vectori`]: the integer vectors (`Vector2i`, `Vector3i`).
+//!
+//! # Porting provenance
+//!
+//! All modules are ported from baseline commit `571a7c5`, Zero Hour
+//! configuration, **deterministic branches** (`USE_DETERMINISTIC_MATH = 1`,
+//! which the retail-compatible build disables — ADR-000 dropped retail
+//! compatibility, so the port follows the deterministic path). Each module
+//! header records its exact origin.
+//!
+//! # Numerics (ADR-001)
+//!
+//! - `f32` everywhere, with the original's operation order preserved —
+//!   including reciprocal-multiply division, `1/sqrt` normalization and
+//!   every quirk documented on the functions that carry one.
+//! - The operations in this crate are IEEE-754 exact, so Rust's `f32`
+//!   methods, the system libm and the game's GameMath (msun) pin agree
+//!   bit-for-bit; ADR-001 records the empirical verification.
+//! - The transcendental entry points (`Sin`, `Cos`, `Tan`, `Asin`, `Acos`,
+//!   `Atan`, `Atan2`, `Pow`, `Exp`, `Log`, the `Fast_*` tables, and
+//!   `Float_To_Long`) are **not ported yet**: the game routes them to its
+//!   GameMath pin, which the generic `libm` crate does not match
+//!   bit-for-bit. They get a dedicated port before any code that needs
+//!   them lands.
+//! - No `unsafe`, no global mutable state, no `HashMap` iteration, fixed
+//!   widths in anything hashed or serialized (plan §3.3).
+//!
+//! # Parity level
+//!
+//! **P0 exact** for every item in this crate: the golden vectors in
+//! `tests/golden/` (generated from a verbatim C++ transcription in
+//! `tools/differential/gen_golden.cpp`) pin the exact bit patterns of every
+//! operation.
+
+#![forbid(unsafe_code)]
+
+pub mod scalar;
+pub mod vector2;
+pub mod vector3;
+pub mod vector4;
+pub mod vectori;
+
+pub use vector2::Vector2;
+pub use vector3::Vector3;
+pub use vector4::Vector4;
+pub use vectori::{Vector2i, Vector3i};

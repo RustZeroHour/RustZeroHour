@@ -15,7 +15,8 @@
 use std::fs;
 use std::path::PathBuf;
 
-use rzh_util::{Crc, GameRng};
+use rzh_util::namekey::{calc_hash_for_lowercase_string, calc_hash_for_string};
+use rzh_util::{Crc, GameRng, NameKey, NameKeyGenerator};
 
 fn golden_dir() -> PathBuf {
     PathBuf::from(env!("CARGO_MANIFEST_DIR"))
@@ -184,6 +185,110 @@ fn golden_files_are_reproducible_from_the_documented_seed_inputs() {
         rng_text.contains("seq 0000002a\nraw 559a52e9"),
         "the seed-42 anchor vector is missing or changed"
     );
+}
+
+/// Checks the hash functions and one full interning sequence against the
+/// C++ `NameKeyGenerator` transcription.
+#[test]
+fn namekey_matches_cpp_golden_vectors() {
+    let text = read_golden("namekey.txt");
+    let mut checked = 0;
+    let mut keys: Option<NameKeyGenerator> = None;
+
+    for line in text.lines() {
+        let line = line.trim();
+        if line.is_empty() || line.starts_with('#') {
+            continue;
+        }
+        let mut fields = line.split_whitespace();
+        match fields.next().expect("missing tag") {
+            "hash" | "lhash" => {
+                let name = decode_hex_or_dash(fields.next().expect("missing name hex"));
+                let expected = u32::from_str_radix(fields.next().expect("missing hash hex"), 16)
+                    .expect("bad hash hex");
+                let actual = if line.starts_with("hash") {
+                    calc_hash_for_string(&name)
+                } else {
+                    calc_hash_for_lowercase_string(&name)
+                };
+                assert_eq!(actual, expected, "hash mismatch for {name:02x?}");
+                checked += 1;
+            }
+            "seq" => {
+                assert!(keys.is_none(), "nested seq record in namekey.txt: {line}");
+                keys = Some(NameKeyGenerator::new());
+            }
+            "end" => {
+                keys.take().expect("end without seq in namekey.txt");
+            }
+            "key" | "lkey" => {
+                let name = decode_hex_or_dash(fields.next().expect("missing name hex"));
+                let expected: u32 = fields
+                    .next()
+                    .expect("missing key")
+                    .parse()
+                    .expect("bad key");
+                let generator = keys.as_mut().expect("record outside seq");
+                let actual = if line.starts_with("key") {
+                    generator.name_to_key(&name)
+                } else {
+                    generator.name_to_lowercase_key(&name)
+                };
+                assert_eq!(
+                    actual.ordinal(),
+                    expected,
+                    "key mismatch for {name:02x?} ({})",
+                    String::from_utf8_lossy(&name)
+                );
+                checked += 1;
+            }
+            "name" => {
+                let key: u32 = fields
+                    .next()
+                    .expect("missing key")
+                    .parse()
+                    .expect("bad key");
+                let hex = fields.next().expect("missing name hex");
+                let generator = keys.as_ref().expect("record outside seq");
+                let actual = generator.key_to_name(NameKey::from_ordinal(key));
+                if hex == "-" {
+                    // The original answers invalid/unknown keys with the
+                    // empty string; the port answers `None`.
+                    let known = key != 0 && (key as usize) <= generator.len();
+                    assert!(
+                        !known,
+                        "key {key} should be unknown (empty name also uses dash)"
+                    );
+                    if key == 0 {
+                        assert_eq!(actual, None, "INVALID key must not resolve");
+                    } else if let Some(name) = actual {
+                        assert!(name.is_empty(), "expected empty name for key {key}");
+                    }
+                } else {
+                    let expected = decode_hex(hex);
+                    assert_eq!(
+                        actual,
+                        Some(expected.as_slice()),
+                        "key_to_name({key}) mismatch"
+                    );
+                }
+                checked += 1;
+            }
+            other => panic!("unexpected record tag in namekey.txt: {other}"),
+        }
+    }
+
+    assert!(keys.is_none(), "unterminated seq record in namekey.txt");
+    assert!(checked > 500, "suspiciously few NameKey vectors: {checked}");
+}
+
+/// The harness encodes the empty byte string as a single dash.
+fn decode_hex_or_dash(hex: &str) -> Vec<u8> {
+    if hex == "-" {
+        Vec::new()
+    } else {
+        decode_hex(hex)
+    }
 }
 
 fn decode_hex(hex: &str) -> Vec<u8> {

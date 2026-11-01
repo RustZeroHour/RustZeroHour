@@ -1,0 +1,38 @@
+# rzh-math: deterministic math for the RustZeroHour simulation.
+#
+# Ported from (baseline 571a7c5, Zero Hour configuration, deterministic
+# branches of WWMath, i.e. USE_DETERMINISTIC_MATH=1):
+#   Core/Libraries/Source/WWVegas/WWMath/wwmath.h      (scalar constants and helpers)
+#   Core/Libraries/Source/WWVegas/WWMath/vector2.h     (Vector2)
+#   Core/Libraries/Source/WWVegas/WWMath/vector2i.h    (Vector2i)
+#   Core/Libraries/Source/WWVegas/WWMath/vector3.h     (Vector3)
+#   Core/Libraries/Source/WWVegas/WWMath/Vector3i.h    (Vector3i)
+#   Core/Libraries/Source/WWVegas/WWMath/vector4.h     (Vector4)
+#
+# This crate is part of the simulation dependency graph and therefore follows
+# the plan's determinism rules (docs/RUST_MIGRATION_PLAN.md §3.3) and the
+# numerics decisions of ADR-001: no unsafe code, f32 with the original
+# operation order, no fast-math, no contraction.
+
+[package]
+name = "rzh-math"
+description = "Deterministic Zero Hour simulation math: WWMath scalars and vectors"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+keywords = ["gamedev", "rts", "zerohour", "math", "deterministic"]
+categories = ["game-development", "mathematics"]
+readme = "README.md"
+
+[lints]
+workspace = true
+
+[dependencies]
+# Intentionally empty: this first slice covers only IEEE-754 exact
+# operations (see ADR-001). The trigonometric entry points will pull in a
+# dedicated port of the GameMath (FreeBSD msun) float functions when they
+# land; the generic `libm` crate is NOT bit-identical to the game's build
+# and must not be used for parity-sensitive code.
+

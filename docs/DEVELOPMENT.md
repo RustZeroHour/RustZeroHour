@@ -18,7 +18,8 @@ its own instructions in the
 
 ```
 crates/            Rust workspace (grows as the migration proceeds, plan §3.4)
-  rzh-util/        CRC + deterministic RNG (P0 ported, golden-vector tested)
+  rzh-util/        CRC + RNG + name-key interning (P0 ported, golden-vector tested)
+  rzh-math/        WWMath scalars + vectors (P0 ported, golden-vector tested)
 tools/
   differential/    C++ reference harness that generates the golden vectors
   inventory/       reproducible census of the C++ baseline
@@ -40,17 +41,23 @@ cargo clippy --workspace --all-targets -- -D warnings
 cargo test --workspace                            # unit + golden + doc tests
 ```
 
-`cargo test --workspace` runs the differential golden-vector tests against
-the committed fixtures in `crates/rzh-util/tests/golden/`. These prove
-byte-exact parity (level **P0**) with the C++ algorithms at the baseline
-commit `571a7c5` (tag `legacy-cpp-baseline`).
+`cargo test --workspace` runs the differential golden-vector tests of both
+crates against the committed fixtures in `crates/*/tests/golden/`. These
+prove byte-exact parity (level **P0**) with the C++ algorithms at the
+baseline commit `571a7c5` (tag `legacy-cpp-baseline`):
+
+- `rzh-util`: CRC, RNG streams and the name-key interning subsystem
+  (`crc.txt`, `rng.txt`, `namekey.txt`),
+- `rzh-math`: the WWMath scalar helpers and the Vector2/3/4 arithmetic,
+  including the original's quirks (`scalar.txt`, `vectors.txt`; see
+  ADR-001 for the numerics scope).
 
 To regenerate the golden vectors after (re)proving a transcription:
 
 ```sh
 tools/differential/regenerate.sh
 cargo test --workspace      # must still pass
-git diff crates/rzh-util/tests/golden   # review the diff, then commit
+git diff crates/*/tests/golden    # review the diff, then commit
 ```
 
 ## Game data and `RZH_GAME_DIR`
@@ -101,8 +108,18 @@ The definition of done for a ported unit is the checklist in plan §6.
 | Governance docs rewritten for the fork | Done |
 | Inventory tooling + published reports | Done — `tools/inventory/` |
 | First foundation crate (`rzh-util`: CRC, RNG) | Done, P0-verified |
+| Name-key interning in `rzh-util` | Done, P0-verified (`namekey` module) |
 | C++ oracle build with trace instrumentation (plan §3.2) | **Deferred** — needs the Windows/vcpkg toolchain; next step, tracked with the Phase 0 exit criteria |
-| Name-key interning in `rzh-util` | Planned next, together with the `AsciiString` port (Phase 1) |
+
+## Status of Phase 1 (foundation crates)
+
+| Item | Status |
+|------|--------|
+| `rzh-math` first slice: WWMath scalars + Vector2/2i/3/3i/4 | Done, P0-verified; quirks preserved and documented |
+| `rzh-math` trigonometric entry points (`gmath` port of the pinned GameMath) | **Next** — required before matrices/quaternions; see ADR-001 |
+| `rzh-vfs` (file systems, BIG archives) + `rzh-compress` | Planned after `gmath` |
+| `AsciiString` port | Planned together with the INI work |
+| Logging/diagnostics via `tracing` | Planned |
 
 ## Getting help
 
