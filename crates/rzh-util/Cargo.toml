@@ -1,0 +1,28 @@
+# rzh-util: shared utilities for the RustZeroHour engine.
+#
+# Ported from (baseline 571a7c5, Zero Hour configuration):
+#   Core/GameEngine/Include/Common/crc.h
+#   Core/GameEngine/Source/Common/crc.cpp
+#   Core/GameEngine/Source/Common/RandomValue.cpp (non-retail branches)
+#
+# This crate is part of the simulation dependency graph and therefore follows
+# the plan's determinism rules (docs/RUST_MIGRATION_PLAN.md §3.3): no unsafe
+# code, fixed-width integer types only, f32 with the original operation order.
+
+[package]
+name = "rzh-util"
+description = "Zero Hour engine utilities: game CRC and deterministic random number generators"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+keywords = ["gamedev", "rts", "zerohour", "crc", "rng"]
+categories = ["game-development"]
+readme = "README.md"
+
+[lints]
+workspace = true
+
+[dependencies]
+# Intentionally empty: this is a foundation crate and must stay dependency-free.

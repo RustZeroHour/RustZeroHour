@@ -1,0 +1,34 @@
+# RustZeroHour Cargo workspace.
+#
+# The C++ tree stays in place until the cut-over milestone (M5) of the Rust
+# migration plan (docs/RUST_MIGRATION_PLAN.md). Crates are added here as the
+# migration proceeds; see the plan's §3.4 for the target layout.
+
+[workspace]
+resolver = "3"
+members = [
+    "crates/rzh-util",
+]
+
+[workspace.package]
+version = "0.1.0"
+edition = "2024"
+rust-version = "1.85"
+license = "GPL-3.0-or-later"
+repository = "https://github.com/RustZeroHour/RustZeroHour"
+
+[workspace.lints.rust]
+# Documentation is part of the definition of done for every ported unit.
+missing_docs = "warn"
+
+[workspace.lints.clippy]
+all = { level = "warn", priority = -1 }
+cargo = { level = "warn", priority = -1 }
+
+# Determinism note (plan §3.3): the simulation crates use f32 with the same
+# operation order as the C++ original and no fast-math; release profiles must
+# not change floating-point behaviour.
+[profile.release]
+opt-level = 3
+debug = true
+panic = "unwind"

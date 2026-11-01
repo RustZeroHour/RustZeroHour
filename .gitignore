@@ -5,6 +5,10 @@
 !.gitattributes
 !.github
 !.gitmodules
+!.rustfmt.toml
+
+## Rust build output (plan §3.4: Cargo workspace at the repository root)
+/target/
 
 *.user
 *.ncb

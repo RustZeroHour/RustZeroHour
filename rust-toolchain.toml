@@ -1,0 +1,6 @@
+# Pinned toolchain for reproducible builds (plan §4, Phase 0).
+# rustup reads this file automatically; CI installs exactly this version.
+[toolchain]
+channel = "1.99.1"
+profile = "minimal"
+components = ["clippy", "rustfmt"]

@@ -1,0 +1,4 @@
+# rustfmt configuration (plan §4, Phase 0).
+# Defaults are used everywhere except the edition pin; `cargo fmt --check`
+# runs in CI.
+edition = "2024"
