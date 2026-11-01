@@ -1,110 +1,112 @@
-[![GitHub Release](https://img.shields.io/github/v/release/TheSuperHackers/GeneralsGameCode?include_prereleases&sort=date&display_name=tag&style=flat&label=Release)](https://github.com/TheSuperHackers/GeneralsGameCode/releases)
-![GitHub milestone details](https://img.shields.io/github/milestones/progress-percent/TheSuperHackers/GeneralsGameCode/3)
-![GitHub milestone details](https://img.shields.io/github/milestones/progress-percent/TheSuperHackers/GeneralsGameCode/1)
-![GitHub milestone details](https://img.shields.io/github/milestones/progress-percent/TheSuperHackers/GeneralsGameCode/4)
-![GitHub milestone details](https://img.shields.io/github/milestones/progress-percent/TheSuperHackers/GeneralsGameCode/5)
-![GitHub milestone details](https://img.shields.io/github/milestones/progress-percent/TheSuperHackers/GeneralsGameCode/6)
+# RustZeroHour
 
-[![GitHub issues by-label](https://img.shields.io/github/issues/TheSuperHackers/GeneralsGameCode/bug?style=flat&label=Bug%20Issues&labelColor=%23c4c4c4&color=%23424242)](https://github.com/TheSuperHackers/GeneralsGameCode/issues?q=label%3ABug)
-[![GitHub issues by-label](https://img.shields.io/github/issues/TheSuperHackers/GeneralsGameCode/enhancement?style=flat&label=Enhancement%20Issues&labelColor=%23c4c4c4&color=%23424242)](https://github.com/TheSuperHackers/GeneralsGameCode/issues?q=label%3AEnhancement)
-[![GitHub issues by-label](https://img.shields.io/github/issues/TheSuperHackers/GeneralsGameCode/major?style=flat&label=Major%20Issues&labelColor=%23c4c4c4&color=%23424242)](https://github.com/TheSuperHackers/GeneralsGameCode/issues?q=label%3AMajor)
-[![GitHub issues by-label](https://img.shields.io/github/issues/TheSuperHackers/GeneralsGameCode/critical?style=flat&label=Critical%20Issues&labelColor=%23c4c4c4&color=%23424242)](https://github.com/TheSuperHackers/GeneralsGameCode/issues?q=label%3ACritical)
-[![GitHub issues by-label](https://img.shields.io/github/issues/TheSuperHackers/GeneralsGameCode/blocker?style=flat&label=Blocker%20Issues&labelColor=%23c4c4c4&color=%23424242)](https://github.com/TheSuperHackers/GeneralsGameCode/issues?q=label%3ABlocker)
+[![Rust CI](https://github.com/RustZeroHour/RustZeroHour/actions/workflows/rust-ci.yml/badge.svg)](https://github.com/RustZeroHour/RustZeroHour/actions/workflows/rust-ci.yml)
 
-# Welcome to the Generals Game Code Project
+**An independent, open-source RTS inspired by *Command & Conquer: Generals –
+Zero Hour*, being rebuilt in Rust from the released Zero Hour source code.**
 
-GeneralsGameCode is a community-driven project aimed at fixing and improving the classic RTS game, *Command &
-Conquer: Generals* and its expansion *Zero Hour*. This repository contains the source code for both games, with a
-primary focus on *Zero Hour*.
+This repository is a fork of
+[TheSuperHackers/GeneralsGameCode](https://github.com/TheSuperHackers/GeneralsGameCode)
+(the EA source release of *Generals* and *Zero Hour*, maintained by the
+community). We are porting the engine to a Rust workspace and evolving it
+into a game with its own identity, its own multiplayer, and no dependency on
+EA-owned content.
 
-Additionally, there is a complementary project repository for fixing and improving game data and assets such as
-INI scripts, GUI, AI, maps, models, textures, audio, localization. You can find it
-[here](https://github.com/TheSuperHackers/GeneralsGamePatch/) and contribute to it as well.
+The full strategy, phases and milestones live in the
+[migration plan](docs/RUST_MIGRATION_PLAN.md). The headline decisions are
+recorded in [ADR-000](docs/adr/000-migrate-to-rust.md):
 
-## Project Overview
+- The Rust game is **not compatible with retail clients**: no retail
+  multiplayer, replay or save compatibility.
+- **Zero Hour is the only target**; the base-game `Generals/` tree is out of
+  scope.
+- The C++ tree stays in place, untouched, until the cut-over milestone (M5),
+  so the differential-testing oracle keeps working.
+- The port keeps the **GPL-3.0-or-later** license and never commits EA-owned
+  assets.
 
-The game was originally developed using Visual Studio 6 and C++98. We've updated the code to be compatible with Visual
-Studio 2022 and C++20.
+## Current status
 
-The initial goal of this project is to fix critical bugs and implement improvements while maintaining compatibility with
-the original *Generals* version 1.08 and *Zero Hour* version 1.04. Once we can break retail compatibility, more fixes
-and features will be possible to implement.
+Early days — [Phase 0/1 of the plan](docs/RUST_MIGRATION_PLAN.md):
+the Cargo workspace exists with its first foundation crate,
+[`rzh-util`](crates/rzh-util/) (the game CRC and the deterministic
+random-number generators), ported bit-exactly and validated against golden
+vectors generated from a C++ reference harness
+([`tools/differential/`](tools/differential/)).
 
-## Current Focus and Future Plans
+| Stack | State |
+|-------|-------|
+| Rust (`crates/`) | Active development; CI: format + clippy (`-D warnings`) + tests + license check on Linux/Windows/macOS |
+| C++ (`Core/`, `GeneralsMD/`, …) | Frozen baseline; kept for the oracle and reference; still builds with its original CI |
 
-Here's an overview of our current focus and future plans
+Progress by milestone: **M0** groundwork in progress → M1 data loads → M2
+headless sim → M3 first pixels → M4 playable skirmish → M5 Rust-only → M6
+online → M7 independent (see the plan's §4).
 
-- **Modernizing the Codebase**: Transitioning to modern C++ standards and refactoring old code.
-- **Critical Bug Fixes**: Fixing game-breaking issues (e.g., fullscreen crash).
-- **Minor Bug Fixes**: Addressing minor bugs (e.g., UI issues, graphical glitches).
-- **Cross-Platform Support**: Adding support for more platforms (e.g., Linux, macOS).
-- **Engine Improvements**: Enhancing the game engine to improve performance and stability.
-- **Client-Side Features**: Enhancing the game's client with features such as an improved replay viewer and UI updates.
-- **Multiplayer Improvements**: Implementing a new game server and an upgraded matchmaking lobby.
-- **Tooling Improvements**: Developing new or improving existing tools for modding and game development.
-- **Community-Driven Improvements**: Once the community grows, we plan to incorporate more features, updates, and
-  changes based on player feedback.
+## Building the Rust workspace
 
-## Running the Game
+Requires [rustup](https://rustup.rs); the toolchain is pinned in
+[`rust-toolchain.toml`](rust-toolchain.toml) and installs automatically.
 
-To run *Generals* or *Zero Hour* using this project, you need to have the original *Command & Conquer: Generals and Zero Hour* game
-installed. The easiest way to get it is through *Command & Conquer The Ultimate Collection*
-on [Steam](https://store.steampowered.com/bundle/39394). Once the game is ready, download the latest version of the
-project from [GitHub Releases](https://github.com/TheSuperHackers/GeneralsGameCode/releases), extract the necessary 
-files, and follow the instructions in the [Wiki](https://github.com/TheSuperHackers/GeneralsGameCode/wiki).
+```sh
+cargo fmt --all -- --check   # formatting
+cargo clippy --workspace --all-targets -- -D warnings
+cargo test --workspace       # includes the differential golden vectors
+```
 
+See [docs/DEVELOPMENT.md](docs/DEVELOPMENT.md) for the full developer guide
+(game data setup, regenerating golden vectors, porting rules).
 
-## Joining the Community
+## Running the game
 
-You can chat and discuss the development of the project on our [Discord channel](https://www.community-outpost.com/discord) to get the latest updates,
-report bugs, and contribute to the project!
+Not yet. The Rust stack currently provides foundation crates only; a
+playable headless simulation is milestone **M2** and the first visual client
+is **M3**. The legacy C++ build still runs the original game (see below).
 
-## Building the Game Yourself
+## The legacy C++ build
 
-We provide support for building the project on Windows and Linux. For detailed build instructions, check the
-[Wiki](https://github.com/TheSuperHackers/GeneralsGameCode/wiki/build_guides), which includes guides for VS6, VS2022,
-Docker, CLion, and links to forks supporting additional versions.
+Until the cut-over (M5) the original C++ code remains in the repository and
+remains buildable with the toolchain it shipped with (Visual Studio 2022,
+CMake + vcpkg, or the provided Docker setup):
 
-### Quick Start
-
-**Windows (Visual Studio 2022)**
-```bash
+```sh
 cmake --preset win32
 cmake --build build/win32 --config Release
+# or on Linux, via Docker:
+./scripts/docker-build.sh
 ```
 
-**Linux (via Docker)**
-```bash
-./scripts/docker-build.sh              # Build using Docker
-./scripts/docker-install.sh --detect # Install to your game
-```
+Detailed guides for the C++ build live in the
+[upstream wiki](https://github.com/TheSuperHackers/GeneralsGameCode/wiki).
+To run *Zero Hour* today, use the upstream releases of
+[GeneralsGameCode](https://github.com/TheSuperHackers/GeneralsGameCode/releases)
+— our fork does not produce game binaries yet.
 
-### Dependency management
+## Documentation
 
-The repository uses a vcpkg manifest (`vcpkg.json`). Dependency versions come from the `builtin-baseline` commit
-recorded there, with per-port `overrides` when a specific version is required. Update the baseline to pick up new
-versions. GitHub Actions consumes these ports through a vcpkg binary cache backed by a NuGet feed on GitHub
-Packages, keyed by vcpkg's own ABI hashes, so the first CI build warms the feed and subsequent builds pull prebuilt
-binaries instead of re-compiling everything. Pull requests from forks restore from the feed but cannot write to it.
+- [Migration plan](docs/RUST_MIGRATION_PLAN.md) — the master plan (phases,
+  parity levels, porting rules, risks).
+- [Architecture decision records](docs/adr/README.md) — accepted decisions,
+  starting with [ADR-000](docs/adr/000-migrate-to-rust.md).
+- [Developer guide](docs/DEVELOPMENT.md) — environment, workflow, tests.
+- [Code inventory](docs/inventory/) — measured census of the C++ baseline
+  the port is working from.
+- [Contributing](CONTRIBUTING.md) and the
+  [AI contribution policy](AI_POLICY.md).
 
-### Profiling
+## Legal
 
-Tracy profiling is supported in the CMake preset `win32-profile`.
-Use `tracy-profiler.exe` from [Tracy v0.13.1](https://github.com/wolfpld/tracy/releases/tag/v0.13.1).
-If you get an error when using Tracy, try removing `dbghelp.dll` from the game binary directory.
+- **License:** GPL-3.0-or-later (inherited from the EA source release; the
+  Rust port is a derivative work). See [LICENSE.md](LICENSE.md).
+- **Assets:** art, audio, maps, INI data and other EA-owned content are
+  **never committed** to this repository. During development the game reads
+  them from a user-owned install via `RZH_GAME_DIR`.
+- **Trademarks:** "Command & Conquer" and "Zero Hour" are EA trademarks; this
+  project is not affiliated with or endorsed by EA. The project will be
+  renamed before its first public release (plan §7).
 
-## Contributing
+## Acknowledgements
 
-We welcome contributions to the project! If you’re interested in contributing, you need to have knowledge of C++. Join
-the developer chat on Discord for more information on how to get started. Please make sure to read our
-[Contributing Guidelines](CONTRIBUTING.md) before submitting a pull request. You can also check out 
-the [Wiki](https://github.com/TheSuperHackers/GeneralsGameCode/wiki) for more detailed documentation.
-
-
-## License & Legal Disclaimer
-
-EA has not endorsed and does not support this product. All trademarks are the property of their respective owners.
-
-This project is licensed under the [GPL-3.0 License](https://www.gnu.org/licenses/gpl-3.0.html), which allows you to
-freely modify and distribute the source code under the terms of this license. Please see [LICENSE.md](LICENSE.md) 
-for details.
+- The original *Generals* and *Zero Hour* developers at EA Los Angeles.
+- [TheSuperHackers](https://github.com/TheSuperHackers), whose years of
+  community engineering on the released source made this fork possible.

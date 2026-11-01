@@ -1,165 +1,96 @@
 # How to contribute as a developer
 
-To contribute, fork this repository to create your own copy that you can clone locally and push back to. You can use your fork to create pull requests for your code to be merged into this repository.
+Thank you for contributing to RustZeroHour. This fork is executing the
+[Rust migration plan](docs/RUST_MIGRATION_PLAN.md); contributions that move
+the plan forward — ports, tests, tooling, documentation — are all welcome.
 
+## Where to start
+
+The plan's §9 lists the first tasks in order, and `docs/DEVELOPMENT.md`
+tracks the current status of the groundwork. Good first contributions:
+
+- Port a small, well-bounded unit from the C++ baseline **with** its
+  differential or golden test (see the porting rules below).
+- Improve the inventory tooling or the differential harness.
+- Write documentation that future porters will need.
+
+Larger ideas (new subsystems, format changes, dependency additions) go
+through the [ADR process](docs/adr/README.md) first, exactly as the plan
+prescribes.
 
 ## Contribution guidelines
 
-Prefer opening fewer high quality Pull Requests over many low quality ones. Prioritize polishing existing Pull Requests instead of creating new ones. Do not open Pull Requests as draft unless there are specific requirements that justify it, because draft Pull Requests are generally not looked at and pollute the Pull Request section.
+Prefer fewer high-quality pull requests over many low-quality ones. Keep
+pull requests focused on one goal; split refactors from behaviour changes
+into separate commits. We generally rebase and merge.
 
+Every pull request must leave the repository green:
+
+```sh
+cargo fmt --all -- --check
+cargo clippy --workspace --all-targets -- -D warnings
+cargo test --workspace
+```
+
+CI runs these on Linux, Windows and macOS, plus a license/advisory check
+(`cargo-deny`). **Never commit EA-owned assets** — game data is read from a
+user-owned install via `RZH_GAME_DIR` (see
+[docs/DEVELOPMENT.md](docs/DEVELOPMENT.md)).
 
 ## AI contribution policy
 
-Ensure that you have read and understood the [AI Contribution Policy](AI_POLICY.md).
+Read the [AI Contribution Policy](AI_POLICY.md) before submitting. In short:
+AI-assisted development is this project's stated methodology, but every
+contribution must name its C++ origin, prove its behaviour with tests, and be
+understood and reviewed by a human before it merges.
 
+## Code guidelines (Rust)
 
-## Code guidelines
+- **Follow the plan's porting rules** (§3.3 of the
+  [migration plan](docs/RUST_MIGRATION_PLAN.md)). The essentials:
+  - Port the Zero Hour branch and the non-retail branch of each
+    `RETAIL_COMPATIBLE_*` switch; drop dead `#if` code.
+  - Record provenance in every ported file
+    (`Ported from <path> @ 571a7c5`) and preserve the original copyright
+    notices.
+  - Preserve algorithms, data semantics and **order of operations** first;
+    improve structure second.
+  - Sim-bound crates use `#![forbid(unsafe_code)]`; `unsafe` is only for
+    platform/FFI crates, each block carrying a `// SAFETY:` comment.
+  - No global mutable state; state lives in explicit contexts.
+  - Determinism rules apply from day one: no wall-clock or OS randomness in
+    sim code, no `HashMap`/`HashSet` iteration in the sim, `f32` with the
+    original operation order, fixed-width integers wherever values are
+    hashed or serialized, objects referenced by handle/ID, never pointers.
+- **Every ported unit ships tests**: Rust unit tests plus a differential or
+  golden test that states its parity level (P0–P3, plan §3.2). Golden files
+  are generated, never hand-edited.
+- **Document the public API.** `missing_docs` is enabled workspace-wide;
+  crate-level docs should explain provenance and parity level.
+- **Dependencies** are deliberate: discuss additions in an ADR; the workspace
+  starts dependency-free by design, and `deny.toml` enforces license
+  compatibility.
 
-### Scope of code changes
+## Code guidelines (legacy C++)
 
-Code edits only touch the lines of code that serve the intended goal of the change. Big refactors should not be combined with logical changes, because these can become very difficult to review. If a change requires a refactor, create a commit for the refactor before (or after) creating a commit for the change. A Pull Request can contain multiple commits and can be merged with **Rebase and Merge** if these commits are meant to be preserved on the main branch. Otherwise, method of merging will be **Squash and Merge**.
-
-### Style of code changes
-
-Code edits should fit the nearby code in ways that the code style reads consistent, unless the original code style is bad. The original game code uses c++98, or a deviation thereof, and is simple to read. Prefer not to use newer language features unless required to implement the desired change. Prefer to use newer language features when they are considerably more robust or make the code easier to understand or maintain.
-
-### Language style guide
-
-*Work in progress. Needs a maintainer. Can be built upon existing Code guidelines, such as the "Google C++ Style Guide".*
-
-### Precedence of code changes
-
-Changes to Zero Hour take precedence over Generals, if applicable. When the changed code is not shared by both titles, then the change needs to be created for Zero Hour first, and then recreated for Generals. The implementation of a change for both titles needs to be identical or as close as possible. Preferably the Generals replica of a change comes with the same Pull Request. The Generals replica can be created after the Zero Hour code review has finished.
-
+The C++ tree is a frozen reference. Changes to it are limited to manual
+cherry-picks of upstream **logic fixes** (until milestone M2) and oracle
+instrumentation behind CMake options. Such changes follow the upstream
+[TheSuperHackers](https://github.com/TheSuperHackers/GeneralsGameCode)
+conventions: touch only the lines the change needs, keep the local style,
+document user-facing changes in present tense.
 
 ## Change documentation
 
-User facing changes need to be documented in code, Pull Requests and change logs. All documentation ideally is written in the present tense, and not the past.
-
-Good:
-
-> Fixes particle effect of USA Missile Defender
-
-Bad:
-
-> Fixed particle effect of USA Missile Defender
-
-When a text refers to a faction unit, structure, upgrade or similar, then the unit should be worded without any abbrevations and should be prefixed with the faction name. Valid faction names are USA, China, GLA, Boss, Civilian. Subfaction names can be appended too, for example GLA Stealth.
-
-Good:
-
-> Fixes particle effect of USA Missile Defender
-
-Bad:
-
-> Fixes particle effect of MD
-
-
-### Code documentation
-
-User facing changes need to be accompanied by comment(s) where the change is made. Maintenance related changes, such as compilation fixes, typically do not need commenting, unless the next reader can benefit from a special explanation. The comment can be put at the begin of the changed file, class, function or block. It must be clear from the change description what has changed.
-
-The expected comment format is
+User-facing changes are documented in the pull request and, where
+applicable, in code comments at the changed site. Commit messages use a
+lowercase prefix followed by an imperative summary, for example:
 
 ```
-// TheSuperHackers @keyword author DD/MM/YYYY A meaningful description for this change.
+feat(rzh-util): port CRC and game RNG from the C++ baseline
+docs(plan): record ADR-000 and relocate the migration plan
+fix(rzh-math): preserve WWMath operation order in Vector3::normalize
 ```
 
-The `TheSuperHackers` word and `@keyword` are mandatory. `author` and date can be omitted when preferred.
-
-| Keyword          | Use-case                                                    |
-|------------------|-------------------------------------------------------------|
-| @bugfix          | Fixes a bug                                                 |
-| @fix             | Fixes something, but is not a user facing bug               |
-| @build           | Addresses a compile warning or error                        |
-| @feature         | Adds something new                                          |
-| @performance     | Improves performance                                        |
-| @refactor        | Moves or rewrites code, but does not change the behaviour   |
-| @tweak           | Changes values or settings                                  |
-| @info            | Writes useful information for the next reader               |
-| @todo            | Adds a note for something left to do if really necessary    |
-
-Block comment sample
-
-```
-    // TheSuperHackers @bugfix JAJames 17/03/2025 Fix uninitialized memory access and add more Windows versions.
-    memset(&os_info,0,sizeof(os_info));
-```
-
-Optionally, the pull request number can be appended to the comment. This can only be done after the pull request has been created.
-
-```
-// TheSuperHackers @bugfix JAJames 17/03/2025 Fix uninitialized memory access and add more Windows versions. (#123)
-```
-
-### Pull request documentation
-
-The title of a new Pull Request, and/or commit(s) within, begins with a [conventional commits](https://www.conventionalcommits.org/en/v1.0.0/) tag. The tag is followed by a concise and descriptive sentence about the change and/or commit, beginning with an upper case letter and ending without a dot. The sentence ideally begins with a word that describes the action that the change takes, for example `Fix *this*`, `Change *that*`, `Add *those*`, `Refactor *thing*`.
-
-Allowed (extended) commit title types are:
-```
-bugfix:
-build:
-chore:
-ci:
-docs:
-fix:
-feat:
-perf:
-refactor:
-revert:
-style:
-test:
-tweak:
-unify:
-```
-
-For the optional scope behind the type pick a suitable word that describes the overall area that the change touches.
-
-Good:
-```
-bugfix(system): Fix uninitialized memory access in Get_OS_Info
-```
-
-Bad:
-```
-Minimal changes for successful build.
-```
-
-If the Pull Request is meant to be merged with rebase, then a note for **Merge with Rebase** should be added to the top of the text body, to help identify the correct merge action when it is ready for merge. All commits of the Pull Request need to be properly named and need the number of the Pull Request added as a suffix in parentheses. Example: **(#333)**. All commits need to be able to compile on their own without dependencies in newer commits of the same Pull Request. Prefer to create changes for **Squash and Merge**, as this will simplify things.
-
-The text body begins with links to related issue report(s) and/or Pull Request(s) if applicable.
-
-To write a link use the following format:
-
-```
-* Fixes #222
-* Closes #333
-* Relates to #555
-* Follow up for #666
-```
-
-Links are commonly used for
-
-* closing a related issue report or task when this pull request is merged
-* closing another pull request when this pull request is merged
-
-Some keywords are interpreted by GitHub. Read about it [here](https://docs.github.com/en/issues/tracking-your-work-with-issues/linking-a-pull-request-to-an-issue).
-
-The text body continues with a description of the change in appropriate detail. This serves to educate reviewers and visitors to get a good understanding of the change without the need to study and understand the associated changed files. If the change is controversial or affects gameplay in a considerable way, then a rationale text needs to be appended. The rationale explains why the given change makes sense.
-
-
-### Pull request merging rules
-
-Please be mindful when merging changes. There are pitfalls in regards to the commit title consistency.
-
-When attempting to **Squash and Merge** a Pull Request that contains a single commit, then GitHub will default generate a commit title from that single commit. Typically this is undesired, when the new commit title is meant to be kept in sync with the Pull Request title rather than the Pull Request commit title. The generated commit title may need to be adjusted before merging the Pull Request.
-
-When attempting to **Squash and Merge** a Pull Request that contains multiple commits, the GitHub will default generate a commit title from the Pull Request title. Additionally it will generate a commit description from the multiple commits that are part of the Pull Request. The generated commit description generally needs to be cleared before merging the Pull Request to keep the commit title clean.
-
-When attempting to **Rebase and Merge** a Pull Request, then all commits will transfer with the same names to the main branch. Verify that all commit titles are properly crafted, with tags where applicable, trailing Pull Request numbers in parentheses and no unnecessary commit descriptions (texts below the commit title).
-
-
-### Change log documentation
-
-*Work in progress.*
+When a change ports or rewrites a specific C++ unit, mention the origin path
+in the commit body.
