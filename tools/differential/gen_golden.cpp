@@ -46,6 +46,7 @@
 #include <cctype>
 #include <climits>
 #include <math.h>
+#include <cfloat>
 #include <cstdint>
 #include <cstdio>
 #include <cstring>
@@ -662,6 +663,20 @@ struct Vector3
 
         Vector3() {}
         Vector3(float x, float y, float z) { X = x; Y = y; Z = z; }
+
+        // Members the geometry transcription (plane/aabox/frustum) needs;
+        // semantics identical to the original vector3.h. (operator[] and
+        // the unary minus already exist further down / after the struct.)
+        void Set(float x, float y, float z) { X = x; Y = y; Z = z; }
+
+        bool operator == (const Vector3 & v) const { return (X == v.X) && (Y == v.Y) && (Z == v.Z); }
+        bool operator != (const Vector3 & v) const { return (X != v.X) || (Y != v.Y) || (Z != v.Z); }
+
+        Vector3 & operator += (const Vector3 & v) { X += v.X; Y += v.Y; Z += v.Z; return *this; }
+
+        Vector3 & operator *= (float k) { X = X*k; Y = Y*k; Z = Z*k; return *this; }
+
+        static float Dot_Product(const Vector3 &a, const Vector3 &b) { return a * b; }
 
         float Length() const { return WWSqrtf(Length2()); }
         float Length2() const { return X*X + Y*Y + Z*Z; }
@@ -1998,6 +2013,28 @@ struct Matrix3D
         float Get_Z_Rotation() const { return WWAtan2f(Row[1][0], Row[0][0]); }
 
         Vector3 Get_X_Vector() const { return Vector3(Row[0][0], Row[1][0], Row[2][0]); }
+
+        // Added for the frustum transcription; verbatim from matrix3d.h.
+        Vector3 Get_Y_Vector() const { return Vector3(Row[0][1], Row[1][1], Row[2][1]); }
+        Vector3 Get_Z_Vector() const { return Vector3(Row[0][2], Row[1][2], Row[2][2]); }
+
+        static void Transform_Vector(const Matrix3D & A, const Vector3 & in, Vector3 * out)
+        {
+                Vector3 tmp;
+                Vector3 * v;
+
+                // check for aliased parameters
+                if (out == &in) {
+                        tmp = in;
+                        v = &tmp;
+                } else {
+                        v = const_cast<Vector3*>(&in);
+                }
+
+                out->X = (A[0][0] * v->X + A[0][1] * v->Y + A[0][2] * v->Z + A[0][3]);
+                out->Y = (A[1][0] * v->X + A[1][1] * v->Y + A[1][2] * v->Z + A[1][3]);
+                out->Z = (A[2][0] * v->X + A[2][1] * v->Y + A[2][2] * v->Z + A[2][3]);
+        }
 
         void Translate(float x,float y,float z)
         {
@@ -4543,17 +4580,1039 @@ static void generateMatrix4Golden( FILE *out )
         fprintf(out, "\n");
 }
 
+// ---------------------------------------------------------------------------
+// WWMath geometry types, transcribed for the geometry golden vectors:
+//   plane.h          (PlaneClass)
+//   aaplane.h        (AAPlaneClass)
+//   aabox.h          (AABoxClass, MinMaxAABoxClass)
+//   frustum.h/.cpp   (FrustumClass::Init)
+//   colmath.h / colmath.cpp / colmathaabox.h / colmathplane.cpp
+//                    (the CollisionMath subset the geometry types need)
+// All at 571a7c5, deterministic branches (ADR-000). The Sphere/LineSeg/
+// OBBox/Tri overloads and the Intersection_Test/Cast_Ray machinery arrive
+// with their own ports and are intentionally absent.
+// ---------------------------------------------------------------------------
+
+// plane.h — PlaneClass: 3D-planes using the Normal+Distance description.
+struct PlaneClass
+{
+        enum IntersectionResType
+        {
+                NO_INTERSECTION = 0, // No intersection when the line is parallel to the plane
+                INSIDE_SEGMENT = 1, // The segment INSIDE point A and B intersects the plane
+                OUTSIDE_LINE = 2,   // The infinite line OUTSIDE point A and B intersects the plane
+        };
+
+        Vector3 N;
+        float D;
+
+        PlaneClass() { Set(0.0f, 0.0f, 1.0f, 0.0f); }
+        PlaneClass(float nx, float ny, float nz, float dist) { Set(nx, ny, nz, dist); }
+        PlaneClass(const Vector3 & normal, float dist) { Set(normal, dist); }
+        PlaneClass(const Vector3 & normal, const Vector3 & point) { Set(normal, point); }
+        PlaneClass(const Vector3 & point1, const Vector3 & point2, const Vector3 & point3) { Set(point1, point2, point3); }
+
+        void Set(float a, float b, float c, float d)
+        {
+                N.X = a;
+                N.Y = b;
+                N.Z = c;
+                D = d;
+        }
+
+        void Set(const Vector3 & normal, float dist)
+        {
+                N = normal;
+                D = dist;
+        }
+
+        void Set(const Vector3 & normal, const Vector3 & point)
+        {
+                N = normal;
+                D = Vector3::Dot_Product(normal, point);
+        }
+
+        void Set(const Vector3 & point1, const Vector3 & point2, const Vector3 & point3)
+        {
+                Vector3::Cross_Product((point2 - point1), (point3 - point1), &N);
+                if (N != Vector3(0.0f, 0.0f, 0.0f)) {
+                        // Points are not colinear. Normalize N and calculate D.
+                        N.Normalize();
+                        D = Vector3::Dot_Product(N, point1);
+                } else {
+                        // They are colinear - return default plane (constructors can't fail).
+                        N = Vector3(0.0f, 0.0f, 1.0f);
+                        D = 0.0f;
+                }
+        }
+
+        IntersectionResType Compute_Intersection(const Vector3 & p0, const Vector3 & p1, float * set_t) const
+        {
+                float num, den;
+                den = Vector3::Dot_Product(N, p1 - p0);
+
+                /*
+                ** If the denominator is zero, the ray is parallel to the plane
+                */
+                if (den == 0.0f) {
+                        return PlaneClass::NO_INTERSECTION;
+                }
+
+                num = -(Vector3::Dot_Product(N, p0) - D);
+
+                *set_t = num / den;
+
+                /*
+                ** If t is not between 0 and 1, the line containing the segment intersects
+                ** the plane but the segment does not
+                */
+                if ((*set_t < 0.0f) || (*set_t > 1.0f)) {
+                        return PlaneClass::OUTSIDE_LINE;
+                }
+
+                return PlaneClass::INSIDE_SEGMENT;
+        }
+
+        bool In_Front(const Vector3 & point) const
+        {
+                float dist = Vector3::Dot_Product(point, N);
+                return (dist > D);
+        }
+
+        static void Intersect_Planes(const PlaneClass & a, const PlaneClass & b, Vector3 * line_dir, Vector3 * line_point)
+        {
+                // Method used is from "plane-to-plane intersection", Graphics Gems III, pp. 233-235.
+
+                // Find line of intersection. First find direction vector of line:
+                Vector3::Cross_Product(a.N, b.N, line_dir);
+
+                // Now find point on line. How we do it depends on what the largest
+                // coordinate of the direction vector is.
+                Vector3 abs_dir = *line_dir;
+                abs_dir.Update_Max(-abs_dir);
+                if (abs_dir.X > abs_dir.Y) {
+                        if (abs_dir.X > abs_dir.Z) {
+                                // X largest
+                                float ool = 1.0f / line_dir->X;
+                                line_point->Y = (b.N.Z * a.D - a.N.Z * b.D) * ool;
+                                line_point->Z = (a.N.Y * b.D - b.N.Y * a.D) * ool;
+                                line_point->X = 0.0f;
+                        } else {
+                                // Z largest
+                                float ool = 1.0f / line_dir->Z;
+                                line_point->X = (b.N.Y * a.D - a.N.Y * b.D) * ool;
+                                line_point->Y = (a.N.X * b.D - b.N.X * a.D) * ool;
+                                line_point->Z = 0.0f;
+                        }
+                } else {
+                        if (abs_dir.Y > abs_dir.Z) {
+                                // Y largest
+                                float ool = 1.0f / line_dir->Y;
+                                line_point->Z = (b.N.X * a.D - a.N.X * b.D) * ool;
+                                line_point->X = (a.N.Z * b.D - b.N.Z * a.D) * ool;
+                                line_point->Y = 0.0f;
+                        } else {
+                                // Z largest
+                                float ool = 1.0f / line_dir->Z;
+                                line_point->X = (b.N.Y * a.D - a.N.Y * b.D) * ool;
+                                line_point->Y = (a.N.X * b.D - b.N.X * a.D) * ool;
+                                line_point->Z = 0.0f;
+                        }
+                }
+
+                // Normalize direction vector (we do it here because we needed the
+                // non-normalized version to find the point).
+                line_dir->Normalize();
+        }
+};
+
+// aaplane.h — AAPlaneClass: an "axis-aligned" plane whose normal is one of
+// the three coordinate axes.
+class AAPlaneClass
+{
+public:
+        enum AxisEnum { XNORMAL = 0, YNORMAL = 1, ZNORMAL = 2 };
+
+        AAPlaneClass() { }
+        AAPlaneClass(AxisEnum normal, float dist) : Normal(normal), Dist(dist) { }
+
+        void Set(AxisEnum normal, float dist)
+        {
+                Normal = normal;
+                Dist = dist;
+        }
+
+        void Get_Normal(Vector3 * normal) const
+        {
+                normal->Set(0, 0, 0);
+                (*normal)[Normal] = 1.0f;
+        }
+
+public:
+        AxisEnum Normal;
+        float Dist;
+};
+
+// aabox.h — AABoxClass: axis-aligned box by center and half-extent.
+// Mirrors the original header's structure: both classes are declared
+// first, and the members taking MinMaxAABoxClass are defined after that
+// class is complete (the original forward-declares and defers likewise).
+class MinMaxAABoxClass;
+
+class AABoxClass
+{
+public:
+        AABoxClass() { }
+        AABoxClass(const Vector3 & center, const Vector3 & extent) :
+                Center(center),
+                Extent(extent)
+        { }
+        AABoxClass(const MinMaxAABoxClass & minmaxbox);
+        AABoxClass(Vector3 * points, int num) { Init(points, num); }
+
+        void Init(const Vector3 & center, const Vector3 & extent) { Center = center; Extent = extent; }
+
+        void Init(Vector3 * points, int num)
+        {
+                Vector3 Min = points[0];
+                Vector3 Max = points[0];
+
+                for (int i = 1; i < num; i++) {
+                        if (Min.X > points[i].X) Min.X = points[i].X;
+                        if (Min.Y > points[i].Y) Min.Y = points[i].Y;
+                        if (Min.Z > points[i].Z) Min.Z = points[i].Z;
+
+                        if (Max.X < points[i].X) Max.X = points[i].X;
+                        if (Max.Y < points[i].Y) Max.Y = points[i].Y;
+                        if (Max.Z < points[i].Z) Max.Z = points[i].Z;
+                }
+
+                Center = (Max + Min) * 0.5f;
+                Extent = (Max - Min) * 0.5f;
+        }
+
+        void Init(const MinMaxAABoxClass & mmbox);
+
+        void Init_Min_Max(const Vector3 & min, const Vector3 & max)
+        {
+                Center = (max + min) * 0.5f;
+                Extent = (max - min) * 0.5f;
+        }
+
+        void Add_Point(const Vector3 & point)
+        {
+                Vector3 Min = Center - Extent;
+                Vector3 Max = Center + Extent;
+
+                if (Min.X > point.X) Min.X = point.X;
+                if (Min.Y > point.Y) Min.Y = point.Y;
+                if (Min.Z > point.Z) Min.Z = point.Z;
+
+                if (Max.X < point.X) Max.X = point.X;
+                if (Max.Y < point.Y) Max.Y = point.Y;
+                if (Max.Z < point.Z) Max.Z = point.Z;
+
+                Center = (Max + Min) / 2.0f;
+                Extent = (Max - Min) / 2.0f;
+        }
+
+        void Add_Box(const AABoxClass & b)
+        {
+                Vector3 newmin = Center - Extent;
+                Vector3 newmax = Center + Extent;
+                newmin.Update_Min(b.Center - b.Extent);
+                newmax.Update_Max(b.Center + b.Extent);
+
+                Center = (newmax + newmin) * 0.5f;
+                Extent = (newmax - newmin) * 0.5f;
+        }
+
+        void Add_Box(const MinMaxAABoxClass & b);
+
+        float Project_To_Axis(const Vector3 & axis) const
+        {
+                float x = Extent[0] * axis[0];
+                float y = Extent[1] * axis[1];
+                float z = Extent[2] * axis[2];
+
+                // projection is the sum of the absolute values of the projections of
+                // the three extents
+                return (WWFabsf(x) + WWFabsf(y) + WWFabsf(z));
+        }
+
+        // NOTE: the original's 2.0 literals are doubles, so the product is
+        // computed in double precision and truncated at the return. Preserved.
+        float Volume() const { return 2.0 * Extent.X * 2.0 * Extent.Y * 2.0 * Extent.Z; }
+
+        bool Contains(const Vector3 & point) const;
+        bool Contains(const AABoxClass & other_box) const;
+        bool Contains(const MinMaxAABoxClass & other_box) const;
+
+        void Transform(const Matrix3D & tm)
+        {
+                Vector3 center, extent;
+                tm.Transform_Center_Extent_AABox(Center, Extent, &center, &extent);
+                Center = center;
+                Extent = extent;
+        }
+
+        static void Transform(const Matrix3D & tm, const AABoxClass & in, AABoxClass * out)
+        {
+                tm.Transform_Center_Extent_AABox(in.Center, in.Extent, &(out->Center), &(out->Extent));
+        }
+
+        void Translate(const Vector3 & trans)
+        {
+                Center += trans;
+        }
+
+        Vector3 Center;    // world space center
+        Vector3 Extent;    // size of the box in the three directions
+};
+
+// aabox.h — MinMaxAABoxClass: axis-aligned box by its min and max corners.
+class MinMaxAABoxClass
+{
+public:
+        MinMaxAABoxClass() { }
+        MinMaxAABoxClass(const Vector3 & min_corner, const Vector3 & max_corner) :
+                MinCorner(min_corner),
+                MaxCorner(max_corner)
+        {
+        }
+        MinMaxAABoxClass(Vector3 * points, int num) { Init(points, num); }
+        MinMaxAABoxClass(const AABoxClass & that) { Init(that); }
+
+        void Init(Vector3 * points, int num)
+        {
+                MinCorner = points[0];
+                MaxCorner = points[0];
+                for (int i = 0; i < num; i++) {
+                        MinCorner.Update_Min(points[i]);
+                        MaxCorner.Update_Max(points[i]);
+                }
+        }
+
+        void Init(const AABoxClass & box)
+        {
+                MinCorner = box.Center - box.Extent;
+                MaxCorner = box.Center + box.Extent;
+        }
+
+        void Init_Empty()
+        {
+                MinCorner.Set(FLT_MAX, FLT_MAX, FLT_MAX);
+                MaxCorner.Set(-FLT_MAX, -FLT_MAX, -FLT_MAX);
+        }
+
+        void Add_Point(const Vector3 & point)
+        {
+                MinCorner.Update_Min(point);
+                MaxCorner.Update_Max(point);
+        }
+
+        void Add_Box(const MinMaxAABoxClass & box)
+        {
+                if (box.MinCorner == box.MaxCorner) return;
+
+                MinCorner.Update_Min(box.MinCorner);
+                MaxCorner.Update_Max(box.MaxCorner);
+        }
+
+        void Add_Box(const AABoxClass & box)
+        {
+                if (box.Extent == Vector3(0.0f, 0.0f, 0.0f)) return;
+
+                MinCorner.Update_Min(box.Center - box.Extent);
+                MaxCorner.Update_Max(box.Center + box.Extent);
+        }
+
+        void Add_Box(const Vector3 & min_corner, const Vector3 & max_corner)
+        {
+                if (min_corner == max_corner) return;
+
+                MinCorner.Update_Min(min_corner);
+                MaxCorner.Update_Max(max_corner);
+        }
+
+        void Transform(const Matrix3D & tm)
+        {
+                Vector3 oldmin = MinCorner;
+                Vector3 oldmax = MaxCorner;
+                tm.Transform_Min_Max_AABox(oldmin, oldmax, &MinCorner, &MaxCorner);
+        }
+
+        void Translate(const Vector3 & pos)
+        {
+                MinCorner += pos;
+                MaxCorner += pos;
+        }
+
+        float Volume() const { Vector3 size = MaxCorner - MinCorner; return size.X * size.Y * size.Z; }
+
+        Vector3 MinCorner;
+        Vector3 MaxCorner;
+};
+
+inline AABoxClass::AABoxClass(const MinMaxAABoxClass & minmaxbox)
+{
+        Init(minmaxbox);
+}
+
+inline void AABoxClass::Init(const MinMaxAABoxClass & mmbox)
+{
+        Center = (mmbox.MaxCorner + mmbox.MinCorner) * 0.5f;
+        Extent = (mmbox.MaxCorner - mmbox.MinCorner) * 0.5f;
+}
+
+inline void AABoxClass::Add_Box(const MinMaxAABoxClass & b)
+{
+        Vector3 newmin = Center - Extent;
+        Vector3 newmax = Center + Extent;
+        newmin.Update_Min(b.MinCorner);
+        newmax.Update_Max(b.MaxCorner);
+
+        Center = (newmax + newmin) * 0.5f;
+        Extent = (newmax - newmin) * 0.5f;
+}
+
+inline bool AABoxClass::Contains(const MinMaxAABoxClass & other_box) const
+{
+        Vector3 bmin = Center - Extent;
+        Vector3 bmax = Center + Extent;
+
+        if (other_box.MinCorner.X < bmin.X) return false;
+        if (other_box.MinCorner.Y < bmin.Y) return false;
+        if (other_box.MinCorner.Z < bmin.Z) return false;
+
+        if (other_box.MaxCorner.X > bmax.X) return false;
+        if (other_box.MaxCorner.Y > bmax.Y) return false;
+        if (other_box.MaxCorner.Z > bmax.Z) return false;
+
+        return true;
+}
+
+// colmath.h / colmath.cpp / colmathaabox.h / colmathplane.cpp — the
+// CollisionMath subset the geometry types need.
+class CollisionMath
+{
+public:
+        enum OverlapType
+        {
+                POS = 0x01,
+                NEG = 0x02,
+                ON = 0x04,
+                BOTH = 0x08,
+
+                OUTSIDE = POS,
+                INSIDE = NEG,
+                OVERLAPPED = BOTH,
+                FRONT = POS,
+                BACK = NEG,
+        };
+
+        static const float COINCIDENCE_EPSILON;
+
+        static OverlapType eval_overlap_mask(int mask)
+        {
+                // check if all verts are "ON"
+                if (mask == ON) {
+                        return ON;
+                }
+
+                // check if all verts are either "ON" or "POS"
+                if ((mask & ~(POS | ON)) == 0) {
+                        return POS;
+                }
+
+                // check if all verts are either "ON" or "BACK"
+                if ((mask & ~(NEG | ON)) == 0) {
+                        return NEG;
+                }
+
+                // otherwise, poly spans the plane.
+                return BOTH;
+        }
+
+        static OverlapType Overlap_Test(const AABoxClass & box, const Vector3 & point)
+        {
+                if (WWFabsf(point.X - box.Center.X) > box.Extent.X) return POS;
+                if (WWFabsf(point.Y - box.Center.Y) > box.Extent.Y) return POS;
+                if (WWFabsf(point.Z - box.Center.Z) > box.Extent.Z) return POS;
+
+                return NEG;
+        }
+
+        static OverlapType Overlap_Test(const AABoxClass & box, const AABoxClass & box2)
+        {
+                Vector3 dc;
+                Vector3::Subtract(box2.Center, box.Center, &dc);
+
+                if (box.Extent.X + box2.Extent.X < WWFabsf(dc.X)) return POS;
+                if (box.Extent.Y + box2.Extent.Y < WWFabsf(dc.Y)) return POS;
+                if (box.Extent.Z + box2.Extent.Z < WWFabsf(dc.Z)) return POS;
+
+                if (    (dc.X + box2.Extent.X <= box.Extent.X) &&
+                                (dc.Y + box2.Extent.Y <= box.Extent.Y) &&
+                                (dc.Z + box2.Extent.Z <= box.Extent.Z) &&
+                                (dc.X - box2.Extent.X >= -box.Extent.X) &&
+                                (dc.Y - box2.Extent.Y >= -box.Extent.Y) &&
+                                (dc.Z - box2.Extent.Z >= -box.Extent.Z))
+                {
+                        return NEG;    // inside;
+                }
+
+                return BOTH;
+        }
+
+        static OverlapType Overlap_Test(const AAPlaneClass & plane, const Vector3 & point)
+        {
+                float delta = point[plane.Normal] - plane.Dist;
+                if (delta > COINCIDENCE_EPSILON) {
+                        return POS;
+                }
+                if (delta < -COINCIDENCE_EPSILON) {
+                        return NEG;
+                }
+                return ON;
+        }
+
+        static OverlapType Overlap_Test(const AAPlaneClass & plane, const AABoxClass & box)
+        {
+                float delta;
+                int mask = 0;
+
+                // check the 'min' side of the box
+                delta = (box.Center[plane.Normal] - box.Extent[plane.Normal]) - plane.Dist;
+                if (delta > WWMATH_EPSILON) {
+                        mask |= POS;
+                } else if (delta < -WWMATH_EPSILON) {
+                        mask |= NEG;
+                } else {
+                        mask |= ON;
+                }
+
+                // check the 'max' side of the box
+                delta = (box.Center[plane.Normal] + box.Extent[plane.Normal]) - plane.Dist;
+                if (delta > WWMATH_EPSILON) {
+                        mask |= POS;
+                } else if (delta < -WWMATH_EPSILON) {
+                        mask |= NEG;
+                } else {
+                        mask |= ON;
+                }
+
+                return eval_overlap_mask(mask);
+        }
+};
+
+const float CollisionMath::COINCIDENCE_EPSILON = 0.000001f;
+
+inline bool AABoxClass::Contains(const Vector3 & point) const
+{
+        return CollisionMath::Overlap_Test(*this, point) == CollisionMath::INSIDE;
+}
+
+inline bool AABoxClass::Contains(const AABoxClass & other_box) const
+{
+        return CollisionMath::Overlap_Test(*this, other_box) == CollisionMath::INSIDE;
+}
+
+// frustum.h / frustum.cpp — FrustumClass::Init, the whole type.
+class FrustumClass
+{
+public:
+        FrustumClass() { }
+
+        void Init(const Matrix3D & camera, const Vector2 & vpmin, const Vector2 & vpmax, float znear, float zfar);
+
+public:
+        Matrix3D CameraTransform;
+        PlaneClass Planes[6];
+        Vector3 Corners[8];
+        Vector3 BoundMin;
+        Vector3 BoundMax;
+};
+
+void FrustumClass::Init
+(
+        const Matrix3D & camera,
+        const Vector2 & vpmin,
+        const Vector2 & vpmax,
+        float znear,
+        float zfar
+)
+{
+        int i;
+
+        // Store the camera transform
+        CameraTransform = camera;
+
+        // Forward is negative Z in our viewspace coordinate system.
+        // Just flip the sign if the user passed in positive values.
+        if ((znear > 0.0f) && (zfar > 0.0f)) {
+                znear = -znear;
+                zfar = -zfar;
+        }
+
+        // Calculate the corners of the camera frustum.
+        // Generate the camera-space frustum corners by linearly
+        // extrapolating the viewplane to the near and far z clipping planes.
+
+        // calculate a proper z-vector assuming our right-handed coordinate system
+        Vector3 zv;
+        Vector3::Cross_Product(CameraTransform.Get_X_Vector(), CameraTransform.Get_Y_Vector(), &zv);
+
+        // compare correct z-vector with the one in the camera matrix.  If they point in
+        // opposite directions, we have a reflected camera matrix.
+        if (Vector3::Dot_Product(CameraTransform.Get_Z_Vector(), zv) < 0)
+        {
+                //flip the frustum corners horizontally for a reflected matrix
+                Corners[1].Set(vpmin.X, vpmax.Y, 1.0);
+                Corners[5] = Corners[1];
+                Corners[1] *= znear;
+                Corners[5] *= zfar;
+                Corners[0].Set(vpmax.X, vpmax.Y, 1.0);
+                Corners[4] = Corners[0];
+                Corners[0] *= znear;
+                Corners[4] *= zfar;
+                Corners[3].Set(vpmin.X, vpmin.Y, 1.0);
+                Corners[7] = Corners[3];
+                Corners[3] *= znear;
+                Corners[7] *= zfar;
+                Corners[2].Set(vpmax.X, vpmin.Y, 1.0);
+                Corners[6] = Corners[2];
+                Corners[2] *= znear;
+                Corners[6] *= zfar;
+        }
+        else
+        {
+                //normal camera
+                Corners[0].Set(vpmin.X, vpmax.Y, 1.0);
+                Corners[4] = Corners[0];
+                Corners[0] *= znear;
+                Corners[4] *= zfar;
+                Corners[1].Set(vpmax.X, vpmax.Y, 1.0);
+                Corners[5] = Corners[1];
+                Corners[1] *= znear;
+                Corners[5] *= zfar;
+                Corners[2].Set(vpmin.X, vpmin.Y, 1.0);
+                Corners[6] = Corners[2];
+                Corners[2] *= znear;
+                Corners[6] *= zfar;
+                Corners[3].Set(vpmax.X, vpmin.Y, 1.0);
+                Corners[7] = Corners[3];
+                Corners[3] *= znear;
+                Corners[7] *= zfar;
+        }
+
+        // Transform the eight corners of the view frustum from camera space to world space.
+        for (i = 0; i < 8; i++) {
+                Matrix3D::Transform_Vector(CameraTransform, Corners[i], &(Corners[i]));
+        }
+
+        // Create the six frustum bounding planes from the eight corner Corners.
+        // The bounding planes are oriented so that their normals point outward
+        Planes[0].Set(Corners[0], Corners[3], Corners[1]);      // near
+        Planes[1].Set(Corners[0], Corners[5], Corners[4]);      // bottom
+        Planes[2].Set(Corners[0], Corners[6], Corners[2]);      // right
+        Planes[3].Set(Corners[2], Corners[7], Corners[3]);      // top
+        Planes[4].Set(Corners[1], Corners[7], Corners[5]);      // left
+        Planes[5].Set(Corners[4], Corners[7], Corners[6]);      // far
+
+        // find the bounding box of the entire frustum (may be used for sloppy quick rejection)
+        BoundMin = BoundMax = Corners[0];
+
+        for (i = 1; i < 8; i++) {
+                if (Corners[i].X < BoundMin.X) BoundMin.X = Corners[i].X;
+                if (Corners[i].X > BoundMax.X) BoundMax.X = Corners[i].X;
+
+                if (Corners[i].Y < BoundMin.Y) BoundMin.Y = Corners[i].Y;
+                if (Corners[i].Y > BoundMax.Y) BoundMax.Y = Corners[i].Y;
+
+                if (Corners[i].Z < BoundMin.Z) BoundMin.Z = Corners[i].Z;
+                if (Corners[i].Z > BoundMax.Z) BoundMax.Z = Corners[i].Z;
+        }
+}
+
+// ---------------------------------------------------------------------------
+// Geometry golden vectors.
+// ---------------------------------------------------------------------------
+
+static void generateGeometryGolden( FILE *out )
+{
+        fprintf(out, "# WWMath geometry golden vectors (parity level P0, IEEE-754 exact subset).\n");
+        fprintf(out, "# Generated by tools/differential/gen_golden.cpp, transcribed from\n");
+        fprintf(out, "# Core/Libraries/Source/WWVegas/WWMath/{plane,aaplane,aabox,frustum}.{h,cpp}\n");
+        fprintf(out, "# and colmath{.h,aabox.h,plane.cpp} @ 571a7c5 (deterministic branches).\n");
+        fprintf(out, "# All float fields are bit patterns in hex; operands are finite.\n");
+        fprintf(out, "# Records (res fields: 0/1/2 = plane IntersectionResType,\n");
+        fprintf(out, "#           1/2/4/8 = CollisionMath::OverlapType codes):\n");
+        fprintf(out, "#   plane set_points  p1 p2 p3 -> n d\n");
+        fprintf(out, "#   plane set_np     n p -> n d\n");
+        fprintf(out, "#   plane seg_isect  n d p0 p1 t0 -> res t\n");
+        fprintf(out, "#   plane in_front   n d p -> bool\n");
+        fprintf(out, "#   plane isect_pl   an ad bn bd -> dir point\n");
+        fprintf(out, "#   aabox init_pts   p0..p3 -> center extent\n");
+        fprintf(out, "#   aabox init_mm    min max -> center extent\n");
+        fprintf(out, "#   aabox add_point  center extent p -> center extent\n");
+        fprintf(out, "#   aabox add_box    center extent c2 e2 -> center extent\n");
+        fprintf(out, "#   aabox add_mmbox  center extent mn mx -> center extent\n");
+        fprintf(out, "#   aabox volume     extent -> v\n");
+        fprintf(out, "#   aabox project    extent axis -> v\n");
+        fprintf(out, "#   aabox contains_p center extent p -> bool\n");
+        fprintf(out, "#   aabox contains_b center extent c2 e2 -> bool\n");
+        fprintf(out, "#   aabox transform  center extent tm(12) -> center extent\n");
+        fprintf(out, "#   aabox overlap_p  center extent p -> res\n");
+        fprintf(out, "#   aabox overlap_b  center extent c2 e2 -> res\n");
+        fprintf(out, "#   mmbox init_pts   p0..p3 -> min max\n");
+        fprintf(out, "#   mmbox init_aabox center extent -> min max\n");
+        fprintf(out, "#   mmbox init_empty (no inputs) -> min max\n");
+        fprintf(out, "#   mmbox add_point  min max p -> min max\n");
+        fprintf(out, "#   mmbox add_box    min max mn2 mx2 -> min max\n");
+        fprintf(out, "#   mmbox add_aabox  min max c2 e2 -> min max\n");
+        fprintf(out, "#   mmbox add_mm     min max mn2 mx2 -> min max\n");
+        fprintf(out, "#   mmbox volume     min max -> v\n");
+        fprintf(out, "#   mmbox transform  min max tm(12) -> min max\n");
+        fprintf(out, "#   aaplane normal   axis dist -> n\n");
+        fprintf(out, "#   aaplane overlap_p axis dist p -> res\n");
+        fprintf(out, "#   aaplane overlap_b axis dist center extent -> res\n");
+        fprintf(out, "#   eval_mask        mask -> res\n");
+        fprintf(out, "#   frustum init     tm(12) vminx vminy vmaxx vmaxy znear zfar\n");
+        fprintf(out, "#                     -> corners(8x3) planes(6x n d) boundmin boundmax\n");
+        fprintf(out, "# Regenerate with tools/differential/regenerate.sh; never edit by hand.\n\n");
+
+        resetLcg(0x6e0f1aceu);
+
+        // A bounded "wild" float for geometry inputs: finite, |x| <= 1e6 so
+        // intermediate sums stay finite (inf/inf or inf-inf would make the
+        // vectors less portable); quarter steps keep exact representations.
+        auto gfloat = []() -> float {
+                for (;;) {
+                        float f = bitsToFloat(lcgWord());
+                        if (f == f && f * 0.0f == 0.0f && WWFabsf(f) <= 1.0e6f)
+                                return f;
+                }
+        };
+        auto gpoint = [&]() -> Vector3 {
+                Vector3 p(
+                        (lcgWord() & 1) ? gfloat() : stepFloat(),
+                        (lcgWord() & 2) ? gfloat() : stepFloat(),
+                        (lcgWord() & 4) ? gfloat() : stepFloat());
+                return p;
+        };
+
+        for (int i = 0; i < 200; i++)
+        {
+                // ---- PlaneClass ------------------------------------------------
+                Vector3 p1 = gpoint(), p2 = gpoint(), p3 = gpoint();
+                if ((i % 17) == 0) {
+                        p2 = p1; // force the colinear default-plane quirk
+                }
+
+                PlaneClass pl;
+                pl.Set(p1, p2, p3);
+                fprintf(out, "plane set_points ");
+                writeV3(out, p1); fprintf(out, " ");
+                writeV3(out, p2); fprintf(out, " ");
+                writeV3(out, p3); fprintf(out, " ");
+                writeV3(out, pl.N); fprintf(out, " %08x\n", floatBits(pl.D));
+
+                Vector3 pn = gpoint(), pp = gpoint();
+                PlaneClass plnp;
+                plnp.Set(pn, pp);
+                fprintf(out, "plane set_np ");
+                writeV3(out, pn); fprintf(out, " ");
+                writeV3(out, pp); fprintf(out, " ");
+                writeV3(out, plnp.N); fprintf(out, " %08x\n", floatBits(plnp.D));
+
+                Vector3 sp0 = gpoint(), sp1 = gpoint();
+                float t_in = stepFloat(); // sentinel: must survive a parallel hit
+                float t = t_in;
+                PlaneClass::IntersectionResType res = pl.Compute_Intersection(sp0, sp1, &t);
+                fprintf(out, "plane seg_isect ");
+                writeV3(out, pl.N); fprintf(out, " %08x ", floatBits(pl.D));
+                writeV3(out, sp0); fprintf(out, " ");
+                writeV3(out, sp1); fprintf(out, " %08x %d %08x\n", floatBits(t_in), (int)res, floatBits(t));
+
+                bool front = pl.In_Front(pp);
+                fprintf(out, "plane in_front ");
+                writeV3(out, pl.N); fprintf(out, " %08x ", floatBits(pl.D));
+                writeV3(out, pp); fprintf(out, " %d\n", front ? 1 : 0);
+
+                PlaneClass pa(p1, 0.5f), pb(p2, -3.25f);
+                Vector3 ldir, lpt;
+                PlaneClass::Intersect_Planes(pa, pb, &ldir, &lpt);
+                fprintf(out, "plane isect_pl ");
+                writeV3(out, pa.N); fprintf(out, " %08x ", floatBits(pa.D));
+                writeV3(out, pb.N); fprintf(out, " %08x ", floatBits(pb.D));
+                writeV3(out, ldir); fprintf(out, " ");
+                writeV3(out, lpt); fprintf(out, "\n");
+
+                // ---- AABoxClass ------------------------------------------------
+                Vector3 q[4] = { gpoint(), gpoint(), gpoint(), gpoint() };
+                AABoxClass ab;
+                ab.Init(q, 4);
+                fprintf(out, "aabox init_pts ");
+                for (int k = 0; k < 4; k++) { writeV3(out, q[k]); fprintf(out, " "); }
+                writeV3(out, ab.Center); fprintf(out, " ");
+                writeV3(out, ab.Extent); fprintf(out, "\n");
+
+                Vector3 mn = gpoint(), mx = gpoint();
+                AABoxClass abmm;
+                abmm.Init_Min_Max(mn, mx);
+                fprintf(out, "aabox init_mm ");
+                writeV3(out, mn); fprintf(out, " ");
+                writeV3(out, mx); fprintf(out, " ");
+                writeV3(out, abmm.Center); fprintf(out, " ");
+                writeV3(out, abmm.Extent); fprintf(out, "\n");
+
+                // dedicated add_point record with known inputs
+                AABoxClass abp2;
+                Vector3 c0 = gpoint(), e0 = gpoint();
+                // extents must be sane; take absolute values like a real box
+                e0 = Vector3(WWFabsf(e0.X) * 0.01f, WWFabsf(e0.Y) * 0.01f, WWFabsf(e0.Z) * 0.01f);
+                abp2.Init(c0, e0);
+                abp2.Add_Point(pp);
+                fprintf(out, "aabox add_point ");
+                writeV3(out, c0); fprintf(out, " ");
+                writeV3(out, e0); fprintf(out, " ");
+                writeV3(out, pp); fprintf(out, " ");
+                writeV3(out, abp2.Center); fprintf(out, " ");
+                writeV3(out, abp2.Extent); fprintf(out, "\n");
+
+                Vector3 c2 = gpoint();
+                Vector3 e2 = Vector3(WWFabsf(gfloat()) * 0.01f, WWFabsf(gfloat()) * 0.01f, WWFabsf(gfloat()) * 0.01f);
+                AABoxClass abb;
+                abb.Init(c0, e0);
+                abb.Add_Box(AABoxClass(c2, e2));
+                fprintf(out, "aabox add_box ");
+                writeV3(out, c0); fprintf(out, " ");
+                writeV3(out, e0); fprintf(out, " ");
+                writeV3(out, c2); fprintf(out, " ");
+                writeV3(out, e2); fprintf(out, " ");
+                writeV3(out, abb.Center); fprintf(out, " ");
+                writeV3(out, abb.Extent); fprintf(out, "\n");
+
+                AABoxClass abm;
+                abm.Init(c0, e0);
+                abm.Add_Box(MinMaxAABoxClass(mn, mx));
+                fprintf(out, "aabox add_mmbox ");
+                writeV3(out, c0); fprintf(out, " ");
+                writeV3(out, e0); fprintf(out, " ");
+                writeV3(out, mn); fprintf(out, " ");
+                writeV3(out, mx); fprintf(out, " ");
+                writeV3(out, abm.Center); fprintf(out, " ");
+                writeV3(out, abm.Extent); fprintf(out, "\n");
+
+                AABoxClass abv(c0, e0);
+                fprintf(out, "aabox volume ");
+                writeV3(out, e0); fprintf(out, " %08x\n", floatBits(abv.Volume()));
+
+                Vector3 axis = gpoint();
+                fprintf(out, "aabox project ");
+                writeV3(out, e0); fprintf(out, " ");
+                writeV3(out, axis); fprintf(out, " %08x\n", floatBits(abv.Project_To_Axis(axis)));
+
+                fprintf(out, "aabox contains_p ");
+                writeV3(out, c0); fprintf(out, " ");
+                writeV3(out, e0); fprintf(out, " ");
+                writeV3(out, pp); fprintf(out, " %d\n", abv.Contains(pp) ? 1 : 0);
+
+                fprintf(out, "aabox contains_b ");
+                writeV3(out, c0); fprintf(out, " ");
+                writeV3(out, e0); fprintf(out, " ");
+                writeV3(out, c2); fprintf(out, " ");
+                writeV3(out, e2); fprintf(out, " %d\n", abv.Contains(AABoxClass(c2, e2)) ? 1 : 0);
+
+                Matrix3D tm = lcgM3D();
+                AABoxClass abt;
+                AABoxClass::Transform(tm, abv, &abt);
+                fprintf(out, "aabox transform ");
+                writeV3(out, c0); fprintf(out, " ");
+                writeV3(out, e0); fprintf(out, " ");
+                writeM3DIn(out, tm); fprintf(out, " ");
+                writeV3(out, abt.Center); fprintf(out, " ");
+                writeV3(out, abt.Extent); fprintf(out, "\n");
+
+                fprintf(out, "aabox overlap_p ");
+                writeV3(out, c0); fprintf(out, " ");
+                writeV3(out, e0); fprintf(out, " ");
+                writeV3(out, pp); fprintf(out, " %d\n", (int)CollisionMath::Overlap_Test(abv, pp));
+
+                fprintf(out, "aabox overlap_b ");
+                writeV3(out, c0); fprintf(out, " ");
+                writeV3(out, e0); fprintf(out, " ");
+                writeV3(out, c2); fprintf(out, " ");
+                writeV3(out, e2); fprintf(out, " %d\n", (int)CollisionMath::Overlap_Test(abv, AABoxClass(c2, e2)));
+
+                // ---- MinMaxAABoxClass -------------------------------------------
+                MinMaxAABoxClass mb;
+                mb.Init(q, 4);
+                fprintf(out, "mmbox init_pts ");
+                for (int k = 0; k < 4; k++) { writeV3(out, q[k]); fprintf(out, " "); }
+                writeV3(out, mb.MinCorner); fprintf(out, " ");
+                writeV3(out, mb.MaxCorner); fprintf(out, "\n");
+
+                MinMaxAABoxClass mba;
+                mba.Init(abv);
+                fprintf(out, "mmbox init_aabox ");
+                writeV3(out, c0); fprintf(out, " ");
+                writeV3(out, e0); fprintf(out, " ");
+                writeV3(out, mba.MinCorner); fprintf(out, " ");
+                writeV3(out, mba.MaxCorner); fprintf(out, "\n");
+
+                if ((i % 25) == 0) {
+                        MinMaxAABoxClass mbe;
+                        mbe.Init_Empty();
+                        fprintf(out, "mmbox init_empty ");
+                        writeV3(out, mbe.MinCorner); fprintf(out, " ");
+                        writeV3(out, mbe.MaxCorner); fprintf(out, "\n");
+                }
+
+                MinMaxAABoxClass mbp(mn, mx);
+                mbp.Add_Point(pp);
+                fprintf(out, "mmbox add_point ");
+                writeV3(out, mn); fprintf(out, " ");
+                writeV3(out, mx); fprintf(out, " ");
+                writeV3(out, pp); fprintf(out, " ");
+                writeV3(out, mbp.MinCorner); fprintf(out, " ");
+                writeV3(out, mbp.MaxCorner); fprintf(out, "\n");
+
+                MinMaxAABoxClass mbb(mn, mx);
+                mbb.Add_Box(MinMaxAABoxClass(mn, mx)); // corners never coincide here
+                fprintf(out, "mmbox add_box ");
+                writeV3(out, mn); fprintf(out, " ");
+                writeV3(out, mx); fprintf(out, " ");
+                writeV3(out, mn); fprintf(out, " ");
+                writeV3(out, mx); fprintf(out, " ");
+                writeV3(out, mbb.MinCorner); fprintf(out, " ");
+                writeV3(out, mbb.MaxCorner); fprintf(out, "\n");
+
+                // zero-extent early-return quirk every 7th round
+                Vector3 e2q = ((i % 7) == 0) ? Vector3(0.0f, 0.0f, 0.0f) : e2;
+                MinMaxAABoxClass mba2(mn, mx);
+                mba2.Add_Box(AABoxClass(c2, e2q));
+                fprintf(out, "mmbox add_aabox ");
+                writeV3(out, mn); fprintf(out, " ");
+                writeV3(out, mx); fprintf(out, " ");
+                writeV3(out, c2); fprintf(out, " ");
+                writeV3(out, e2q); fprintf(out, " ");
+                writeV3(out, mba2.MinCorner); fprintf(out, " ");
+                writeV3(out, mba2.MaxCorner); fprintf(out, "\n");
+
+                // coincident-corner early-return quirk every 11th round
+                Vector3 mx2q = ((i % 11) == 0) ? mn : mx;
+                MinMaxAABoxClass mbm(mn, mx);
+                mbm.Add_Box(mn, mx2q);
+                fprintf(out, "mmbox add_mm ");
+                writeV3(out, mn); fprintf(out, " ");
+                writeV3(out, mx); fprintf(out, " ");
+                writeV3(out, mn); fprintf(out, " ");
+                writeV3(out, mx2q); fprintf(out, " ");
+                writeV3(out, mbm.MinCorner); fprintf(out, " ");
+                writeV3(out, mbm.MaxCorner); fprintf(out, "\n");
+
+                MinMaxAABoxClass mbv(mn, mx);
+                fprintf(out, "mmbox volume ");
+                writeV3(out, mn); fprintf(out, " ");
+                writeV3(out, mx); fprintf(out, " %08x\n", floatBits(mbv.Volume()));
+
+                MinMaxAABoxClass mbt(mn, mx);
+                mbt.Transform(tm);
+                fprintf(out, "mmbox transform ");
+                writeV3(out, mn); fprintf(out, " ");
+                writeV3(out, mx); fprintf(out, " ");
+                writeM3DIn(out, tm); fprintf(out, " ");
+                writeV3(out, mbt.MinCorner); fprintf(out, " ");
+                writeV3(out, mbt.MaxCorner); fprintf(out, "\n");
+
+                // ---- AAPlaneClass + CollisionMath -------------------------------
+                int ax = (int)(lcgWord() % 3);
+                AAPlaneClass::AxisEnum axis_e = (ax == 0) ? AAPlaneClass::XNORMAL : (ax == 1) ? AAPlaneClass::YNORMAL : AAPlaneClass::ZNORMAL;
+                float pdist = stepFloat();
+                AAPlaneClass ap(axis_e, pdist);
+
+                Vector3 an;
+                ap.Get_Normal(&an);
+                fprintf(out, "aaplane normal %d %08x ", (int)axis_e, floatBits(pdist));
+                writeV3(out, an); fprintf(out, "\n");
+
+                fprintf(out, "aaplane overlap_p %d %08x ", (int)axis_e, floatBits(pdist));
+                writeV3(out, pp); fprintf(out, " %d\n", (int)CollisionMath::Overlap_Test(ap, pp));
+
+                fprintf(out, "aaplane overlap_b %d %08x ", (int)axis_e, floatBits(pdist));
+                writeV3(out, c0); fprintf(out, " ");
+                writeV3(out, e0); fprintf(out, " %d\n", (int)CollisionMath::Overlap_Test(ap, abv));
+
+                // every overlap mask value plus a couple of mixed ones
+                static const int masks[] = { 0x01, 0x02, 0x04, 0x08, 0x05, 0x06, 0x03, 0x09, 0x0c, 0x0f, 0x00 };
+                const int NUM_MASKS = sizeof(masks) / sizeof(masks[0]);
+                if ((i % 20) == 0) {
+                        for (int k = 0; k < NUM_MASKS; k++) {
+                                fprintf(out, "eval_mask %d %d\n", masks[k],
+                                        (int)CollisionMath::eval_overlap_mask(masks[k]));
+                        }
+                }
+
+                // ---- FrustumClass -----------------------------------------------
+                // camera matrices: mix of rigid (axis rows + translation),
+                // scaled, sheared and reflected (X row negated) transforms
+                Matrix3D cam(true);
+                Vector3 cx = gpoint(), cy = gpoint(), cz = gpoint();
+                Vector3 pos = gpoint();
+                if ((i % 5) == 0) {
+                        // reflected: X flipped relative to a right-handed basis
+                        cam.Set(Vector3(-1.0f, 0.0f, 0.0f), Vector3(0.0f, 1.0f, 0.0f),
+                                        Vector3(0.0f, 0.0f, 1.0f), pos);
+                } else if ((i % 5) == 1) {
+                        cam.Set(cx, cy, cz, pos);
+                } else if ((i % 5) == 2) {
+                        // sheared camera (still dot(Z, cross(X,Y)) tested)
+                        cam.Set(Vector3(1.0f, 0.25f, 0.0f), Vector3(0.0f, 1.0f, 0.5f),
+                                        Vector3(0.0f, 0.0f, 1.0f), pos);
+                } else if ((i % 5) == 3) {
+                        // rotation about Y by s/c pair (no trig needed)
+                        float s = 0.5f, c = 0.8660254f;
+                        cam.Set(Vector3(c, 0.0f, -s), Vector3(0.0f, 1.0f, 0.0f),
+                                        Vector3(s, 0.0f, c), pos);
+                } else {
+                        cam.Set(Vector3(1.0f, 0.0f, 0.0f), Vector3(0.0f, 1.0f, 0.0f),
+                                        Vector3(0.0f, 0.0f, 1.0f), Vector3(0.0f, 0.0f, 0.0f));
+                }
+
+                Vector2 vpmin(stepFloat() * 0.25f, stepFloat() * 0.25f);
+                Vector2 vpmax(stepFloat() * 0.25f, stepFloat() * 0.25f);
+                float zn = -(((int)(lcgWord() % 4001)) * 0.25f) - 0.25f;
+                float zf = zn - ((int)(lcgWord() % 4001)) * 0.25f - 0.25f;
+                if ((i % 8) == 0) { zn = -zn; zf = -zf; } // both positive: negation branch
+
+                FrustumClass fr;
+                fr.Init(cam, vpmin, vpmax, zn, zf);
+                fprintf(out, "frustum init ");
+                writeM3DIn(out, cam); fprintf(out, " ");
+                fprintf(out, "%08x %08x %08x %08x %08x %08x ",
+                        floatBits(vpmin.X), floatBits(vpmin.Y),
+                        floatBits(vpmax.X), floatBits(vpmax.Y),
+                        floatBits(zn), floatBits(zf));
+                for (int k = 0; k < 8; k++) { writeV3(out, fr.Corners[k]); fprintf(out, " "); }
+                for (int k = 0; k < 6; k++) { writeV3(out, fr.Planes[k].N); fprintf(out, " %08x ", floatBits(fr.Planes[k].D)); }
+                writeV3(out, fr.BoundMin); fprintf(out, " ");
+                writeV3(out, fr.BoundMax); fprintf(out, "\n");
+        }
+}
+
 int main( int argc, char **argv )
 {
-        if (argc != 7)
+        if (argc != 8)
         {
-                fprintf(stderr, "usage: %s <crc_out.txt> <rng_out.txt> <namekey_out.txt> <math_scalar_out.txt> <math_vectors_out.txt> <math_matrix_quat_out.txt>\n", argv[0]);
+                fprintf(stderr, "usage: %s <crc_out.txt> <rng_out.txt> <namekey_out.txt> <math_scalar_out.txt> <math_vectors_out.txt> <math_matrix_quat_out.txt> <math_geometry_out.txt>\n", argv[0]);
                 return 1;
         }
 
-        FILE *outs[6];
-        const char *const names[6] = { argv[1], argv[2], argv[3], argv[4], argv[5], argv[6] };
-        for (int i = 0; i < 6; i++)
+        FILE *outs[7];
+        const char *const names[7] = { argv[1], argv[2], argv[3], argv[4], argv[5], argv[6], argv[7] };
+        for (int i = 0; i < 7; i++)
         {
                 outs[i] = fopen(names[i], "w");
                 if (!outs[i])
@@ -4573,8 +5632,9 @@ int main( int argc, char **argv )
         generateMatrixQuatGolden(outs[5]);
         generateMatrix3DGolden(outs[5]);
         generateMatrix4Golden(outs[5]);
+        generateGeometryGolden(outs[6]);
 
-        for (int i = 0; i < 6; i++)
+        for (int i = 0; i < 7; i++)
                 fclose(outs[i]);
         return 0;
 }

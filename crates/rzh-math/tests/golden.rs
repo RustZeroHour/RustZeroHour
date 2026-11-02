@@ -18,7 +18,8 @@ use std::path::PathBuf;
 use rzh_math::gmath;
 use rzh_math::scalar;
 use rzh_math::{
-    Matrix3, Matrix3D, Matrix4, Quaternion, Vector2, Vector2i, Vector3, Vector3i, Vector4,
+    AABox, AAPlane, Axis, Frustum, IntersectionRes, Matrix3, Matrix3D, Matrix4, MinMaxAABox, Plane,
+    Quaternion, Vector2, Vector2i, Vector3, Vector3i, Vector4,
 };
 
 fn golden_dir() -> PathBuf {
@@ -1780,4 +1781,392 @@ fn matrix4_matches_cpp_golden_vectors() {
 
     assert!(checked > 700, "suspiciously few records: {checked}");
     println!("matrix4 golden vectors: {checked} checked");
+}
+
+/// Reads an `Axis` code (0/1/2 = X/Y/Z).
+fn read_axis(fields: &mut std::str::SplitWhitespace<'_>, line: &str) -> Axis {
+    match dec_i32(fields, line) {
+        0 => Axis::X,
+        1 => Axis::Y,
+        2 => Axis::Z,
+        other => panic!("bad axis code {other} in {line}"),
+    }
+}
+
+/// Drives every geometry record (`plane|aabox|mmbox|aaplane|eval_mask|
+/// frustum ...` lines of geometry.txt).
+///
+/// The vectors come from the verbatim transcriptions of plane.h,
+/// aaplane.h, aabox.h, frustum.cpp and the CollisionMath overlap subset in
+/// `tools/differential/gen_golden.cpp` @ 571a7c5 (deterministic branches);
+/// the bit patterns pin the original's quirks included — the colinear-input
+/// default plane, the untouched `t` out-parameter on parallel segments, the
+/// double-precision `AABox::Volume`, the coincident-corner/zero-extent
+/// early returns in `MinMaxAABox::Add_Box`, the reflected-camera corner
+/// swap and the whole-vector clip-distance scaling.
+#[test]
+fn geometry_matches_cpp_golden_vectors() {
+    let text = read_golden("geometry.txt");
+    let mut checked = 0;
+
+    for line in text.lines() {
+        let line = line.trim();
+        if line.is_empty() || line.starts_with('#') {
+            continue;
+        }
+        let mut fields = line.split_whitespace();
+        let kind = fields
+            .next()
+            .unwrap_or_else(|| panic!("empty record {line}"));
+        let op = fields
+            .next()
+            .unwrap_or_else(|| panic!("record without op in {line}"));
+
+        match (kind, op) {
+            ("plane", "set_points") => {
+                let p1 = read_v3(&mut fields, line);
+                let p2 = read_v3(&mut fields, line);
+                let p3 = read_v3(&mut fields, line);
+                let actual = Plane::from_points(p1, p2, p3);
+                check_v3(&mut fields, actual.n, line);
+                check_f(&mut fields, actual.d, line);
+            }
+            ("plane", "set_np") => {
+                let n = read_v3(&mut fields, line);
+                let p = read_v3(&mut fields, line);
+                let actual = Plane::from_normal_point(n, p);
+                check_v3(&mut fields, actual.n, line);
+                check_f(&mut fields, actual.d, line);
+            }
+            ("plane", "seg_isect") => {
+                let n = read_v3(&mut fields, line);
+                let d = hex_f32(&mut fields, line);
+                let p0 = read_v3(&mut fields, line);
+                let p1 = read_v3(&mut fields, line);
+                let t_in = hex_f32(&mut fields, line);
+                let expected_res = dec_i32(&mut fields, line);
+                let plane = Plane::from_normal_dist(n, d);
+                let mut t = t_in;
+                let res = plane.compute_intersection(p0, p1, &mut t);
+                let res_code = match res {
+                    IntersectionRes::NoIntersection => 0,
+                    IntersectionRes::InsideSegment => 1,
+                    IntersectionRes::OutsideLine => 2,
+                };
+                assert_eq!(res_code, expected_res, "seg_isect result in {line}");
+                check_f(&mut fields, t, line);
+                // the untouched-t quirk: a parallel segment must return the
+                // sentinel bit-for-bit
+                if res == IntersectionRes::NoIntersection {
+                    assert_eq!(
+                        t.to_bits(),
+                        t_in.to_bits(),
+                        "parallel seg_isect must leave t untouched in {line}"
+                    );
+                }
+            }
+            ("plane", "in_front") => {
+                let n = read_v3(&mut fields, line);
+                let d = hex_f32(&mut fields, line);
+                let p = read_v3(&mut fields, line);
+                let expected = dec_i32(&mut fields, line);
+                let plane = Plane::from_normal_dist(n, d);
+                assert_eq!(i32::from(plane.in_front(p)), expected, "in_front in {line}");
+            }
+            ("plane", "isect_pl") => {
+                let an = read_v3(&mut fields, line);
+                let ad = hex_f32(&mut fields, line);
+                let bn = read_v3(&mut fields, line);
+                let bd = hex_f32(&mut fields, line);
+                let a = Plane::from_normal_dist(an, ad);
+                let b = Plane::from_normal_dist(bn, bd);
+                let (dir, point) = Plane::intersect_planes(&a, &b);
+                check_v3(&mut fields, dir, line);
+                check_v3(&mut fields, point, line);
+            }
+
+            ("aabox", "init_pts") => {
+                let pts = [
+                    read_v3(&mut fields, line),
+                    read_v3(&mut fields, line),
+                    read_v3(&mut fields, line),
+                    read_v3(&mut fields, line),
+                ];
+                let actual = AABox::from_points(&pts);
+                check_v3(&mut fields, actual.center, line);
+                check_v3(&mut fields, actual.extent, line);
+            }
+            ("aabox", "init_mm") => {
+                let min = read_v3(&mut fields, line);
+                let max = read_v3(&mut fields, line);
+                let actual = AABox::from_min_max(min, max);
+                check_v3(&mut fields, actual.center, line);
+                check_v3(&mut fields, actual.extent, line);
+            }
+            ("aabox", "add_point") => {
+                let c = read_v3(&mut fields, line);
+                let e = read_v3(&mut fields, line);
+                let p = read_v3(&mut fields, line);
+                let mut b = AABox::new(c, e);
+                b.add_point(p);
+                check_v3(&mut fields, b.center, line);
+                check_v3(&mut fields, b.extent, line);
+            }
+            ("aabox", "add_box") => {
+                let c = read_v3(&mut fields, line);
+                let e = read_v3(&mut fields, line);
+                let c2 = read_v3(&mut fields, line);
+                let e2 = read_v3(&mut fields, line);
+                let mut b = AABox::new(c, e);
+                b.add_box(&AABox::new(c2, e2));
+                check_v3(&mut fields, b.center, line);
+                check_v3(&mut fields, b.extent, line);
+            }
+            ("aabox", "add_mmbox") => {
+                let c = read_v3(&mut fields, line);
+                let e = read_v3(&mut fields, line);
+                let mn = read_v3(&mut fields, line);
+                let mx = read_v3(&mut fields, line);
+                let mut b = AABox::new(c, e);
+                b.add_min_max_box(&MinMaxAABox::new(mn, mx));
+                check_v3(&mut fields, b.center, line);
+                check_v3(&mut fields, b.extent, line);
+            }
+            ("aabox", "volume") => {
+                let e = read_v3(&mut fields, line);
+                let b = AABox::new(Vector3::new(0.0, 0.0, 0.0), e);
+                check_f(&mut fields, b.volume(), line);
+            }
+            ("aabox", "project") => {
+                let e = read_v3(&mut fields, line);
+                let axis = read_v3(&mut fields, line);
+                let b = AABox::new(Vector3::new(0.0, 0.0, 0.0), e);
+                check_f(&mut fields, b.project_to_axis(axis), line);
+            }
+            ("aabox", "contains_p") => {
+                let c = read_v3(&mut fields, line);
+                let e = read_v3(&mut fields, line);
+                let p = read_v3(&mut fields, line);
+                let expected = dec_i32(&mut fields, line);
+                let b = AABox::new(c, e);
+                assert_eq!(
+                    i32::from(b.contains_point(p)),
+                    expected,
+                    "contains_p in {line}"
+                );
+            }
+            ("aabox", "contains_b") => {
+                let c = read_v3(&mut fields, line);
+                let e = read_v3(&mut fields, line);
+                let c2 = read_v3(&mut fields, line);
+                let e2 = read_v3(&mut fields, line);
+                let expected = dec_i32(&mut fields, line);
+                let b = AABox::new(c, e);
+                assert_eq!(
+                    i32::from(b.contains_box(&AABox::new(c2, e2))),
+                    expected,
+                    "contains_b in {line}"
+                );
+            }
+            ("aabox", "transform") => {
+                let c = read_v3(&mut fields, line);
+                let e = read_v3(&mut fields, line);
+                let tm = read_m3d(&mut fields, line);
+                let out = AABox::new(c, e).transformed(&tm);
+                check_v3(&mut fields, out.center, line);
+                check_v3(&mut fields, out.extent, line);
+            }
+            ("aabox", "overlap_p") => {
+                let c = read_v3(&mut fields, line);
+                let e = read_v3(&mut fields, line);
+                let p = read_v3(&mut fields, line);
+                let expected = dec_i32(&mut fields, line);
+                let b = AABox::new(c, e);
+                assert_eq!(
+                    i32::from(rzh_math::colmath::overlap_test_aabox_point(&b, &p).code()),
+                    expected,
+                    "aabox overlap_p in {line}"
+                );
+            }
+            ("aabox", "overlap_b") => {
+                let c = read_v3(&mut fields, line);
+                let e = read_v3(&mut fields, line);
+                let c2 = read_v3(&mut fields, line);
+                let e2 = read_v3(&mut fields, line);
+                let expected = dec_i32(&mut fields, line);
+                let b = AABox::new(c, e);
+                assert_eq!(
+                    i32::from(
+                        rzh_math::colmath::overlap_test_aabox_aabox(&b, &AABox::new(c2, e2)).code()
+                    ),
+                    expected,
+                    "aabox overlap_b in {line}"
+                );
+            }
+
+            ("mmbox", "init_pts") => {
+                let pts = [
+                    read_v3(&mut fields, line),
+                    read_v3(&mut fields, line),
+                    read_v3(&mut fields, line),
+                    read_v3(&mut fields, line),
+                ];
+                let actual = MinMaxAABox::from_points(&pts);
+                check_v3(&mut fields, actual.min_corner, line);
+                check_v3(&mut fields, actual.max_corner, line);
+            }
+            ("mmbox", "init_aabox") => {
+                let c = read_v3(&mut fields, line);
+                let e = read_v3(&mut fields, line);
+                let actual = MinMaxAABox::from_aabox(&AABox::new(c, e));
+                check_v3(&mut fields, actual.min_corner, line);
+                check_v3(&mut fields, actual.max_corner, line);
+            }
+            ("mmbox", "init_empty") => {
+                let actual = MinMaxAABox::empty();
+                check_v3(&mut fields, actual.min_corner, line);
+                check_v3(&mut fields, actual.max_corner, line);
+            }
+            ("mmbox", "add_point") => {
+                let mn = read_v3(&mut fields, line);
+                let mx = read_v3(&mut fields, line);
+                let p = read_v3(&mut fields, line);
+                let mut b = MinMaxAABox::new(mn, mx);
+                b.add_point(p);
+                check_v3(&mut fields, b.min_corner, line);
+                check_v3(&mut fields, b.max_corner, line);
+            }
+            ("mmbox", "add_box") => {
+                let mn = read_v3(&mut fields, line);
+                let mx = read_v3(&mut fields, line);
+                let mn2 = read_v3(&mut fields, line);
+                let mx2 = read_v3(&mut fields, line);
+                let mut b = MinMaxAABox::new(mn, mx);
+                b.add_box(&MinMaxAABox::new(mn2, mx2));
+                check_v3(&mut fields, b.min_corner, line);
+                check_v3(&mut fields, b.max_corner, line);
+            }
+            ("mmbox", "add_aabox") => {
+                let mn = read_v3(&mut fields, line);
+                let mx = read_v3(&mut fields, line);
+                let c2 = read_v3(&mut fields, line);
+                let e2 = read_v3(&mut fields, line);
+                let mut b = MinMaxAABox::new(mn, mx);
+                b.add_aabox(&AABox::new(c2, e2));
+                check_v3(&mut fields, b.min_corner, line);
+                check_v3(&mut fields, b.max_corner, line);
+            }
+            ("mmbox", "add_mm") => {
+                let mn = read_v3(&mut fields, line);
+                let mx = read_v3(&mut fields, line);
+                let mn2 = read_v3(&mut fields, line);
+                let mx2 = read_v3(&mut fields, line);
+                let mut b = MinMaxAABox::new(mn, mx);
+                b.add_min_max(mn2, mx2);
+                check_v3(&mut fields, b.min_corner, line);
+                check_v3(&mut fields, b.max_corner, line);
+            }
+            ("mmbox", "volume") => {
+                let mn = read_v3(&mut fields, line);
+                let mx = read_v3(&mut fields, line);
+                let b = MinMaxAABox::new(mn, mx);
+                check_f(&mut fields, b.volume(), line);
+            }
+            ("mmbox", "transform") => {
+                let mn = read_v3(&mut fields, line);
+                let mx = read_v3(&mut fields, line);
+                let tm = read_m3d(&mut fields, line);
+                let mut b = MinMaxAABox::new(mn, mx);
+                b.transform(&tm);
+                check_v3(&mut fields, b.min_corner, line);
+                check_v3(&mut fields, b.max_corner, line);
+            }
+
+            ("aaplane", "normal") => {
+                let axis = read_axis(&mut fields, line);
+                let dist = hex_f32(&mut fields, line);
+                check_v3(&mut fields, AAPlane::new(axis, dist).normal(), line);
+            }
+            ("aaplane", "overlap_p") => {
+                let axis = read_axis(&mut fields, line);
+                let dist = hex_f32(&mut fields, line);
+                let p = read_v3(&mut fields, line);
+                let expected = dec_i32(&mut fields, line);
+                let plane = AAPlane::new(axis, dist);
+                assert_eq!(
+                    i32::from(rzh_math::colmath::overlap_test_aaplane_point(&plane, &p).code()),
+                    expected,
+                    "aaplane overlap_p in {line}"
+                );
+            }
+            ("aaplane", "overlap_b") => {
+                let axis = read_axis(&mut fields, line);
+                let dist = hex_f32(&mut fields, line);
+                let c = read_v3(&mut fields, line);
+                let e = read_v3(&mut fields, line);
+                let expected = dec_i32(&mut fields, line);
+                let plane = AAPlane::new(axis, dist);
+                assert_eq!(
+                    i32::from(
+                        rzh_math::colmath::overlap_test_aaplane_aabox(&plane, &AABox::new(c, e))
+                            .code()
+                    ),
+                    expected,
+                    "aaplane overlap_b in {line}"
+                );
+            }
+
+            ("eval_mask", mask_str) => {
+                let mask: i32 = mask_str
+                    .parse()
+                    .unwrap_or_else(|_| panic!("bad mask {mask_str:?} in {line}"));
+                let expected = dec_i32(&mut fields, line);
+                assert_eq!(
+                    i32::from(rzh_math::eval_overlap_mask(mask as u8).code()),
+                    expected,
+                    "eval_mask {mask} in {line}"
+                );
+            }
+
+            ("frustum", "init") => {
+                let tm = read_m3d(&mut fields, line);
+                let vminx = hex_f32(&mut fields, line);
+                let vminy = hex_f32(&mut fields, line);
+                let vmaxx = hex_f32(&mut fields, line);
+                let vmaxy = hex_f32(&mut fields, line);
+                let zn = hex_f32(&mut fields, line);
+                let zf = hex_f32(&mut fields, line);
+
+                let mut f = Frustum::default();
+                f.init(
+                    &tm,
+                    Vector2::new(vminx, vminy),
+                    Vector2::new(vmaxx, vmaxy),
+                    zn,
+                    zf,
+                );
+
+                for corner in &f.corners {
+                    check_v3(&mut fields, *corner, line);
+                }
+                for plane in &f.planes {
+                    check_v3(&mut fields, plane.n, line);
+                    check_f(&mut fields, plane.d, line);
+                }
+                check_v3(&mut fields, f.bound_min, line);
+                check_v3(&mut fields, f.bound_max, line);
+            }
+
+            other => panic!("unknown geometry record {other:?} in {line}"),
+        }
+
+        assert!(
+            fields.next().is_none(),
+            "trailing fields in geometry record {line}"
+        );
+        checked += 1;
+    }
+
+    assert!(checked > 5_000, "suspiciously few records: {checked}");
+    println!("geometry golden vectors: {checked} checked");
 }

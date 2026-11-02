@@ -11,6 +11,18 @@
 //! - [`scalar`]: the `WWMath` constants and the IEEE-754 exact scalar
 //!   helpers (`wwmath.h`).
 //! - [`vector2`], [`vector3`], [`vector4`]: the float vectors.
+//! - [`aabox`]: the axis-aligned boxes (`aabox.{h,cpp}`) — the
+//!   center-extent and min-max forms, in both their double-precision
+//!   `Volume` and their preserved early-return quirks.
+//! - [`plane`]: the normal-plus-distance plane (`plane.h`) with its
+//!   inverted-`D` convention, segment intersection and plane-plane
+//!   intersection.
+//! - [`aaplane`]: the axis-aligned plane (`aaplane.h`).
+//! - [`frustum`]: the view frustum built from a camera
+//!   (`frustum.{h,cpp}`), corners, planes and bound, including the
+//!   reflected-camera and clip-sign branches.
+//! - [`colmath`]: the `CollisionMath` overlap-test subset the geometry
+//!   types need (`colmath.h`, `colmathaabox.h`, `colmathplane.cpp`).
 //! - [`vectori`]: the integer vectors (`Vector2i`, `Vector3i`).
 //! - [`matrix3`]: the 3x3 float matrix (`matrix3.{h,cpp}`), including the
 //!   axis-angle and quaternion conversions with their mixed-precision
@@ -64,11 +76,16 @@
 
 #![forbid(unsafe_code)]
 
+pub mod aabox;
+pub mod aaplane;
+pub mod colmath;
 pub mod fast;
+pub mod frustum;
 pub mod gmath;
 pub mod matrix3;
 pub mod matrix3d;
 pub mod matrix4;
+pub mod plane;
 pub mod quat;
 pub mod scalar;
 pub mod vector2;
@@ -76,9 +93,14 @@ pub mod vector3;
 pub mod vector4;
 pub mod vectori;
 
+pub use aabox::{AABox, MinMaxAABox};
+pub use aaplane::{AAPlane, Axis};
+pub use colmath::{OverlapType, eval_overlap_mask};
+pub use frustum::Frustum;
 pub use matrix3::Matrix3;
 pub use matrix3d::Matrix3D;
 pub use matrix4::Matrix4;
+pub use plane::{IntersectionRes, Plane};
 pub use quat::{Quaternion, SlerpInfo};
 pub use vector2::Vector2;
 pub use vector3::Vector3;
