@@ -295,6 +295,27 @@ pub fn float_to_int_floor(f: f32) -> i32 {
     ((r & expsign) ^ sign).wrapping_add(adjusted)
 }
 
+/// `WWMath::Float_To_Long`, deterministic branch: `gm_lrintf(f)`.
+///
+/// Rounds to the nearest integer (ties to even) and returns the game's
+/// `long`. On the game's actual platform (MSVC x64) `long` is 32-bit, so
+/// this port returns `i32`; the pin's intrinsic (`cvtss2si`) yields
+/// `i32::MIN` for NaN and out-of-range inputs — replicated exactly
+/// (ADR-001). [`crate::gmath::lrintf`] is the `i64`-returning msun
+/// primitive for platforms where `long` is 64-bit.
+#[must_use]
+#[inline]
+pub fn float_to_long(f: f32) -> i32 {
+    let r = crate::gmath::rintf(f);
+    // cvtss2si semantics: NaN and results outside i32 -> integer
+    // indefinite (0x80000000). Integer-valued floats equal to -2^31
+    // convert to i32::MIN legitimately (the same bit pattern).
+    if r.is_nan() || r >= 2_147_483_648.0 || r < -2_147_483_648.0 {
+        return i32::MIN;
+    }
+    r as i32
+}
+
 /// `WWMath::Unit_Float_To_Byte`: `(unsigned char)(f * 255.0f)`.
 ///
 /// Domain of the original: `f` in `[0, 1]`. The C++ conversion is undefined
@@ -336,6 +357,25 @@ pub fn is_power_of_2(val: u32) -> bool {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn float_to_long_rounds_half_to_even_like_cvtss2si() {
+        // ties to even, like the pin's SSE intrinsic
+        assert_eq!(float_to_long(0.5), 0);
+        assert_eq!(float_to_long(1.5), 2);
+        assert_eq!(float_to_long(2.5), 2);
+        assert_eq!(float_to_long(-0.5), 0);
+        assert_eq!(float_to_long(-2.5), -2);
+        assert_eq!(float_to_long(7.0), 7);
+        // integer indefinite for NaN / out of range (cvtss2si semantics)
+        assert_eq!(float_to_long(f32::NAN), i32::MIN);
+        assert_eq!(float_to_long(f32::INFINITY), i32::MIN);
+        assert_eq!(float_to_long(3.0e20), i32::MIN);
+        assert_eq!(float_to_long(-3.0e20), i32::MIN);
+        // boundary values stay exact
+        assert_eq!(float_to_long(2_147_483_520.0), 2_147_483_520);
+        assert_eq!(float_to_long(-2_147_483_648.0), i32::MIN); // exact -2^31
+    }
 
     #[test]
     fn round_is_floor_plus_half() {

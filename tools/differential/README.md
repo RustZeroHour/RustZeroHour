@@ -10,7 +10,8 @@ level **P0**: byte-exact output on identical input).
 | File | Purpose |
 |------|---------|
 | `gen_golden.cpp` | Verbatim transcription of the baseline CRC (`Common/crc.h` / `crc.cpp`), RNG (`Common/RandomValue.cpp`, non-retail branches), name-key interning (`NameKeyGenerator.{h,cpp}`) and the IEEE-754 exact WWMath subset (`wwmath.h`, `vector{2,3,4}.h`, `vector2i.h`, `Vector3i.h`, deterministic branches) at commit `571a7c5`. Emits the golden vector files. |
-| `regenerate.sh` | Compiles the harness and regenerates `crates/rzh-util/tests/golden/{crc,rng,namekey}.txt` and `crates/rzh-math/tests/golden/{scalar,vectors}.txt`. |
+| `gen_gmath_golden.c` | Golden-vector driver for `rzh-math::gmath`. Not a transcription: it is compiled and linked against the REAL pinned GameMath sources (`TheSuperHackers/GameMath` @ `59f7ccd4`, the pin `cmake/gamemath.cmake` fetches), so the gmath vectors come from the very code the C++ oracle runs. |
+| `regenerate.sh` | Compiles the harness and regenerates `crates/rzh-util/tests/golden/{crc,rng,namekey}.txt` and `crates/rzh-math/tests/golden/{scalar,vectors}.txt`, then clones the GameMath pin (set `GAMEMATH_DIR` to reuse a checkout) and regenerates `crates/rzh-math/tests/golden/gmath.txt`. |
 
 ## Numerics
 
@@ -24,10 +25,11 @@ so `a*b+c` never fuses into an FMA (Rust never contracts; neither does the
 game's MSVC build).
 
 The transcendental entry points (`Sin`…`Atan2`, `Pow`, `Exp`, `Log`,
-`Fast_*`) are deliberately absent: the generic Rust `libm` crate is **not**
-bit-identical to the game's GameMath pin for them, and the dedicated
-`rzh-math::gmath` port (ADR-001) will bring its own transcription when it
-lands.
+`Fast_*`) are deliberately absent from `gen_golden.cpp`: the generic Rust
+`libm` crate is **not** bit-identical to the game's GameMath pin for them.
+They are covered by `gen_gmath_golden.c` (see above), which links the pin
+itself; the `Fast_*` tables are still pending (they land with the
+quaternion port).
 
 Several quirks of the original headers are transcribed verbatim and pinned
 by the vectors (they are behaviour): `Vector3::Quick_Length`'s `min = mid`
