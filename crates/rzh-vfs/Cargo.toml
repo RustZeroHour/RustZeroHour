@@ -1,0 +1,43 @@
+# rzh-vfs: the Zero Hour virtual file system for RustZeroHour.
+#
+# Ported from (baseline 571a7c5, Zero Hour configuration):
+#   Core/GameEngine/Source/Common/System/BIGFileSystem.cpp      (BIGF format, archive mounting)
+#   Core/GameEngine/Source/Common/System/ArchiveFile.cpp        (per-archive tree, wildcard search)
+#   Core/GameEngine/Source/Common/System/ArchiveFileSystem.cpp (cross-archive overlay, instances)
+#   Core/GameEngine/Source/Common/System/FileSystem.cpp         (local-first overlay routing,
+#                                                               path keys)
+#   Core/GameEngine/Source/Common/System/RAMFile.cpp            (in-memory sub-files)
+#   Core/GameEngine/Source/Common/System/StreamingArchiveFile.cpp (windowed sub-files)
+#   Core/GameEngineDevice/Source/Win32Device/Common/Win32LocalFileSystem.cpp (std::fs port)
+#   Core/Libraries/Source/Compression/CompressionManager.cpp   (EAR header dispatch)
+#   Core/Libraries/Source/Lib/Include/Lib/PathUtil.h           (path helpers)
+#
+# Original: Copyright 2025 Electronic Arts Inc.
+# Rust port Copyright 2026 the RustZeroHour contributors.
+#
+# This crate is the data path of the engine (not the simulation): BIG
+# archives and loose files are resolved exactly like the C++ engine, with
+# malformed input returning Result errors where the C++ crashes or reads
+# out of bounds. Payload decompression goes through rzh-compress (the
+# byte-exact RefPack port), so archive contents decode byte-identically
+# (parity level P0, golden-pinned).
+
+[package]
+name = "rzh-vfs"
+description = "Zero Hour virtual file system: BIG archives, loose-file overlay and EA compression dispatch"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+keywords = ["gamedev", "rts", "zerohour", "vfs", "big-archive"]
+categories = ["game-development", "filesystem"]
+readme = "README.md"
+
+[lints]
+workspace = true
+
+[dependencies]
+rzh-compress = { path = "../rzh-compress", version = "0.1.0" }
+
+[dev-dependencies]

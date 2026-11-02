@@ -13,3 +13,10 @@ version = "0.1.0"
 [[package]]
 name = "rzh-util"
 version = "0.1.0"
+
+[[package]]
+name = "rzh-vfs"
+version = "0.1.0"
+dependencies = [
+ "rzh-compress",
+]

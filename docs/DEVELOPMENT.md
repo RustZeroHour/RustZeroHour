@@ -19,7 +19,11 @@ its own instructions in the
 ```
 crates/            Rust workspace (grows as the migration proceeds, plan §3.4)
   rzh-util/        CRC + RNG + name-key interning (P0 ported, golden-vector tested)
-  rzh-math/        WWMath scalars + vectors (P0 ported, golden-vector tested)
+  rzh-math/        WWMath math: scalars, vectors, gmath, matrices, quaternions
+                   (P0 ported, golden-vector tested)
+  rzh-compress/    EA RefPack codec (P0 ported, byte-exact both directions)
+  rzh-vfs/         virtual file system: BIG archives, loose-file overlay,
+                   EA compression dispatch (P0 ported)
 tools/
   differential/    C++ reference harness that generates the golden vectors
   inventory/       reproducible census of the C++ baseline
@@ -41,16 +45,23 @@ cargo clippy --workspace --all-targets -- -D warnings
 cargo test --workspace                            # unit + golden + doc tests
 ```
 
-`cargo test --workspace` runs the differential golden-vector tests of both
-crates against the committed fixtures in `crates/*/tests/golden/`. These
-prove byte-exact parity (level **P0**) with the C++ algorithms at the
-baseline commit `571a7c5` (tag `legacy-cpp-baseline`):
+`cargo test --workspace` runs the differential golden-vector tests of all
+four crates against the committed fixtures in `crates/*/tests/golden/`.
+These prove byte-exact parity (level **P0**) with the C++ algorithms at
+the baseline commit `571a7c5` (tag `legacy-cpp-baseline`):
 
 - `rzh-util`: CRC, RNG streams and the name-key interning subsystem
   (`crc.txt`, `rng.txt`, `namekey.txt`),
-- `rzh-math`: the WWMath scalar helpers and the Vector2/3/4 arithmetic,
-  including the original's quirks (`scalar.txt`, `vectors.txt`; see
-  ADR-001 for the numerics scope).
+- `rzh-math`: the WWMath scalar helpers, the Vector2/3/4 arithmetic, the
+  pinned GameMath (msun) transcendental entry points, `Matrix3x3`, the
+  quaternions and the `Fast_*` tables (`scalar.txt`, `vectors.txt`,
+  `matrices.txt`, `gmath.txt`; see ADR-001 for the numerics scope),
+- `rzh-compress`: the RefPack codec, byte-exact in both directions
+  (`refpack.txt`),
+- `rzh-vfs`: a golden *script* (`vfs.txt`) replayed against the port —
+  BIG parsing, listings, instance routing, overwrite stacking, the
+  INIZH skip, path keys and the `EAR\0` decompress-on-read flow, with
+  compressed payloads produced by the real EAC encoder.
 
 To regenerate the golden vectors after (re)proving a transcription:
 
@@ -71,8 +82,10 @@ export RZH_GAME_DIR=/path/to/your/ZeroHourInstall
 ```
 
 Tests that need real game data are tagged `needs-game-data` and are skipped
-in public CI (migration plan §6). Until `rzh-vfs` lands, `RZH_GAME_DIR` is a
-documented convention only — no code consumes it yet.
+in public CI (migration plan §6). `rzh-vfs` reads the game directory only
+when a caller mounts it (`Vfs::new(root)` + `load_archives_from_directory`);
+no test touches `RZH_GAME_DIR` yet — the first consumer is the Phase 2 INI
+loader.
 
 ## Porting rules (summary)
 
@@ -116,8 +129,11 @@ The definition of done for a ported unit is the checklist in plan §6.
 | Item | Status |
 |------|--------|
 | `rzh-math` first slice: WWMath scalars + Vector2/2i/3/3i/4 | Done, P0-verified; quirks preserved and documented |
-| `rzh-math` trigonometric entry points (`gmath` port of the pinned GameMath) | **Next** — required before matrices/quaternions; see ADR-001 |
-| `rzh-vfs` (file systems, BIG archives) + `rzh-compress` | Planned after `gmath` |
+| `rzh-math` trigonometric entry points (`gmath` port of the pinned GameMath) | Done, P0-verified; see ADR-001 |
+| `rzh-math` matrices/quaternions: `Matrix3x3`, `Quaternion`, `Fast_*` tables | Done, P0-verified (mixed-precision literal quirks preserved) |
+| `rzh-math` `Matrix3D` (4x3) and `Matrix4x4` | **Next** — everything they need is in place |
+| `rzh-compress`: RefPack codec | Done, P0-verified, byte-exact in both directions |
+| `rzh-vfs`: BIG archives, loose-file overlay, `CompressionManager` dispatch | Done, P0-verified (golden script + unit tests) |
 | `AsciiString` port | Planned together with the INI work |
 | Logging/diagnostics via `tracing` | Planned |
 

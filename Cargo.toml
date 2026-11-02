@@ -10,6 +10,7 @@ members = [
     "crates/rzh-compress",
     "crates/rzh-math",
     "crates/rzh-util",
+    "crates/rzh-vfs",
 ]
 
 [workspace.package]

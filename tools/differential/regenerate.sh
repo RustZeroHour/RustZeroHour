@@ -163,4 +163,18 @@ EAC_DIR="$REPO_ROOT/Core/Libraries/Source/Compression/EAC"
 mkdir -p "$REPO_ROOT/crates/rzh-compress/tests/golden"
 "$BUILD_DIR/gen_compress_golden" "$REPO_ROOT/crates/rzh-compress/tests/golden/refpack.txt"
 echo "wrote crates/rzh-compress/tests/golden/refpack.txt"
+
+# --- vfs golden vectors: the archive/overlay logic transcribed, with the
+# REAL EAC codec linked for every compressed payload. The generator owns a
+# scratch directory for the local-file half of the scenario.
+echo "compiling gen_vfs_golden.cpp against the real codec sources..."
+"$CXX" -O2 -std=c++17 -Wall -Wextra -Werror -ffp-contract=off \
+    -I"$EAC_DIR" \
+    -c -o "$BUILD_DIR/gen_vfs_golden.o" "$SCRIPT_DIR/gen_vfs_golden.cpp"
+"$CXX" -o "$BUILD_DIR/gen_vfs_golden" \
+    "$BUILD_DIR/gen_vfs_golden.o" "$BUILD_DIR/refdecode.o" "$BUILD_DIR/refencode.o"
+mkdir -p "$REPO_ROOT/crates/rzh-vfs/tests/golden"
+"$BUILD_DIR/gen_vfs_golden" \
+    "$REPO_ROOT/crates/rzh-vfs/tests/golden/vfs.txt" "$BUILD_DIR/vfs-scratch"
+echo "wrote crates/rzh-vfs/tests/golden/vfs.txt"
 echo "now run: cargo test --workspace"
