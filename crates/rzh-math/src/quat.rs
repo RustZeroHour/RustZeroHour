@@ -22,9 +22,9 @@
 //!   (tools) can build a random quaternion from an explicit RNG and
 //!   [`Quaternion::normalize`].
 //! - `Build_Quaternion(const Matrix3D&)` / `(const Matrix4x4&)` and
-//!   `Build_Matrix4` — the `Matrix3D` side now exists
-//!   ([`crate::matrix3d`], via `Matrix3D::to_matrix3`); the `Matrix4x4`
-//!   overloads arrive with its port.
+//!   `Build_Matrix4` — reachable through the other side now
+//!   ([`crate::matrix3d`] / [`crate::matrix4`], via `to_matrix3` /
+//!   the 3x3 part of `Matrix4`).
 //! - `Trackball` — a UI-input helper; deferred to the client phase.
 //!
 //! # Parity level

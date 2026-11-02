@@ -19,6 +19,10 @@
 //!   `NO_ALLOW_TEMPORARIES` branch) — rotations, translations, look-at,
 //!   inverses, box transforms and `Solve_Linear_System` with its
 //!   preserved `Vector4::operator-=` W-column quirk.
+//! - [`matrix4`]: the full 4x4 matrix (`matrix4.{h,cpp}`): projections
+//!   (ortho + frustum perspective), transpose, the cofactor inverse,
+//!   the mixed Matrix3D products and the transforms — with the
+//!   original's `/=`-multiplies and `-=` W-column quirks preserved.
 //! - [`quat`]: the quaternion (`quat.{h,cpp}`) with slerp (exact, fast,
 //!   cached) and the matrix conversions.
 //! - [`fast`]: the `WWMath::Init()` lookup tables and `Fast_*`
@@ -64,6 +68,7 @@ pub mod fast;
 pub mod gmath;
 pub mod matrix3;
 pub mod matrix3d;
+pub mod matrix4;
 pub mod quat;
 pub mod scalar;
 pub mod vector2;
@@ -73,6 +78,7 @@ pub mod vectori;
 
 pub use matrix3::Matrix3;
 pub use matrix3d::Matrix3D;
+pub use matrix4::Matrix4;
 pub use quat::{Quaternion, SlerpInfo};
 pub use vector2::Vector2;
 pub use vector3::Vector3;

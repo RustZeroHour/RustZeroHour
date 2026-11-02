@@ -17,7 +17,9 @@ use std::path::PathBuf;
 
 use rzh_math::gmath;
 use rzh_math::scalar;
-use rzh_math::{Matrix3, Matrix3D, Quaternion, Vector2, Vector2i, Vector3, Vector3i, Vector4};
+use rzh_math::{
+    Matrix3, Matrix3D, Matrix4, Quaternion, Vector2, Vector2i, Vector3, Vector3i, Vector4,
+};
 
 fn golden_dir() -> PathBuf {
     PathBuf::from(env!("CARGO_MANIFEST_DIR"))
@@ -1552,4 +1554,230 @@ fn matrix3d_matches_cpp_golden_vectors() {
 
     assert!(checked > 2800, "suspiciously few records: {checked}");
     println!("matrix3d golden vectors: {checked} checked");
+}
+
+/// Reads a 16-float `Matrix4` from a golden line.
+fn read_m4(fields: &mut std::str::SplitWhitespace<'_>, line: &str) -> Matrix4 {
+    let mut rows = [Vector4::default(); 4];
+    for row in &mut rows {
+        *row = Vector4::new(
+            hex_f32(fields, line),
+            hex_f32(fields, line),
+            hex_f32(fields, line),
+            hex_f32(fields, line),
+        );
+    }
+    Matrix4 { rows }
+}
+
+/// Reads a 4-float `Vector4` from a golden line.
+fn read_v4(fields: &mut std::str::SplitWhitespace<'_>, line: &str) -> Vector4 {
+    Vector4::new(
+        hex_f32(fields, line),
+        hex_f32(fields, line),
+        hex_f32(fields, line),
+        hex_f32(fields, line),
+    )
+}
+
+/// Asserts a 16-float `Matrix4` against the golden bit patterns.
+fn check_m4(fields: &mut std::str::SplitWhitespace<'_>, actual: Matrix4, line: &str) {
+    for (i, row) in actual.rows.iter().enumerate() {
+        for (j, value) in [row.x, row.y, row.z, row.w].into_iter().enumerate() {
+            expect_gmath_bits(
+                bits(value),
+                hex_u32(fields, line),
+                &format!("m4 ({i},{j}) in {line}"),
+            );
+        }
+    }
+}
+
+/// Reads one decimal f32 parameter (the projection records spell their
+/// arguments as decimals).
+fn dec_f32(fields: &mut std::str::SplitWhitespace<'_>, line: &str) -> f32 {
+    fields
+        .next()
+        .unwrap_or_else(|| panic!("missing field in {line}"))
+        .parse()
+        .unwrap_or_else(|e| panic!("bad decimal float in {line}: {e}"))
+}
+
+/// Drives every Matrix4x4 record (`m4 <op> ...` lines of matrices.txt).
+///
+/// The fov-based `Init_Perspective` is deliberately absent: its `tan()`
+/// is platform libm in the original (see the module docs); the frustum
+/// variant and everything else are pure IEEE arithmetic and pinned.
+#[test]
+fn matrix4_matches_cpp_golden_vectors() {
+    let text = read_golden("matrices.txt");
+    let mut checked = 0;
+
+    for line in text.lines() {
+        let line = line.trim();
+        if line.is_empty() || line.starts_with('#') {
+            continue;
+        }
+        let mut fields = line.split_whitespace();
+        let kind = fields.next().unwrap_or_else(|| panic!("bad line: {line}"));
+        if kind != "m4" {
+            continue;
+        }
+        let op = fields.next().unwrap_or_else(|| panic!("bad line: {line}"));
+
+        match op {
+            "const" => {
+                let name = fields.next().unwrap();
+                assert_eq!(name, "identity", "{line}");
+                check_m4(&mut fields, Matrix4::identity(), line);
+            }
+            "init_ortho" => {
+                let left = dec_f32(&mut fields, line);
+                let right = dec_f32(&mut fields, line);
+                let bottom = dec_f32(&mut fields, line);
+                let top = dec_f32(&mut fields, line);
+                let znear = dec_f32(&mut fields, line);
+                let zfar = dec_f32(&mut fields, line);
+                let mut m = Matrix4::default();
+                m.init_ortho(left, right, bottom, top, znear, zfar);
+                check_m4(&mut fields, m, line);
+            }
+            "init_perspective_frustum" => {
+                let left = dec_f32(&mut fields, line);
+                let right = dec_f32(&mut fields, line);
+                let bottom = dec_f32(&mut fields, line);
+                let top = dec_f32(&mut fields, line);
+                let znear = dec_f32(&mut fields, line);
+                let zfar = dec_f32(&mut fields, line);
+                let mut m = Matrix4::default();
+                m.init_perspective_frustum(left, right, bottom, top, znear, zfar);
+                check_m4(&mut fields, m, line);
+            }
+            "from_matrix3d" => {
+                let t = read_m3d(&mut fields, line);
+                check_m4(&mut fields, Matrix4::from_matrix3d(t), line);
+            }
+            "transpose" => {
+                let m = read_m4(&mut fields, line);
+                check_m4(&mut fields, m.transpose(), line);
+            }
+            "get_inverse" => {
+                let m = read_m4(&mut fields, line);
+                let det = hex_f32(&mut fields, line);
+                let (actual_det, actual_inv) = Matrix4::inverse_with_determinant(m);
+                expect_gmath_bits(bits(actual_det), bits(det), &format!("det in {line}"));
+                // re-parse from the token after the determinant: the
+                // sixteen inverse floats, or the "-" singular marker
+                let mut reparse = line.split_whitespace();
+                for _ in 0..(2 + 16 + 1) {
+                    reparse.next();
+                }
+                match actual_inv {
+                    Some(inv) => {
+                        let mut probe = reparse.clone();
+                        assert_ne!(probe.next(), Some("-"), "unexpected inverse in {line}");
+                        check_m4(&mut reparse, inv, line);
+                    }
+                    None => {
+                        assert_eq!(reparse.next(), Some("-"), "expected singular in {line}");
+                    }
+                }
+            }
+            "mul" => {
+                let a = read_m4(&mut fields, line);
+                let b = read_m4(&mut fields, line);
+                check_m4(&mut fields, Matrix4::multiply(a, b), line);
+            }
+            "mul_4_3d" => {
+                let a = read_m4(&mut fields, line);
+                let b = read_m3d(&mut fields, line);
+                check_m4(&mut fields, Matrix4::multiply_4_3d(a, b), line);
+            }
+            "mul_3d_4" => {
+                let a = read_m3d(&mut fields, line);
+                let b = read_m4(&mut fields, line);
+                check_m4(&mut fields, Matrix4::multiply_3d_4(a, b), line);
+            }
+            "add" => {
+                let a = read_m4(&mut fields, line);
+                let b = read_m4(&mut fields, line);
+                check_m4(&mut fields, a + b, line);
+            }
+            "sub" => {
+                let a = read_m4(&mut fields, line);
+                let b = read_m4(&mut fields, line);
+                check_m4(&mut fields, a - b, line);
+            }
+            "scale" => {
+                let a = read_m4(&mut fields, line);
+                let d = hex_f32(&mut fields, line);
+                check_m4(&mut fields, a * d, line);
+            }
+            "div" => {
+                let a = read_m4(&mut fields, line);
+                let d = hex_f32(&mut fields, line);
+                check_m4(&mut fields, a / d, line);
+            }
+            "transform_vector4" => {
+                let m = read_m4(&mut fields, line);
+                let v = read_v4(&mut fields, line);
+                let out = m.transform_vector4(v);
+                expect_gmath_bits(
+                    bits(out.x),
+                    hex_u32(&mut fields, line),
+                    &format!("x in {line}"),
+                );
+                expect_gmath_bits(
+                    bits(out.y),
+                    hex_u32(&mut fields, line),
+                    &format!("y in {line}"),
+                );
+                expect_gmath_bits(
+                    bits(out.z),
+                    hex_u32(&mut fields, line),
+                    &format!("z in {line}"),
+                );
+                expect_gmath_bits(
+                    bits(out.w),
+                    hex_u32(&mut fields, line),
+                    &format!("w in {line}"),
+                );
+            }
+            "transform_point" => {
+                let m = read_m4(&mut fields, line);
+                let v = read_v3(&mut fields, line);
+                let out = m.transform_point(v);
+                expect_gmath_bits(
+                    bits(out.x),
+                    hex_u32(&mut fields, line),
+                    &format!("x in {line}"),
+                );
+                expect_gmath_bits(
+                    bits(out.y),
+                    hex_u32(&mut fields, line),
+                    &format!("y in {line}"),
+                );
+                expect_gmath_bits(
+                    bits(out.z),
+                    hex_u32(&mut fields, line),
+                    &format!("z in {line}"),
+                );
+                expect_gmath_bits(
+                    bits(out.w),
+                    hex_u32(&mut fields, line),
+                    &format!("w in {line}"),
+                );
+            }
+            "transform_vector3" => {
+                let m = read_m4(&mut fields, line);
+                let v = read_v3(&mut fields, line);
+                check_v3(&mut fields, m.transform_vector3(v), line);
+            }
+            other => panic!("unknown m4 record {other:?} in {line}"),
+        }
+        checked += 1;
+    }
+
+    assert!(checked > 700, "suspiciously few records: {checked}");
+    println!("matrix4 golden vectors: {checked} checked");
 }

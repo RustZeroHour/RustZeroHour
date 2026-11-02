@@ -28,6 +28,13 @@ from the C++ baseline.
   `Solve_Linear_System` — whose fourth column carries the original's
   `Vector4::operator-=` **W-column quirk** (W added, not subtracted),
   preserved and golden-pinned verbatim.
+- **`Matrix4`**: the full 4x4 matrix (`matrix4.{h,cpp}`): the ortho and
+  frustum projections, transpose, the cofactor inverse with
+  determinant, the mixed `Matrix3D` products and the point/vector
+  transforms — with the original's `/=`-**multiplies** and `-=` W-column
+  quirks preserved. The fov-based `Init_Perspective` is the one entry
+  point not golden-pinned (its `tan` is platform libm in the original
+  too).
 - **`fast`**: the `WWMath::Init()` fast-trig lookup tables and the
   `Fast_*` entry points (lazily built, bit-identical to a C++ `Init()`).
 - **`gmath`**: the GameMath (FreeBSD msun) float functions the game pins

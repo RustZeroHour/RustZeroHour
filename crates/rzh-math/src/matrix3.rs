@@ -33,10 +33,10 @@
 //! # Not ported
 //!
 //! The `Matrix3D`/`Matrix4x4` interconversion constructors and the
-//! `Multiply` overloads taking those types — the `Matrix3D` side now
-//! lives in [`crate::matrix3d`] (`to_matrix3`, `set_rotation_matrix3`,
-//! `from_matrix3_position`); the `Matrix4x4` overloads arrive with its
-//! port.
+//! `Multiply` overloads taking those types — they live on the other
+//! side now: [`crate::matrix3d`] (`to_matrix3`, `set_rotation_matrix3`,
+//! `from_matrix3_position`) and [`crate::matrix4`]
+//! (`Matrix4::from_matrix3d`, the mixed products).
 //!
 //! # Parity level
 //!

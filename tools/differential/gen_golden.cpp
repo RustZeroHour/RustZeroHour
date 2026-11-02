@@ -2601,6 +2601,249 @@ struct Matrix3D
         }
 };
 
+
+// ---------------------------------------------------------------------------
+// Matrix4x4, transcribed verbatim from matrix4.h / matrix4.cpp @ 571a7c5.
+// Init(const Matrix3x3&) / Matrix4x4(const Matrix3x3&) are declared in the
+// original header but never defined (dead declarations) and are not
+// transcribed. Init_Perspective(hfov,vfov,...) uses the platform double
+// tan() and is therefore NOT golden-pinned (see the port's matrix4 docs).
+// ---------------------------------------------------------------------------
+
+struct Matrix4x4
+{
+        Vector4 Row[4];
+
+        Matrix4x4() {}
+        explicit Matrix4x4(bool identity) { if (identity) Make_Identity(); }
+
+        explicit Matrix4x4(const Vector4 & v0, const Vector4 & v1, const Vector4 & v2, const Vector4 & v3)
+        {
+                Init(v0, v1, v2, v3);
+        }
+        explicit Matrix4x4(
+                float m11,float m12,float m13,float m14,
+                float m21,float m22,float m23,float m24,
+                float m31,float m32,float m33,float m34,
+                float m41,float m42,float m43,float m44)
+        {
+                Init(m11,m12,m13,m14,m21,m22,m23,m24,m31,m32,m33,m34,m41,m42,m43,m44);
+        }
+
+        void Make_Identity()
+        {
+                Row[0] = Vector4(1.0f,0.0f,0.0f,0.0f);
+                Row[1] = Vector4(0.0f,1.0f,0.0f,0.0f);
+                Row[2] = Vector4(0.0f,0.0f,1.0f,0.0f);
+                Row[3] = Vector4(0.0f,0.0f,0.0f,1.0f);
+        }
+
+        void Init(const Matrix3D & m)
+        {
+                Row[0] = m[0]; Row[1] = m[1]; Row[2] = m[2]; Row[3] = Vector4(0.0f,0.0f,0.0f,1.0f);
+        }
+
+        void Init(const Vector4 & r0, const Vector4 & r1, const Vector4 & r2, const Vector4 & r3)
+        {
+                Row[0] = r0; Row[1] = r1; Row[2] = r2; Row[3] = r3;
+        }
+
+        void Init(
+                float m11,float m12,float m13,float m14,
+                float m21,float m22,float m23,float m24,
+                float m31,float m32,float m33,float m34,
+                float m41,float m42,float m43,float m44)
+        {
+                Row[0] = Vector4(m11,m12,m13,m14);
+                Row[1] = Vector4(m21,m22,m23,m24);
+                Row[2] = Vector4(m31,m32,m33,m34);
+                Row[3] = Vector4(m41,m42,m43,m44);
+        }
+
+        void Init_Ortho(float left, float right, float bottom, float top, float znear, float zfar)
+        {
+                Make_Identity();
+                Row[0][0] = 2.0f / (right - left);
+                Row[0][3] = -(right + left) / (right - left);
+                Row[1][1] = 2.0f / (top - bottom);
+                Row[1][3] = -(top + bottom) / (top - bottom);
+                Row[2][2] = -2.0f / (zfar - znear);
+                Row[2][3] = -(zfar + znear) / (zfar - znear);
+        }
+
+        void Init_Perspective(float left, float right, float bottom, float top, float znear, float zfar)
+        {
+                Make_Identity();
+                Row[0][0] = static_cast<float>(2.0*znear / (right - left));
+                Row[0][2] = (right + left) / (right - left);
+                Row[1][1] = static_cast<float>(2.0*znear / (top - bottom));
+                Row[1][2] = (top + bottom) / (top - bottom);
+                Row[2][2] = -(zfar + znear) / (zfar - znear);
+                Row[2][3] = static_cast<float>(-(2.0*zfar*znear) / (zfar - znear));
+                Row[3][2] = -1.0f;
+                Row[3][3] = 0.0f;
+        }
+
+        Vector4 &operator[](int i) { return Row[i]; }
+        const Vector4 &operator[](int i) const { return Row[i]; }
+
+        Matrix4x4 Transpose() const
+        {
+                return Matrix4x4(
+                        Vector4(Row[0][0], Row[1][0], Row[2][0], Row[3][0]),
+                        Vector4(Row[0][1], Row[1][1], Row[2][1], Row[3][1]),
+                        Vector4(Row[0][2], Row[1][2], Row[2][2], Row[3][2]),
+                        Vector4(Row[0][3], Row[1][3], Row[2][3], Row[3][3])
+                );
+        }
+
+        static Matrix4x4* Inverse(Matrix4x4* out, float* detOut, const Matrix4x4* m)
+        {
+                const float m00 = m->Row[0][0], m01 = m->Row[1][0], m02 = m->Row[2][0], m03 = m->Row[3][0];
+                const float m10 = m->Row[0][1], m11 = m->Row[1][1], m12 = m->Row[2][1], m13 = m->Row[3][1];
+                const float m20 = m->Row[0][2], m21 = m->Row[1][2], m22 = m->Row[2][2], m23 = m->Row[3][2];
+                const float m30 = m->Row[0][3], m31 = m->Row[1][3], m32 = m->Row[2][3], m33 = m->Row[3][3];
+
+                const float s0 = m00 * m11 - m10 * m01;
+                const float s1 = m00 * m12 - m10 * m02;
+                const float s2 = m00 * m13 - m10 * m03;
+                const float s3 = m01 * m12 - m11 * m02;
+                const float s4 = m01 * m13 - m11 * m03;
+                const float s5 = m02 * m13 - m12 * m03;
+
+                const float c5 = m22 * m33 - m32 * m23;
+                const float c4 = m21 * m33 - m31 * m23;
+                const float c3 = m21 * m32 - m31 * m22;
+                const float c2 = m20 * m33 - m30 * m23;
+                const float c1 = m20 * m32 - m30 * m22;
+                const float c0 = m20 * m31 - m30 * m21;
+
+                const float det =
+                                s0 * c5 - s1 * c4 + s2 * c3
+                        + s3 * c2 - s4 * c1 + s5 * c0;
+
+                if (detOut)
+                        *detOut = det;
+
+                if (WWFabsf(det) < 1e-8f)
+                        return NULL;
+
+                const float invDet = 1.0f / det;
+
+                out->Row[0][0] = ( m11 * c5 - m12 * c4 + m13 * c3) * invDet;
+                out->Row[1][0] = (-m01 * c5 + m02 * c4 - m03 * c3) * invDet;
+                out->Row[2][0] = ( m31 * s5 - m32 * s4 + m33 * s3) * invDet;
+                out->Row[3][0] = (-m21 * s5 + m22 * s4 - m23 * s3) * invDet;
+
+                out->Row[0][1] = (-m10 * c5 + m12 * c2 - m13 * c1) * invDet;
+                out->Row[1][1] = ( m00 * c5 - m02 * c2 + m03 * c1) * invDet;
+                out->Row[2][1] = (-m30 * s5 + m32 * s2 - m33 * s1) * invDet;
+                out->Row[3][1] = ( m20 * s5 - m22 * s2 + m23 * s1) * invDet;
+
+                out->Row[0][2] = ( m10 * c4 - m11 * c2 + m13 * c0) * invDet;
+                out->Row[1][2] = (-m00 * c4 + m01 * c2 - m03 * c0) * invDet;
+                out->Row[2][2] = ( m30 * s4 - m31 * s2 + m33 * s0) * invDet;
+                out->Row[3][2] = (-m20 * s4 + m21 * s2 - m23 * s0) * invDet;
+
+                out->Row[0][3] = (-m10 * c3 + m11 * c1 - m12 * c0) * invDet;
+                out->Row[1][3] = ( m00 * c3 - m01 * c1 + m02 * c0) * invDet;
+                out->Row[2][3] = (-m30 * s3 + m31 * s1 - m32 * s0) * invDet;
+                out->Row[3][3] = ( m20 * s3 - m21 * s1 + m22 * s0) * invDet;
+
+                return out;
+        }
+
+        // operator * (Matrix4x4, Matrix4x4) — the ROWCOL expansion
+        friend Matrix4x4 operator * (const Matrix4x4 & a, const Matrix4x4 & b)
+        {
+                #define ROWCOL(i, j) a[i][0]*b[0][j] + a[i][1]*b[1][j] + a[i][2]*b[2][j] + a[i][3]*b[3][j]
+                return Matrix4x4(
+                        Vector4(ROWCOL(0,0), ROWCOL(0,1), ROWCOL(0,2), ROWCOL(0,3)),
+                        Vector4(ROWCOL(1,0), ROWCOL(1,1), ROWCOL(1,2), ROWCOL(1,3)),
+                        Vector4(ROWCOL(2,0), ROWCOL(2,1), ROWCOL(2,2), ROWCOL(2,3)),
+                        Vector4(ROWCOL(3,0), ROWCOL(3,1), ROWCOL(3,2), ROWCOL(3,3))
+                );
+                #undef ROWCOL
+        }
+
+        // operator * (Matrix4x4, Matrix3D) — b's last row is 0,0,0,1
+        friend Matrix4x4 operator * (const Matrix4x4 & a, const Matrix3D & b)
+        {
+                #define ROWCOL(i,j) a[i][0]*b[0][j] + a[i][1]*b[1][j] + a[i][2]*b[2][j]
+                #define ROWCOL_LAST(i,j) a[i][0]*b[0][j] + a[i][1]*b[1][j] + a[i][2]*b[2][j] + a[i][3]
+                return Matrix4x4(
+                        Vector4(ROWCOL(0,0), ROWCOL(0,1), ROWCOL(0,2), ROWCOL_LAST(0,3)),
+                        Vector4(ROWCOL(1,0), ROWCOL(1,1), ROWCOL(1,2), ROWCOL_LAST(1,3)),
+                        Vector4(ROWCOL(2,0), ROWCOL(2,1), ROWCOL(2,2), ROWCOL_LAST(2,3)),
+                        Vector4(ROWCOL(3,0), ROWCOL(3,1), ROWCOL(3,2), ROWCOL_LAST(3,3))
+                );
+                #undef ROWCOL
+                #undef ROWCOL_LAST
+        }
+
+        // operator * (Matrix3D, Matrix4x4) — a's last row is 0,0,0,1
+        friend Matrix4x4 operator * (const Matrix3D & a, const Matrix4x4 & b)
+        {
+                #define ROWCOL(i,j) a[i][0]*b[0][j] + a[i][1]*b[1][j] + a[i][2]*b[2][j] + a[i][3]*b[3][j]
+                return Matrix4x4(
+                        Vector4(ROWCOL(0,0), ROWCOL(0,1), ROWCOL(0,2), ROWCOL(0,3)),
+                        Vector4(ROWCOL(1,0), ROWCOL(1,1), ROWCOL(1,2), ROWCOL(1,3)),
+                        Vector4(ROWCOL(2,0), ROWCOL(2,1), ROWCOL(2,2), ROWCOL(2,3)),
+                        Vector4(b[3][0], b[3][1], b[3][2], b[3][3])
+                );
+                #undef ROWCOL
+        }
+
+        friend Matrix4x4 operator + (const Matrix4x4 & a, const Matrix4x4 & b)
+        {
+                return Matrix4x4(
+                        a.Row[0] + b.Row[0], a.Row[1] + b.Row[1],
+                        a.Row[2] + b.Row[2], a.Row[3] + b.Row[3]);
+        }
+        friend Matrix4x4 operator - (const Matrix4x4 & a, const Matrix4x4 & b)
+        {
+                return Matrix4x4(
+                        a.Row[0] - b.Row[0], a.Row[1] - b.Row[1],
+                        a.Row[2] - b.Row[2], a.Row[3] - b.Row[3]);
+        }
+        friend Matrix4x4 operator * (const Matrix4x4 & a, float d)
+        {
+                return Matrix4x4(a.Row[0] * d, a.Row[1] * d, a.Row[2] * d, a.Row[3] * d);
+        }
+        friend Matrix4x4 operator / (const Matrix4x4 & a, float d)
+        {
+                float ood = 1.0f / d;
+                return Matrix4x4(a.Row[0] * ood, a.Row[1] * ood, a.Row[2] * ood, a.Row[3] * ood);
+        }
+
+        // operator * (Matrix4x4, Vector3): assumes w = 1
+        friend Vector4 operator * (const Matrix4x4 & a, const Vector3 & v)
+        {
+                return Vector4(
+                        a[0][0] * v[0] + a[0][1] * v[1] + a[0][2] * v[2] + a[0][3] * 1.0f,
+                        a[1][0] * v[0] + a[1][1] * v[1] + a[1][2] * v[2] + a[1][3] * 1.0f,
+                        a[2][0] * v[0] + a[2][1] * v[1] + a[2][2] * v[2] + a[2][3] * 1.0f,
+                        a[3][0] * v[0] + a[3][1] * v[1] + a[3][2] * v[2] + a[3][3] * 1.0f
+                );
+        }
+        friend Vector4 operator * (const Matrix4x4 & a, const Vector4 & v)
+        {
+                return Vector4(
+                        a[0][0] * v[0] + a[0][1] * v[1] + a[0][2] * v[2] + a[0][3] * v[3],
+                        a[1][0] * v[0] + a[1][1] * v[1] + a[1][2] * v[2] + a[1][3] * v[3],
+                        a[2][0] * v[0] + a[2][1] * v[1] + a[2][2] * v[2] + a[2][3] * v[3],
+                        a[3][0] * v[0] + a[3][1] * v[1] + a[3][2] * v[2] + a[3][3] * v[3]
+                );
+        }
+
+        static void Transform_Vector(const Matrix4x4 & A, const Vector3 & in, Vector3 * out)
+        {
+                out->X = (A[0][0] * in.X + A[0][1] * in.Y + A[0][2] * in.Z + A[0][3]);
+                out->Y = (A[1][0] * in.X + A[1][1] * in.Y + A[1][2] * in.Z + A[1][3]);
+                out->Z = (A[2][0] * in.X + A[2][1] * in.Y + A[2][2] * in.Z + A[2][3]);
+        }
+};
+
 // ---------------------------------------------------------------------------
 // Golden vector generation. Deterministic: a fixed LCG produces the test
 // inputs, so the same vectors come out on every platform.
@@ -3239,6 +3482,11 @@ static void writeM3In( FILE *out, const Matrix3x3 &m )
 static void writeV3( FILE *out, const Vector3 &v )
 {
         fprintf(out, "%08x %08x %08x", floatBits(v.X), floatBits(v.Y), floatBits(v.Z));
+}
+
+static void writeV4( FILE *out, const Vector4 &v )
+{
+        fprintf(out, "%08x %08x %08x %08x", floatBits(v[0]), floatBits(v[1]), floatBits(v[2]), floatBits(v[3]));
 }
 
 static void writeQuat( FILE *out, const Quaternion &q )
@@ -4096,6 +4344,205 @@ static void generateMatrix3DGolden( FILE *out )
         fprintf(out, "\n");
 }
 
+
+// ---------------------------------------------------------------------------
+// Matrix4x4 golden vectors. Init_Perspective(hfov, vfov, ...) is not
+// pinned (platform double tan); the frustum variant is pure arithmetic.
+// ---------------------------------------------------------------------------
+
+static void writeM4In( FILE *out, const Matrix4x4 &m )
+{
+        fprintf(out, "%08x %08x %08x %08x %08x %08x %08x %08x %08x %08x %08x %08x %08x %08x %08x %08x",
+                floatBits(m[0][0]), floatBits(m[0][1]), floatBits(m[0][2]), floatBits(m[0][3]),
+                floatBits(m[1][0]), floatBits(m[1][1]), floatBits(m[1][2]), floatBits(m[1][3]),
+                floatBits(m[2][0]), floatBits(m[2][1]), floatBits(m[2][2]), floatBits(m[2][3]),
+                floatBits(m[3][0]), floatBits(m[3][1]), floatBits(m[3][2]), floatBits(m[3][3]));
+}
+
+static Matrix4x4 lcgM4( void )
+{
+        Matrix4x4 m(true);
+        float vals[16];
+        for (int i = 0; i < 16; i++)
+        {
+                vals[i] = (i % 8 == 0) ? (float)lcgWord() * 64.0f : ((int)(lcgWord() % 2000) - 1000) * 0.001f;
+        }
+        m.Init(vals[0], vals[1], vals[2], vals[3],
+                   vals[4], vals[5], vals[6], vals[7],
+                   vals[8], vals[9], vals[10], vals[11],
+                   vals[12], vals[13], vals[14], vals[15]);
+        return m;
+}
+
+static void generateMatrix4Golden( FILE *out )
+{
+        fprintf(out, "\n# Matrix4x4 golden vectors (parity level P0), transcribed from\n");
+        fprintf(out, "# matrix4.{h,cpp} @ 571a7c5. The fov-based Init_Perspective is not\n");
+        fprintf(out, "# pinned (its tan() is platform libm in the original too); the\n");
+        fprintf(out, "# frustum variant and everything else are pure IEEE arithmetic.\n\n");
+
+        resetLcg(0x4d474d47u);
+
+        // ---- projections ----------------------------------------------------
+        {
+                Matrix4x4 o;
+                o.Init_Ortho(-1.5f, 2.5f, -0.5f, 3.5f, 0.25f, 128.0f);
+                fprintf(out, "m4 init_ortho -1.5 2.5 -0.5 3.5 0.25 128 ");
+                writeM4In(out, o);
+                fprintf(out, "\n");
+
+                Matrix4x4 p;
+                p.Init_Perspective(-1.5f, 2.5f, -0.5f, 3.5f, 0.25f, 128.0f);
+                fprintf(out, "m4 init_perspective_frustum -1.5 2.5 -0.5 3.5 0.25 128 ");
+                writeM4In(out, p);
+                fprintf(out, "\n");
+        }
+
+        // ---- from_matrix3d, transpose, inverse ------------------------------
+        for (int i = 0; i < 70; i++)
+        {
+                Matrix3D t = lcgM3D();
+                Matrix4x4 m;
+                m.Init(t);
+                fprintf(out, "m4 from_matrix3d ");
+                writeM3DIn(out, t);
+                fprintf(out, " ");
+                writeM4In(out, m);
+                fprintf(out, "\n");
+
+                Matrix4x4 tr = m;
+                tr = tr.Transpose();
+                fprintf(out, "m4 transpose ");
+                writeM4In(out, m);
+                fprintf(out, " ");
+                writeM4In(out, tr);
+                fprintf(out, "\n");
+
+                float det = 0.0f;
+                Matrix4x4 inv;
+                Matrix4x4 *invOk = Matrix4x4::Inverse(&inv, &det, &m);
+                fprintf(out, "m4 get_inverse ");
+                writeM4In(out, m);
+                fprintf(out, " %08x ", floatBits(det));
+                if (invOk) {
+                        writeM4In(out, inv);
+                } else {
+                        fprintf(out, "-");
+                }
+                fprintf(out, "\n");
+        }
+
+        // ---- arithmetic and products ----------------------------------------
+        for (int i = 0; i < 60; i++)
+        {
+                Matrix4x4 a = lcgM4();
+                Matrix4x4 b = lcgM4();
+                Matrix3D t = lcgM3D();
+
+                Matrix4x4 c = a * b;
+                fprintf(out, "m4 mul ");
+                writeM4In(out, a);
+                fprintf(out, " ");
+                writeM4In(out, b);
+                fprintf(out, " ");
+                writeM4In(out, c);
+                fprintf(out, "\n");
+
+                Matrix4x4 m43 = a * t;
+                fprintf(out, "m4 mul_4_3d ");
+                writeM4In(out, a);
+                fprintf(out, " ");
+                writeM3DIn(out, t);
+                fprintf(out, " ");
+                writeM4In(out, m43);
+                fprintf(out, "\n");
+
+                Matrix4x4 m34 = t * b;
+                fprintf(out, "m4 mul_3d_4 ");
+                writeM3DIn(out, t);
+                fprintf(out, " ");
+                writeM4In(out, b);
+                fprintf(out, " ");
+                writeM4In(out, m34);
+                fprintf(out, "\n");
+
+                Matrix4x4 sum = a + b;
+                fprintf(out, "m4 add ");
+                writeM4In(out, a);
+                fprintf(out, " ");
+                writeM4In(out, b);
+                fprintf(out, " ");
+                writeM4In(out, sum);
+                fprintf(out, "\n");
+
+                Matrix4x4 diff = a - b;
+                fprintf(out, "m4 sub ");
+                writeM4In(out, a);
+                fprintf(out, " ");
+                writeM4In(out, b);
+                fprintf(out, " ");
+                writeM4In(out, diff);
+                fprintf(out, "\n");
+
+                Matrix4x4 scaled = a * 1.5f;
+                fprintf(out, "m4 scale ");
+                writeM4In(out, a);
+                fprintf(out, " %08x ", floatBits(1.5f));
+                writeM4In(out, scaled);
+                fprintf(out, "\n");
+
+                Matrix4x4 divided = a / 2.5f;
+                fprintf(out, "m4 div ");
+                writeM4In(out, a);
+                fprintf(out, " %08x ", floatBits(2.5f));
+                writeM4In(out, divided);
+                fprintf(out, "\n");
+
+                // vector transforms
+                Vector4 v4(
+                        ((int)(lcgWord() % 2000) - 1000) * 0.01f,
+                        ((int)(lcgWord() % 2000) - 1000) * 0.01f,
+                        ((int)(lcgWord() % 2000) - 1000) * 0.01f,
+                        ((int)(lcgWord() % 2000) - 1000) * 0.01f);
+                Vector4 tv4 = a * v4;
+                fprintf(out, "m4 transform_vector4 ");
+                writeM4In(out, a);
+                fprintf(out, " ");
+                writeV4(out, v4);
+                fprintf(out, " ");
+                writeV4(out, tv4);
+                fprintf(out, "\n");
+
+                Vector3 v3(
+                        ((int)(lcgWord() % 2000) - 1000) * 0.01f,
+                        ((int)(lcgWord() % 2000) - 1000) * 0.01f,
+                        ((int)(lcgWord() % 2000) - 1000) * 0.01f);
+                Vector4 pv = a * v3;
+                fprintf(out, "m4 transform_point ");
+                writeM4In(out, a);
+                fprintf(out, " ");
+                writeV3(out, v3);
+                fprintf(out, " ");
+                writeV4(out, pv);
+                fprintf(out, "\n");
+
+                Vector3 tv3;
+                Matrix4x4::Transform_Vector(a, v3, &tv3);
+                fprintf(out, "m4 transform_vector3 ");
+                writeM4In(out, a);
+                fprintf(out, " ");
+                writeV3(out, v3);
+                fprintf(out, " ");
+                writeV3(out, tv3);
+                fprintf(out, "\n");
+        }
+
+        // ---- the identity constant ------------------------------------------
+        fprintf(out, "m4 const identity ");
+        writeM4In(out, Matrix4x4(true));
+        fprintf(out, "\n");
+}
+
 int main( int argc, char **argv )
 {
         if (argc != 7)
@@ -4125,6 +4572,7 @@ int main( int argc, char **argv )
         generateMathVectorsGolden(outs[4]);
         generateMatrixQuatGolden(outs[5]);
         generateMatrix3DGolden(outs[5]);
+        generateMatrix4Golden(outs[5]);
 
         for (int i = 0; i < 6; i++)
                 fclose(outs[i]);
