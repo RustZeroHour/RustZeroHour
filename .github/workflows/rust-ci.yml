@@ -2,7 +2,8 @@
 #
 # Runs on every change that touches the Rust stack: formatting, clippy with
 # warnings denied, the full test suite (including the differential golden
-# vectors), and the license/advisory checks via cargo-deny.
+# vectors), a compile check of the §6 benchmarks, and the license/advisory
+# checks via cargo-deny.
 #
 # The legacy C++ CI (ci.yml) keeps running unchanged until the cut-over
 # milestone (M5); both stacks are green at the same time by design.
@@ -62,6 +63,12 @@ jobs:
 
       - name: Test
         run: cargo test --workspace
+
+      # The §6 benchmarks must at least compile on every platform; actually
+      # running them in CI would be flaky on shared runners (the budget
+      # comparison runs on dev machines and is recorded in docs/benchmarks.md).
+      - name: Bench compile check
+        run: cargo bench --workspace --no-run
 
   deny:
     name: cargo-deny (licenses, advisories, sources)

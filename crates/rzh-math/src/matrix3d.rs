@@ -716,6 +716,7 @@ impl Matrix3D {
     /// `Transform_Vector(tm, in, out)` / `mulVector3`: the full
     /// transform (rotation + translation).
     #[must_use]
+    #[inline]
     pub fn transform_vector(&self, v: Vector3) -> Vector3 {
         Vector3::new(
             self.rows[0].x * v.x + self.rows[0].y * v.y + self.rows[0].z * v.z + self.rows[0].w,
@@ -746,25 +747,29 @@ impl Matrix3D {
     /// `mul(A, B)`: `self = A * B` — the core column-vector
     /// concatenation (`Matrix3D::Multiply` and both `operator*`s reduce
     /// to this arithmetic).
+    ///
+    /// Transcribed as the original's explicit unroll over fixed fields
+    /// (`this->Row[i].X = submul(...)` etc.): a loop over a dynamically
+    /// indexed column forces the rows through memory and costs ~7x the
+    /// arithmetic on every transform concatenation.
+    #[inline]
     pub fn mul(&mut self, a: Matrix3D, b: Matrix3D) {
-        for (col, (t1, t2, t3)) in [
-            (b.rows[0].x, b.rows[1].x, b.rows[2].x),
-            (b.rows[0].y, b.rows[1].y, b.rows[2].y),
-            (b.rows[0].z, b.rows[1].z, b.rows[2].z),
-        ]
-        .into_iter()
-        .enumerate()
-        {
-            self.rows[0].set_index(col, submul(a.rows[0], t1, t2, t3));
-            self.rows[1].set_index(col, submul(a.rows[1], t1, t2, t3));
-            self.rows[2].set_index(col, submul(a.rows[2], t1, t2, t3));
-        }
+        self.rows[0].x = submul(a.rows[0], b.rows[0].x, b.rows[1].x, b.rows[2].x);
+        self.rows[1].x = submul(a.rows[1], b.rows[0].x, b.rows[1].x, b.rows[2].x);
+        self.rows[2].x = submul(a.rows[2], b.rows[0].x, b.rows[1].x, b.rows[2].x);
+
+        self.rows[0].y = submul(a.rows[0], b.rows[0].y, b.rows[1].y, b.rows[2].y);
+        self.rows[1].y = submul(a.rows[1], b.rows[0].y, b.rows[1].y, b.rows[2].y);
+        self.rows[2].y = submul(a.rows[2], b.rows[0].y, b.rows[1].y, b.rows[2].y);
+
+        self.rows[0].z = submul(a.rows[0], b.rows[0].z, b.rows[1].z, b.rows[2].z);
+        self.rows[1].z = submul(a.rows[1], b.rows[0].z, b.rows[1].z, b.rows[2].z);
+        self.rows[2].z = submul(a.rows[2], b.rows[0].z, b.rows[1].z, b.rows[2].z);
 
         // the translation column adds A's own translation
-        let (t1, t2, t3) = (b.rows[0].w, b.rows[1].w, b.rows[2].w);
-        self.rows[0].w = submul(a.rows[0], t1, t2, t3) + a.rows[0].w;
-        self.rows[1].w = submul(a.rows[1], t1, t2, t3) + a.rows[1].w;
-        self.rows[2].w = submul(a.rows[2], t1, t2, t3) + a.rows[2].w;
+        self.rows[0].w = submul(a.rows[0], b.rows[0].w, b.rows[1].w, b.rows[2].w) + a.rows[0].w;
+        self.rows[1].w = submul(a.rows[1], b.rows[0].w, b.rows[1].w, b.rows[2].w) + a.rows[1].w;
+        self.rows[2].w = submul(a.rows[2], b.rows[0].w, b.rows[1].w, b.rows[2].w) + a.rows[2].w;
     }
 
     /// `postMul(that)`: `self = self * that`.
@@ -783,6 +788,7 @@ impl Matrix3D {
     /// alias dance is a memory-safety artefact; the arithmetic is
     /// [`Matrix3D::mul`].
     #[must_use]
+    #[inline]
     pub fn multiply(a: Matrix3D, b: Matrix3D) -> Matrix3D {
         let mut out = Self::default();
         out.mul(a, b);
@@ -855,6 +861,7 @@ impl Matrix3D {
     /// `Get_Inverse(inv)` (member): the general inverse; `None` when
     /// singular (where the C++ silently leaves the output untouched).
     #[must_use]
+    #[inline]
     pub fn get_inverse(&self) -> Option<Matrix3D> {
         Self::inverse_with_determinant(*self).1
     }

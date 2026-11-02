@@ -282,12 +282,15 @@ pub fn decompress(data: &[u8]) -> Result<Vec<u8>, RefPackError> {
 }
 
 /// `matchlen`: the number of leading equal bytes, capped at `maxmatch`.
+///
+/// Written over sub-slices rather than raw indices so the bounds checks
+/// hoist out of the byte loop: this function is the inner loop of the
+/// encoder's chain walk (the arithmetic is identical to the C
+/// `while (from[a+i] == from[b+i]) i++;`).
 fn matchlen(from: &[u8], a: usize, b: usize, maxmatch: usize) -> usize {
-    let mut current = 0;
-    while current < maxmatch && from[a + current] == from[b + current] {
-        current += 1;
-    }
-    current
+    let x = &from[a..a + maxmatch];
+    let y = &from[b..b + maxmatch];
+    x.iter().zip(y).take_while(|(p, q)| **p == **q).count()
 }
 
 /// `HASH(cptr)`: the 3-byte hash of the encoder.

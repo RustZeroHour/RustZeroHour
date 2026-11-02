@@ -209,7 +209,20 @@ velocity actually measured (C++ lines ported per week).
 - **Exit:** CI green on both stacks; inventory published; oracle produces stable traces for all
   10 Zero Hour replays.
 
-### Phase 1: Foundation crates (M)
+### Phase 1: Foundation crates (M) — **status: complete (2026-11-03)**
+
+Exit criteria met: all P0 golden/property tests pass, criterion benchmarks
+exist for every foundation crate, and the §6 budget comparison against the
+C++ baseline (same corpora, same loop shapes, `tools/differential/bench_baseline.sh`)
+is recorded in [`docs/benchmarks.md`](benchmarks.md) — 29 of 32 comparisons
+within budget, the three exceptions justified in
+[ADR-003](adr/003-benchmark-budget-exceptions.md). The budget run also
+surfaced and fixed four structural deviations from the original's shape
+(RNG carry chain, `Matrix3D::mul` unroll, RefPack `matchlen`, INI
+`readLine` buffer reuse) — all re-verified byte-exact against the goldens.
+The remaining Phase 0 oracle item is the instrumented C++ build itself
+(Windows toolchain, `RZH_ORACLE_TRACE` instrumentation); its trace format
+is now specified in [`docs/TRACE_FORMAT_V1.md`](TRACE_FORMAT_V1.md).
 
 - `rzh-util`: CRC, logic RNG and client RNG (ported exactly), name keys, ids.
 - `rzh-math`: vectors/matrices/quaternions/boxes/frustum subset needed by the sim (from WWMath).

@@ -13,6 +13,7 @@ level **P0**: byte-exact output on identical input).
 | `gen_gmath_golden.c` | Golden-vector driver for `rzh-math::gmath`. Not a transcription: it is compiled and linked against the REAL pinned GameMath sources (`TheSuperHackers/GameMath` @ `59f7ccd4`, the pin `cmake/gamemath.cmake` fetches), so the gmath vectors come from the very code the C++ oracle runs. |
 | `gen_compress_golden.cpp` | Golden-vector driver for `rzh-compress::refpack`. Compiles the REAL EAC codec sources (`Compression/EAC/ref{decode,encode}.cpp`) from the game tree as separate translation units and calls them, so the RefPack goldens come from the original code in both directions (encode and decode). |
 | `gen_ini_golden.cpp` | Golden-dump driver for `rzh-ini`: a verbatim transcription of the INI engine (`INI.cpp` reader, `strtok` tokenizing, `scanType<T>` with `USE_STD_FROM_CHARS_PARSING = 1`, `initFromINI`, the bit-string and quoted-string readers, the unit conversions) plus the three task-10 block types (complete `Armor`, complete `Locomotor`, the ported `Weapon` subset with the store semantics). Replays a fixed scenario over the committed fixtures in `crates/rzh-ini/tests/fixtures/` (base loads, a map-style override load, a CRLF-transformed edge-case load, and nine error files) and writes the canonical dump the Rust test must match byte-for-byte. |
+| `bench_baseline.cpp` + `bench_wrap_{golden,compress,ini}.cpp` + `bench_baseline.sh` | The §6 budget harness (Phase 1 exit criterion): times the *same* transcriptions and the real EAC codec on the same LCG corpora and loop shapes as the Rust criterion benches, printing `bench <id> <ns> <MB/s>` lines that map 1:1 to criterion bench ids. The measured budget lives in `docs/benchmarks.md`; the three over-budget results are justified in ADR-003. Temporary like the rest of this directory (removed at M5). |
 | `regenerate.sh` | Compiles the harness and regenerates `crates/rzh-util/tests/golden/{crc,rng,namekey}.txt` and `crates/rzh-math/tests/golden/{scalar,vectors,matrices}.txt`, then clones the GameMath pin (set `GAMEMATH_DIR` to reuse a checkout) and regenerates `crates/rzh-math/tests/golden/gmath.txt`, then builds the EAC codecs and regenerates `crates/rzh-compress/tests/golden/refpack.txt` and `crates/rzh-vfs/tests/golden/vfs.txt`, and finally builds the INI transcription and regenerates `crates/rzh-ini/tests/golden/ini.txt`. |
 
 ## Numerics
@@ -46,6 +47,10 @@ discarding its absolute values.
 tools/differential/regenerate.sh          # regenerate the golden files
 cargo test --workspace                    # Rust must match byte-for-byte
 git diff crates/*/tests/golden            # review before committing
+
+# §6 budget comparison (Phase 1 exit criterion, docs/benchmarks.md):
+cargo bench --workspace                   # Rust side
+tools/differential/bench_baseline.sh     # C++ side, same corpora
 ```
 
 Golden files are committed; never edit them by hand. If a test fails, either

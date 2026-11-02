@@ -43,25 +43,30 @@ cargo fmt --all                                   # format
 cargo fmt --all -- --check                        # CI check
 cargo clippy --workspace --all-targets -- -D warnings
 cargo test --workspace                            # unit + golden + doc tests
+cargo bench --workspace                           # §6 benchmarks
 ```
 
 `cargo test --workspace` runs the differential golden-vector tests of all
-four crates against the committed fixtures in `crates/*/tests/golden/`.
+five crates against the committed fixtures in `crates/*/tests/golden/`.
 These prove byte-exact parity (level **P0**) with the C++ algorithms at
 the baseline commit `571a7c5` (tag `legacy-cpp-baseline`):
 
 - `rzh-util`: CRC, RNG streams and the name-key interning subsystem
   (`crc.txt`, `rng.txt`, `namekey.txt`),
 - `rzh-math`: the WWMath scalar helpers, the Vector2/3/4 arithmetic, the
-  pinned GameMath (msun) transcendental entry points, `Matrix3x3`, the
-  quaternions and the `Fast_*` tables (`scalar.txt`, `vectors.txt`,
-  `matrices.txt`, `gmath.txt`; see ADR-001 for the numerics scope),
+  pinned GameMath (msun) transcendental entry points, `Matrix3x3`,
+  `Matrix3D`, `Matrix4x4`, the quaternions, the `Fast_*` tables and the
+  geometry types (`scalar.txt`, `vectors.txt`, `matrices.txt`,
+  `geometry.txt`, `gmath.txt`; see ADR-001 for the numerics scope),
 - `rzh-compress`: the RefPack codec, byte-exact in both directions
   (`refpack.txt`),
 - `rzh-vfs`: a golden *script* (`vfs.txt`) replayed against the port —
   BIG parsing, listings, instance routing, overwrite stacking, the
   INIZH skip, path keys and the `EAR\0` decompress-on-read flow, with
-  compressed payloads produced by the real EAC encoder.
+  compressed payloads produced by the real EAC encoder,
+- `rzh-ini`: a golden *dump* (`ini.txt`) of the INI engine (reader,
+  tokenizer, `scanType<T>`, the unit conversions) plus the three
+  task-10 block schemas, replayed over the committed fixtures.
 
 To regenerate the golden vectors after (re)proving a transcription:
 
@@ -70,6 +75,18 @@ tools/differential/regenerate.sh
 cargo test --workspace      # must still pass
 git diff crates/*/tests/golden    # review the diff, then commit
 ```
+
+The §6 benchmark budget compares the Rust crates against the same C++
+corpus generators on identical inputs:
+
+```sh
+cargo bench --workspace                  # Rust side
+tools/differential/bench_baseline.sh    # C++ baseline, same corpora
+```
+
+The measured budget lives in [docs/benchmarks.md](benchmarks.md); the
+accepted exceptions are justified in
+[ADR-003](adr/003-benchmark-budget-exceptions.md).
 
 ## Game data and `RZH_GAME_DIR`
 
@@ -122,21 +139,23 @@ The definition of done for a ported unit is the checklist in plan §6.
 | Inventory tooling + published reports | Done — `tools/inventory/` |
 | First foundation crate (`rzh-util`: CRC, RNG) | Done, P0-verified |
 | Name-key interning in `rzh-util` | Done, P0-verified (`namekey` module) |
-| C++ oracle build with trace instrumentation (plan §3.2) | **Deferred** — needs the Windows/vcpkg toolchain; next step, tracked with the Phase 0 exit criteria |
+| C++ oracle build with trace instrumentation (plan §3.2) | **Deferred** — needs the Windows/vcpkg toolchain; next step, tracked with the Phase 0 exit criteria. The trace format itself is specified: [docs/TRACE_FORMAT_V1.md](TRACE_FORMAT_V1.md) |
 
-## Status of Phase 1 (foundation crates)
+## Status of Phase 1 (foundation crates) — complete
 
 | Item | Status |
 |------|--------|
 | `rzh-math` first slice: WWMath scalars + Vector2/2i/3/3i/4 | Done, P0-verified; quirks preserved and documented |
 | `rzh-math` trigonometric entry points (`gmath` port of the pinned GameMath) | Done, P0-verified; see ADR-001 |
-| `rzh-math` matrices/quaternions: `Matrix3x3`, `Quaternion`, `Fast_*` tables | Done, P0-verified (mixed-precision literal quirks preserved) |
-| `rzh-math` `Matrix3D` (4x3 transform) | Done, P0-verified (2885 golden records; the `Solve_Linear_System` W-column quirk pinned) |
-| `rzh-math` `Matrix4x4` | Done, P0-verified (813 golden records; the fov `Init_Perspective` documented as platform-libm, not pinned) |
+| `rzh-math` matrices/quaternions: `Matrix3x3`, `Matrix3D`, `Matrix4x4`, `Quaternion`, `Fast_*` tables | Done, P0-verified (mixed-precision literal quirks preserved) |
+| `rzh-math` geometry: planes, AA-planes/boxes, frustum, overlap tests | Done, P0-verified |
 | `rzh-compress`: RefPack codec | Done, P0-verified, byte-exact in both directions |
 | `rzh-vfs`: BIG archives, loose-file overlay, `CompressionManager` dispatch | Done, P0-verified (golden script + unit tests) |
-| `AsciiString` port | Planned together with the INI work |
-| Logging/diagnostics via `tracing` | Planned |
+| `rzh-ini`: INI engine + the task-10 block schemas (Armor, Locomotor, Weapon subset) | Done, P0-verified (golden dump + fixtures) |
+| `rzh-log`: `tracing`-based diagnostics, log rotation, panic hook | Done (re-implementation, not golden-pinned); see ADR-002 |
+| Property tests (`proptest`) across the crates | Done |
+| §6 criterion benchmarks + C++ baseline harness | Done — 29/32 within budget, exceptions in ADR-003; [docs/benchmarks.md](benchmarks.md) |
+| MSRV | 1.91 (`u32::carrying_add`; see the workspace `Cargo.toml`) |
 
 ## Getting help
 

@@ -178,4 +178,18 @@ mkdir -p "$REPO_ROOT/crates/rzh-vfs/tests/golden"
 "$BUILD_DIR/gen_vfs_golden" \
     "$REPO_ROOT/crates/rzh-vfs/tests/golden/vfs.txt" "$BUILD_DIR/vfs-scratch"
 echo "wrote crates/rzh-vfs/tests/golden/vfs.txt"
+
+# --- ini golden dump: the INI engine transcription (reader, tokenizer,
+# scan functions, the three task-10 block schemas) replayed over the
+# committed fixtures. The generator reads the fixtures relative to the
+# repo root by default.
+echo "compiling gen_ini_golden.cpp ..."
+"$CXX" -O2 -std=c++17 -Wall -Wextra -Werror -ffp-contract=off \
+    -c -o "$BUILD_DIR/gen_ini_golden.o" "$SCRIPT_DIR/gen_ini_golden.cpp"
+"$CXX" -o "$BUILD_DIR/gen_ini_golden" "$BUILD_DIR/gen_ini_golden.o"
+mkdir -p "$REPO_ROOT/crates/rzh-ini/tests/golden"
+"$BUILD_DIR/gen_ini_golden" \
+    "$REPO_ROOT/crates/rzh-ini/tests/golden/ini.txt" \
+    "$REPO_ROOT/crates/rzh-ini/tests/fixtures"
+echo "wrote crates/rzh-ini/tests/golden/ini.txt"
 echo "now run: cargo test --workspace"

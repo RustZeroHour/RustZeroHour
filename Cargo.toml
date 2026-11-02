@@ -18,7 +18,10 @@ members = [
 [workspace.package]
 version = "0.1.0"
 edition = "2024"
-rust-version = "1.85"
+# MSRV 1.91: u32::carrying_add (the RNG's hardware add-with-carry chain,
+# docs/benchmarks.md) stabilized there. CI builds with the pinned toolchain
+# (rust-toolchain.toml); this line is the portability claim for packagers.
+rust-version = "1.91"
 license = "GPL-3.0-or-later"
 repository = "https://github.com/RustZeroHour/RustZeroHour"
 
@@ -28,6 +31,14 @@ repository = "https://github.com/RustZeroHour/RustZeroHour"
 # features are trimmed to `std`: the `fork` machinery (tempfile, rustix)
 # and `bit-set` are not used by our suites.
 proptest = { version = "1.7", default-features = false, features = ["std"] }
+
+# Benchmarking framework (plan §5 candidate crates, §6 exit criterion:
+# "benchmarks within budget"). Criterion 0.7 is the newest line that keeps
+# the workspace MSRV (rust-version 1.85); 0.8 requires 1.86. Default
+# features are trimmed to `cargo_bench_support`: no plotters/rayon/csv —
+# the terminal estimates are what the §6 budget check reads, and the
+# smaller graph keeps cargo-deny clean.
+criterion = { version = "0.7", default-features = false, features = ["cargo_bench_support"] }
 
 [workspace.lints.rust]
 # Documentation is part of the definition of done for every ported unit.

@@ -217,6 +217,7 @@ pub fn axis_to_quat(a: Vector3, phi: f32) -> Quaternion {
 /// The original signature writes through an out-parameter; this port
 /// returns the result.
 #[must_use]
+#[inline]
 pub fn slerp(p: Quaternion, q: Quaternion, alpha: f32) -> Quaternion {
     let mut alpha = alpha;
     let beta;
@@ -256,6 +257,7 @@ pub fn slerp(p: Quaternion, q: Quaternion, alpha: f32) -> Quaternion {
 /// `Fast_Slerp(res, p, q, alpha)`: the table-based slerp (the non-asm
 /// branch of the original).
 #[must_use]
+#[inline]
 pub fn fast_slerp(p: Quaternion, q: Quaternion, alpha: f32) -> Quaternion {
     let mut alpha = alpha;
     let beta;
@@ -402,6 +404,7 @@ pub fn build_quaternion(mat: &Matrix3) -> Quaternion {
 /// conversion with the original's mixed double/float literal quirks (see
 /// [`crate::matrix3`] module notes).
 #[must_use]
+#[inline]
 pub fn build_matrix3(q: Quaternion) -> Matrix3 {
     Matrix3::from_quaternion(q)
 }

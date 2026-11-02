@@ -49,3 +49,10 @@ rzh-util = { path = "../rzh-util", version = "0.1.0" }
 
 [dev-dependencies]
 proptest = { workspace = true }
+criterion = { workspace = true }
+
+# §6 exit criterion: criterion benchmarks for the Phase 1 foundation
+# algorithms. Run with `cargo bench -p rzh-ini`.
+[[bench]]
+name = "rzh_ini"
+harness = false

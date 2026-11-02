@@ -315,6 +315,7 @@ impl Matrix4 {
     /// `Inverse()`: the general inverse; `None` when singular (where the
     /// C++ returns an uninitialized matrix).
     #[must_use]
+    #[inline]
     pub fn get_inverse(&self) -> Option<Matrix4> {
         Self::inverse_with_determinant(*self).1
     }
@@ -322,6 +323,7 @@ impl Matrix4 {
     /// `operator * (Matrix4x4, Matrix4x4)` / `Multiply(A, B)`: the full
     /// 4x4 product (the C++ `ROWCOL` expansion).
     #[must_use]
+    #[inline]
     pub fn multiply(a: Matrix4, b: Matrix4) -> Matrix4 {
         let mut out = Self::default();
         for (i, row) in out.rows.iter_mut().enumerate() {

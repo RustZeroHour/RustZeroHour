@@ -234,6 +234,7 @@ impl NameKeyGenerator {
     /// If an equal name (byte equality, like `strcmp`/`AsciiString::compare`)
     /// is already cataloged, its key is returned; otherwise a new key is
     /// allocated and the name is stored verbatim.
+    #[inline]
     pub fn name_to_key(&mut self, name: impl AsRef<[u8]>) -> NameKey {
         let name = name.as_ref();
         let socket = calc_hash_for_string(name) % SOCKET_COUNT;
@@ -250,6 +251,7 @@ impl NameKeyGenerator {
     /// name, so a later case-sensitive [`name_to_key`](Self::name_to_key)
     /// with the lowercase spelling reuses this key (upstream fix of
     /// 08/08/2026, included in the baseline).
+    #[inline]
     pub fn name_to_lowercase_key(&mut self, name: impl AsRef<[u8]>) -> NameKey {
         let name = name.as_ref();
         let socket = calc_hash_for_lowercase_string(name) % SOCKET_COUNT;
@@ -267,6 +269,7 @@ impl NameKeyGenerator {
     /// linear scan this is a direct index; keys are unique, so the answer is
     /// identical.
     #[must_use]
+    #[inline]
     pub fn key_to_name(&self, key: NameKey) -> Option<&[u8]> {
         let index = key.ordinal().checked_sub(1)?;
         self.buckets

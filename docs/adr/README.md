@@ -28,3 +28,4 @@ New ADRs are created from [`TEMPLATE.md`](TEMPLATE.md). The index of records:
 | [000](000-migrate-to-rust.md) | Migrate the code base to Rust and drop retail compatibility | Accepted |
 | [001](001-sim-numerics.md) | Simulation numerics — f32, msun-exact entry points, no libm crate for parity code | Accepted |
 | [002](002-logging-diagnostics.md) | Logging and diagnostics — `tracing`, log-file rotation, panic hook | Accepted |
+| [003](003-benchmark-budget-exceptions.md) | Accepted §6 benchmark budget exceptions (Phase 1) | Accepted |

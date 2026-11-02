@@ -38,3 +38,10 @@ workspace = true
 
 [dev-dependencies]
 proptest = { workspace = true }
+criterion = { workspace = true }
+
+# §6 exit criterion: criterion benchmarks for the Phase 1 foundation
+# algorithms. Run with `cargo bench -p rzh-math`.
+[[bench]]
+name = "rzh_math"
+harness = false

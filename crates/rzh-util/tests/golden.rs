@@ -292,7 +292,7 @@ fn decode_hex_or_dash(hex: &str) -> Vec<u8> {
 }
 
 fn decode_hex(hex: &str) -> Vec<u8> {
-    assert!(hex.len() % 2 == 0, "odd hex length: {hex}");
+    assert!(hex.len().is_multiple_of(2), "odd hex length: {hex}");
     let mut bytes = Vec::with_capacity(hex.len() / 2);
     let mut rest = hex;
     while !rest.is_empty() {

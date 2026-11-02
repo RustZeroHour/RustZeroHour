@@ -64,53 +64,53 @@ const SEED_CONSTANTS: [u32; 6] = [
 /// spelling it out keeps the constant fold identical on every platform.
 const THE_MULT_FACTOR: f32 = 1.0 / u32::MAX as f32;
 
-/// Add with carry, the `ADC` macro of `RandomValue.cpp`.
-///
-/// `sum = a + b + carry_in` (unsigned, wrapping); `carry_out` is 1 when the
-/// sum is smaller than either input, which for unsigned addition means it
-/// wrapped past `u32::MAX`.
-#[inline]
-fn adc(a: u32, b: u32, carry_in: u32) -> (u32, u32) {
-    let sum = a.wrapping_add(b).wrapping_add(carry_in);
-    let carry_out = u32::from(sum < a || sum < b);
-    (sum, carry_out)
-}
-
 /// `randomValue()`: advances the six-word state and returns the next raw value.
 ///
 /// This is a verbatim transcription of the original x86-style C++: an add
-/// with carry chain over `seed[5] … seed[0]`, followed by a plain increment
-/// of the state that bubbles its carries up.
+/// with carry chain over `seed[5] … seed[0]` (the `ADC` macro; written with
+/// [`u32::carrying_add`] so the compiler emits the hardware `add`/`adc`
+/// chain the original's asm comments describe — the macro's
+/// `((SUM < (A)) || (SUM < (B)))` carry test is exactly the carry flag),
+/// followed by a plain increment of the state that bubbles its carries up.
 fn random_value(seed: &mut [u32; 6]) -> u32 {
-    let mut carry = 0_u32;
-    let mut ax;
-
-    (ax, carry) = adc(seed[5], seed[4], carry);
+    let (mut ax, mut carry) = seed[5].carrying_add(seed[4], false);
     seed[4] = ax;
-    (ax, carry) = adc(ax, seed[3], carry);
+
+    (ax, carry) = ax.carrying_add(seed[3], carry);
     seed[3] = ax;
-    (ax, carry) = adc(ax, seed[2], carry);
+
+    (ax, carry) = ax.carrying_add(seed[2], carry);
     seed[2] = ax;
-    (ax, carry) = adc(ax, seed[1], carry);
+
+    (ax, carry) = ax.carrying_add(seed[1], carry);
     seed[1] = ax;
+
     // The final carry is dead, as in the C++ macro; discard it explicitly.
-    (ax, _) = adc(ax, seed[0], carry);
+    (ax, _) = ax.carrying_add(seed[0], carry);
     seed[0] = ax;
 
-    // Increment seed[5] down to seed[1], bubbling the carries; when every
-    // word wraps to zero the whole 192-bit counter rolled over and the
-    // original also bumps seed[0] and the returned value.
-    let mut all_wrapped = true;
-    for index in (1..=5).rev() {
-        seed[index] = seed[index].wrapping_add(1);
-        if seed[index] != 0 {
-            all_wrapped = false;
-            break;
+    // Increment seed[5] down to seed[1], bubbling the carries up; when
+    // every word wraps to zero the whole 192-bit counter rolled over and
+    // the original also bumps seed[0] and the returned value. Transcribed
+    // as the original's nested `if (!++seed[i])` unroll — the C++ compiler
+    // emits straight-line code for it, and so does rustc (a loop over a
+    // fixed-size array kept the bounds checks and cost ~2x per draw).
+    seed[5] = seed[5].wrapping_add(1);
+    if seed[5] == 0 {
+        seed[4] = seed[4].wrapping_add(1);
+        if seed[4] == 0 {
+            seed[3] = seed[3].wrapping_add(1);
+            if seed[3] == 0 {
+                seed[2] = seed[2].wrapping_add(1);
+                if seed[2] == 0 {
+                    seed[1] = seed[1].wrapping_add(1);
+                    if seed[1] == 0 {
+                        seed[0] = seed[0].wrapping_add(1);
+                        ax = ax.wrapping_add(1);
+                    }
+                }
+            }
         }
-    }
-    if all_wrapped {
-        seed[0] = seed[0].wrapping_add(1);
-        ax = ax.wrapping_add(1);
     }
 
     ax
@@ -147,6 +147,7 @@ impl GameRng {
     ///
     /// The six state words are `seed + SEED_CONSTANTS[i]` (mod 2³²), exactly
     /// as the cumulative additions in the original.
+    #[inline]
     #[must_use]
     pub fn seeded(seed: u32) -> Self {
         let mut state = [0_u32; 6];
@@ -165,7 +166,10 @@ impl GameRng {
     /// Returns the next raw 32-bit value, like `randomValue(theGameXxxSeed)`.
     ///
     /// This is the primitive everything else builds on; it is public so
-    /// parity tests and future ports can drive it directly.
+    /// parity tests and future ports can drive it directly. `#[inline]`
+    /// keeps the whole six-word carry chain inside the caller's loop —
+    /// across crate boundaries (no LTO) a call per draw costs ~1.5x.
+    #[inline]
     pub fn raw(&mut self) -> u32 {
         random_value(&mut self.seed)
     }
@@ -187,6 +191,7 @@ impl GameRng {
     /// Panics on a modulo-by-zero for the pathological input
     /// `lo = i32::MIN, hi = i32::MAX`, where `hi - lo + 1` overflows to
     /// zero — the C++ original is equally undefined there.
+    #[inline]
     pub fn random_int(&mut self, lo: i32, hi: i32) -> i32 {
         if lo >= hi {
             return hi;
@@ -201,6 +206,7 @@ impl GameRng {
     /// `hi` without consuming a raw value. Otherwise it draws one raw value
     /// and maps it with `(raw * 2⁻³²) * (hi - lo) + lo` in `f32`, keeping the
     /// original's operation order for bit-exact results.
+    #[inline]
     pub fn random_real(&mut self, lo: f32, hi: f32) -> f32 {
         if lo >= hi {
             return hi;
@@ -216,6 +222,7 @@ impl GameRng {
     /// same range return the same value until the stream is advanced by
     /// something else. Used for synchronized-but-tolerant values such as
     /// scripted audio variation.
+    #[inline]
     #[must_use]
     pub fn random_int_unchanged(&self, lo: i32, hi: i32) -> i32 {
         if lo >= hi {
@@ -228,6 +235,7 @@ impl GameRng {
 
     /// Like [`random_real`](Self::random_real) but does not advance the
     /// stream. Port of `GetGameLogicRandomValueRealUnchanged`.
+    #[inline]
     #[must_use]
     pub fn random_real_unchanged(&self, lo: f32, hi: f32) -> f32 {
         if lo >= hi {

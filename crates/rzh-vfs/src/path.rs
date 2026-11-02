@@ -314,10 +314,10 @@ pub fn get_extension(path: &str) -> Option<usize> {
     let last_dot = bytes.iter().rposition(|&c| c == b'.')?;
     let last_sep = bytes.iter().rposition(|&c| is_path_separator(c));
     // a dot inside a directory component is not an extension
-    if let Some(sep) = last_sep {
-        if last_dot < sep {
-            return None;
-        }
+    if let Some(sep) = last_sep
+        && last_dot < sep
+    {
+        return None;
     }
     Some(last_dot)
 }

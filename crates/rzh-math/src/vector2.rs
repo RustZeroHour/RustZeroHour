@@ -192,6 +192,7 @@ impl Vector2 {
     /// original computes `Fabsf_Legacy` of the differences and **discards
     /// the results**, so negative differences stay negative.
     #[must_use]
+    #[inline]
     pub fn quick_distance(a: Self, b: Self) -> f32 {
         let x_diff = a.x - b.x;
         let y_diff = a.y - b.y;

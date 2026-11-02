@@ -385,6 +385,7 @@ impl Matrix3 {
     /// `Matrix3x3::Multiply(a, b, res)` — the static multiply with the
     /// original's column-caching operation order.
     #[must_use]
+    #[inline]
     pub fn multiply(a: &Self, b: &Self) -> Self {
         let mut res = Self::default();
         for col in 0..3 {

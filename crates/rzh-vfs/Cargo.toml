@@ -42,3 +42,10 @@ rzh-compress = { path = "../rzh-compress", version = "0.1.0" }
 
 [dev-dependencies]
 proptest = { workspace = true }
+criterion = { workspace = true }
+
+# §6 exit criterion: criterion benchmarks for the Phase 1 foundation
+# algorithms. Run with `cargo bench -p rzh-vfs`.
+[[bench]]
+name = "rzh_vfs"
+harness = false
