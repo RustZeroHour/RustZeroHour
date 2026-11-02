@@ -1,0 +1,36 @@
+# rzh-log: logging and diagnostics for the RustZeroHour engine.
+#
+# Re-implementation (plan §2 mapping table, ADR-002) of the diagnostics
+# surface of the original:
+#   Core/Libraries/Source/Lib/Include/Lib/Debug.h   (DEBUG_LOG/DEBUG_CRASH family)
+#   Core/Libraries/Source/Lib/Debug.cpp             (log file rotation, level mask)
+#   Core/GameEngine/Source/Common/System/Debug.cpp  (GameDebugInit wiring)
+#   Core/Libraries/Source/debug, profile, MiniDumper (the WWDebug stack)
+#
+# This crate is NOT part of the deterministic simulation: logging is a
+# side-channel. It must never be used inside gameplay logic in a way whose
+# observable output depends on the log configuration.
+
+[package]
+name = "rzh-log"
+description = "Zero Hour engine diagnostics: tracing-based logging, log-file rotation and a panic hook"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+keywords = ["gamedev", "rts", "zerohour", "logging", "diagnostics"]
+categories = ["game-development", "development-tools::debugging"]
+readme = "README.md"
+
+[lints]
+workspace = true
+
+[dependencies]
+# First external dependencies of the workspace (ADR-002). `tracing` is the
+# plan's chosen logging facade (MIT, no unsafe below us, works on Windows,
+# Linux and macOS, and lets a final binary attach Tracy later without code
+# changes here). `tracing-subscriber` is pulled with the minimal feature
+# set: just the fmt layer over std — no env-filter, no registry baggage.
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", default-features = false, features = ["fmt", "std"] }

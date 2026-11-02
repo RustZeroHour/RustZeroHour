@@ -9,6 +9,7 @@ resolver = "3"
 members = [
     "crates/rzh-compress",
     "crates/rzh-ini",
+    "crates/rzh-log",
     "crates/rzh-math",
     "crates/rzh-util",
     "crates/rzh-vfs",
