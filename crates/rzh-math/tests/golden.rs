@@ -17,7 +17,7 @@ use std::path::PathBuf;
 
 use rzh_math::gmath;
 use rzh_math::scalar;
-use rzh_math::{Matrix3, Quaternion, Vector2, Vector2i, Vector3, Vector3i, Vector4};
+use rzh_math::{Matrix3, Matrix3D, Quaternion, Vector2, Vector2i, Vector3, Vector3i, Vector4};
 
 fn golden_dir() -> PathBuf {
     PathBuf::from(env!("CARGO_MANIFEST_DIR"))
@@ -1261,4 +1261,295 @@ fn quaternion_matches_cpp_golden_vectors() {
 
     assert!(checked > 6000, "suspiciously few records: {checked}");
     println!("quaternion golden vectors: {checked} checked");
+}
+
+/// Reads a 12-float `Matrix3D` from a golden line.
+fn read_m3d(fields: &mut std::str::SplitWhitespace<'_>, line: &str) -> Matrix3D {
+    let mut rows = [Vector4::default(); 3];
+    for row in &mut rows {
+        *row = Vector4::new(
+            hex_f32(fields, line),
+            hex_f32(fields, line),
+            hex_f32(fields, line),
+            hex_f32(fields, line),
+        );
+    }
+    Matrix3D { rows }
+}
+
+/// Asserts a 12-float `Matrix3D` against the golden bit patterns.
+fn check_m3d(fields: &mut std::str::SplitWhitespace<'_>, actual: Matrix3D, line: &str) {
+    for (i, row) in actual.rows.iter().enumerate() {
+        for (j, value) in [row.x, row.y, row.z, row.w].into_iter().enumerate() {
+            expect_gmath_bits(
+                bits(value),
+                hex_u32(fields, line),
+                &format!("m3d ({i},{j}) in {line}"),
+            );
+        }
+    }
+}
+
+/// Drives every Matrix3D record (`m3d <op> ...` lines of matrices.txt).
+///
+/// The vectors come from the verbatim `Matrix3D` transcription in
+/// `tools/differential/gen_golden.cpp` (matrix3d.{h,cpp} @ 571a7c5,
+/// NO_ALLOW_TEMPORARIES branch); the bit patterns pin the original's
+/// behaviour quirks included — most notably the `Vector4::operator-=`
+/// W-column quirk that flows into `solve_linear_system`.
+#[test]
+fn matrix3d_matches_cpp_golden_vectors() {
+    let text = read_golden("matrices.txt");
+    let mut checked = 0;
+
+    for line in text.lines() {
+        let line = line.trim();
+        if line.is_empty() || line.starts_with('#') {
+            continue;
+        }
+        let mut fields = line.split_whitespace();
+        let kind = fields.next().unwrap_or_else(|| panic!("bad line: {line}"));
+        if kind != "m3d" {
+            continue;
+        }
+        let op = fields.next().unwrap_or_else(|| panic!("bad line: {line}"));
+
+        match op {
+            "const" => {
+                let name = fields.next().unwrap();
+                assert_eq!(name, "identity", "{line}");
+                check_m3d(&mut fields, Matrix3D::IDENTITY, line);
+            }
+            "from_axis_angle" => {
+                let axis = read_v3(&mut fields, line);
+                let angle = hex_f32(&mut fields, line);
+                check_m3d(&mut fields, Matrix3D::from_axis_angle(axis, angle), line);
+            }
+            "from_axis_angle_sc" => {
+                let axis = read_v3(&mut fields, line);
+                let s = hex_f32(&mut fields, line);
+                let c = hex_f32(&mut fields, line);
+                check_m3d(
+                    &mut fields,
+                    Matrix3D::from_axis_sine_cosine(axis, s, c),
+                    line,
+                );
+            }
+            "from_quat_pos" => {
+                let q = read_q(&mut fields, line);
+                let pos = read_v3(&mut fields, line);
+                check_m3d(&mut fields, Matrix3D::from_quat_position(q, pos), line);
+            }
+            "look_at" => {
+                let p = read_v3(&mut fields, line);
+                let t = read_v3(&mut fields, line);
+                let roll = hex_f32(&mut fields, line);
+                let mut m = Matrix3D::default();
+                m.look_at(p, t, roll);
+                check_m3d(&mut fields, m, line);
+            }
+            "look_at_dir" => {
+                let pos = read_v3(&mut fields, line);
+                let dir = read_v3(&mut fields, line);
+                let roll = hex_f32(&mut fields, line);
+                let mut m = Matrix3D::default();
+                m.look_at_dir(pos, dir, roll);
+                check_m3d(&mut fields, m, line);
+            }
+            "obj_look_at" => {
+                let p = read_v3(&mut fields, line);
+                let t = read_v3(&mut fields, line);
+                let roll = hex_f32(&mut fields, line);
+                let mut m = Matrix3D::default();
+                m.obj_look_at(p, t, roll);
+                check_m3d(&mut fields, m, line);
+            }
+            "build_transform" => {
+                let pos = read_v3(&mut fields, line);
+                let dir = read_v3(&mut fields, line);
+                let mut m = Matrix3D::default();
+                m.build_transform_matrix(pos, dir);
+                check_m3d(&mut fields, m, line);
+            }
+            "rotate_x" | "rotate_y" | "rotate_z" => {
+                let m = read_m3d(&mut fields, line);
+                let angle = hex_f32(&mut fields, line);
+                let mut r = m;
+                match op {
+                    "rotate_x" => r.rotate_x(angle),
+                    "rotate_y" => r.rotate_y(angle),
+                    _ => r.rotate_z(angle),
+                }
+                check_m3d(&mut fields, r, line);
+            }
+            "pre_rotate_x" | "pre_rotate_y" | "pre_rotate_z" => {
+                let m = read_m3d(&mut fields, line);
+                let angle = hex_f32(&mut fields, line);
+                let mut r = m;
+                match op {
+                    "pre_rotate_x" => r.pre_rotate_x(angle),
+                    "pre_rotate_y" => r.pre_rotate_y(angle),
+                    _ => r.pre_rotate_z(angle),
+                }
+                check_m3d(&mut fields, r, line);
+            }
+            "in_place_pre_rotate_x" | "in_place_pre_rotate_y" | "in_place_pre_rotate_z" => {
+                let m = read_m3d(&mut fields, line);
+                let angle = hex_f32(&mut fields, line);
+                let mut r = m;
+                match op {
+                    "in_place_pre_rotate_x" => r.in_place_pre_rotate_x(angle),
+                    "in_place_pre_rotate_y" => r.in_place_pre_rotate_y(angle),
+                    _ => r.in_place_pre_rotate_z(angle),
+                }
+                check_m3d(&mut fields, r, line);
+            }
+            "translate" => {
+                let m = read_m3d(&mut fields, line);
+                let t = read_v3(&mut fields, line);
+                let mut r = m;
+                r.translate_v(t);
+                check_m3d(&mut fields, r, line);
+            }
+            "scale" => {
+                let m = read_m3d(&mut fields, line);
+                let x = hex_f32(&mut fields, line);
+                let y = hex_f32(&mut fields, line);
+                let z = hex_f32(&mut fields, line);
+                let mut r = m;
+                r.scale_xyz(x, y, z);
+                check_m3d(&mut fields, r, line);
+            }
+            "get_x_rotation" | "get_y_rotation" | "get_z_rotation" => {
+                let m = read_m3d(&mut fields, line);
+                let actual = match op {
+                    "get_x_rotation" => m.x_rotation(),
+                    "get_y_rotation" => m.y_rotation(),
+                    _ => m.z_rotation(),
+                };
+                expect_gmath_bits(bits(actual), hex_u32(&mut fields, line), line);
+            }
+            "transform_vector" => {
+                let m = read_m3d(&mut fields, line);
+                let v = read_v3(&mut fields, line);
+                check_v3(&mut fields, m.transform_vector(v), line);
+            }
+            "rotate_vector" => {
+                let m = read_m3d(&mut fields, line);
+                let v = read_v3(&mut fields, line);
+                check_v3(&mut fields, m.rotate_vector(v), line);
+            }
+            "inverse_rotate_vector" => {
+                let m = read_m3d(&mut fields, line);
+                let v = read_v3(&mut fields, line);
+                check_v3(&mut fields, m.inverse_rotate_vector(v), line);
+            }
+            "inverse_transform_vector" => {
+                let m = read_m3d(&mut fields, line);
+                let v = read_v3(&mut fields, line);
+                check_v3(&mut fields, m.inverse_transform_vector(v), line);
+            }
+            "get_inverse" => {
+                let m = read_m3d(&mut fields, line);
+                let det = hex_f32(&mut fields, line);
+                let (actual_det, actual_inv) = Matrix3D::inverse_with_determinant(m);
+                expect_gmath_bits(bits(actual_det), bits(det), &format!("det in {line}"));
+                // re-parse from the token after the determinant: the twelve
+                // inverse floats, or the "-" singular marker
+                let mut reparse = line.split_whitespace();
+                for _ in 0..(2 + 12 + 1) {
+                    reparse.next();
+                }
+                match actual_inv {
+                    Some(inv) => {
+                        let mut probe = reparse.clone();
+                        assert_ne!(probe.next(), Some("-"), "unexpected inverse in {line}");
+                        check_m3d(&mut reparse, inv, line);
+                    }
+                    None => {
+                        assert_eq!(reparse.next(), Some("-"), "expected singular in {line}");
+                    }
+                }
+            }
+            "orthogonal_inverse" => {
+                let m = read_m3d(&mut fields, line);
+                check_m3d(&mut fields, m.get_orthogonal_inverse(), line);
+            }
+            "get_x_vector" => {
+                let m = read_m3d(&mut fields, line);
+                check_v3(&mut fields, m.x_vector(), line);
+            }
+            "transform_minmax_box" => {
+                let m = read_m3d(&mut fields, line);
+                let min = read_v3(&mut fields, line);
+                let max = read_v3(&mut fields, line);
+                let (smin, smax) = m.transform_min_max_aabox(min, max);
+                check_v3(&mut fields, smin, line);
+                check_v3(&mut fields, smax, line);
+            }
+            "transform_centerextent_box" => {
+                let m = read_m3d(&mut fields, line);
+                let center = read_v3(&mut fields, line);
+                let extent = read_v3(&mut fields, line);
+                let (sc, se) = m.transform_center_extent_aabox(center, extent);
+                check_v3(&mut fields, sc, line);
+                check_v3(&mut fields, se, line);
+            }
+            "is_orthogonal" => {
+                let m = read_m3d(&mut fields, line);
+                let expected: u32 = fields.next().unwrap().parse().unwrap();
+                assert_eq!(u32::from(m.is_orthogonal()), expected, "{line}");
+            }
+            "re_orthogonalize" => {
+                let m = read_m3d(&mut fields, line);
+                let mut r = m;
+                r.re_orthogonalize();
+                check_m3d(&mut fields, r, line);
+            }
+            "mul" => {
+                let a = read_m3d(&mut fields, line);
+                let b = read_m3d(&mut fields, line);
+                let mut c = Matrix3D::default();
+                c.mul(a, b);
+                check_m3d(&mut fields, c, line);
+            }
+            "post_mul" => {
+                let a = read_m3d(&mut fields, line);
+                let b = read_m3d(&mut fields, line);
+                let mut r = a;
+                r.post_mul(b);
+                check_m3d(&mut fields, r, line);
+            }
+            "pre_mul" => {
+                let a = read_m3d(&mut fields, line);
+                let b = read_m3d(&mut fields, line);
+                let mut r = b;
+                r.pre_mul(a);
+                check_m3d(&mut fields, r, line);
+            }
+            "chain" => {
+                let m = read_m3d(&mut fields, line);
+                check_v3(&mut fields, m.translation(), line);
+            }
+            "lerp" => {
+                let a = read_m3d(&mut fields, line);
+                let b = read_m3d(&mut fields, line);
+                let factor = hex_f32(&mut fields, line);
+                check_m3d(&mut fields, Matrix3D::lerp(a, b, factor), line);
+            }
+            "solve" => {
+                let system = read_m3d(&mut fields, line);
+                let mut s = system;
+                let ok = Matrix3D::solve_linear_system(&mut s);
+                check_m3d(&mut fields, s, line);
+                let expected: u32 = fields.next().unwrap().parse().unwrap();
+                assert_eq!(u32::from(ok), expected, "{line}");
+            }
+            other => panic!("unknown m3d record {other:?} in {line}"),
+        }
+        checked += 1;
+    }
+
+    assert!(checked > 2800, "suspiciously few records: {checked}");
+    println!("matrix3d golden vectors: {checked} checked");
 }

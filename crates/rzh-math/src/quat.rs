@@ -20,9 +20,11 @@
 //! - `Quaternion::Randomize` uses the C library's global `rand()` —
 //!   hidden global state the migration plan §3.3 bans. Its callers
 //!   (tools) can build a random quaternion from an explicit RNG and
-//!   [`Self::normalize`].
+//!   [`Quaternion::normalize`].
 //! - `Build_Quaternion(const Matrix3D&)` / `(const Matrix4x4&)` and
-//!   `Build_Matrix4` — they arrive with the `Matrix3D`/`Matrix4` port.
+//!   `Build_Matrix4` — the `Matrix3D` side now exists
+//!   ([`crate::matrix3d`], via `Matrix3D::to_matrix3`); the `Matrix4x4`
+//!   overloads arrive with its port.
 //! - `Trackball` — a UI-input helper; deferred to the client phase.
 //!
 //! # Parity level

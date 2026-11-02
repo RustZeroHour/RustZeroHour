@@ -899,6 +899,9 @@ struct Vector4
                 return *this;
         }
 
+        // operator*= (vector4.h), needed by Matrix3D::Solve_Linear_System
+        Vector4 & operator *= (float k) { X = X*k; Y=Y*k; Z=Z*k; W=W*k; return *this; }
+
         static Vector4 Lerp(const Vector4 & a, const Vector4 & b, float alpha)
         {
                 return Vector4(
@@ -1859,6 +1862,744 @@ void Matrix3x3::Set(const Quaternion &q)
         Row[2][1] = (float)(2.0 * (q[1] * q[2] + q[0] * q[3]));
         Row[2][2] = (float)(1.0 - 2.0 * (q[1] * q[1] + q[0] * q[0]));
 }
+
+
+// ---------------------------------------------------------------------------
+// Matrix3D, transcribed verbatim from matrix3d.h / matrix3d.cpp @ 571a7c5
+// (NO_ALLOW_TEMPORARIES — the Zero Hour build defines it unconditionally,
+// so the live surface is mul/postMul/preMul/mulVector3, not operator*).
+// To_D3DMATRIX / To_D3DXMATRIX (DirectX interop) and DynamicMatrix3D (a
+// memory-pool wrapper) are not transcribed.
+// ---------------------------------------------------------------------------
+
+static inline float submul(const Vector4& row, float tmp1, float tmp2, float tmp3)
+{
+        return row.X * tmp1 + row.Y * tmp2 + row.Z * tmp3;
+}
+
+struct Matrix3D
+{
+        Vector4 Row[3];
+
+        Matrix3D() {}
+        explicit Matrix3D(bool init) { if (init) Make_Identity(); }
+        explicit Matrix3D(const Vector3 & position) { Set(position); }
+        explicit Matrix3D(
+                float m11,float m12,float m13,float m14,
+                float m21,float m22,float m23,float m24,
+                float m31,float m32,float m33,float m34)
+        {
+                Set(m11,m12,m13,m14,m21,m22,m23,m24,m31,m32,m33,m34);
+        }
+        explicit Matrix3D(
+                const Vector3 &x, const Vector3 &y, const Vector3 &z, const Vector3 &pos)
+        {
+                Set(x,y,z,pos);
+        }
+        explicit Matrix3D(const Vector3 & axis, float angle) { Set(axis, angle); }
+        explicit Matrix3D(const Vector3 & axis, float sine, float cosine) { Set(axis, sine, cosine); }
+        explicit Matrix3D(const Matrix3x3 & rotation, const Vector3 & position) { Set(rotation, position); }
+        explicit Matrix3D(const Quaternion & rotation, const Vector3 & position) { Set(rotation, position); }
+
+        void Set(
+                float m11,float m12,float m13,float m14,
+                float m21,float m22,float m23,float m24,
+                float m31,float m32,float m33,float m34)
+        {
+                Row[0] = Vector4(m11,m12,m13,m14);
+                Row[1] = Vector4(m21,m22,m23,m24);
+                Row[2] = Vector4(m31,m32,m33,m34);
+        }
+        void Set(const Vector3 &x, const Vector3 &y, const Vector3 &z, const Vector3 &pos)
+        {
+                Row[0] = Vector4(x[0],y[0],z[0],pos[0]);
+                Row[1] = Vector4(x[1],y[1],z[1],pos[1]);
+                Row[2] = Vector4(x[2],y[2],z[2],pos[2]);
+        }
+        void Set(const Vector3 & axis, float angle)
+        {
+                float c = WWCosf(angle);
+                float s = WWSinf(angle);
+                Set(axis, s, c);
+        }
+        void Set(const Vector3 & axis, float s, float c)
+        {
+                Row[0] = Vector4(
+                        (float)(axis[0]*axis[0] + c*(1.0f - axis[0]*axis[0])),
+                        (float)(axis[0]*axis[1]*(1.0f - c) - axis[2]*s),
+                        (float)(axis[2]*axis[0]*(1.0f - c) + axis[1]*s),
+                        0.0f
+                );
+                Row[1] = Vector4(
+                        (float)(axis[0]*axis[1]*(1.0f - c) + axis[2]*s),
+                        (float)(axis[1]*axis[1] + c*(1.0f - axis[1]*axis[1])),
+                        (float)(axis[1]*axis[2]*(1.0f - c) - axis[0]*s),
+                        0.0f
+                );
+                Row[2] = Vector4(
+                        (float)(axis[2]*axis[0]*(1.0f - c) - axis[1]*s),
+                        (float)(axis[1]*axis[2]*(1.0f - c) + axis[0]*s),
+                        (float)(axis[2]*axis[2] + c*(1 - axis[2]*axis[2])),
+                        0.0f
+                );
+        }
+        void Set(const Vector3 & position)
+        {
+                Row[0] = Vector4(1.0f,0.0f,0.0f,position[0]);
+                Row[1] = Vector4(0.0f,1.0f,0.0f,position[1]);
+                Row[2] = Vector4(0.0f,0.0f,1.0f,position[2]);
+        }
+        void Set(const Matrix3x3 & rot, const Vector3 & pos)
+        {
+                Row[0] = Vector4(rot[0][0], rot[0][1], rot[0][2], pos[0]);
+                Row[1] = Vector4(rot[1][0], rot[1][1], rot[1][2], pos[1]);
+                Row[2] = Vector4(rot[2][0], rot[2][1], rot[2][2], pos[2]);
+        }
+        void Set(const Quaternion & rot, const Vector3 & pos)
+        {
+                Set_Rotation(rot);
+                Set_Translation(pos);
+        }
+
+        void Make_Identity()
+        {
+                Row[0] = Vector4(1.0f,0.0f,0.0f,0.0f);
+                Row[1] = Vector4(0.0f,1.0f,0.0f,0.0f);
+                Row[2] = Vector4(0.0f,0.0f,1.0f,0.0f);
+        }
+
+        Vector4 &operator[](int i) { return Row[i]; }
+        const Vector4 &operator[](int i) const { return Row[i]; }
+
+        Vector3 Get_Translation() const { return Vector3(Row[0][3],Row[1][3],Row[2][3]); }
+        void Set_Translation(const Vector3 & t) { Row[0][3] = t[0]; Row[1][3] = t[1]; Row[2][3] = t[2]; }
+
+        void Set_Rotation(const Matrix3x3 & m)
+        {
+                Row[0][0] = m[0][0]; Row[0][1] = m[0][1]; Row[0][2] = m[0][2];
+                Row[1][0] = m[1][0]; Row[1][1] = m[1][1]; Row[1][2] = m[1][2];
+                Row[2][0] = m[2][0]; Row[2][1] = m[2][1]; Row[2][2] = m[2][2];
+        }
+        void Set_Rotation(const Quaternion & q)
+        {
+                Row[0][0] = (float)(1.0 - 2.0 * (q[1] * q[1] + q[2] * q[2]));
+                Row[0][1] = (float)(2.0 * (q[0] * q[1] - q[2] * q[3]));
+                Row[0][2] = (float)(2.0 * (q[2] * q[0] + q[1] * q[3]));
+                Row[1][0] = (float)(2.0 * (q[0] * q[1] + q[2] * q[3]));
+                Row[1][1] = (float)(1.0 - 2.0f * (q[2] * q[2] + q[0] * q[0]));
+                Row[1][2] = (float)(2.0 * (q[1] * q[2] - q[0] * q[3]));
+                Row[2][0] = (float)(2.0 * (q[2] * q[0] - q[1] * q[3]));
+                Row[2][1] = (float)(2.0 * (q[1] * q[2] + q[0] * q[3]));
+                Row[2][2] =(float)(1.0 - 2.0 * (q[1] * q[1] + q[0] * q[0]));
+        }
+
+        float Get_X_Rotation() const { return WWAtan2f(Row[2][1], Row[1][1]); }
+        float Get_Y_Rotation() const { return WWAtan2f(Row[0][2], Row[2][2]); }
+        float Get_Z_Rotation() const { return WWAtan2f(Row[1][0], Row[0][0]); }
+
+        Vector3 Get_X_Vector() const { return Vector3(Row[0][0], Row[1][0], Row[2][0]); }
+
+        void Translate(float x,float y,float z)
+        {
+                Row[0][3] += (float)(Row[0][0]*x + Row[0][1]*y + Row[0][2]*z);
+                Row[1][3] += (float)(Row[1][0]*x + Row[1][1]*y + Row[1][2]*z);
+                Row[2][3] += (float)(Row[2][0]*x + Row[2][1]*y + Row[2][2]*z);
+        }
+        void Translate(const Vector3 &t)
+        {
+                Row[0][3] += Row[0][0]*t[0] + Row[0][1]*t[1] + Row[0][2]*t[2];
+                Row[1][3] += Row[1][0]*t[0] + Row[1][1]*t[1] + Row[1][2]*t[2];
+                Row[2][3] += Row[2][0]*t[0] + Row[2][1]*t[1] + Row[2][2]*t[2];
+        }
+
+        void Rotate_X(float theta)
+        {
+                float s = WWSinf(theta);
+                float c = WWCosf(theta);
+                Rotate_X(s, c);
+        }
+        void Rotate_X(float s,float c)
+        {
+                float tmp1,tmp2;
+                tmp1 = Row[0][1]; tmp2 = Row[0][2];
+                Row[0][1] = (float)( c*tmp1 + s*tmp2);
+                Row[0][2] = (float)(-s*tmp1 + c*tmp2);
+                tmp1 = Row[1][1]; tmp2 = Row[1][2];
+                Row[1][1] = (float)( c*tmp1 + s*tmp2);
+                Row[1][2] = (float)(-s*tmp1 + c*tmp2);
+                tmp1 = Row[2][1]; tmp2 = Row[2][2];
+                Row[2][1] = (float)( c*tmp1 + s*tmp2);
+                Row[2][2] = (float)(-s*tmp1 + c*tmp2);
+        }
+        void Rotate_Y(float theta)
+        {
+                float s = WWSinf(theta);
+                float c = WWCosf(theta);
+                Rotate_Y(s, c);
+        }
+        void Rotate_Y(float s,float c)
+        {
+                float tmp1,tmp2;
+                tmp1 = Row[0][0]; tmp2 = Row[0][2];
+                Row[0][0] = (float)(c*tmp1 - s*tmp2);
+                Row[0][2] = (float)(s*tmp1 + c*tmp2);
+                tmp1 = Row[1][0]; tmp2 = Row[1][2];
+                Row[1][0] = (float)(c*tmp1 - s*tmp2);
+                Row[1][2] = (float)(s*tmp1 + c*tmp2);
+                tmp1 = Row[2][0]; tmp2 = Row[2][2];
+                Row[2][0] = (float)(c*tmp1 - s*tmp2);
+                Row[2][2] = (float)(s*tmp1 + c*tmp2);
+        }
+        void Rotate_Z(float theta)
+        {
+                float c = WWCosf(theta);
+                float s = WWSinf(theta);
+                Rotate_Z(s, c);
+        }
+        void Rotate_Z(float s,float c)
+        {
+                float tmp1,tmp2;
+                tmp1 = Row[0][0]; tmp2 = Row[0][1];
+                Row[0][0] = (float)( c*tmp1 + s*tmp2);
+                Row[0][1] = (float)(-s*tmp1 + c*tmp2);
+                tmp1 = Row[1][0]; tmp2 = Row[1][1];
+                Row[1][0] = (float)( c*tmp1 + s*tmp2);
+                Row[1][1] = (float)(-s*tmp1 + c*tmp2);
+                tmp1 = Row[2][0]; tmp2 = Row[2][1];
+                Row[2][0] = (float)( c*tmp1 + s*tmp2);
+                Row[2][1] = (float)(-s*tmp1 + c*tmp2);
+        }
+
+        void Scale(float scale)
+        {
+                Row[0][0] *= scale; Row[1][0] *= scale; Row[2][0] *= scale;
+                Row[0][1] *= scale; Row[1][1] *= scale; Row[2][1] *= scale;
+                Row[0][2] *= scale; Row[1][2] *= scale; Row[2][2] *= scale;
+        }
+        void Scale(float x, float y, float z)
+        {
+                Row[0][0] *= x; Row[1][0] *= x; Row[2][0] *= x;
+                Row[0][1] *= y; Row[1][1] *= y; Row[2][1] *= y;
+                Row[0][2] *= z; Row[1][2] *= z; Row[2][2] *= z;
+        }
+
+        void Pre_Rotate_X(float theta)
+        {
+                float c = WWCosf(theta);
+                float s = WWSinf(theta);
+                Pre_Rotate_X(s, c);
+        }
+        void Pre_Rotate_X(float s,float c)
+        {
+                float tmp1,tmp2;
+                tmp1 = Row[1][0]; tmp2 = Row[2][0];
+                Row[1][0] = (float)(c*tmp1 - s*tmp2);
+                Row[2][0] = (float)(s*tmp1 + c*tmp2);
+                tmp1 = Row[1][1]; tmp2 = Row[2][1];
+                Row[1][1] = (float)(c*tmp1 - s*tmp2);
+                Row[2][1] = (float)(s*tmp1 + c*tmp2);
+                tmp1 = Row[1][2]; tmp2 = Row[2][2];
+                Row[1][2] = (float)(c*tmp1 - s*tmp2);
+                Row[2][2] = (float)(s*tmp1 + c*tmp2);
+                tmp1 = Row[1][3]; tmp2 = Row[2][3];
+                Row[1][3] = (float)(c*tmp1 - s*tmp2);
+                Row[2][3] = (float)(s*tmp1 + c*tmp2);
+        }
+        void Pre_Rotate_Y(float theta)
+        {
+                float c = WWCosf(theta);
+                float s = WWSinf(theta);
+                Pre_Rotate_Y(s, c);
+        }
+        void Pre_Rotate_Y(float s,float c)
+        {
+                float tmp1,tmp2;
+                tmp1 = Row[0][0]; tmp2 = Row[2][0];
+                Row[0][0] = (float)( c*tmp1 + s*tmp2);
+                Row[2][0] = (float)(-s*tmp1 + c*tmp2);
+                tmp1 = Row[0][1]; tmp2 = Row[2][1];
+                Row[0][1] = (float)( c*tmp1 + s*tmp2);
+                Row[2][1] = (float)(-s*tmp1 + c*tmp2);
+                tmp1 = Row[0][2]; tmp2 = Row[2][2];
+                Row[0][2] = (float)( c*tmp1 + s*tmp2);
+                Row[2][2] = (float)(-s*tmp1 + c*tmp2);
+                tmp1 = Row[0][3]; tmp2 = Row[2][3];
+                Row[0][3] = (float)( c*tmp1 + s*tmp2);
+                Row[2][3] = (float)(-s*tmp1 + c*tmp2);
+        }
+        void Pre_Rotate_Z(float theta)
+        {
+                float c = WWCosf(theta);
+                float s = WWSinf(theta);
+                Pre_Rotate_Z(s, c);
+        }
+        void Pre_Rotate_Z(float s,float c)
+        {
+                float tmp1,tmp2;
+                tmp1 = Row[0][0]; tmp2 = Row[1][0];
+                Row[0][0] = (float)(c*tmp1 - s*tmp2);
+                Row[1][0] = (float)(s*tmp1 + c*tmp2);
+                tmp1 = Row[0][1]; tmp2 = Row[1][1];
+                Row[0][1] = (float)(c*tmp1 - s*tmp2);
+                Row[1][1] = (float)(s*tmp1 + c*tmp2);
+                tmp1 = Row[0][2]; tmp2 = Row[1][2];
+                Row[0][2] = (float)(c*tmp1 - s*tmp2);
+                Row[1][2] = (float)(s*tmp1 + c*tmp2);
+                tmp1 = Row[0][3]; tmp2 = Row[1][3];
+                Row[0][3] = (float)(c*tmp1 - s*tmp2);
+                Row[1][3] = (float)(s*tmp1 + c*tmp2);
+        }
+        void In_Place_Pre_Rotate_X(float theta)
+        {
+                float c = WWCosf(theta);
+                float s = WWSinf(theta);
+                In_Place_Pre_Rotate_X(s, c);
+        }
+        void In_Place_Pre_Rotate_X(float s,float c)
+        {
+                float tmp1,tmp2;
+                tmp1 = Row[1][0]; tmp2 = Row[2][0];
+                Row[1][0] = (float)(c*tmp1 - s*tmp2);
+                Row[2][0] = (float)(s*tmp1 + c*tmp2);
+                tmp1 = Row[1][1]; tmp2 = Row[2][1];
+                Row[1][1] = (float)(c*tmp1 - s*tmp2);
+                Row[2][1] = (float)(s*tmp1 + c*tmp2);
+                tmp1 = Row[1][2]; tmp2 = Row[2][2];
+                Row[1][2] = (float)(c*tmp1 - s*tmp2);
+                Row[2][2] = (float)(s*tmp1 + c*tmp2);
+        }
+        void In_Place_Pre_Rotate_Y(float theta)
+        {
+                float c = WWCosf(theta);
+                float s = WWSinf(theta);
+                In_Place_Pre_Rotate_Y(s, c);
+        }
+        void In_Place_Pre_Rotate_Y(float s,float c)
+        {
+                float tmp1,tmp2;
+                tmp1 = Row[0][0]; tmp2 = Row[2][0];
+                Row[0][0] = (float)( c*tmp1 + s*tmp2);
+                Row[2][0] = (float)(-s*tmp1 + c*tmp2);
+                tmp1 = Row[0][1]; tmp2 = Row[2][1];
+                Row[0][1] = (float)( c*tmp1 + s*tmp2);
+                Row[2][1] = (float)(-s*tmp1 + c*tmp2);
+                tmp1 = Row[0][2]; tmp2 = Row[2][2];
+                Row[0][2] = (float)( c*tmp1 + s*tmp2);
+                Row[2][2] = (float)(-s*tmp1 + c*tmp2);
+        }
+        void In_Place_Pre_Rotate_Z(float theta)
+        {
+                float c = WWCosf(theta);
+                float s = WWSinf(theta);
+                In_Place_Pre_Rotate_Z(s, c);
+        }
+        void In_Place_Pre_Rotate_Z(float s,float c)
+        {
+                float tmp1,tmp2;
+                tmp1 = Row[0][0]; tmp2 = Row[1][0];
+                Row[0][0] = (float)(c*tmp1 - s*tmp2);
+                Row[1][0] = (float)(s*tmp1 + c*tmp2);
+                tmp1 = Row[0][1]; tmp2 = Row[1][1];
+                Row[0][1] = (float)(c*tmp1 - s*tmp2);
+                Row[1][1] = (float)(s*tmp1 + c*tmp2);
+                tmp1 = Row[0][2]; tmp2 = Row[1][2];
+                Row[0][2] = (float)(c*tmp1 - s*tmp2);
+                Row[1][2] = (float)(s*tmp1 + c*tmp2);
+        }
+
+        Vector3 Rotate_Vector(const Vector3 &vect) const
+        {
+                return Vector3(
+                        (Row[0][0]*vect[0] + Row[0][1]*vect[1] + Row[0][2]*vect[2]),
+                        (Row[1][0]*vect[0] + Row[1][1]*vect[1] + Row[1][2]*vect[2]),
+                        (Row[2][0]*vect[0] + Row[2][1]*vect[1] + Row[2][2]*vect[2])
+                );
+        }
+        Vector3 Inverse_Rotate_Vector(const Vector3 &vect) const
+        {
+                return Vector3(
+                        (Row[0][0]*vect[0] + Row[1][0]*vect[1] + Row[2][0]*vect[2]),
+                        (Row[0][1]*vect[0] + Row[1][1]*vect[1] + Row[2][1]*vect[2]),
+                        (Row[0][2]*vect[0] + Row[1][2]*vect[1] + Row[2][2]*vect[2])
+                );
+        }
+
+        void mulVector3(const Vector3& in, Vector3& out) const
+        {
+                float x = (Row[0].X * in.X + Row[0].Y * in.Y + Row[0].Z * in.Z + Row[0].W);
+                float y = (Row[1].X * in.X + Row[1].Y * in.Y + Row[1].Z * in.Z + Row[1].W);
+                float z = (Row[2].X * in.X + Row[2].Y * in.Y + Row[2].Z * in.Z + Row[2].W);
+                out = Vector3(x, y, z); // out.Set(x, y, z)
+        }
+        static void Inverse_Transform_Vector(const Matrix3D & A,const Vector3 & in,Vector3 * out)
+        {
+                Vector3 diff(in.X - A[0][3], in.Y - A[1][3], in.Z - A[2][3]);
+                Inverse_Rotate_Vector(A, diff, out);
+        }
+        static void Inverse_Rotate_Vector(const Matrix3D & A,const Vector3 & in,Vector3 * out)
+        {
+                out->X = (A[0][0] * in.X + A[1][0] * in.Y + A[2][0] * in.Z);
+                out->Y = (A[0][1] * in.X + A[1][1] * in.Y + A[2][1] * in.Z);
+                out->Z = (A[0][2] * in.X + A[1][2] * in.Y + A[2][2] * in.Z);
+        }
+
+        void Look_At(const Vector3 &p,const Vector3 &t,float roll)
+        {
+                Vector3 dir(t - p);
+                dir.Normalize();
+                Look_At_Dir(p, dir, roll);
+        }
+        void Look_At_Dir(const Vector3 &pos, const Vector3 &dir, float roll)
+        {
+                float sinp, cosp;
+                float siny, cosy;
+
+                float dx = dir.X;
+                float dy = dir.Y;
+                float dz = dir.Z;
+
+                float len2 = WWSqrtf(dx*dx + dy*dy);
+
+                sinp = dz;
+                cosp = len2;
+
+                if (len2 != 0.0f) {
+                        siny = dy/len2;
+                        cosy = dx/len2;
+                } else {
+                        siny = 0.0f;
+                        cosy = 1.0f;
+                }
+
+                Row[0].X = 0.0f;  Row[0].Y = 0.0f;  Row[0].Z = -1.0f;
+                Row[1].X = -1.0f; Row[1].Y = 0.0f;  Row[1].Z = 0.0f;
+                Row[2].X = 0.0f;  Row[2].Y = 1.0f;  Row[2].Z = 0.0f;
+
+                Row[0].W = pos.X;
+                Row[1].W = pos.Y;
+                Row[2].W = pos.Z;
+
+                Rotate_Y(siny,cosy);
+                Rotate_X(sinp,cosp);
+                Rotate_Z(-roll);
+        }
+        void Obj_Look_At(const Vector3 &p,const Vector3 &t,float roll)
+        {
+                float dx,dy,dz;
+                float len1,len2;
+                float sinp,cosp;
+                float siny,cosy;
+
+                dx = (t[0] - p[0]);
+                dy = (t[1] - p[1]);
+                dz = (t[2] - p[2]);
+
+                len1 = (float)WWSqrtf(dx*dx + dy*dy + dz*dz);
+                len2 = (float)WWSqrtf(dx*dx + dy*dy);
+
+                if (len1 != 0.0f) {
+                        sinp = dz/len1;
+                        cosp = len2/len1;
+                } else {
+                        sinp = 0.0f;
+                        cosp = 1.0f;
+                }
+
+                if (len2 != 0.0f) {
+                        siny = dy/len2;
+                        cosy = dx/len2;
+                } else {
+                        siny = 0.0f;
+                        cosy = 1.0f;
+                }
+
+                Make_Identity();
+                Translate(p);
+
+                Rotate_Z(siny,cosy);
+                Rotate_Y(-sinp,cosp);
+                Rotate_X(roll);
+        }
+        void buildTransformMatrix( const Vector3 &pos, const Vector3 &dir )
+        {
+                float sinp, cosp;
+                float siny, cosy;
+
+                float len2 = (float)WWSqrtf( (dir.X * dir.X) + (dir.Y * dir.Y) );
+
+                sinp = dir.Z;
+                cosp = len2;
+
+                if( len2 != 0.0f )
+                {
+                        siny = dir.Y / len2;
+                        cosy = dir.X / len2;
+                }
+                else
+                {
+                        siny = 0.0f;
+                        cosy = 1.0f;
+                }
+
+                Make_Identity();
+                Translate( pos );
+
+                Rotate_Z( siny, cosy );
+                Rotate_Y( -sinp, cosp );
+        }
+
+        static Matrix3D * Get_Inverse(Matrix3D * out, float * detOut, const Matrix3D * m)
+        {
+                const float m00 = m->Row[0][0], m01 = m->Row[1][0], m02 = m->Row[2][0];
+                const float m10 = m->Row[0][1], m11 = m->Row[1][1], m12 = m->Row[2][1];
+                const float m20 = m->Row[0][2], m21 = m->Row[1][2], m22 = m->Row[2][2];
+
+                const float tx = m->Row[0][3];
+                const float ty = m->Row[1][3];
+                const float tz = m->Row[2][3];
+
+                const float s0 = m00 * m11 - m10 * m01;
+                const float s1 = m00 * m12 - m10 * m02;
+                const float s3 = m01 * m12 - m11 * m02;
+
+                const float c5 = m22;
+                const float c4 = m21;
+                const float c2 = m20;
+
+                const float c3 = m21 * tz - ty * m22;
+                const float c1 = m20 * tz - tx * m22;
+                const float c0 = m20 * ty - tx * m21;
+
+                const float det = s0 * c5 - s1 * c4 + s3 * c2;
+
+                if (detOut)
+                        *detOut = det;
+
+                if (WWFabsf(det) < 1e-8f)
+                        return NULL;
+
+                const float invDet = 1.0f / det;
+
+                out->Row[0][0] = ( m11 * c5 - m12 * c4) * invDet;
+                out->Row[1][0] = (-m01 * c5 + m02 * c4) * invDet;
+                out->Row[2][0] = (                  s3) * invDet;
+
+                out->Row[0][1] = (-m10 * c5 + m12 * c2) * invDet;
+                out->Row[1][1] = ( m00 * c5 - m02 * c2) * invDet;
+                out->Row[2][1] = (                 -s1) * invDet;
+
+                out->Row[0][2] = ( m10 * c4 - m11 * c2) * invDet;
+                out->Row[1][2] = (-m00 * c4 + m01 * c2) * invDet;
+                out->Row[2][2] = (                  s0) * invDet;
+
+                out->Row[0][3] = (-m10 * c3 + m11 * c1 - m12 * c0) * invDet;
+                out->Row[1][3] = ( m00 * c3 - m01 * c1 + m02 * c0) * invDet;
+                out->Row[2][3] = (-tx  * s3 + ty  * s1 - tz  * s0) * invDet;
+
+                return out;
+        }
+        void Get_Orthogonal_Inverse(Matrix3D & inv) const
+        {
+                inv.Row[0][0] = Row[0][0];
+                inv.Row[0][1] = Row[1][0];
+                inv.Row[0][2] = Row[2][0];
+
+                inv.Row[1][0] = Row[0][1];
+                inv.Row[1][1] = Row[1][1];
+                inv.Row[1][2] = Row[2][1];
+
+                inv.Row[2][0] = Row[0][2];
+                inv.Row[2][1] = Row[1][2];
+                inv.Row[2][2] = Row[2][2];
+
+                Vector3 trans = Get_Translation();
+                trans = inv.Rotate_Vector(trans);
+                trans = Vector3(-trans.X, -trans.Y, -trans.Z);
+
+                inv.Row[0][3] = trans[0];
+                inv.Row[1][3] = trans[1];
+                inv.Row[2][3] = trans[2];
+        }
+
+        void Transform_Min_Max_AABox(
+                const Vector3 &min, const Vector3 &max,
+                Vector3 *set_min, Vector3 *set_max) const
+        {
+                float tmp0,tmp1;
+
+                set_min->X = set_max->X = Row[0][3];
+                set_min->Y = set_max->Y = Row[1][3];
+                set_min->Z = set_max->Z = Row[2][3];
+
+                for (int i=0; i<3; i++) {
+                        for (int j=0; j<3; j++) {
+                                tmp0 = Row[i][j] * min[j];
+                                tmp1 = Row[i][j] * max[j];
+                                if (tmp0 < tmp1) {
+                                        (*set_min)[i] += tmp0;
+                                        (*set_max)[i] += tmp1;
+                                } else {
+                                        (*set_min)[i] += tmp1;
+                                        (*set_max)[i] += tmp0;
+                                }
+                        }
+                }
+        }
+        void Transform_Center_Extent_AABox(
+                const Vector3 &center, const Vector3 &extent,
+                Vector3 *set_center, Vector3 *set_extent) const
+        {
+                for (int i=0; i<3; i++) {
+                        (*set_center)[i] = Row[i][3];
+                        (*set_extent)[i] = 0.0f;
+                        for (int j=0; j<3; j++) {
+                                (*set_center)[i] += Row[i][j] * center[j];
+                                (*set_extent)[i] += WWFabsf(Row[i][j] * extent[j]);
+                        }
+                }
+        }
+
+        int Is_Orthogonal() const
+        {
+                Vector3 x(Row[0].X,Row[0].Y,Row[0].Z);
+                Vector3 y(Row[1].X,Row[1].Y,Row[1].Z);
+                Vector3 z(Row[2].X,Row[2].Y,Row[2].Z);
+
+                // Vector3::Dot_Product(a,b) == a * b in this transcription
+                if ((x * y) > WWMATH_EPSILON) return 0;
+                if ((y * z) > WWMATH_EPSILON) return 0;
+                if ((z * x) > WWMATH_EPSILON) return 0;
+
+                if (WWFabsf(x.Length2() - 1.0f) > WWMATH_EPSILON) return 0;
+                if (WWFabsf(y.Length2() - 1.0f) > WWMATH_EPSILON) return 0;
+                if (WWFabsf(z.Length2() - 1.0f) > WWMATH_EPSILON) return 0;
+
+                return 1;
+        }
+
+        void Re_Orthogonalize()
+        {
+                Vector3 x(Row[0][0],Row[0][1],Row[0][2]);
+                Vector3 y(Row[1][0],Row[1][1],Row[1][2]);
+                Vector3 z;
+
+                Vector3::Cross_Product(x,y,&z);
+                Vector3::Cross_Product(z,x,&y);
+
+                float len = x.Length();
+                if (len < WWMATH_EPSILON) {
+                        Make_Identity();
+                        return;
+                } else {
+                        x = x * (1.0f/len);
+                }
+
+                len = y.Length();
+                if (len < WWMATH_EPSILON) {
+                        Make_Identity();
+                        return;
+                } else {
+                        y = y * (1.0f/len);
+                }
+
+                len = z.Length();
+                if (len < WWMATH_EPSILON) {
+                        Make_Identity();
+                        return;
+                } else {
+                        z = z * (1.0f/len);
+                }
+
+                Row[0][0] = x.X; Row[0][1] = x.Y; Row[0][2] = x.Z;
+                Row[1][0] = y.X; Row[1][1] = y.Y; Row[1][2] = y.Z;
+                Row[2][0] = z.X; Row[2][1] = z.Y; Row[2][2] = z.Z;
+        }
+
+        static void Lerp(const Matrix3D &A, const Matrix3D &B, float factor, Matrix3D& result)
+        {
+                Vector3 pos;
+                Vector3::Lerp(A.Get_Translation(), B.Get_Translation(), factor, &pos);
+                Quaternion rot;
+                Matrix3x3 a3, b3;
+                a3.Set(A.Row[0][0], A.Row[0][1], A.Row[0][2],
+                           A.Row[1][0], A.Row[1][1], A.Row[1][2],
+                           A.Row[2][0], A.Row[2][1], A.Row[2][2]);
+                b3.Set(B.Row[0][0], B.Row[0][1], B.Row[0][2],
+                           B.Row[1][0], B.Row[1][1], B.Row[1][2],
+                           B.Row[2][0], B.Row[2][1], B.Row[2][2]);
+                Slerp(rot, Build_Quaternion(a3), Build_Quaternion(b3), factor);
+                result.Set(rot, pos);
+        }
+
+        static bool Solve_Linear_System(Matrix3D & system)
+        {
+                if (system[0][0] == 0.0f) return false;
+                system[0] *= 1.0f / system[0][0];
+                system[1] -= system[1][0] * system[0];
+                system[2] -= system[2][0] * system[0];
+
+                if (system[1][1] == 0.0f) return false;
+                system[1] *= 1.0f / system[1][1];
+                system[2] -= system[2][1] * system[1];
+
+                if (system[2][2] == 0.0f) return false;
+                system[2] *= 1.0f / system[2][2];
+
+                system[1] -= system[1][2] * system[2];
+                system[0] -= system[0][2] * system[2];
+
+                system[0] -= system[0][1] * system[1];
+
+                return true;
+        }
+
+        // does "this = that * this"
+        void preMul(const Matrix3D& that)
+        {
+                this->mul(that, *this);
+        }
+
+        // does "this = this * that"
+        void postMul(const Matrix3D& that)
+        {
+                Matrix3D tmp = *this;
+                this->mul(tmp, that);
+        }
+
+        // does "this = a * b"
+        void mul(const Matrix3D& A, const Matrix3D& B)
+        {
+                float tmp1,tmp2,tmp3;
+
+                tmp1 = B.Row[0].X;
+                tmp2 = B.Row[1].X;
+                tmp3 = B.Row[2].X;
+                this->Row[0].X = submul(A.Row[0], tmp1, tmp2, tmp3);
+                this->Row[1].X = submul(A.Row[1], tmp1, tmp2, tmp3);
+                this->Row[2].X = submul(A.Row[2], tmp1, tmp2, tmp3);
+
+                tmp1 = B.Row[0].Y;
+                tmp2 = B.Row[1].Y;
+                tmp3 = B.Row[2].Y;
+                this->Row[0].Y = submul(A.Row[0], tmp1, tmp2, tmp3);
+                this->Row[1].Y = submul(A.Row[1], tmp1, tmp2, tmp3);
+                this->Row[2].Y = submul(A.Row[2], tmp1, tmp2, tmp3);
+
+                tmp1 = B.Row[0].Z;
+                tmp2 = B.Row[1].Z;
+                tmp3 = B.Row[2].Z;
+                this->Row[0].Z = submul(A.Row[0], tmp1, tmp2, tmp3);
+                this->Row[1].Z = submul(A.Row[1], tmp1, tmp2, tmp3);
+                this->Row[2].Z = submul(A.Row[2], tmp1, tmp2, tmp3);
+
+                tmp1 = B.Row[0].W;
+                tmp2 = B.Row[1].W;
+                tmp3 = B.Row[2].W;
+                this->Row[0].W = submul(A.Row[0], tmp1, tmp2, tmp3) + A.Row[0].W;
+                this->Row[1].W = submul(A.Row[1], tmp1, tmp2, tmp3) + A.Row[1].W;
+                this->Row[2].W = submul(A.Row[2], tmp1, tmp2, tmp3) + A.Row[2].W;
+        }
+};
 
 // ---------------------------------------------------------------------------
 // Golden vector generation. Deterministic: a fixed LCG produces the test
@@ -2921,6 +3662,440 @@ static void generateMatrixQuatGolden( FILE *out )
         }
 }
 
+
+// ---------------------------------------------------------------------------
+// Matrix3D golden vectors: every record drives the verbatim transcription
+// above. The float bit patterns pin the exact results, quirks included
+// (the Vector4 operator-= W-column quirk flows into solve_linear_system).
+// ---------------------------------------------------------------------------
+
+static void writeM3DIn( FILE *out, const Matrix3D &m )
+{
+        fprintf(out, "%08x %08x %08x %08x %08x %08x %08x %08x %08x %08x %08x %08x",
+                floatBits(m[0][0]), floatBits(m[0][1]), floatBits(m[0][2]), floatBits(m[0][3]),
+                floatBits(m[1][0]), floatBits(m[1][1]), floatBits(m[1][2]), floatBits(m[1][3]),
+                floatBits(m[2][0]), floatBits(m[2][1]), floatBits(m[2][2]), floatBits(m[2][3]));
+}
+
+static Matrix3D lcgM3D( void )
+{
+        Matrix3D m(true);
+        // every 8th LCG draw is large so most inputs are "wild"
+        float vals[12];
+        for (int i = 0; i < 12; i++)
+        {
+                vals[i] = (i % 8 == 0) ? (float)lcgWord() * 64.0f : ((int)(lcgWord() % 2000) - 1000) * 0.001f;
+        }
+        m.Set(vals[0], vals[1], vals[2], vals[3],
+                 vals[4], vals[5], vals[6], vals[7],
+                 vals[8], vals[9], vals[10], vals[11]);
+        return m;
+}
+
+static void generateMatrix3DGolden( FILE *out )
+{
+        fprintf(out, "\n# Matrix3D golden vectors (parity level P0), transcribed from\n");
+        fprintf(out, "# matrix3d.{h,cpp} @ 571a7c5 (NO_ALLOW_TEMPORARIES branch, the\n");
+        fprintf(out, "# Zero Hour build; Vector4's operator-= W-column quirk flows into\n");
+        fprintf(out, "# solve_linear_system and is pinned verbatim).\n\n");
+
+        resetLcg(0x5eed3d3du);
+
+        float angles[] = {
+                0.0f, 0.25f, -0.25f, 1.0f, -1.0f, 1.5f, -2.5f,
+                3.14159265f, 1.5707963f, -3.14159265f, 6.2831853f, 100.0f,
+        };
+        const int NUM_ANGLES = sizeof(angles) / sizeof(angles[0]);
+
+        Vector3 axes[] = {
+                Vector3(1.0f, 0.0f, 0.0f),
+                Vector3(0.0f, 1.0f, 0.0f),
+                Vector3(0.0f, 0.0f, 1.0f),
+                Vector3(1.0f, 1.0f, 0.0f),
+                Vector3(1.0f, 1.0f, 1.0f),
+                Vector3(-1.0f, 2.0f, -0.5f),
+        };
+        const int NUM_AXES = sizeof(axes) / sizeof(axes[0]);
+
+        // ---- constructors and the look-at family ---------------------------
+        for (int a = 0; a < NUM_AXES; a++)
+        {
+                for (int t = 0; t < NUM_ANGLES; t++)
+                {
+                        const Vector3 &axis = axes[a];
+                        float angle = angles[t];
+
+                        Matrix3D m(axis, angle);
+                        fprintf(out, "m3d from_axis_angle ");
+                        writeV3(out, axis);
+                        fprintf(out, " %08x ", floatBits(angle));
+                        writeM3DIn(out, m);
+                        fprintf(out, "\n");
+
+                        Matrix3D msc(axis, WWSinf(angle), WWCosf(angle));
+                        fprintf(out, "m3d from_axis_angle_sc ");
+                        writeV3(out, axis);
+                        fprintf(out, " %08x %08x ", floatBits(WWSinf(angle)), floatBits(WWCosf(angle)));
+                        writeM3DIn(out, msc);
+                        fprintf(out, "\n");
+
+                        Quaternion q(axis, angle);
+                        Matrix3D mq(q, Vector3(1.0f, -2.0f, 3.5f));
+                        fprintf(out, "m3d from_quat_pos ");
+                        writeQuat(out, q);
+                        fprintf(out, " ");
+                        writeV3(out, Vector3(1.0f, -2.0f, 3.5f));
+                        fprintf(out, " ");
+                        writeM3DIn(out, mq);
+                        fprintf(out, "\n");
+
+                        Matrix3D la;
+                        la.Look_At(Vector3(0.0f, 0.0f, 0.0f), axis * 10.0f, angle);
+                        fprintf(out, "m3d look_at ");
+                        writeV3(out, Vector3(0.0f, 0.0f, 0.0f));
+                        fprintf(out, " ");
+                        writeV3(out, axis * 10.0f);
+                        fprintf(out, " %08x ", floatBits(angle));
+                        writeM3DIn(out, la);
+                        fprintf(out, "\n");
+
+                        Matrix3D ola;
+                        ola.Obj_Look_At(Vector3(1.0f, 2.0f, 3.0f), axis * 10.0f, angle);
+                        fprintf(out, "m3d obj_look_at ");
+                        writeV3(out, Vector3(1.0f, 2.0f, 3.0f));
+                        fprintf(out, " ");
+                        writeV3(out, axis * 10.0f);
+                        fprintf(out, " %08x ", floatBits(angle));
+                        writeM3DIn(out, ola);
+                        fprintf(out, "\n");
+
+                        Matrix3D btm;
+                        btm.buildTransformMatrix(Vector3(-1.0f, 0.5f, 2.0f), axis);
+                        fprintf(out, "m3d build_transform ");
+                        writeV3(out, Vector3(-1.0f, 0.5f, 2.0f));
+                        fprintf(out, " ");
+                        writeV3(out, axis);
+                        fprintf(out, " ");
+                        writeM3DIn(out, btm);
+                        fprintf(out, "\n");
+                }
+        }
+
+        // look_at_dir with a pure-up direction (the len2 == 0 branch)
+        {
+                Matrix3D lad;
+                lad.Look_At_Dir(Vector3(1.0f, 2.0f, 3.0f), Vector3(0.0f, 0.0f, 1.0f), 0.5f);
+                fprintf(out, "m3d look_at_dir ");
+                writeV3(out, Vector3(1.0f, 2.0f, 3.0f));
+                fprintf(out, " ");
+                writeV3(out, Vector3(0.0f, 0.0f, 1.0f));
+                fprintf(out, " %08x ", floatBits(0.5f));
+                writeM3DIn(out, lad);
+                fprintf(out, "\n");
+        }
+
+        // ---- rotations, translations, scales, inverses on raw matrices -----
+        for (int i = 0; i < 90; i++)
+        {
+                Matrix3D m = lcgM3D();
+                float ang = angles[i % NUM_ANGLES];
+                float ang2 = angles[(i + 3) % NUM_ANGLES];
+                float ang3 = angles[(i + 5) % NUM_ANGLES];
+
+                Matrix3D rx = m; rx.Rotate_X(ang);
+                fprintf(out, "m3d rotate_x ");
+                writeM3DIn(out, m);
+                fprintf(out, " %08x ", floatBits(ang));
+                writeM3DIn(out, rx);
+                fprintf(out, "\n");
+
+                Matrix3D ry = m; ry.Rotate_Y(ang);
+                fprintf(out, "m3d rotate_y ");
+                writeM3DIn(out, m);
+                fprintf(out, " %08x ", floatBits(ang));
+                writeM3DIn(out, ry);
+                fprintf(out, "\n");
+
+                Matrix3D rz = m; rz.Rotate_Z(ang);
+                fprintf(out, "m3d rotate_z ");
+                writeM3DIn(out, m);
+                fprintf(out, " %08x ", floatBits(ang));
+                writeM3DIn(out, rz);
+                fprintf(out, "\n");
+
+                Matrix3D prx = m; prx.Pre_Rotate_X(ang2);
+                fprintf(out, "m3d pre_rotate_x ");
+                writeM3DIn(out, m);
+                fprintf(out, " %08x ", floatBits(ang2));
+                writeM3DIn(out, prx);
+                fprintf(out, "\n");
+
+                Matrix3D pry = m; pry.Pre_Rotate_Y(ang2);
+                fprintf(out, "m3d pre_rotate_y ");
+                writeM3DIn(out, m);
+                fprintf(out, " %08x ", floatBits(ang2));
+                writeM3DIn(out, pry);
+                fprintf(out, "\n");
+
+                Matrix3D prz = m; prz.Pre_Rotate_Z(ang2);
+                fprintf(out, "m3d pre_rotate_z ");
+                writeM3DIn(out, m);
+                fprintf(out, " %08x ", floatBits(ang2));
+                writeM3DIn(out, prz);
+                fprintf(out, "\n");
+
+                Matrix3D ipx = m; ipx.In_Place_Pre_Rotate_X(ang3);
+                fprintf(out, "m3d in_place_pre_rotate_x ");
+                writeM3DIn(out, m);
+                fprintf(out, " %08x ", floatBits(ang3));
+                writeM3DIn(out, ipx);
+                fprintf(out, "\n");
+
+                Matrix3D ipz = m; ipz.In_Place_Pre_Rotate_Z(ang3);
+                fprintf(out, "m3d in_place_pre_rotate_z ");
+                writeM3DIn(out, m);
+                fprintf(out, " %08x ", floatBits(ang3));
+                writeM3DIn(out, ipz);
+                fprintf(out, "\n");
+
+                Matrix3D tr = m; tr.Translate(1.0f, -2.0f, 3.0f);
+                fprintf(out, "m3d translate ");
+                writeM3DIn(out, m);
+                fprintf(out, " ");
+                writeV3(out, Vector3(1.0f, -2.0f, 3.0f));
+                fprintf(out, " ");
+                writeM3DIn(out, tr);
+                fprintf(out, "\n");
+
+                Matrix3D sc = m; sc.Scale(1.5f, -0.5f, 2.0f);
+                fprintf(out, "m3d scale ");
+                writeM3DIn(out, m);
+                fprintf(out, " %08x %08x %08x ", floatBits(1.5f), floatBits(-0.5f), floatBits(2.0f));
+                writeM3DIn(out, sc);
+                fprintf(out, "\n");
+
+                fprintf(out, "m3d get_x_rotation ");
+                writeM3DIn(out, m);
+                fprintf(out, " %08x\n", floatBits(m.Get_X_Rotation()));
+                fprintf(out, "m3d get_y_rotation ");
+                writeM3DIn(out, m);
+                fprintf(out, " %08x\n", floatBits(m.Get_Y_Rotation()));
+                fprintf(out, "m3d get_z_rotation ");
+                writeM3DIn(out, m);
+                fprintf(out, " %08x\n", floatBits(m.Get_Z_Rotation()));
+
+                Vector3 v((int)(lcgWord() % 2000) * 0.01f, (int)(lcgWord() % 2000) * 0.01f, (int)(lcgWord() % 2000) * 0.01f);
+                Vector3 tv;
+                m.mulVector3(v, tv);
+                fprintf(out, "m3d transform_vector ");
+                writeM3DIn(out, m);
+                fprintf(out, " ");
+                writeV3(out, v);
+                fprintf(out, " ");
+                writeV3(out, tv);
+                fprintf(out, "\n");
+
+                Vector3 rv = m.Rotate_Vector(v);
+                fprintf(out, "m3d rotate_vector ");
+                writeM3DIn(out, m);
+                fprintf(out, " ");
+                writeV3(out, v);
+                fprintf(out, " ");
+                writeV3(out, rv);
+                fprintf(out, "\n");
+
+                Vector3 irv = m.Inverse_Rotate_Vector(v);
+                fprintf(out, "m3d inverse_rotate_vector ");
+                writeM3DIn(out, m);
+                fprintf(out, " ");
+                writeV3(out, v);
+                fprintf(out, " ");
+                writeV3(out, irv);
+                fprintf(out, "\n");
+
+                Vector3 itv;
+                Matrix3D::Inverse_Transform_Vector(m, v, &itv);
+                fprintf(out, "m3d inverse_transform_vector ");
+                writeM3DIn(out, m);
+                fprintf(out, " ");
+                writeV3(out, v);
+                fprintf(out, " ");
+                writeV3(out, itv);
+                fprintf(out, "\n");
+
+                float det = 0.0f;
+                Matrix3D inv;
+                Matrix3D *invOk = Matrix3D::Get_Inverse(&inv, &det, &m);
+                fprintf(out, "m3d get_inverse ");
+                writeM3DIn(out, m);
+                fprintf(out, " %08x ", floatBits(det));
+                if (invOk) {
+                        writeM3DIn(out, inv);
+                } else {
+                        fprintf(out, "-");
+                }
+                fprintf(out, "\n");
+
+                Matrix3D oinv;
+                m.Get_Orthogonal_Inverse(oinv);
+                fprintf(out, "m3d orthogonal_inverse ");
+                writeM3DIn(out, m);
+                fprintf(out, " ");
+                writeM3DIn(out, oinv);
+                fprintf(out, "\n");
+
+                fprintf(out, "m3d get_x_vector ");
+                writeM3DIn(out, m);
+                fprintf(out, " ");
+                writeV3(out, m.Get_X_Vector());
+                fprintf(out, "\n");
+
+                Vector3 bmin(-1.0f, -2.0f, -0.5f);
+                Vector3 bmax(1.0f, 2.0f, 0.5f);
+                Vector3 smin, smax;
+                m.Transform_Min_Max_AABox(bmin, bmax, &smin, &smax);
+                fprintf(out, "m3d transform_minmax_box ");
+                writeM3DIn(out, m);
+                fprintf(out, " ");
+                writeV3(out, bmin);
+                fprintf(out, " ");
+                writeV3(out, bmax);
+                fprintf(out, " ");
+                writeV3(out, smin);
+                fprintf(out, " ");
+                writeV3(out, smax);
+                fprintf(out, "\n");
+
+                Vector3 center(0.5f, -0.5f, 1.0f);
+                Vector3 extent(1.5f, 0.5f, 2.5f);
+                Vector3 scenter, sextent;
+                m.Transform_Center_Extent_AABox(center, extent, &scenter, &sextent);
+                fprintf(out, "m3d transform_centerextent_box ");
+                writeM3DIn(out, m);
+                fprintf(out, " ");
+                writeV3(out, center);
+                fprintf(out, " ");
+                writeV3(out, extent);
+                fprintf(out, " ");
+                writeV3(out, scenter);
+                fprintf(out, " ");
+                writeV3(out, sextent);
+                fprintf(out, "\n");
+
+                fprintf(out, "m3d is_orthogonal ");
+                writeM3DIn(out, m);
+                fprintf(out, " %d\n", m.Is_Orthogonal());
+
+                Matrix3D ro = m;
+                ro.Re_Orthogonalize();
+                fprintf(out, "m3d re_orthogonalize ");
+                writeM3DIn(out, m);
+                fprintf(out, " ");
+                writeM3DIn(out, ro);
+                fprintf(out, "\n");
+        }
+
+        // ---- multiplication chains -----------------------------------------
+        for (int i = 0; i < 60; i++)
+        {
+                Matrix3D a = lcgM3D();
+                Matrix3D b = lcgM3D();
+
+                Matrix3D c;
+                c.mul(a, b);
+                fprintf(out, "m3d mul ");
+                writeM3DIn(out, a);
+                fprintf(out, " ");
+                writeM3DIn(out, b);
+                fprintf(out, " ");
+                writeM3DIn(out, c);
+                fprintf(out, "\n");
+
+                Matrix3D pm = a;
+                pm.postMul(b);
+                fprintf(out, "m3d post_mul ");
+                writeM3DIn(out, a);
+                fprintf(out, " ");
+                writeM3DIn(out, b);
+                fprintf(out, " ");
+                writeM3DIn(out, pm);
+                fprintf(out, "\n");
+
+                Matrix3D rm = b;
+                rm.preMul(a);
+                fprintf(out, "m3d pre_mul ");
+                writeM3DIn(out, a);
+                fprintf(out, " ");
+                writeM3DIn(out, b);
+                fprintf(out, " ");
+                writeM3DIn(out, rm);
+                fprintf(out, "\n");
+
+                Matrix3D t(true);
+                t.Translate(1.0f, 2.0f, 3.0f);
+                t.Rotate_Y(angles[i % NUM_ANGLES]);
+                t.Rotate_Z(angles[(i + 2) % NUM_ANGLES]);
+                t.Rotate_X(angles[(i + 4) % NUM_ANGLES]);
+                fprintf(out, "m3d chain ");
+                writeM3DIn(out, t);
+                fprintf(out, " ");
+                writeV3(out, t.Get_Translation());
+                fprintf(out, "\n");
+        }
+
+        // ---- lerp (position lerp + quaternion slerp) ------------------------
+        for (int i = 0; i < 25; i++)
+        {
+                Matrix3D ra(Vector3(1.0f, 1.0f, 0.0f), angles[i % NUM_ANGLES]);
+                ra.Set_Translation(Vector3(0.0f, 0.0f, 0.0f));
+                Matrix3D rb(Vector3(0.0f, 1.0f, 1.0f), angles[(i + 1) % NUM_ANGLES]);
+                rb.Set_Translation(Vector3(10.0f, -5.0f, 2.5f));
+
+                float factor = (i % 5) * 0.25f;
+                Matrix3D r;
+                Matrix3D::Lerp(ra, rb, factor, r);
+                fprintf(out, "m3d lerp ");
+                writeM3DIn(out, ra);
+                fprintf(out, " ");
+                writeM3DIn(out, rb);
+                fprintf(out, " %08x ", floatBits(factor));
+                writeM3DIn(out, r);
+                fprintf(out, "\n");
+        }
+
+        // ---- solve_linear_system (with the operator-= W quirk) --------------
+        for (int i = 0; i < 25; i++)
+        {
+                Matrix3D sys = lcgM3D();
+                Matrix3D input = sys;
+                bool ok = Matrix3D::Solve_Linear_System(sys);
+                fprintf(out, "m3d solve ");
+                writeM3DIn(out, input);
+                fprintf(out, " ");
+                writeM3DIn(out, sys);
+                fprintf(out, " %d\n", ok ? 1 : 0);
+        }
+        // the hand-traced example from the port's unit tests
+        {
+                Matrix3D sys(
+                        1.0f, 1.0f, 1.0f, 6.0f,
+                        0.0f, 2.0f, 5.0f, -4.0f,
+                        4.0f, 0.0f, 3.0f, 2.0f);
+                Matrix3D input = sys;
+                bool ok = Matrix3D::Solve_Linear_System(sys);
+                fprintf(out, "m3d solve ");
+                writeM3DIn(out, input);
+                fprintf(out, " ");
+                writeM3DIn(out, sys);
+                fprintf(out, " %d\n", ok ? 1 : 0);
+        }
+
+        // ---- the identity constant ------------------------------------------
+        fprintf(out, "m3d const identity ");
+        writeM3DIn(out, Matrix3D(true));
+        fprintf(out, "\n");
+}
+
 int main( int argc, char **argv )
 {
         if (argc != 7)
@@ -2949,6 +4124,7 @@ int main( int argc, char **argv )
         generateMathScalarGolden(outs[3]);
         generateMathVectorsGolden(outs[4]);
         generateMatrixQuatGolden(outs[5]);
+        generateMatrix3DGolden(outs[5]);
 
         for (int i = 0; i < 6; i++)
                 fclose(outs[i]);

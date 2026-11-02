@@ -131,7 +131,8 @@ The definition of done for a ported unit is the checklist in plan §6.
 | `rzh-math` first slice: WWMath scalars + Vector2/2i/3/3i/4 | Done, P0-verified; quirks preserved and documented |
 | `rzh-math` trigonometric entry points (`gmath` port of the pinned GameMath) | Done, P0-verified; see ADR-001 |
 | `rzh-math` matrices/quaternions: `Matrix3x3`, `Quaternion`, `Fast_*` tables | Done, P0-verified (mixed-precision literal quirks preserved) |
-| `rzh-math` `Matrix3D` (4x3) and `Matrix4x4` | **Next** — everything they need is in place |
+| `rzh-math` `Matrix3D` (4x3 transform) | Done, P0-verified (2885 golden records; the `Solve_Linear_System` W-column quirk pinned) |
+| `rzh-math` `Matrix4x4` | **Next** — everything it needs is in place |
 | `rzh-compress`: RefPack codec | Done, P0-verified, byte-exact in both directions |
 | `rzh-vfs`: BIG archives, loose-file overlay, `CompressionManager` dispatch | Done, P0-verified (golden script + unit tests) |
 | `AsciiString` port | Planned together with the INI work |

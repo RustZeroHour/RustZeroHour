@@ -19,6 +19,15 @@ from the C++ baseline.
   (`matrix3.{h,cpp}`, `quat.{h,cpp}`) with the axis-angle/quaternion
   conversions, inverse, slerp (exact / fast / cached) — golden-pinned
   against a C++ transcription linked to the pin.
+- **`Matrix3D`**: the 4x3 homogeneous transform (`matrix3d.{h,cpp}`,
+  the `NO_ALLOW_TEMPORARIES` branch the Zero Hour build uses): the
+  post/pre/in-place rotation families, translations, scales, the
+  look-at family, both inverses (general cofactor/adjugate with
+  determinant + orthogonal transpose), axis-aligned box transforms,
+  `Re_Orthogonalize`, `Lerp` (position lerp + quaternion slerp) and
+  `Solve_Linear_System` — whose fourth column carries the original's
+  `Vector4::operator-=` **W-column quirk** (W added, not subtracted),
+  preserved and golden-pinned verbatim.
 - **`fast`**: the `WWMath::Init()` fast-trig lookup tables and the
   `Fast_*` entry points (lazily built, bit-identical to a C++ `Init()`).
 - **`gmath`**: the GameMath (FreeBSD msun) float functions the game pins

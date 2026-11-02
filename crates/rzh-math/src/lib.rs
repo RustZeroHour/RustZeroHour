@@ -15,6 +15,10 @@
 //! - [`matrix3`]: the 3x3 float matrix (`matrix3.{h,cpp}`), including the
 //!   axis-angle and quaternion conversions with their mixed-precision
 //!   literal quirks.
+//! - [`matrix3d`]: the 4x3 homogeneous transform (`matrix3d.{h,cpp}`,
+//!   `NO_ALLOW_TEMPORARIES` branch) — rotations, translations, look-at,
+//!   inverses, box transforms and `Solve_Linear_System` with its
+//!   preserved `Vector4::operator-=` W-column quirk.
 //! - [`quat`]: the quaternion (`quat.{h,cpp}`) with slerp (exact, fast,
 //!   cached) and the matrix conversions.
 //! - [`fast`]: the `WWMath::Init()` lookup tables and `Fast_*`
@@ -59,6 +63,7 @@
 pub mod fast;
 pub mod gmath;
 pub mod matrix3;
+pub mod matrix3d;
 pub mod quat;
 pub mod scalar;
 pub mod vector2;
@@ -67,6 +72,7 @@ pub mod vector4;
 pub mod vectori;
 
 pub use matrix3::Matrix3;
+pub use matrix3d::Matrix3D;
 pub use quat::{Quaternion, SlerpInfo};
 pub use vector2::Vector2;
 pub use vector3::Vector3;

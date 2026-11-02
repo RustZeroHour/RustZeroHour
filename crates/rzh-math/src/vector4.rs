@@ -48,6 +48,37 @@ impl Vector4 {
         Self { x, y, z, w }
     }
 
+    /// `operator[]` (read): 0 = `x`, 1 = `y`, 2 = `z`, 3 = `w`.
+    #[must_use]
+    pub fn by_index(self, i: usize) -> f32 {
+        match i {
+            0 => self.x,
+            1 => self.y,
+            2 => self.z,
+            _ => self.w,
+        }
+    }
+
+    /// `operator[]` (write): 0 = `x`, 1 = `y`, 2 = `z`, 3 = `w`.
+    pub fn set_index(&mut self, i: usize, value: f32) {
+        match i {
+            0 => self.x = value,
+            1 => self.y = value,
+            2 => self.z = value,
+            _ => self.w = value,
+        }
+    }
+
+    /// `operator[]` (mutable): 0 = `x`, 1 = `y`, 2 = `z`, 3 = `w`.
+    pub fn by_index_mut(&mut self, i: usize) -> &mut f32 {
+        match i {
+            0 => &mut self.x,
+            1 => &mut self.y,
+            2 => &mut self.z,
+            _ => &mut self.w,
+        }
+    }
+
     /// Sets all components (`Set`).
     pub fn set(&mut self, x: f32, y: f32, z: f32, w: f32) {
         self.x = x;

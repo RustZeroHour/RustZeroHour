@@ -45,6 +45,34 @@ impl Vector3 {
         Self { x, y, z }
     }
 
+    /// `operator[]` (read): 0 = `x`, 1 = `y`, 2 = `z`.
+    #[must_use]
+    pub fn by_index(self, i: usize) -> f32 {
+        match i {
+            0 => self.x,
+            1 => self.y,
+            _ => self.z,
+        }
+    }
+
+    /// `operator[]` (write): 0 = `x`, 1 = `y`, 2 = `z`.
+    pub fn set_index(&mut self, i: usize, value: f32) {
+        match i {
+            0 => self.x = value,
+            1 => self.y = value,
+            _ => self.z = value,
+        }
+    }
+
+    /// `operator[]` (mutable): 0 = `x`, 1 = `y`, 2 = `z`.
+    pub fn by_index_mut(&mut self, i: usize) -> &mut f32 {
+        match i {
+            0 => &mut self.x,
+            1 => &mut self.y,
+            _ => &mut self.z,
+        }
+    }
+
     /// Sets all components (`Set`).
     pub fn set(&mut self, x: f32, y: f32, z: f32) {
         self.x = x;
