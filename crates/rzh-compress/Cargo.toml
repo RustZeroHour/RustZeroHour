@@ -1,0 +1,33 @@
+# rzh-compress: EA compression codecs for RustZeroHour.
+#
+# Ported from (baseline 571a7c5, Zero Hour configuration):
+#   Core/Libraries/Source/Compression/EAC/refdecode.cpp   (REF_is/REF_size/REF_decode)
+#   Core/Libraries/Source/Compression/EAC/refencode.cpp   (REF_encode/refcompress)
+#   Core/Libraries/Source/Compression/EAC/gimex.h         (ggetm/gputm big-endian IO)
+#
+# Original: Copyright (C) Electronic Arts Canada Inc. 1995-2002.
+#
+# This crate is part of the data pipeline (not the simulation), follows the
+# plan's porting rules (docs/RUST_MIGRATION_PLAN.md §3.3) and is P0-verified:
+# compressed streams are byte-identical to the C++ implementation, in both
+# directions, pinned by golden vectors generated from the original sources.
+
+[package]
+name = "rzh-compress"
+description = "Byte-exact EA compression codecs (RefPack) for the Zero Hour data pipeline"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+keywords = ["gamedev", "rts", "zerohour", "compression", "refpack"]
+categories = ["game-development", "compression"]
+readme = "README.md"
+
+[lints]
+workspace = true
+
+[dependencies]
+# Intentionally empty: this codec is self-contained.
+
+[dev-dependencies]

@@ -11,7 +11,8 @@ level **P0**: byte-exact output on identical input).
 |------|---------|
 | `gen_golden.cpp` | Verbatim transcription of the baseline CRC (`Common/crc.h` / `crc.cpp`), RNG (`Common/RandomValue.cpp`, non-retail branches), name-key interning (`NameKeyGenerator.{h,cpp}`) and the IEEE-754 exact WWMath subset (`wwmath.h`, `vector{2,3,4}.h`, `vector2i.h`, `Vector3i.h`, deterministic branches) at commit `571a7c5`. Emits the golden vector files. |
 | `gen_gmath_golden.c` | Golden-vector driver for `rzh-math::gmath`. Not a transcription: it is compiled and linked against the REAL pinned GameMath sources (`TheSuperHackers/GameMath` @ `59f7ccd4`, the pin `cmake/gamemath.cmake` fetches), so the gmath vectors come from the very code the C++ oracle runs. |
-| `regenerate.sh` | Compiles the harness and regenerates `crates/rzh-util/tests/golden/{crc,rng,namekey}.txt` and `crates/rzh-math/tests/golden/{scalar,vectors}.txt`, then clones the GameMath pin (set `GAMEMATH_DIR` to reuse a checkout) and regenerates `crates/rzh-math/tests/golden/gmath.txt`. |
+| `gen_compress_golden.cpp` | Golden-vector driver for `rzh-compress::refpack`. Compiles the REAL EAC codec sources (`Compression/EAC/ref{decode,encode}.cpp`) from the game tree as separate translation units and calls them, so the RefPack goldens come from the original code in both directions (encode and decode). |
+| `regenerate.sh` | Compiles the harness and regenerates `crates/rzh-util/tests/golden/{crc,rng,namekey}.txt` and `crates/rzh-math/tests/golden/{scalar,vectors,matrices}.txt`, then clones the GameMath pin (set `GAMEMATH_DIR` to reuse a checkout) and regenerates `crates/rzh-math/tests/golden/gmath.txt`, and finally builds the EAC codecs and regenerates `crates/rzh-compress/tests/golden/refpack.txt`. |
 
 ## Numerics
 
