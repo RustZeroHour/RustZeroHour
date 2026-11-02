@@ -1,0 +1,48 @@
+# rzh-ini: the Zero Hour INI engine for RustZeroHour.
+#
+# Ported from (baseline 571a7c5, Zero Hour configuration, release
+# branches -- DEBUG_ASSERTCRASH/DEBUG_CRASH are no-ops there):
+#   Core/GameEngine/Include/Common/INI.h
+#   Core/GameEngine/Source/Common/INI/INI.cpp (reader, tokenizer, scan
+#     functions, the initFromINI field loop and the unit conversions
+#     with USE_STD_FROM_CHARS_PARSING = 1)
+#   Core/GameEngine/Include/Common/GameCommon.h (frame conversions)
+#   Core/Libraries/Source/WWVegas/WWMath/wwmath.h (PI, Ceilf)
+#
+# The three task-10 validation block types are ported from:
+#   GeneralsMD/Code/GameEngine/Source/GameLogic/Object/Armor.cpp
+#   GeneralsMD/Code/GameEngine/Include/GameLogic/Armor.h
+#   GeneralsMD/Code/GameEngine/Source/GameLogic/Object/Locomotor.cpp
+#   GeneralsMD/Code/GameEngine/Include/GameLogic/Locomotor.h
+#   GeneralsMD/Code/GameEngine/Include/GameLogic/LocomotorSet.h
+#   GeneralsMD/Code/GameEngine/Source/GameLogic/Object/Weapon.cpp (field subset)
+#   GeneralsMD/Code/GameEngine/Include/GameLogic/Weapon.h (field subset)
+#   Core/GameEngine/Source/GameLogic/System/Damage.cpp (damage name lists)
+#   Core/GameEngine/Include/GameLogic/Damage.h (damage/death name lists)
+#   GeneralsMD/Code/GameEngine/Include/Common/BitFlagsIO.h (parseSingleBitFromINI)
+#
+# Original: Copyright 2025 Electronic Arts Inc.
+# Rust port Copyright 2026 the RustZeroHour contributors.
+#
+# This crate is part of the data path of the engine (not the simulation),
+# but it follows the plan's determinism rules anyway (docs/
+# RUST_MIGRATION_PLAN.md 3.3): no unsafe code, fixed-width integer types
+# only, f32 with the original operation order, ordered stores.
+
+[package]
+name = "rzh-ini"
+description = "Zero Hour INI parser engine with byte-exact scan/tokenizer semantics and task-10 validation block schemas"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+keywords = ["gamedev", "rts", "zerohour", "ini", "parser"]
+categories = ["game-development", "parser-implementations"]
+readme = "README.md"
+
+[lints]
+workspace = true
+
+[dependencies]
+rzh-util = { path = "../rzh-util", version = "0.1.0" }
