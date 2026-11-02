@@ -15,6 +15,12 @@ from the C++ baseline.
   operation order, original quirks preserved and documented (see
   `Vector4`'s `SubAssign` and `lerp_out`, `Vector3::quick_length`,
   `Vector2::normalize_free` / `quick_distance`).
+- **`Matrix3` / `Quaternion`**: the 3x3 matrix and quaternion
+  (`matrix3.{h,cpp}`, `quat.{h,cpp}`) with the axis-angle/quaternion
+  conversions, inverse, slerp (exact / fast / cached) — golden-pinned
+  against a C++ transcription linked to the pin.
+- **`fast`**: the `WWMath::Init()` fast-trig lookup tables and the
+  `Fast_*` entry points (lazily built, bit-identical to a C++ `Init()`).
 - **`gmath`**: the GameMath (FreeBSD msun) float functions the game pins
   for its transcendental entry points (`Sin`…`Atan2`, `Pow`, `Exp`, `Log`,
   hyperbolics, `Float_To_Long`), transcribed line-for-line from the pin and

@@ -138,6 +138,11 @@ Three findings from the verification are now recorded as decisions:
    pin's own hex comments are stale (`s_atanf.c`'s `aT[0]`, `aT[3]`); the
    compiled library follows the decimal literals, and so does the port.
 
-Still deferred from WWMath alongside this module: the `Fast_*` lookup
-tables (needed by `Quaternion::slerp`; they arrive with the quaternion
-port) and the double-precision `gm_*` entry points (tools-only surface).
+Still deferred from WWMath alongside this module: the double-precision
+`gm_*` entry points (tools-only surface). The `Fast_*` lookup tables and
+their consumers landed with the Matrix3/Quaternion port (2026-11-02):
+`rzh-math::fast` builds them lazily from the same pinned functions
+(`OnceLock`, immutable after init — pure functions, not the banned
+simulation-singleton state) and `rzh-math::{matrix3,quat}` are pinned by
+11,353 additional golden vectors from the C++ transcription linked
+against the pin.

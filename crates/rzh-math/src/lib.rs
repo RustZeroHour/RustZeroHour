@@ -12,6 +12,13 @@
 //!   helpers (`wwmath.h`).
 //! - [`vector2`], [`vector3`], [`vector4`]: the float vectors.
 //! - [`vectori`]: the integer vectors (`Vector2i`, `Vector3i`).
+//! - [`matrix3`]: the 3x3 float matrix (`matrix3.{h,cpp}`), including the
+//!   axis-angle and quaternion conversions with their mixed-precision
+//!   literal quirks.
+//! - [`quat`]: the quaternion (`quat.{h,cpp}`) with slerp (exact, fast,
+//!   cached) and the matrix conversions.
+//! - [`fast`]: the `WWMath::Init()` lookup tables and `Fast_*`
+//!   interpolation entry points.
 //!
 //! # Porting provenance
 //!
@@ -49,13 +56,18 @@
 
 #![forbid(unsafe_code)]
 
+pub mod fast;
 pub mod gmath;
+pub mod matrix3;
+pub mod quat;
 pub mod scalar;
 pub mod vector2;
 pub mod vector3;
 pub mod vector4;
 pub mod vectori;
 
+pub use matrix3::Matrix3;
+pub use quat::{Quaternion, SlerpInfo};
 pub use vector2::Vector2;
 pub use vector3::Vector3;
 pub use vector4::Vector4;

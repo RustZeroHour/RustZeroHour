@@ -50,7 +50,27 @@
 #include <cstdio>
 #include <cstring>
 #include <string>
+#include <utility>
 #include <vector>
+
+// The pinned GameMath (FreeBSD msun) library, exactly the revision the C++
+// oracle links (cmake/gamemath.cmake, pin 59f7ccd4). Only the entry points
+// the WWMath transcription needs are declared here (gmath.h itself clashes
+// with the C++ standard headers' BSD macros); they link against the pin's
+// sources, matching the game's USE_DETERMINISTIC_MATH = 1 build.
+extern "C" {
+float gm_sinf(float);
+float gm_cosf(float);
+float gm_asinf(float);
+float gm_acosf(float);
+float gm_atan2f(float, float);
+}
+
+static inline float WWSinf(float x) { return gm_sinf(x); }          // WWMath::Sinf / Sinf_Legacy
+static inline float WWCosf(float x) { return gm_cosf(x); }          // WWMath::Cosf / Cosf_Legacy
+static inline float WWAsinf(float x) { return gm_asinf(x); }        // WWMath::Asinf
+static inline float WWAcosf(float x) { return gm_acosf(x); }        // WWMath::Acosf
+static inline float WWAtan2f(float y, float x) { return gm_atan2f(y, x); } // WWMath::Atan2f
 
 // Type definitions from BaseTypes.h (the game builds with these exact widths
 // on every supported platform).
@@ -367,7 +387,7 @@ private:
 #define WWMATH_HALF_PI      1.570796327f
 #define WWMATH_PI           3.141592654f
 #define WWMATH_TWO_PI       6.283185308f
-#define WWMATH_FLOAT_MAX    (FLT_MAX)
+#define WWMATH_FLOAT_MAX    3.40282346638528860e+38f /* FLT_MAX */
 #define WWMATH_FLOAT_MIN    (FLT_MIN)
 #define WWMATH_SQRT2        1.414213562f
 #define WWMATH_SQRT3        1.732050808f
@@ -984,6 +1004,861 @@ struct Vector3i
         const int& operator[] (int n) const { return (&I)[n]; }
         int& operator[] (int n) { return (&I)[n]; }
 };
+
+// ---------------------------------------------------------------------------
+// Fast-trig lookup tables, transcribed from wwmath.cpp (WWMath::Init, the
+// non-retail branches) and wwmath.h (Fast_Acos / Fast_Asin / Fast_Sin /
+// Fast_Cos / Fast_Inv_Sin / Fast_Inv_Cos).
+// ---------------------------------------------------------------------------
+
+static const int ARC_TABLE_SIZE = 1024;
+static const int SIN_TABLE_SIZE = 1024;
+static float _FastAcosTable[ARC_TABLE_SIZE];
+static float _FastAsinTable[ARC_TABLE_SIZE];
+static float _FastSinTable[SIN_TABLE_SIZE];
+static float _FastInvSinTable[SIN_TABLE_SIZE];
+
+static void WWMathInit()
+{
+        int a = 0;
+        for (; a < ARC_TABLE_SIZE; ++a)
+        {
+                float cv = float(a - ARC_TABLE_SIZE / 2) * (1.0f / (ARC_TABLE_SIZE / 2));
+                _FastAcosTable[a] = WWAcosf(cv);
+                _FastAsinTable[a] = WWAsinf(cv);
+        }
+
+        for (a = 0; a < SIN_TABLE_SIZE; ++a)
+        {
+                float cv = (float)a * 2.0f * WWMATH_PI / SIN_TABLE_SIZE;
+                _FastSinTable[a] = WWSinf(cv);
+
+                if (a > 0)
+                        _FastInvSinTable[a] = 1.0f / _FastSinTable[a];
+                else
+                        _FastInvSinTable[a] = WWMATH_FLOAT_MAX;
+        }
+}
+
+static inline float Fast_Acos(float val)
+{
+        // Near -1 and +1, the table becomes too inaccurate
+        if (WWFabsf(val) > 0.975f)
+                return WWAcosf(val);
+
+        val *= float(ARC_TABLE_SIZE / 2);
+
+        int idx0 = WWFloatToIntFloor(val);
+        int idx1 = idx0 + 1;
+        float frac = val - (float)idx0;
+
+        idx0 += ARC_TABLE_SIZE / 2;
+        idx1 += ARC_TABLE_SIZE / 2;
+
+        return (1.0f - frac) * _FastAcosTable[idx0] + frac * _FastAcosTable[idx1];
+}
+
+static inline float Fast_Asin(float val)
+{
+        // Near -1 and +1, the table becomes too inaccurate
+        if (WWFabsf(val) > 0.975f)
+                return WWAsinf(val);
+
+        val *= float(ARC_TABLE_SIZE / 2);
+
+        int idx0 = WWFloatToIntFloor(val);
+        int idx1 = idx0 + 1;
+        float frac = val - (float)idx0;
+
+        idx0 += ARC_TABLE_SIZE / 2;
+        idx1 += ARC_TABLE_SIZE / 2;
+
+        return (1.0f - frac) * _FastAsinTable[idx0] + frac * _FastAsinTable[idx1];
+}
+
+static inline float Fast_Sin(float val)
+{
+        val *= float(SIN_TABLE_SIZE) / (2.0f * WWMATH_PI);
+
+        int idx0 = WWFloatToIntFloor(val);
+        int idx1 = idx0 + 1;
+        float frac = val - (float)idx0;
+
+        idx0 = ((unsigned)idx0) & (SIN_TABLE_SIZE - 1);
+        idx1 = ((unsigned)idx1) & (SIN_TABLE_SIZE - 1);
+
+        return (1.0f - frac) * _FastSinTable[idx0] + frac * _FastSinTable[idx1];
+}
+
+static inline float Fast_Cos(float val)
+{
+        val += (WWMATH_PI * 0.5f);
+        val *= float(SIN_TABLE_SIZE) / (2.0f * WWMATH_PI);
+
+        int idx0 = WWFloatToIntFloor(val);
+        int idx1 = idx0 + 1;
+        float frac = val - (float)idx0;
+
+        idx0 = ((unsigned)idx0) & (SIN_TABLE_SIZE - 1);
+        idx1 = ((unsigned)idx1) & (SIN_TABLE_SIZE - 1);
+
+        return (1.0f - frac) * _FastSinTable[idx0] + frac * _FastSinTable[idx1];
+}
+
+static inline float Fast_Inv_Sin(float val) { return 1.0f / Fast_Sin(val); }
+static inline float Fast_Inv_Cos(float val) { return 1.0f / Fast_Cos(val); }
+
+// ---------------------------------------------------------------------------
+// Matrix3x3, transcribed verbatim from matrix3.h / matrix3.cpp @ 571a7c5
+// (deterministic branches). Only the Matrix3D/Matrix4x4 interconversions
+// are omitted (they arrive with those types' port).
+// ---------------------------------------------------------------------------
+
+struct Quaternion; // fwd
+struct Matrix3x3; // fwd
+Vector3 operator * (const Matrix3x3 &a, const Vector3 &v); // fwd
+
+struct Matrix3x3
+{
+        Vector3 Row[3];
+
+        Matrix3x3() {}
+        explicit Matrix3x3(bool identity)
+        {
+                if (identity)
+                {
+                        Row[0] = Vector3(1.0f, 0.0f, 0.0f);
+                        Row[1] = Vector3(0.0f, 1.0f, 0.0f);
+                        Row[2] = Vector3(0.0f, 0.0f, 1.0f);
+                }
+        }
+        Matrix3x3(const Vector3 &r0, const Vector3 &r1, const Vector3 &r2)
+        {
+                Row[0] = r0; Row[1] = r1; Row[2] = r2;
+        }
+        explicit Matrix3x3(
+                float m11, float m12, float m13,
+                float m21, float m22, float m23,
+                float m31, float m32, float m33)
+        {
+                Row[0] = Vector3(m11, m12, m13);
+                Row[1] = Vector3(m21, m22, m23);
+                Row[2] = Vector3(m31, m32, m33);
+        }
+        explicit Matrix3x3(const Vector3 &axis, float angle)
+        {
+                Set(axis, angle);
+        }
+        explicit Matrix3x3(const Vector3 &axis, float s_angle, float c_angle)
+        {
+                Set(axis, s_angle, c_angle);
+        }
+        explicit Matrix3x3(const Quaternion &q); // below (needs Quaternion)
+
+        void Set(const Vector3 &r0, const Vector3 &r1, const Vector3 &r2)
+        {
+                Row[0] = r0; Row[1] = r1; Row[2] = r2;
+        }
+        void Set(
+                float m11, float m12, float m13,
+                float m21, float m22, float m23,
+                float m31, float m32, float m33)
+        {
+                Row[0] = Vector3(m11, m12, m13);
+                Row[1] = Vector3(m21, m22, m23);
+                Row[2] = Vector3(m31, m32, m33);
+        }
+        void Make_Identity()
+        {
+                Row[0] = Vector3(1.0f, 0.0f, 0.0f);
+                Row[1] = Vector3(0.0f, 1.0f, 0.0f);
+                Row[2] = Vector3(0.0f, 0.0f, 1.0f);
+        }
+
+        void Set(const Vector3 &axis, float angle)
+        {
+                Set(axis, WWSinf(angle), WWCosf(angle));
+        }
+
+        void Set(const Vector3 &axis, float s, float c)
+        {
+                Row[0] = Vector3(
+                        (float)(axis[0] * axis[0] + c * (1.0f - axis[0] * axis[0])),
+                        (float)(axis[0] * axis[1] * (1.0f - c) - axis[2] * s),
+                        (float)(axis[2] * axis[0] * (1.0f - c) + axis[1] * s)
+                );
+
+                Row[1] = Vector3(
+                        (float)(axis[0] * axis[1] * (1.0f - c) + axis[2] * s),
+                        (float)(axis[1] * axis[1] + c * (1.0f - axis[1] * axis[1])),
+                        (float)(axis[1] * axis[2] * (1.0f - c) - axis[0] * s)
+                );
+
+                Row[2] = Vector3(
+                        (float)(axis[2] * axis[0] * (1.0f - c) - axis[1] * s),
+                        (float)(axis[1] * axis[2] * (1.0f - c) + axis[0] * s),
+                        (float)(axis[2] * axis[2] + c * (1 - axis[2] * axis[2]))
+                );
+        }
+
+        void Set(const Quaternion &q); // below
+
+        Vector3 &operator[](int i) { return Row[i]; }
+        const Vector3 &operator[](int i) const { return Row[i]; }
+
+        Matrix3x3 Transpose() const
+        {
+                return Matrix3x3(
+                        Vector3(Row[0][0], Row[1][0], Row[2][0]),
+                        Vector3(Row[0][1], Row[1][1], Row[2][1]),
+                        Vector3(Row[0][2], Row[1][2], Row[2][2])
+                );
+        }
+
+        Matrix3x3 Inverse() const // Gauss-Jordan elimination with partial pivoting
+        {
+                Matrix3x3 a(*this);
+                Matrix3x3 b(true);
+                int i, j, i1;
+
+                for (j = 0; j < 3; j++)
+                {
+                        i1 = j;
+                        for (i = j + 1; i < 3; i++)
+                        {
+                                if (WWFabsf(a[i][j]) > WWFabsf(a[i1][j]))
+                                        i1 = i;
+                        }
+
+                        std::swap(a.Row[i1], a.Row[j]);
+                        std::swap(b.Row[i1], b.Row[j]);
+
+                        if (a[j][j] == 0.)
+                        {
+                                //Matrix3x3::inverse: singular matrix; can't invert
+                        }
+                        b.Row[j] = b.Row[j] / a[j][j];
+                        a.Row[j] = a.Row[j] / a[j][j];
+
+                        for (i = 0; i < 3; i++)
+                        {
+                                if (i != j)
+                                {
+                                        b.Row[i] = b.Row[i] - a[i][j] * b.Row[j];
+                                        a.Row[i] = a.Row[i] - a[i][j] * a.Row[j];
+                                }
+                        }
+                }
+                return b;
+        }
+
+        float Determinant() const
+        {
+                return Row[0][0] * (Row[1][1] * Row[2][2] - Row[1][2] * Row[2][1])
+                     - Row[0][1] * (Row[1][0] * Row[2][2] - Row[1][2] * Row[2][0])
+                     - Row[0][2] * (Row[1][0] * Row[2][1] - Row[1][1] * Row[2][0]);
+        }
+
+        float Get_X_Rotation() const
+        {
+                Vector3 v = (*this) * Vector3(0.0f, 1.0f, 0.0f);
+                return WWAtan2f(v[2], v[1]);
+        }
+
+        float Get_Y_Rotation() const
+        {
+                Vector3 v = (*this) * Vector3(0.0f, 0.0f, 1.0f);
+                return WWAtan2f(v[0], v[2]);
+        }
+
+        float Get_Z_Rotation() const
+        {
+                Vector3 v = (*this) * Vector3(1.0f, 0.0f, 0.0f);
+                return WWAtan2f(v[1], v[0]);
+        }
+
+        Vector3 Get_X_Vector() const { return Vector3(Row[0][0], Row[1][0], Row[2][0]); }
+        Vector3 Get_Y_Vector() const { return Vector3(Row[0][1], Row[1][1], Row[2][1]); }
+        Vector3 Get_Z_Vector() const { return Vector3(Row[0][2], Row[1][2], Row[2][2]); }
+
+        void Rotate_X(float theta) { Rotate_X(WWSinf(theta), WWCosf(theta)); }
+        void Rotate_X(float s, float c)
+        {
+                float tmp1, tmp2;
+                for (int r = 0; r < 3; r++)
+                {
+                        tmp1 = Row[r][1]; tmp2 = Row[r][2];
+                        Row[r][1] = (float)(c * tmp1 + s * tmp2);
+                        Row[r][2] = (float)(-s * tmp1 + c * tmp2);
+                }
+        }
+
+        void Rotate_Y(float theta) { Rotate_Y(WWSinf(theta), WWCosf(theta)); }
+        void Rotate_Y(float s, float c)
+        {
+                float tmp1, tmp2;
+                for (int r = 0; r < 3; r++)
+                {
+                        tmp1 = Row[r][0]; tmp2 = Row[r][2];
+                        Row[r][0] = (float)(c * tmp1 - s * tmp2);
+                        Row[r][2] = (float)(s * tmp1 + c * tmp2);
+                }
+        }
+
+        void Rotate_Z(float theta) { Rotate_Z(WWSinf(theta), WWCosf(theta)); }
+        void Rotate_Z(float s, float c)
+        {
+                float tmp1, tmp2;
+                for (int r = 0; r < 3; r++)
+                {
+                        tmp1 = Row[r][0]; tmp2 = Row[r][1];
+                        Row[r][0] = (float)(c * tmp1 + s * tmp2);
+                        Row[r][1] = (float)(-s * tmp1 + c * tmp2);
+                }
+        }
+
+        // Matrix3x3::Multiply (the static, column-caching variant)
+        static void Multiply(const Matrix3x3 &A, const Matrix3x3 &B, Matrix3x3 *set_res)
+        {
+                Matrix3x3 tmp;
+                const Matrix3x3 *Aptr;
+                float tmp1, tmp2, tmp3;
+
+                if (set_res == &A)
+                {
+                        tmp = A;
+                        Aptr = &tmp;
+                }
+                else
+                {
+                        Aptr = &A;
+                }
+
+                for (int col = 0; col < 3; col++)
+                {
+                        tmp1 = B[0][col];
+                        tmp2 = B[1][col];
+                        tmp3 = B[2][col];
+                        for (int row = 0; row < 3; row++)
+                        {
+                                (*set_res)[row][col] = (float)((*Aptr)[row][0] * tmp1 + (*Aptr)[row][1] * tmp2 + (*Aptr)[row][2] * tmp3);
+                        }
+                }
+        }
+
+        static void Rotate_Vector(const Matrix3x3 &A, const Vector3 &in, Vector3 *out)
+        {
+                out->X = (A[0][0] * in.X + A[0][1] * in.Y + A[0][2] * in.Z);
+                out->Y = (A[1][0] * in.X + A[1][1] * in.Y + A[1][2] * in.Z);
+                out->Z = (A[2][0] * in.X + A[2][1] * in.Y + A[2][2] * in.Z);
+        }
+
+        static void Transpose_Rotate_Vector(const Matrix3x3 &A, const Vector3 &in, Vector3 *out)
+        {
+                out->X = (A[0][0] * in.X + A[1][0] * in.Y + A[2][0] * in.Z);
+                out->Y = (A[0][1] * in.X + A[1][1] * in.Y + A[2][1] * in.Z);
+                out->Z = (A[0][2] * in.X + A[1][2] * in.Y + A[2][2] * in.Z);
+        }
+
+        int Is_Orthogonal() const
+        {
+                Vector3 x(Row[0].X, Row[0].Y, Row[0].Z);
+                Vector3 y(Row[1].X, Row[1].Y, Row[1].Z);
+                Vector3 z(Row[2].X, Row[2].Y, Row[2].Z);
+
+                if (x * y > WWMATH_EPSILON) return 0;
+                if (y * z > WWMATH_EPSILON) return 0;
+                if (z * x > WWMATH_EPSILON) return 0;
+
+                if (WWFabsf(x.Length() - 1.0f) > WWMATH_EPSILON) return 0;
+                if (WWFabsf(y.Length() - 1.0f) > WWMATH_EPSILON) return 0;
+                if (WWFabsf(z.Length() - 1.0f) > WWMATH_EPSILON) return 0;
+
+                return 1;
+        }
+
+        void Re_Orthogonalize()
+        {
+                Vector3 x(Row[0][0], Row[0][1], Row[0][2]);
+                Vector3 y(Row[1][0], Row[1][1], Row[1][2]);
+                Vector3 z;
+
+                Vector3::Cross_Product(x, y, &z);
+                Vector3::Cross_Product(z, x, &y);
+
+                float len = x.Length();
+                if (len < WWMATH_EPSILON)
+                {
+                        Make_Identity();
+                        return;
+                }
+                else
+                {
+                        x = x / len;
+                }
+
+                len = y.Length();
+                if (len < WWMATH_EPSILON)
+                {
+                        Make_Identity();
+                        return;
+                }
+                else
+                {
+                        y = y / len;
+                }
+
+                len = z.Length();
+                if (len < WWMATH_EPSILON)
+                {
+                        Make_Identity();
+                        return;
+                }
+                else
+                {
+                        z = z / len;
+                }
+
+                Row[0][0] = x.X; Row[0][1] = x.Y; Row[0][2] = x.Z;
+                Row[1][0] = y.X; Row[1][1] = y.Y; Row[1][2] = y.Z;
+                Row[2][0] = z.X; Row[2][1] = z.Y; Row[2][2] = z.Z;
+        }
+
+        void Rotate_AABox_Extent(const Vector3 &extent, Vector3 *set_extent)
+        {
+                for (int i = 0; i < 3; i++)
+                {
+                        (*set_extent)[i] = 0.0f;
+                        for (int j = 0; j < 3; j++)
+                        {
+                                (*set_extent)[i] += WWFabsf(Row[i][j] * extent[j]);
+                        }
+                }
+        }
+};
+
+inline Matrix3x3 operator - (const Matrix3x3 &a)
+{
+        return Matrix3x3(-a.Row[0], -a.Row[1], -a.Row[2]);
+}
+
+inline Matrix3x3 operator * (const Matrix3x3 &a, float d)
+{
+        return Matrix3x3(a.Row[0] * d, a.Row[1] * d, a.Row[2] * d);
+}
+
+inline Matrix3x3 operator * (float d, const Matrix3x3 &a)
+{
+        return a * d;
+}
+
+inline Matrix3x3 operator / (const Matrix3x3 &a, float d)
+{
+        float ood = 1.0f / d;
+        return Matrix3x3(a.Row[0] * ood, a.Row[1] * ood, a.Row[2] * ood);
+}
+
+inline Matrix3x3 operator * (const Matrix3x3 &a, const Matrix3x3 &b)
+{
+        #define ROWCOL(i,j) a[i][0]*b[0][j] + a[i][1]*b[1][j] + a[i][2]*b[2][j]
+
+        return Matrix3x3(
+                Vector3(ROWCOL(0,0), ROWCOL(0,1), ROWCOL(0,2) ),
+                Vector3(ROWCOL(1,0), ROWCOL(1,1), ROWCOL(1,2) ),
+                Vector3(ROWCOL(2,0), ROWCOL(2,1), ROWCOL(2,2) )
+        );
+
+        #undef ROWCOL
+}
+
+inline Vector3 operator * (const Matrix3x3 &a, const Vector3 &v)
+{
+        return Vector3(
+                a[0][0] * v[0] + a[0][1] * v[1] + a[0][2] * v[2],
+                a[1][0] * v[0] + a[1][1] * v[1] + a[1][2] * v[2],
+                a[2][0] * v[0] + a[2][1] * v[1] + a[2][2] * v[2]
+        );
+}
+
+// ---------------------------------------------------------------------------
+// Quaternion, transcribed verbatim from quat.h / quat.cpp @ 571a7c5
+// (deterministic branches; the asm Fast_Slerp and the rand()-based
+// Randomize are not transcribed — the C++ build uses the plain-C
+// Fast_Slerp and the port drops Randomize).
+// ---------------------------------------------------------------------------
+
+#define SLERP_EPSILON 0.001
+
+struct Quaternion;
+Quaternion operator * (const Quaternion &a, const Quaternion &b); // fwd
+
+struct Quaternion
+{
+        float X;
+        float Y;
+        float Z;
+        float W;
+
+        Quaternion() {}
+        explicit Quaternion(bool init) { if (init) { X = 0.0f; Y = 0.0f; Z = 0.0f; W = 1.0f; } }
+        explicit Quaternion(float a, float b, float c, float d) { X = a; Y = b; Z = c; W = d; }
+        Quaternion(const Vector3 &axis, float angle)
+        {
+                float s = WWSinf(angle / 2);
+                float c = WWCosf(angle / 2);
+                X = s * axis.X;
+                Y = s * axis.Y;
+                Z = s * axis.Z;
+                W = c;
+        }
+
+        void Set(float a = 0.0f, float b = 0.0f, float c = 0.0f, float d = 1.0f) { X = a; Y = b; Z = c; W = d; }
+        void Make_Identity() { Set(); }
+        void Scale(float s) { X = (float)(s * X); Y = (float)(s * Y); Z = (float)(s * Z); W = (float)(s * W); }
+
+        float &operator[](int i) { return (&X)[i]; }
+        const float &operator[](int i) const { return (&X)[i]; }
+
+        Quaternion operator-() const { return (Quaternion(-X, -Y, -Z, -W)); }
+        Quaternion operator+() const { return *this; }
+
+        Quaternion &Make_Closest(const Quaternion &qto)
+        {
+                float cos_t = qto.X * X + qto.Y * Y + qto.Z * Z + qto.W * W;
+                if (cos_t < 0.0)
+                {
+                        X = -X; Y = -Y; Z = -Z; W = -W;
+                }
+                return *this;
+        }
+
+        float Length2() const { return (X * X + Y * Y + Z * Z + W * W); }
+        float Length() const { return WWSqrtf(Length2()); }
+
+        void Normalize()
+        {
+                float len2 = X * X + Y * Y + Z * Z + W * W;
+                if (0.0f == len2)
+                {
+                        return;
+                }
+                else
+                {
+                        float inv_mag = WWInvSqrtLegacy(len2);
+                        X *= inv_mag; Y *= inv_mag; Z *= inv_mag; W *= inv_mag;
+                }
+        }
+
+        void Rotate_X(float theta) { *this = (*this) * Quaternion(Vector3(1.0f, 0.0f, 0.0f), theta); }
+        void Rotate_Y(float theta) { *this = (*this) * Quaternion(Vector3(0.0f, 1.0f, 0.0f), theta); }
+        void Rotate_Z(float theta) { *this = (*this) * Quaternion(Vector3(0.0f, 0.0f, 1.0f), theta); }
+
+        Vector3 Rotate_Vector(const Vector3 &v) const
+        {
+                float x = W * v.X + (Y * v.Z - v.Y * Z);
+                float y = W * v.Y - (X * v.Z - v.X * Z);
+                float z = W * v.Z + (X * v.Y - v.X * Y);
+                float w = -(X * v.X + Y * v.Y + Z * v.Z);
+
+                return Vector3
+                (
+                        w * (-X) + W * x + (y * (-Z) - (-Y) * z),
+                        w * (-Y) + W * y - (x * (-Z) - (-X) * z),
+                        w * (-Z) + W * z + (x * (-Y) - (-X) * y)
+                );
+        }
+
+        bool Is_Valid() const
+        {
+                UnsignedInt bx, by, bz, bw;
+                memcpy(&bx, &X, 4); memcpy(&by, &Y, 4); memcpy(&bz, &Z, 4); memcpy(&bw, &W, 4);
+                return ((bx & 0x7F800000) != 0x7F800000) && ((by & 0x7F800000) != 0x7F800000)
+                    && ((bz & 0x7F800000) != 0x7F800000) && ((bw & 0x7F800000) != 0x7F800000);
+        }
+};
+
+inline Quaternion operator + (const Quaternion &a, const Quaternion &b)
+{
+        return Quaternion(a[0] + b[0], a[1] + b[1], a[2] + b[2], a[3] + b[3]);
+}
+
+inline Quaternion operator - (const Quaternion &a, const Quaternion &b)
+{
+        return Quaternion(a[0] - b[0], a[1] - b[1], a[2] - b[2], a[3] - b[3]);
+}
+
+inline Quaternion operator * (float scl, const Quaternion &a)
+{
+        return Quaternion(scl * a[0], scl * a[1], scl * a[2], scl * a[3]);
+}
+
+inline Quaternion operator * (const Quaternion &a, float scl) { return scl * a; }
+
+inline Quaternion operator * (const Quaternion &a, const Quaternion &b)
+{
+        return Quaternion
+        (
+                a.W * b.X + b.W * a.X + (a.Y * b.Z - b.Y * a.Z),
+                a.W * b.Y + b.W * a.Y - (a.X * b.Z - b.X * a.Z),
+                a.W * b.Z + b.W * a.Z + (a.X * b.Y - b.X * a.Y),
+                a.W * b.W - (a.X * b.X + a.Y * b.Y + a.Z * b.Z)
+        );
+}
+
+inline Quaternion Inverse(const Quaternion &a) { return Quaternion(-a[0], -a[1], -a[2], a[3]); }
+inline Quaternion Conjugate(const Quaternion &a) { return Quaternion(-a[0], -a[1], -a[2], a[3]); }
+
+inline Quaternion operator / (const Quaternion &a, const Quaternion &b) { return a * Inverse(b); }
+
+inline Quaternion Normalize(const Quaternion &a)
+{
+        float mag = a.Length();
+        if (0.0f == mag)
+                return a;
+        else
+        {
+                float oomag = 1.0f / mag;
+                return Quaternion(a[0] * oomag, a[1] * oomag, a[2] * oomag, a[3] * oomag);
+        }
+}
+
+static Quaternion Axis_To_Quat(const Vector3 &a, float phi)
+{
+        Quaternion q;
+        Vector3 tmp = a;
+        tmp.Normalize();
+        q[0] = tmp[0];
+        q[1] = tmp[1];
+        q[2] = tmp[2];
+        q.Scale(WWSinf(phi / 2.0f));
+        q[3] = WWCosf(phi / 2.0f);
+        return q;
+}
+
+static void Slerp(Quaternion &res, const Quaternion &p, const Quaternion &q, float alpha)
+{
+        float beta;
+        float theta;
+        float cos_t;
+        float oo_sin_t;
+        int qflip;
+
+        cos_t = p.X * q.X + p.Y * q.Y + p.Z * q.Z + p.W * q.W;
+        if (cos_t < 0.0f)
+        {
+                cos_t = -cos_t;
+                qflip = true;
+        }
+        else
+        {
+                qflip = false;
+        }
+
+        if (1.0f - cos_t < WWMATH_EPSILON * WWMATH_EPSILON)
+        {
+                beta = 1.0f - alpha;
+        }
+        else
+        {
+                theta = WWAcosf(cos_t);
+                float sin_t = WWSinf(theta);
+                oo_sin_t = 1.0f / sin_t;
+                beta = WWSinf(theta - alpha * theta) * oo_sin_t;
+                alpha = WWSinf(alpha * theta) * oo_sin_t;
+        }
+
+        if (qflip)
+        {
+                alpha = -alpha;
+        }
+
+        res.X = beta * p.X + alpha * q.X;
+        res.Y = beta * p.Y + alpha * q.Y;
+        res.Z = beta * p.Z + alpha * q.Z;
+        res.W = beta * p.W + alpha * q.W;
+}
+
+static void Fast_Slerp(Quaternion &res, const Quaternion &p, const Quaternion &q, float alpha)
+{
+        float beta;
+        float theta;
+        float cos_t;
+        float oo_sin_t;
+        int qflip;
+
+        cos_t = p.X * q.X + p.Y * q.Y + p.Z * q.Z + p.W * q.W;
+        if (cos_t < 0.0f)
+        {
+                cos_t = -cos_t;
+                qflip = true;
+        }
+        else
+        {
+                qflip = false;
+        }
+
+        if (1.0f - cos_t < WWMATH_EPSILON * WWMATH_EPSILON)
+        {
+                beta = 1.0f - alpha;
+        }
+        else
+        {
+                theta = Fast_Acos(cos_t);
+                float sin_t = Fast_Sin(theta);
+                oo_sin_t = 1.0f / sin_t;
+                beta = Fast_Sin(theta - alpha * theta) * oo_sin_t;
+                alpha = Fast_Sin(alpha * theta) * oo_sin_t;
+        }
+
+        if (qflip)
+        {
+                alpha = -alpha;
+        }
+
+        res.X = beta * p.X + alpha * q.X;
+        res.Y = beta * p.Y + alpha * q.Y;
+        res.Z = beta * p.Z + alpha * q.Z;
+        res.W = beta * p.W + alpha * q.W;
+}
+
+struct SlerpInfoStruct
+{
+        bool Flip;
+        bool Linear;
+        float Theta;
+        float SinT;
+};
+
+static void Slerp_Setup(const Quaternion &p, const Quaternion &q, SlerpInfoStruct *slerpinfo)
+{
+        float cos_t;
+        cos_t = p.X * q.X + p.Y * q.Y + p.Z * q.Z + p.W * q.W;
+        if (cos_t < 0.0f)
+        {
+                cos_t = -cos_t;
+                slerpinfo->Flip = true;
+        }
+        else
+        {
+                slerpinfo->Flip = false;
+        }
+
+        if (1.0f - cos_t < SLERP_EPSILON)
+        {
+                slerpinfo->Linear = true;
+                slerpinfo->Theta = 0.0f;
+                slerpinfo->SinT = 0.0f;
+        }
+        else
+        {
+                slerpinfo->Linear = false;
+                slerpinfo->Theta = WWAcosf(cos_t);
+                slerpinfo->SinT = WWSinf(slerpinfo->Theta);
+        }
+}
+
+static Quaternion Cached_Slerp(const Quaternion &p, const Quaternion &q, float alpha, const SlerpInfoStruct *slerpinfo)
+{
+        float beta;
+        float oo_sin_t;
+
+        if (slerpinfo->Linear)
+        {
+                beta = 1.0f - alpha;
+        }
+        else
+        {
+                oo_sin_t = 1.0f / slerpinfo->Theta; // NOTE: original divides by Theta (bug), preserved
+                beta = WWSinf(slerpinfo->Theta - alpha * slerpinfo->Theta) * oo_sin_t;
+                alpha = WWSinf(alpha * slerpinfo->Theta) * oo_sin_t;
+        }
+
+        if (slerpinfo->Flip)
+        {
+                alpha = -alpha;
+        }
+
+        Quaternion res;
+        res.X = beta * p.X + alpha * q.X;
+        res.Y = beta * p.Y + alpha * q.Y;
+        res.Z = beta * p.Z + alpha * q.Z;
+        res.W = beta * p.W + alpha * q.W;
+        return res;
+}
+
+static int _nxt[3] = { 1, 2, 0 };
+
+static Quaternion Build_Quaternion(const Matrix3x3 &mat)
+{
+        float tr, s;
+        int i, j, k;
+        Quaternion q;
+        tr = mat[0][0] + mat[1][1] + mat[2][2];
+        if (tr > 0.0f)
+        {
+                s = WWSqrtf(tr + 1.0f);
+                q[3] = s * 0.5f;
+                s = 0.5f / s;
+                q[0] = (mat[2][1] - mat[1][2]) * s;
+                q[1] = (mat[0][2] - mat[2][0]) * s;
+                q[2] = (mat[1][0] - mat[0][1]) * s;
+        }
+        else
+        {
+                i = 0;
+                if (mat[1][1] > mat[0][0]) i = 1;
+                if (mat[2][2] > mat[i][i]) i = 2;
+                j = _nxt[i];
+                k = _nxt[j];
+                s = WWSqrtf((mat[i][i] - (mat[j][j] + mat[k][k])) + 1.0f);
+                q[i] = s * 0.5f;
+                if (s != 0.0f)
+                {
+                        s = 0.5f / s;
+                }
+                q[3] = (mat[k][j] - mat[j][k]) * s;
+                q[j] = (mat[j][i] + mat[i][j]) * s;
+                q[k] = (mat[k][i] + mat[i][k]) * s;
+        }
+        return q;
+}
+
+static Matrix3x3 Build_Matrix3(const Quaternion &q)
+{
+        Matrix3x3 m;
+
+        m[0][0] = (float)(1.0 - 2.0 * (q[1] * q[1] + q[2] * q[2]));
+        m[0][1] = (float)(2.0 * (q[0] * q[1] - q[2] * q[3]));
+        m[0][2] = (float)(2.0 * (q[2] * q[0] + q[1] * q[3]));
+
+        m[1][0] = (float)(2.0 * (q[0] * q[1] + q[2] * q[3]));
+        m[1][1] = (float)(1.0 - 2.0f * (q[2] * q[2] + q[0] * q[0]));
+        m[1][2] = (float)(2.0 * (q[1] * q[2] - q[0] * q[3]));
+
+        m[2][0] = (float)(2.0 * (q[2] * q[0] - q[1] * q[3]));
+        m[2][1] = (float)(2.0 * (q[1] * q[2] + q[0] * q[3]));
+        m[2][2] = (float)(1.0 - 2.0 * (q[1] * q[1] + q[0] * q[0]));
+
+        return m;
+}
+
+// Matrix3x3 members that need the complete Quaternion type.
+Matrix3x3::Matrix3x3(const Quaternion &q) { this->Set(q); }
+
+void Matrix3x3::Set(const Quaternion &q)
+{
+        Row[0][0] = (float)(1.0 - 2.0 * (q[1] * q[1] + q[2] * q[2]));
+        Row[0][1] = (float)(2.0 * (q[0] * q[1] - q[2] * q[3]));
+        Row[0][2] = (float)(2.0 * (q[2] * q[0] + q[1] * q[3]));
+
+        Row[1][0] = (float)(2.0 * (q[0] * q[1] + q[2] * q[3]));
+        Row[1][1] = (float)(1.0 - 2.0f * (q[2] * q[2] + q[0] * q[0]));
+        Row[1][2] = (float)(2.0 * (q[1] * q[2] - q[0] * q[3]));
+
+        Row[2][0] = (float)(2.0 * (q[2] * q[0] - q[1] * q[3]));
+        Row[2][1] = (float)(2.0 * (q[1] * q[2] + q[0] * q[3]));
+        Row[2][2] = (float)(1.0 - 2.0 * (q[1] * q[1] + q[0] * q[0]));
+}
 
 // ---------------------------------------------------------------------------
 // Golden vector generation. Deterministic: a fixed LCG produces the test
@@ -1608,17 +2483,455 @@ static void generateMathVectorsGolden( FILE *out )
         }
 }
 
+// ---------------------------------------------------------------------------
+// Matrix3 / Quaternion golden vectors.
+// ---------------------------------------------------------------------------
+
+static void writeM3In( FILE *out, const Matrix3x3 &m )
+{
+        fprintf(out, "%08x %08x %08x %08x %08x %08x %08x %08x %08x",
+                floatBits(m[0][0]), floatBits(m[0][1]), floatBits(m[0][2]),
+                floatBits(m[1][0]), floatBits(m[1][1]), floatBits(m[1][2]),
+                floatBits(m[2][0]), floatBits(m[2][1]), floatBits(m[2][2]));
+}
+
+static void writeV3( FILE *out, const Vector3 &v )
+{
+        fprintf(out, "%08x %08x %08x", floatBits(v.X), floatBits(v.Y), floatBits(v.Z));
+}
+
+static void writeQuat( FILE *out, const Quaternion &q )
+{
+        fprintf(out, "%08x %08x %08x %08x", floatBits(q.X), floatBits(q.Y), floatBits(q.Z), floatBits(q.W));
+}
+
+static void generateMatrixQuatGolden( FILE *out )
+{
+        fprintf(out, "# WWMath Matrix3x3 / Quaternion golden vectors (parity level P0).\n");
+        fprintf(out, "# Generated by tools/differential/gen_golden.cpp, transcribed from\n");
+        fprintf(out, "# Core/Libraries/Source/WWVegas/WWMath/matrix3.{h,cpp} and quat.{h,cpp}\n");
+        fprintf(out, "# @ 571a7c5 (deterministic branches; trig via the pinned GameMath).\n");
+        fprintf(out, "# Regenerate with tools/differential/regenerate.sh; never edit by hand.\n");
+
+        WWMathInit(); // the Fast_* tables, exactly like engine startup
+
+        resetLcg(0xfeedfaceu);
+
+        // Fixed axes: exact unit axes, the normalized diagonals, and a few
+        // non-unit axes (the original does not normalize either).
+        Vector3 axes[] = {
+                Vector3(1.0f, 0.0f, 0.0f),
+                Vector3(0.0f, 1.0f, 0.0f),
+                Vector3(0.0f, 0.0f, 1.0f),
+                Vector3(0.0f, -1.0f, 0.0f),
+                Vector3(1.0f, 1.0f, 0.0f),
+                Vector3(0.0f, 1.0f, 1.0f),
+                Vector3(1.0f, 1.0f, 1.0f),
+                Vector3(-1.0f, 2.0f, -0.5f),
+        };
+        const int NUM_AXES = sizeof(axes) / sizeof(axes[0]);
+
+        float angles[] = {
+                0.0f, 0.25f, -0.25f, 1.0f, -1.0f, 1.5f, -2.5f,
+                3.14159265f, 1.5707963f, -3.14159265f, 6.2831853f,
+                100.0f, -100.0f, 12345.6f,
+        };
+        const int NUM_ANGLES = sizeof(angles) / sizeof(angles[0]);
+
+        for (int a = 0; a < NUM_AXES; a++)
+        {
+                for (int t = 0; t < NUM_ANGLES; t++)
+                {
+                        const Vector3 &axis = axes[a];
+                        float angle = angles[t];
+
+                        // Matrix3x3(axis, angle)
+                        Matrix3x3 m(axis, angle);
+                        fprintf(out, "m3 from_axis_angle ");
+                        writeV3(out, axis);
+                        fprintf(out, " %08x ", floatBits(angle));
+                        writeM3In(out, m);
+                        fprintf(out, "\n");
+
+                        // Matrix3x3(axis, s, c)
+                        Matrix3x3 msc(axis, WWSinf(angle), WWCosf(angle));
+                        fprintf(out, "m3 from_axis_angle_sc ");
+                        writeV3(out, axis);
+                        fprintf(out, " %08x %08x ", floatBits(WWSinf(angle)), floatBits(WWCosf(angle)));
+                        writeM3In(out, msc);
+                        fprintf(out, "\n");
+
+                        // Quaternion(axis, angle)
+                        Quaternion q(axis, angle);
+                        fprintf(out, "quat from_axis_angle ");
+                        writeV3(out, axis);
+                        fprintf(out, " %08x ", floatBits(angle));
+                        writeQuat(out, q);
+                        fprintf(out, "\n");
+
+                        // quaternion -> matrix and back
+                        Matrix3x3 qm(q);
+                        fprintf(out, "m3 from_quaternion ");
+                        writeQuat(out, q);
+                        fprintf(out, " ");
+                        writeM3In(out, qm);
+                        fprintf(out, "\n");
+
+                        Quaternion bq = Build_Quaternion(m);
+                        fprintf(out, "quat build_quaternion ");
+                        writeM3In(out, m);
+                        fprintf(out, " ");
+                        writeQuat(out, bq);
+                        fprintf(out, "\n");
+
+                        // in-place rotations on the axis-angle matrix
+                        Matrix3x3 rm = m;
+                        rm.Rotate_X(angle);
+                        fprintf(out, "m3 rotate_x ");
+                        writeM3In(out, m);
+                        fprintf(out, " %08x ", floatBits(angle));
+                        writeM3In(out, rm);
+                        fprintf(out, "\n");
+
+                        rm = m;
+                        rm.Rotate_Y(angle);
+                        fprintf(out, "m3 rotate_y ");
+                        writeM3In(out, m);
+                        fprintf(out, " %08x ", floatBits(angle));
+                        writeM3In(out, rm);
+                        fprintf(out, "\n");
+
+                        rm = m;
+                        rm.Rotate_Z(angle);
+                        fprintf(out, "m3 rotate_z ");
+                        writeM3In(out, m);
+                        fprintf(out, " %08x ", floatBits(angle));
+                        writeM3In(out, rm);
+                        fprintf(out, "\n");
+
+                        // axis_to_quat (normalizes the axis)
+                        Quaternion aq = Axis_To_Quat(axis, angle);
+                        fprintf(out, "quat axis_to_quat ");
+                        writeV3(out, axis);
+                        fprintf(out, " %08x ", floatBits(angle));
+                        writeQuat(out, aq);
+                        fprintf(out, "\n");
+                }
+        }
+
+        // Raw matrices from the LCG (both well-conditioned and wild),
+        // exercising the non-trig code paths.
+        for (int i = 0; i < 220; i++)
+        {
+                Matrix3x3 a, b;
+                for (int r = 0; r < 3; r++)
+                {
+                        for (int c = 0; c < 3; c++)
+                        {
+                                if (i & 1)
+                                {
+                                        a[r][c] = finiteFloat();
+                                        b[r][c] = stepFloat();
+                                }
+                                else
+                                {
+                                        a[r][c] = stepFloat();
+                                        b[r][c] = finiteFloat();
+                                }
+                        }
+                }
+                float k = finiteFloat();
+                Vector3 v(finiteFloat(), finiteFloat(), finiteFloat());
+
+                fprintf(out, "m3 transpose ");
+                writeM3In(out, a);
+                fprintf(out, " ");
+                writeM3In(out, a.Transpose());
+                fprintf(out, "\n");
+
+                fprintf(out, "m3 inverse ");
+                writeM3In(out, a);
+                fprintf(out, " ");
+                writeM3In(out, a.Inverse());
+                fprintf(out, "\n");
+
+                fprintf(out, "m3 determinant ");
+                writeM3In(out, a);
+                fprintf(out, " %08x\n", floatBits(a.Determinant()));
+
+                fprintf(out, "m3 get_x_rotation ");
+                writeM3In(out, a);
+                fprintf(out, " %08x\n", floatBits(a.Get_X_Rotation()));
+                fprintf(out, "m3 get_y_rotation ");
+                writeM3In(out, a);
+                fprintf(out, " %08x\n", floatBits(a.Get_Y_Rotation()));
+                fprintf(out, "m3 get_z_rotation ");
+                writeM3In(out, a);
+                fprintf(out, " %08x\n", floatBits(a.Get_Z_Rotation()));
+
+                fprintf(out, "m3 get_x_vector ");
+                writeM3In(out, a);
+                fprintf(out, " ");
+                writeV3(out, a.Get_X_Vector());
+                fprintf(out, "\n");
+
+                fprintf(out, "m3 mul ");
+                writeM3In(out, a);
+                fprintf(out, " ");
+                writeM3In(out, b);
+                fprintf(out, " ");
+                writeM3In(out, a * b);
+                fprintf(out, "\n");
+
+                Matrix3x3 res;
+                Matrix3x3::Multiply(a, b, &res);
+                fprintf(out, "m3 multiply_static ");
+                writeM3In(out, a);
+                fprintf(out, " ");
+                writeM3In(out, b);
+                fprintf(out, " ");
+                writeM3In(out, res);
+                fprintf(out, "\n");
+
+                fprintf(out, "m3 mul_scalar ");
+                writeM3In(out, a);
+                fprintf(out, " %08x ", floatBits(k));
+                writeM3In(out, a * k);
+                fprintf(out, "\n");
+
+                fprintf(out, "m3 div_scalar ");
+                writeM3In(out, a);
+                fprintf(out, " %08x ", floatBits(k));
+                writeM3In(out, a / k);
+                fprintf(out, "\n");
+
+                Matrix3x3 sum = a; // operator+ via components
+                {
+                        Matrix3x3 s2(
+                                Vector3(a[0][0] + b[0][0], a[0][1] + b[0][1], a[0][2] + b[0][2]),
+                                Vector3(a[1][0] + b[1][0], a[1][1] + b[1][1], a[1][2] + b[1][2]),
+                                Vector3(a[2][0] + b[2][0], a[2][1] + b[2][1], a[2][2] + b[2][2]));
+                        sum = s2;
+                }
+                fprintf(out, "m3 add ");
+                writeM3In(out, a);
+                fprintf(out, " ");
+                writeM3In(out, b);
+                fprintf(out, " ");
+                writeM3In(out, sum);
+                fprintf(out, "\n");
+
+                {
+                        Matrix3x3 d2(
+                                Vector3(a[0][0] - b[0][0], a[0][1] - b[0][1], a[0][2] - b[0][2]),
+                                Vector3(a[1][0] - b[1][0], a[1][1] - b[1][1], a[1][2] - b[1][2]),
+                                Vector3(a[2][0] - b[2][0], a[2][1] - b[2][1], a[2][2] - b[2][2]));
+                        fprintf(out, "m3 sub ");
+                        writeM3In(out, a);
+                        fprintf(out, " ");
+                        writeM3In(out, b);
+                        fprintf(out, " ");
+                        writeM3In(out, d2);
+                        fprintf(out, "\n");
+                }
+
+                fprintf(out, "m3 neg ");
+                writeM3In(out, a);
+                fprintf(out, " ");
+                writeM3In(out, Matrix3x3(-a[0], -a[1], -a[2]));
+                fprintf(out, "\n");
+
+                fprintf(out, "m3 mul_vector ");
+                writeM3In(out, a);
+                fprintf(out, " ");
+                writeV3(out, v);
+                fprintf(out, " ");
+                writeV3(out, a * v);
+                fprintf(out, "\n");
+
+                Vector3 rv;
+                Matrix3x3::Rotate_Vector(a, v, &rv);
+                fprintf(out, "m3 rotate_vector ");
+                writeM3In(out, a);
+                fprintf(out, " ");
+                writeV3(out, v);
+                fprintf(out, " ");
+                writeV3(out, rv);
+                fprintf(out, "\n");
+
+                Matrix3x3::Transpose_Rotate_Vector(a, v, &rv);
+                fprintf(out, "m3 transpose_rotate_vector ");
+                writeM3In(out, a);
+                fprintf(out, " ");
+                writeV3(out, v);
+                fprintf(out, " ");
+                writeV3(out, rv);
+                fprintf(out, "\n");
+
+                fprintf(out, "m3 is_orthogonal ");
+                writeM3In(out, a);
+                fprintf(out, " %d\n", a.Is_Orthogonal());
+
+                Matrix3x3 ro = a;
+                ro.Re_Orthogonalize();
+                fprintf(out, "m3 re_orthogonalize ");
+                writeM3In(out, a);
+                fprintf(out, " ");
+                writeM3In(out, ro);
+                fprintf(out, "\n");
+
+                Vector3 ext(finiteFloat(), finiteFloat(), finiteFloat());
+                Vector3 newext;
+                a.Rotate_AABox_Extent(ext, &newext);
+                fprintf(out, "m3 rotate_aabox_extent ");
+                writeM3In(out, a);
+                fprintf(out, " ");
+                writeV3(out, ext);
+                fprintf(out, " ");
+                writeV3(out, newext);
+                fprintf(out, "\n");
+
+                // Quaternion algebra on raw components.
+                Quaternion qa(a[0][0], a[0][1], a[0][2], a[0][2]);
+                Quaternion qb(b[1][0], b[1][1], b[1][2], b[2][2]);
+
+                fprintf(out, "quat mul ");
+                writeQuat(out, qa);
+                fprintf(out, " ");
+                writeQuat(out, qb);
+                fprintf(out, " ");
+                writeQuat(out, qa * qb);
+                fprintf(out, "\n");
+
+                fprintf(out, "quat div ");
+                writeQuat(out, qa);
+                fprintf(out, " ");
+                writeQuat(out, qb);
+                fprintf(out, " ");
+                writeQuat(out, qa / qb);
+                fprintf(out, "\n");
+
+                fprintf(out, "quat inverse ");
+                writeQuat(out, qa);
+                fprintf(out, " ");
+                writeQuat(out, Inverse(qa));
+                fprintf(out, "\n");
+
+                Quaternion nq = qa;
+                nq.Normalize();
+                fprintf(out, "quat normalize ");
+                writeQuat(out, qa);
+                fprintf(out, " ");
+                writeQuat(out, nq);
+                fprintf(out, "\n");
+
+                fprintf(out, "quat normalize_free ");
+                writeQuat(out, qa);
+                fprintf(out, " ");
+                writeQuat(out, Normalize(qa));
+                fprintf(out, "\n");
+
+                Quaternion cq = qa;
+                cq.Make_Closest(qb);
+                fprintf(out, "quat make_closest ");
+                writeQuat(out, qa);
+                fprintf(out, " ");
+                writeQuat(out, qb);
+                fprintf(out, " ");
+                writeQuat(out, cq);
+                fprintf(out, "\n");
+
+                fprintf(out, "quat rotate_vector ");
+                writeQuat(out, qa);
+                fprintf(out, " ");
+                writeV3(out, v);
+                fprintf(out, " ");
+                writeV3(out, qa.Rotate_Vector(v));
+                fprintf(out, "\n");
+
+                // slerps across the interpolation parameter
+                float alphas[] = { 0.0f, 0.1f, 0.25f, 0.5f, 0.75f, 0.9f, 1.0f };
+                for (int t = 0; t < 7; t++)
+                {
+                        Quaternion sr;
+                        Slerp(sr, qa, qb, alphas[t]);
+                        fprintf(out, "quat slerp ");
+                        writeQuat(out, qa);
+                        fprintf(out, " ");
+                        writeQuat(out, qb);
+                        fprintf(out, " %08x ", floatBits(alphas[t]));
+                        writeQuat(out, sr);
+                        fprintf(out, "\n");
+
+                        Quaternion fr;
+                        Fast_Slerp(fr, qa, qb, alphas[t]);
+                        fprintf(out, "quat fast_slerp ");
+                        writeQuat(out, qa);
+                        fprintf(out, " ");
+                        writeQuat(out, qb);
+                        fprintf(out, " %08x ", floatBits(alphas[t]));
+                        writeQuat(out, fr);
+                        fprintf(out, "\n");
+                }
+
+                SlerpInfoStruct info;
+                Slerp_Setup(qa, qb, &info);
+                Quaternion cs = Cached_Slerp(qa, qb, 0.4f, &info);
+                fprintf(out, "quat slerp_setup %d %d %08x %08x\n",
+                        info.Flip ? 1 : 0, info.Linear ? 1 : 0,
+                        floatBits(info.Theta), floatBits(info.SinT));
+                fprintf(out, "quat cached_slerp ");
+                writeQuat(out, qa);
+                fprintf(out, " ");
+                writeQuat(out, qb);
+                fprintf(out, " 3ecd353f "); // 0.4f
+                writeQuat(out, cs);
+                fprintf(out, "\n");
+
+                // quaternion rotations about the coordinate axes
+                Quaternion rx = qa;
+                rx.Rotate_X(0.7f);
+                fprintf(out, "quat rotate_x ");
+                writeQuat(out, qa);
+                fprintf(out, " %08x ", floatBits(0.7f));
+                writeQuat(out, rx);
+                fprintf(out, "\n");
+
+                Quaternion ry = qa;
+                ry.Rotate_Y(0.7f);
+                fprintf(out, "quat rotate_y ");
+                writeQuat(out, qa);
+                fprintf(out, " %08x ", floatBits(0.7f));
+                writeQuat(out, ry);
+                fprintf(out, "\n");
+
+                Quaternion rz = qa;
+                rz.Rotate_Z(0.7f);
+                fprintf(out, "quat rotate_z ");
+                writeQuat(out, qa);
+                fprintf(out, " %08x ", floatBits(0.7f));
+                writeQuat(out, rz);
+                fprintf(out, "\n");
+
+                fprintf(out, "quat build_matrix3 ");
+                writeQuat(out, qa);
+                fprintf(out, " ");
+                writeM3In(out, Build_Matrix3(qa));
+                fprintf(out, "\n");
+        }
+}
+
 int main( int argc, char **argv )
 {
-        if (argc != 6)
+        if (argc != 7)
         {
-                fprintf(stderr, "usage: %s <crc_out.txt> <rng_out.txt> <namekey_out.txt> <math_scalar_out.txt> <math_vectors_out.txt>\n", argv[0]);
+                fprintf(stderr, "usage: %s <crc_out.txt> <rng_out.txt> <namekey_out.txt> <math_scalar_out.txt> <math_vectors_out.txt> <math_matrix_quat_out.txt>\n", argv[0]);
                 return 1;
         }
 
-        FILE *outs[5];
-        const char *const names[5] = { argv[1], argv[2], argv[3], argv[4], argv[5] };
-        for (int i = 0; i < 5; i++)
+        FILE *outs[6];
+        const char *const names[6] = { argv[1], argv[2], argv[3], argv[4], argv[5], argv[6] };
+        for (int i = 0; i < 6; i++)
         {
                 outs[i] = fopen(names[i], "w");
                 if (!outs[i])
@@ -1635,8 +2948,9 @@ int main( int argc, char **argv )
         generateNameKeyGolden(outs[2]);
         generateMathScalarGolden(outs[3]);
         generateMathVectorsGolden(outs[4]);
+        generateMatrixQuatGolden(outs[5]);
 
-        for (int i = 0; i < 5; i++)
+        for (int i = 0; i < 6; i++)
                 fclose(outs[i]);
         return 0;
 }
