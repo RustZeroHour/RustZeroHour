@@ -38,6 +38,12 @@ non-retail branches):
 - **`wildcard`** — the `*`/`?` matcher behind every enumeration,
   including its quirks (a trailing `*` never matches an empty remainder).
 
+## Properties
+
+`tests/properties.rs` — the path-key contracts (idempotence, ASCII
+case folding, separator equivalence, `FilenameList` dedup) over
+generated ASCII paths.
+
 ## Parity
 
 **P0 exact** (byte-level), pinned by the golden script

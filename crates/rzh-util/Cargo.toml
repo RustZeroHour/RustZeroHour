@@ -28,3 +28,6 @@ workspace = true
 
 [dependencies]
 # Intentionally empty: this is a foundation crate and must stay dependency-free.
+
+[dev-dependencies]
+proptest = { workspace = true }

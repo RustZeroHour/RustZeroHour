@@ -31,3 +31,4 @@ workspace = true
 # Intentionally empty: this codec is self-contained.
 
 [dev-dependencies]
+proptest = { workspace = true }

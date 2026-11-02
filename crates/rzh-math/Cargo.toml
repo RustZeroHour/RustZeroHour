@@ -36,3 +36,5 @@ workspace = true
 # land; the generic `libm` crate is NOT bit-identical to the game's build
 # and must not be used for parity-sensitive code.
 
+[dev-dependencies]
+proptest = { workspace = true }

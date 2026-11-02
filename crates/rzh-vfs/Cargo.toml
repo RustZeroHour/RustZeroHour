@@ -41,3 +41,4 @@ workspace = true
 rzh-compress = { path = "../rzh-compress", version = "0.1.0" }
 
 [dev-dependencies]
+proptest = { workspace = true }

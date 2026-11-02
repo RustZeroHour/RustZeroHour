@@ -22,6 +22,13 @@ rust-version = "1.85"
 license = "GPL-3.0-or-later"
 repository = "https://github.com/RustZeroHour/RustZeroHour"
 
+[workspace.dependencies]
+# Property-testing framework (plan §6 test layers). Pinned at the workspace
+# level so every crate's dev-dependency agrees on one version. Default
+# features are trimmed to `std`: the `fork` machinery (tempfile, rustix)
+# and `bit-set` are not used by our suites.
+proptest = { version = "1.7", default-features = false, features = ["std"] }
+
 [workspace.lints.rust]
 # Documentation is part of the definition of done for every ported unit.
 missing_docs = "warn"

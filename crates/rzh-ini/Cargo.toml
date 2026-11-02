@@ -46,3 +46,6 @@ workspace = true
 
 [dependencies]
 rzh-util = { path = "../rzh-util", version = "0.1.0" }
+
+[dev-dependencies]
+proptest = { workspace = true }
