@@ -204,4 +204,16 @@ echo "compiling gen_csf_golden.cpp ..."
 mkdir -p "$REPO_ROOT/crates/rzh-formats/tests/golden"
 "$BUILD_DIR/gen_csf_golden" "$REPO_ROOT/crates/rzh-formats/tests/golden/csf.txt"
 echo "wrote crates/rzh-formats/tests/golden/csf.txt"
+
+# --- tga golden dump: the TARGA.cpp class transcription (Open footer
+# sniff, Load with its switch and origin normalization, the RLE decoder
+# and encoder, XFlip/YFlip/InvertImage, Save) over hand-crafted corpora
+# and assembled edge-case blobs.
+echo "compiling gen_tga_golden.cpp ..."
+"$CXX" -O2 -std=c++17 -Wall -Wextra -Werror -ffp-contract=off \
+    -c -o "$BUILD_DIR/gen_tga_golden.o" "$SCRIPT_DIR/gen_tga_golden.cpp"
+"$CXX" -o "$BUILD_DIR/gen_tga_golden" "$BUILD_DIR/gen_tga_golden.o"
+mkdir -p "$REPO_ROOT/crates/rzh-formats/tests/golden"
+"$BUILD_DIR/gen_tga_golden" "$REPO_ROOT/crates/rzh-formats/tests/golden/tga.txt"
+echo "wrote crates/rzh-formats/tests/golden/tga.txt"
 echo "now run: cargo test --workspace"

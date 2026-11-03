@@ -235,18 +235,27 @@ is now specified in [`docs/TRACE_FORMAT_V1.md`](TRACE_FORMAT_V1.md).
 
 ### Phase 2: Data and asset formats (M–L) — **status: started (2026-11-03)**
 
-`rzh-formats` exists and its first module, the CSF string tables, is done
-to the Phase 1 standard: the runtime reader (`GameText.cpp::parseCSF`) and
-the Babylon writer (`expimp.cpp::generate_csf`) are transcribed in
-`tools/differential/gen_csf_golden.cpp`, the goldens pin both directions
-(writer bytes and the game-visible view, quirks included), proptests
-round-trip arbitrary structures, and the §6 budget comparison extends to
-the new `csf/…` benches (all within budget, docs/benchmarks.md).
+`rzh-formats` exists and two modules are done to the Phase 1 standard:
+
+- the **CSF** string tables: the runtime reader (`GameText.cpp::parseCSF`)
+  and the Babylon writer (`expimp.cpp::generate_csf`) are transcribed in
+  `tools/differential/gen_csf_golden.cpp`, the goldens pin both directions
+  (writer bytes and the game-visible view, quirks included), proptests
+  round-trip arbitrary structures, and the §6 budget comparison extends to
+  the `csf/…` benches (all within budget, docs/benchmarks.md);
+- the **TGA** images: the WWLib `TARGA.cpp` class (the loader the texture
+  and font paths drive, plus the screenshot/ImagePacker `Save` paths) is
+  transcribed in `tools/differential/gen_tga_golden.cpp` — reader and
+  writer directions, RLE decoder and encoder included — with the golden
+  script pinning the header/palette/image views, the extension dumps and
+  the re-encoded bytes; the `tga/…` benches are all within budget (the
+  raw-parse check surfaced the `invert_in_place` depth specialization,
+  docs/benchmarks.md finding 5).
 
 - `rzh-ini`: lexer/parser (includes, `#define` macros, inheritance/reskin, load order) and a
   **derive-based schema layer** replacing the 195 hand-written `FieldParse` tables. Keep it
   format-agnostic so the data format can change later (ADR-003).
-- `rzh-formats`: map files, W3D (meshes, skeletons, animations, HLOD), TGA/DDS, CSF string tables
+- `rzh-formats`: map files, W3D (meshes, skeletons, animations, HLOD), TGA/DDS (**TGA done**), CSF string tables
   (**done**), WND layouts, fonts, audio containers.
 - `rzh-data`: typed templates (objects, weapons, armor, locomotors, upgrades, sciences, ranks,
   special powers, FX/particles, audio events, command sets, ...).

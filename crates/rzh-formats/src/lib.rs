@@ -12,13 +12,16 @@
 //!
 //! - [`csf`]: the compiled string tables (`.csf`) — the runtime reader
 //!   (`GameText.cpp`) and the Babylon writer (`Core/Tools/Babylon`).
+//! - [`tga`]: the Targa images (`.tga`) — the WWLib `TARGA.cpp` class the
+//!   texture loader, the font loader and the screenshot path all drive.
 //!
 //! Deferred to later Phase 2 slices, in plan order: map files, WND
-//! layouts, W3D meshes/animations, TGA/DDS textures, fonts and audio
+//! layouts, W3D meshes/animations, DDS textures, fonts and audio
 //! containers. Consumer-side normalizations the original performs on top
-//! of a format (space stripping, first-string selection, …) live in the
-//! format modules as explicit `game_*` helpers so the parser stays
-//! byte-faithful and the behaviour stays pinned.
+//! of a format (space stripping, first-string selection, the texture
+//! loader's descriptor XOR, …) live in the format modules as explicit
+//! helpers or parameters so the parser stays byte-faithful and the
+//! behaviour stays pinned.
 //!
 //! This crate is data-path code, not simulation code: no `unsafe`, no
 //! global state, and malformed input returns [`Result`] errors where the
@@ -27,5 +30,11 @@
 #![forbid(unsafe_code)]
 
 pub mod csf;
+pub mod tga;
 
 pub use csf::{CsfError, CsfFile, CsfHeader, CsfLabel, CsfString};
+pub use tga::{
+    TGA_CMAPPED, TGA_CMAPPED_ENCODED, TGA_MONO, TGA_MONO_ENCODED, TGA_NOIMAGE, TGA_TRUECOLOR,
+    TGA_TRUECOLOR_ENCODED, TGA2_SIGNATURE, TGAIDF_ATTRIB_BITS, TGAIDF_XORIGIN, TGAIDF_YORIGIN,
+    Tga2Extension, Tga2Footer, TgaError, TgaFile, TgaHeader,
+};

@@ -20,13 +20,13 @@
 
 [package]
 name = "rzh-formats"
-description = "Zero Hour asset format parsers: CSF string tables (map, W3D, WND, TGA/DDS follow)"
+description = "Zero Hour asset format parsers: CSF string tables and TGA textures (map, W3D, WND, DDS follow)"
 version.workspace = true
 edition.workspace = true
 rust-version.workspace = true
 license.workspace = true
 repository.workspace = true
-keywords = ["gamedev", "rts", "zerohour", "csf", "file-format"]
+keywords = ["gamedev", "rts", "zerohour", "csf", "file-format", "tga"]
 categories = ["game-development", "parser-implementations"]
 readme = "README.md"
 

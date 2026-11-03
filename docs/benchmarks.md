@@ -44,6 +44,28 @@ inserts), while the port batches whole fields into one `Vec`. The reader
 gap comes from the same shape difference in reverse plus bounds checking
 the C++ does not do.
 
+The second slice, the Targa images, adds four comparisons. Measured on
+2026-11-04, same setup and flags as above. The corpora are 256×256
+textures built from the same pixel formula on both sides — a 24-bit raw
+file in the screenshot shape and a 32-bit RLE file built through each
+side's own (golden-pinned) encoder, so the parse benches read **identical
+bytes**. The C++ side loads and saves through the `TARGA.cpp`
+transcription in `bench_wrap_tga.cpp`; the Rust side through
+`rzh-formats::tga`.
+
+| Benchmark | Rust (criterion) | C++ baseline | Rust/C++ | Verdict |
+|---|---|---:|---:|---|
+| `tga/parse/rgb24_raw_x256` | 27.92 µs | 43.87 µs | 0.64x | within |
+| `tga/parse/rgb32_rle_x256` | 164.09 µs | 200.15 µs | 0.82x | within |
+| `tga/write/rgb24_x256` | 28.77 µs | 83.39 µs | 0.35x | within |
+| `tga/encode/rgb32_x256` | 450.01 µs | 490.66 µs | 0.92x | within |
+
+The raw-parse number is the budget check that changed the port (finding 5
+below); the encode margin is thin because the RLE encoder is a
+branchy per-pixel loop on both sides — the transcription's shape and the
+port's are the same, and the remaining ~8 % is the bounds-checked slice
+writes the C++ does not do.
+
 ## Methodology
 
 - **Same code, same corpora.** The C++ side times the *verbatim
@@ -146,6 +168,13 @@ verified byte-exact against the committed golden vectors before landing:
 4. **`Ini::read_line`** (rzh-ini): a fresh `Vec` per line where the C++
    reuses its fixed member buffer; reusing the allocation took the full
    fixture parse from 1.29x to 1.19x and the synthetic bulk parse to 1.10x.
+5. **`tga::invert_in_place`** (rzh-formats): the pixel byte-reversal ran
+   over a runtime `depth`, keeping it in a generic per-byte swap loop —
+   1.44x *slower* than the C++ on the raw-texture parse. Specializing the
+   depths the game ships (3/4 bytes per pixel, the generic tail kept for
+   exotic headers) lets the reversal fully unroll: the raw parse went from
+   1.44x slower to 0.64x faster, and the RLE parse, write and encode
+   benches (all of which invert) dropped by a fifth to a quarter.
 
 Cross-crate `#[inline]` on the hot kernels (`raw`, `multiply`, `slerp`,
 `name_to_key`, …) was also required: without LTO a non-`#[inline]` public

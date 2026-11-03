@@ -92,8 +92,16 @@ void *bench_csf_db_new();
 void bench_csf_db_free(void *db);
 std::uint64_t bench_csf_write(void *db);
 long bench_csf_materialize(void *db, uint8_t *out, size_t cap);
-uint32_t bench_csf_parse(const uint8_t *data, size_t len);
-uint32_t bench_csf_game_text(void *db);
+std::uint32_t bench_csf_parse(const uint8_t *data, size_t len);
+std::uint32_t bench_csf_game_text(void *db);
+
+// the TGA transcription (TARGA.cpp: load + save/encode)
+void *bench_tga_targa_new(int depth);
+void bench_tga_targa_free(void *handle);
+long bench_tga_write(void *handle);
+long bench_tga_encode(void *handle);
+long bench_tga_materialize(void *handle, int compress, uint8_t *out, size_t cap);
+std::uint32_t bench_tga_parse(const uint8_t *data, size_t len);
 }
 
 // --- corpora (identical to the Rust benches) ---------------------------------
@@ -437,6 +445,45 @@ int main(int argc, char **argv)
                 }), (double)total);
 
                 bench_csf_db_free(db);
+        }
+
+        // --- tga ----------------------------------------------------------------------
+        {
+                // The corpus Targas are materialized once (untimed): the raw
+                // screenshot file and the RLE texture file, built through the
+                // transcribed Save — identical bytes to the Rust side's.
+                void *raw24 = bench_tga_targa_new(3);
+                void *tex32 = bench_tga_targa_new(4);
+
+                std::vector<uint8_t> scratch(4 * 1024 * 1024);
+                long raw24_len = bench_tga_materialize(raw24, 0, scratch.data(), scratch.size());
+                std::vector<uint8_t> raw24_bytes(scratch.begin(), scratch.begin() + raw24_len);
+                long rle32_len = bench_tga_materialize(tex32, 1, scratch.data(), scratch.size());
+                std::vector<uint8_t> rle32_bytes(scratch.begin(), scratch.begin() + rle32_len);
+                if (raw24_len <= 0 || rle32_len <= 0)
+                {
+                        fprintf(stderr, "error: tga corpus write failed\n");
+                        exit(1);
+                }
+
+                report("tga/write/rgb24_x256", measure_ns([] {}, [&] {
+                        return (std::uint64_t)bench_tga_write(raw24);
+                }), (double)raw24_len);
+
+                report("tga/encode/rgb32_x256", measure_ns([] {}, [&] {
+                        return (std::uint64_t)bench_tga_encode(tex32);
+                }), (double)rle32_len);
+
+                report("tga/parse/rgb24_raw_x256", measure_ns([] {}, [&] {
+                        return (std::uint64_t)bench_tga_parse(raw24_bytes.data(), raw24_bytes.size());
+                }), (double)raw24_len);
+
+                report("tga/parse/rgb32_rle_x256", measure_ns([] {}, [&] {
+                        return (std::uint64_t)bench_tga_parse(rle32_bytes.data(), rle32_bytes.size());
+                }), (double)rle32_len);
+
+                bench_tga_targa_free(raw24);
+                bench_tga_targa_free(tex32);
         }
 
         // --- math --------------------------------------------------------------------

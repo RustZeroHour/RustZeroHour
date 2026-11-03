@@ -379,3 +379,383 @@ mod error_paths {
         assert_eq!(strip("\n a"), "\na");
     }
 }
+
+// ---------------------------------------------------------------------------
+// TGA (TARGA.cpp transcription) — plan §6 property layer, continued.
+// ---------------------------------------------------------------------------
+
+use rzh_formats::tga::{
+    SaveFlags, TGA_CMAPPED, TGA_CMAPPED_ENCODED, TGA_MONO, TGA_MONO_ENCODED, TGA_TRUECOLOR,
+    TGA_TRUECOLOR_ENCODED, TGA2_FOOTER_SIZE, TGAIDF_XORIGIN, TGAIDF_YORIGIN, Tga2Footer, TgaError,
+    TgaFile, TgaHeader,
+};
+
+/// Image types the original's `Load` switch accepts, weighted toward the
+/// shapes the game's textures actually use.
+fn tga_image_type() -> impl Strategy<Value = u8> {
+    prop::strategy::Union::new_weighted(vec![
+        (4, Just(TGA_TRUECOLOR).boxed()),
+        (3, Just(TGA_TRUECOLOR_ENCODED).boxed()),
+        (2, Just(TGA_CMAPPED).boxed()),
+        (2, Just(TGA_CMAPPED_ENCODED).boxed()),
+        (1, Just(TGA_MONO).boxed()),
+    ])
+}
+
+/// Pixel depths the game ships: 8 (palettes/mono), 16, 24, 32.
+fn tga_pixel_depth() -> impl Strategy<Value = u8> {
+    prop::strategy::Union::new_weighted(vec![
+        (4, Just(24u8).boxed()),
+        (4, Just(32u8).boxed()),
+        (1, Just(16u8).boxed()),
+        (1, Just(8u8).boxed()),
+    ])
+}
+
+/// A well-formed Targa structure in the state the original's callers hold
+/// it: the post-`Load` in-memory form — the origin bits of the descriptor
+/// are cleared and the image is flipped accordingly (the strategy applies
+/// the same normalization `Load` does), so the structure round-trips
+/// through its own save shape.
+fn tga_file() -> impl Strategy<Value = TgaFile> {
+    (
+        tga_image_type(),
+        tga_pixel_depth(),
+        prop::collection::vec(prop::num::u8::ANY, 0..64), // dimensions live below
+        prop::option::of(prop::collection::vec(prop::num::u8::ANY, 0..16)), // palette
+        prop::bool::ANY,                                  // footer
+        prop::bool::ANY,                                  // extension
+        prop::bool::ANY,                                  // origin flags
+    )
+        .prop_map(
+            |(image_type, pixel_depth, dim_bytes, palette, footer, extension, origins)| {
+                let width = 1 + (dim_bytes.first().copied().unwrap_or(0) as u16 % 6);
+                let height = 1 + (dim_bytes.get(1).copied().unwrap_or(0) as u16 % 6);
+                let depth = ((pixel_depth as usize) + 7) >> 3;
+                let mut header = TgaHeader {
+                    color_map_type: if image_type == TGA_CMAPPED
+                        || image_type == TGA_CMAPPED_ENCODED
+                    {
+                        1
+                    } else {
+                        0
+                    },
+                    cmap_start: 0,
+                    cmap_length: 0,
+                    cmap_depth: 0,
+                    image_type,
+                    width,
+                    height,
+                    pixel_depth,
+                    image_descriptor: 0,
+                    ..TgaHeader::default()
+                };
+                if header.color_map_type == 1 {
+                    // Palette entry count and depth from the generated chunk.
+                    let chunk = palette.clone().unwrap_or_default();
+                    header.cmap_depth = 24;
+                    header.cmap_length = (chunk.len() / 3) as u16;
+                }
+                if origins {
+                    header.image_descriptor |= TGAIDF_YORIGIN;
+                }
+                // The X-origin bit mirrors within rows; keep both shapes.
+                if dim_bytes.len() > 2 && dim_bytes[2] & 1 == 1 {
+                    header.image_descriptor |= TGAIDF_XORIGIN;
+                }
+
+                let image_size = width as usize * height as usize * depth;
+                // Pixel bytes: formula-driven so runs appear (the encoder's run
+                // branches) but the content stays deterministic per size.
+                let mut image = vec![0u8; image_size];
+                for (i, b) in image.iter_mut().enumerate() {
+                    *b = ((i / depth.max(1)) as u8)
+                        .wrapping_mul(31)
+                        .wrapping_add((i as u8) % 7);
+                }
+                // Colormapped/mono images hold 8-bit indices: keep them in
+                // palette range so the structure stays semantically sane (the
+                // format itself does not care).
+                let image = if header.color_map_type == 1 || image_type == TGA_MONO {
+                    image.iter().map(|b| b % 4).collect()
+                } else {
+                    image
+                };
+
+                let palette = if header.color_map_type == 1 {
+                    // Exactly the chunk the header declares (the save writes
+                    // cmap_length × (cmap_depth >> 3) bytes of it).
+                    let size = header.cmap_length as usize * (header.cmap_depth >> 3) as usize;
+                    let mut chunk = palette.unwrap_or_default();
+                    chunk.truncate(size);
+                    chunk
+                } else {
+                    Vec::new()
+                };
+
+                let mut file = TgaFile {
+                    header,
+                    footer: footer.then_some(Tga2Footer {
+                        extension: 0,
+                        developer: 0,
+                    }),
+                    extension: extension.then(Default::default),
+                    palette,
+                    image,
+                };
+                // Model the load's normalization (the callers' in-memory state):
+                // mirror per the origin bits, then clear them — exactly what
+                // `Targa::Load` leaves behind.
+                if file.header.image_descriptor & TGAIDF_XORIGIN != 0 {
+                    file.xflip();
+                    file.header.image_descriptor &= !TGAIDF_XORIGIN;
+                }
+                if file.header.image_descriptor & TGAIDF_YORIGIN != 0 {
+                    file.yflip();
+                    file.header.image_descriptor &= !TGAIDF_YORIGIN;
+                }
+                file
+            },
+        )
+}
+
+proptest! {
+    #![proptest_config(ProptestConfig::with_cases(512))]
+
+    /// A well-formed structure survives its own save shape unchanged:
+    /// `to_bytes` → `parse` → the same structure, image included (the
+    /// save's truecolor inversion is undone by the load's).
+    #[test]
+    fn tga_round_trips_through_bytes(file in tga_file()) {
+        let flags = SaveFlags {
+            image: true,
+            palette: true,
+            compress: file.header.is_compressed(),
+        };
+        let bytes = file.to_bytes(flags, false).unwrap();
+        let parsed = TgaFile::parse(&bytes).unwrap();
+        prop_assert_eq!(parsed.header, file.header);
+        prop_assert_eq!(parsed.palette, file.palette);
+        prop_assert_eq!(parsed.image, file.image);
+        // The save always appends the footer; a file that had none gains
+        // the default one (the original's behaviour too).
+        prop_assert_eq!(parsed.footer.or(Some(Tga2Footer::default())), file.footer.or(Some(Tga2Footer::default())));
+    }
+
+    /// The canonical form is a fixed point of `parse ∘ to_bytes`.
+    #[test]
+    fn tga_canonical_form_is_stable(file in tga_file()) {
+        let flags = SaveFlags {
+            image: true,
+            palette: true,
+            compress: file.header.is_compressed(),
+        };
+        let once = file.to_bytes(flags, false).unwrap();
+        let twice = TgaFile::parse(&once).unwrap().to_bytes(flags, false).unwrap();
+        prop_assert_eq!(twice, once);
+    }
+
+    /// The RLE encoder and decoder compose to the identity on arbitrary
+    /// pixel buffers (with the count-byte grammar exercised on both ends).
+    #[test]
+    fn tga_rle_composes_to_identity(
+        depth in 1usize..5,
+        pixels in prop::collection::vec(
+            prop::strategy::Union::new_weighted(vec![
+                (3, (0u8..16).boxed()),
+                (2, Just(0u8).boxed()),
+                (2, Just(255u8).boxed()),
+                (1, prop::num::u8::ANY.boxed()),
+            ]),
+            0..600,
+        ),
+    ) {
+        let image: Vec<u8> = pixels.iter().flat_map(|p| vec![*p; depth]).collect();
+        let encoded = rzh_formats::tga::encode_rle(&image, depth);
+        let mut decoded = vec![0u8; image.len()];
+        let mut cursor = 0usize;
+        rzh_formats::tga::decode_rle(&encoded, &mut cursor, &mut decoded, depth).unwrap();
+        prop_assert_eq!(decoded, image);
+        // The stream is fully consumed (no trailing packets).
+        prop_assert_eq!(cursor, encoded.len());
+    }
+
+    /// Parsing arbitrary bytes never panics (the loader's bounds checks
+    /// cover every offset field: ID length, footer offsets, chunk sizes).
+    #[test]
+    fn tga_arbitrary_bytes_never_panic(bytes in prop::collection::vec(prop::num::u8::ANY, 0..600)) {
+        // Both caller shapes: the library default and the texture loader's.
+        let _ = TgaFile::parse(&bytes);
+        let _ = TgaFile::parse_ex(&bytes, true, true, false, TGAIDF_YORIGIN);
+    }
+
+    /// The texture-loader and library-default shapes agree on everything
+    /// except the two things that differ by design: the truecolor invert
+    /// (parameterized) and the Y-origin XOR (pre-load — the XOR sets the
+    /// bit on a normalized descriptor, so the loader additionally Y-flips).
+    #[test]
+    fn tga_parse_shapes_differ_exactly_as_documented(file in tga_file()) {
+        let bytes = file
+            .to_bytes(SaveFlags { image: true, palette: true, compress: file.header.is_compressed() }, false)
+            .unwrap();
+        let default = TgaFile::parse(&bytes).unwrap();
+        let loader = TgaFile::parse_ex(&bytes, false, true, false, TGAIDF_YORIGIN).unwrap();
+        // The loader wants no palette; it still consumes the chunk.
+        prop_assert_eq!(loader.palette.is_empty(), true);
+        // The loader's descriptor: the saved (normalized) one with the
+        // Y-origin bit XORed back in — set, so Load y-flipped.
+        prop_assert_eq!(loader.header.image_descriptor, file.header.image_descriptor);
+
+        // Expectation: un-invert the default's pixels (the loader reads the
+        // file's raw bytes) — truecolor only, the invert never touches
+        // colormapped/mono data — then apply the loader's extra Y flip (the
+        // per-pixel byte reversal and the row exchange commute).
+        let depth = ((file.header.pixel_depth as usize) + 7) >> 3;
+        let mut expect = default.image.clone();
+        let truecolor = file.header.image_type == TGA_TRUECOLOR
+            || file.header.image_type == TGA_TRUECOLOR_ENCODED;
+        if truecolor && depth > 2 {
+            for pixel in expect.chunks_mut(depth) {
+                pixel.reverse();
+            }
+        }
+        let stride = file.header.width as usize * depth;
+        let height = file.header.height as usize;
+        for y in 0..height / 2 {
+            let top = y * stride;
+            let bottom = (height - 1 - y) * stride;
+            // top < bottom and the rows do not overlap.
+            let (head, tail) = expect.split_at_mut(bottom);
+            head[top..top + stride].swap_with_slice(&mut tail[..stride]);
+        }
+        prop_assert_eq!(loader.image, expect);
+    }
+}
+
+/// Error-path unit tests: the malformed shapes whose C++ behaviour is
+/// undefined (buffer overruns on over-supplied RLE streams, palette writes
+/// past the allocation) pin the port's error contract.
+#[cfg(test)]
+mod tga_error_paths {
+    use super::*;
+    use rzh_formats::tga::{TGA2_EXTENSION_SIZE, tga_bytes_per_pixel};
+
+    fn file_bytes(header: TgaHeader, body: &[u8]) -> Vec<u8> {
+        let mut bytes = header.to_bytes().to_vec();
+        bytes.extend_from_slice(body);
+        bytes.resize(bytes.len() + TGA2_FOOTER_SIZE, 0);
+        bytes
+    }
+
+    fn raw_header(image_type: u8, width: u16, height: u16, pixel_depth: u8) -> TgaHeader {
+        TgaHeader {
+            image_type,
+            width,
+            height,
+            pixel_depth,
+            ..TgaHeader::default()
+        }
+    }
+
+    #[test]
+    fn rle_overrun_by_run() {
+        // A 2-pixel image; the stream answers with a 5-pixel run: the C++
+        // writes past its buffer and underflows its bookkeeping.
+        let bytes = file_bytes(
+            raw_header(TGA_TRUECOLOR_ENCODED, 2, 1, 24),
+            &[0x84, 1, 2, 3],
+        );
+        assert_eq!(TgaFile::parse(&bytes), Err(TgaError::ImageOverrun));
+    }
+
+    #[test]
+    fn rle_overrun_by_raw() {
+        let bytes = file_bytes(raw_header(TGA_TRUECOLOR_ENCODED, 1, 1, 8), &[0x02, 1, 2, 3]);
+        assert_eq!(TgaFile::parse(&bytes), Err(TgaError::ImageOverrun));
+    }
+
+    #[test]
+    fn cmap_origin_refused() {
+        // cmap_start = 1: the original writes the chunk at palette + depth
+        // — past its own allocation.
+        let mut header = raw_header(TGA_CMAPPED, 2, 1, 8);
+        header.color_map_type = 1;
+        header.cmap_start = 1;
+        header.cmap_length = 2;
+        header.cmap_depth = 24;
+        let bytes = file_bytes(header, &[1, 2, 3, 4, 5, 6, 7, 8]);
+        assert_eq!(TgaFile::parse(&bytes), Err(TgaError::CMapOrigin));
+        // Not storing the palette is fine (the original merely seeks).
+        assert!(TgaFile::parse_ex(&bytes, false, true, true, 0).is_ok());
+    }
+
+    #[test]
+    fn extension_offset_out_of_range() {
+        let mut bytes = file_bytes(raw_header(TGA_MONO, 1, 1, 8), &[7]);
+        // Stamp a signature footer with an extension offset past the data.
+        let len = bytes.len();
+        let footer = Tga2Footer {
+            extension: 3, // inside the file but short of 495 bytes
+            developer: 0,
+        };
+        bytes[len - TGA2_FOOTER_SIZE..].copy_from_slice(&footer.to_bytes());
+        assert_eq!(TgaFile::parse(&bytes), Err(TgaError::Truncated));
+    }
+
+    #[test]
+    fn short_footer_never_opens() {
+        // Every length below the footer fails the seek — 18-byte
+        // header-only files included.
+        for len in 0..TGA2_FOOTER_SIZE {
+            let bytes = vec![0u8; len];
+            assert_eq!(TgaFile::parse(&bytes), Err(TgaError::Truncated));
+        }
+    }
+
+    #[test]
+    fn depth_matches_bytes_per_pixel() {
+        for (bits, expected) in [(1u8, 1usize), (8, 1), (15, 2), (16, 2), (24, 3), (32, 4)] {
+            assert_eq!(tga_bytes_per_pixel(bits), expected);
+        }
+    }
+
+    #[test]
+    fn zero_size_image_leaves_descriptor() {
+        // Zero width with an unsupported type: no image block runs, so the
+        // unsupported-type rejection never fires (the original skips the
+        // switch when its allocation is empty) and the descriptor survives.
+        let mut header = raw_header(TGA_MONO_ENCODED, 0, 3, 8);
+        header.image_descriptor = TGAIDF_XORIGIN;
+        let bytes = file_bytes(header, &[]);
+        let file = TgaFile::parse(&bytes).unwrap();
+        assert!(file.image.is_empty());
+        assert_eq!(file.header.image_descriptor, TGAIDF_XORIGIN);
+    }
+
+    #[test]
+    fn extension_layout_is_495_bytes() {
+        assert_eq!(TGA2_EXTENSION_SIZE, 495);
+    }
+}
+
+#[cfg(test)]
+mod tga_size_guard {
+    use rzh_formats::tga::{TGA2_FOOTER_SIZE, TgaError, TgaFile, TgaHeader};
+
+    #[test]
+    fn absurd_dimensions_refused_before_allocating() {
+        // 65535 × 65535 × 32-bit = 17 GB: the original's malloc fails
+        // (TGAERR_NOMEM); the port refuses with TooLarge instead of
+        // attempting the allocation — before the image-type switch runs.
+        let header = TgaHeader {
+            image_type: rzh_formats::tga::TGA_MONO_ENCODED, // would be "unsupported" too
+            width: 65535,
+            height: 65535,
+            pixel_depth: 32,
+            ..TgaHeader::default()
+        };
+        let mut bytes = header.to_bytes().to_vec();
+        bytes.resize(bytes.len() + TGA2_FOOTER_SIZE, 0);
+        assert_eq!(TgaFile::parse(&bytes), Err(TgaError::TooLarge));
+    }
+}
