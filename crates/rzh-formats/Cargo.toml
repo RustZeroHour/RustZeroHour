@@ -1,0 +1,49 @@
+# rzh-formats: the Zero Hour asset-format parsers for RustZeroHour.
+#
+# Ported from (baseline 571a7c5, Zero Hour configuration):
+#   Core/GameEngine/Source/GameClient/GameText.cpp   (CSF runtime reader:
+#                                                     getCSFInfo, parseCSF, stripSpaces)
+#   Core/Tools/Babylon/expimp.{h,cpp}                (CSF writer: CSF_HEADER,
+#                                                     generate_csf, writeCSFLabel, writeCSFString)
+#
+# Original: Copyright 2025 Electronic Arts Inc.
+# Rust port Copyright 2026 the RustZeroHour contributors.
+#
+# This crate is stage B of the migration plan (§3.1, "Data"): parsing only.
+# It turns asset bytes into typed structures and back, byte-exactly
+# (parity level P0, golden-pinned). Game-side normalizations that the
+# original applies on top of the parsed data (e.g. the string manager's
+# space stripping) are exposed as explicit helpers so the future
+# consumer crates keep the original behaviour without hiding it in the
+# parser. Malformed input returns Result errors where the C++ reads out
+# of bounds (see each module's "Differences from the C++" notes).
+
+[package]
+name = "rzh-formats"
+description = "Zero Hour asset format parsers: CSF string tables (map, W3D, WND, TGA/DDS follow)"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+keywords = ["gamedev", "rts", "zerohour", "csf", "file-format"]
+categories = ["game-development", "parser-implementations"]
+readme = "README.md"
+
+[lints]
+workspace = true
+
+[dependencies]
+# Intentionally empty: a format parser must stay dependency-free so the
+# data path is auditable byte-for-byte (same policy as rzh-util).
+
+[dev-dependencies]
+proptest = { workspace = true }
+criterion = { workspace = true }
+
+# §6 discipline: every ported unit gets a benchmark compared against the
+# C++ baseline (tools/differential/bench_baseline.sh, docs/benchmarks.md).
+# Run with `cargo bench -p rzh-formats`.
+[[bench]]
+name = "rzh_formats"
+harness = false

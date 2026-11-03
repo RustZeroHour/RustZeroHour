@@ -1,4 +1,6 @@
-# Phase 1 benchmark budget (plan §6)
+# Benchmark budget (plan §6)
+
+## Phase 1 (foundation crates)
 
 Status: **complete** — all Phase 1 foundation crates carry criterion
 benchmarks; 29 of 32 Rust-vs-C++ comparisons are within the §6 budget
@@ -15,6 +17,32 @@ uses for the transcriptions). They are machine- and compiler-specific; the
 cargo bench --workspace                      # Rust side (criterion)
 tools/differential/bench_baseline.sh         # C++ side (same corpora)
 ```
+
+### Phase 2 (format crates)
+
+The §6 discipline carries into Phase 2: every new `rzh-formats` module
+extends the same harness. The first slice, the CSF string tables, adds
+three comparisons. Measured on 2026-11-03, Linux x86-64 (sandboxed
+container; note the wider run-to-run noise than the Phase 1 numbers — the
+**ratios** are the durable result and every rerun kept all three inside
+budget), same `rustc 1.99.1` vs `g++ 14.2.0` flags as above. The corpus is
+the formula-generated UI table both sides build in lockstep (4096 labels;
+every 8th label a Babylon-style wave, every 16th a second string; 636,608
+bytes — verified byte-identical across the two builders). The C++ side
+parses and writes through the `gen_csf_golden.cpp` transcriptions; the
+Rust side through `rzh-formats::csf`.
+
+| Benchmark | Rust (criterion) | C++ baseline | Rust/C++ | Verdict |
+|---|---|---:|---:|---|
+| `csf/parse/ui_x4096` | 631.93 µs | 1.33 ms | 0.48x | within |
+| `csf/write/ui_x4096` | 208.94 µs | 2.65 ms | 0.08x | within |
+| `csf/game_text/ui_x4096` | 344.86 µs | 453.88 µs | 0.76x | within |
+
+The write gap is structural, not accidental: Babylon's writer pushes its
+bytes through per-field `fwrite`s (transcribed here as per-field vector
+inserts), while the port batches whole fields into one `Vec`. The reader
+gap comes from the same shape difference in reverse plus bounds checking
+the C++ does not do.
 
 ## Methodology
 
@@ -35,7 +63,7 @@ tools/differential/bench_baseline.sh         # C++ side (same corpora)
 - **Median statistics** on both sides (criterion estimates; the C++
   harness reports the median of 31 timed batches).
 
-## Budget table
+### Budget table
 
 | Benchmark | Rust (criterion) | C++ baseline | Rust/C++ | Verdict |
 |---|---|---:|---:|---|
@@ -72,7 +100,7 @@ tools/differential/bench_baseline.sh         # C++ side (same corpora)
 | `fast/fast_cos/x256` | 1.22 µs | 1.21 µs | 1.01x | within |
 | `fast/fast_acos/x256` | 1.04 µs | 1.46 µs | 0.71x | within |
 
-## Rust-only regression baselines
+### Rust-only regression baselines
 
 These have no 1:1 C++ counterpart (either the C++ API differs structurally
 — `key_to_name` was a linear scan in the original and is O(1) in the port —
@@ -99,7 +127,7 @@ serve as the regression baseline future changes are tracked against.
 | `vfs/does_file_exist/hit` | 412.78 ns |
 | `vfs/read_and_decompress/compressed` | 1.66 µs |
 
-## Findings that changed the port
+### Findings that changed the port
 
 Running the budget comparison surfaced four structural issues where the
 port deviated from the original's (compiler-friendly) shape; each fix was

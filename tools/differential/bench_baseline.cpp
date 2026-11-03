@@ -17,7 +17,7 @@
 // Usage: bench_baseline <fixtures-dir>
 //
 // Temporary differential-testing infrastructure: removed at cut-over (M5).
-// The measured results are recorded in docs/inventory/.
+// The measured results are recorded in docs/benchmarks.md.
 //
 // Rust port Copyright 2026 the RustZeroHour contributors.
 //
@@ -86,6 +86,14 @@ uint32_t bench_ini_parse_scenario(
         const uint8_t *over, size_t over_len,
         const uint8_t *edge, size_t edge_len);
 uint32_t bench_ini_parse_synthetic(const uint8_t *data, size_t len);
+
+// the CSF transcription (Babylon writer + runtime reader)
+void *bench_csf_db_new();
+void bench_csf_db_free(void *db);
+std::uint64_t bench_csf_write(void *db);
+long bench_csf_materialize(void *db, uint8_t *out, size_t cap);
+uint32_t bench_csf_parse(const uint8_t *data, size_t len);
+uint32_t bench_csf_game_text(void *db);
 }
 
 // --- corpora (identical to the Rust benches) ---------------------------------
@@ -397,6 +405,38 @@ int main(int argc, char **argv)
                 report("parse/synthetic_armor_x512", measure_ns([] {}, [&] {
                         return bench_ini_parse_synthetic(synthetic.data(), synthetic.size());
                 }), (double)synthetic.size());
+        }
+
+        // --- csf ---------------------------------------------------------------------
+        {
+                // the corpus bytes are materialized once (untimed) through the
+                // transcribed writer; the parse bench reads the identical
+                // bytes the Rust bench builds with its own writer. The write
+                // bench is the transcription into a fresh sink — the exact
+                // shape of the Rust `to_bytes()` closure.
+                void *db = bench_csf_db_new();
+                std::vector<uint8_t> bytes(4 * 1024 * 1024);
+                long total = bench_csf_materialize(db, bytes.data(), bytes.size());
+                if (total <= 0)
+                {
+                        fprintf(stderr, "error: csf corpus write failed\n");
+                        exit(1);
+                }
+                bytes.resize((size_t)total);
+
+                report("csf/write/ui_x4096", measure_ns([] {}, [&] {
+                        return bench_csf_write(db);
+                }), (double)total);
+
+                report("csf/parse/ui_x4096", measure_ns([] {}, [&] {
+                        return (std::uint64_t)bench_csf_parse(bytes.data(), bytes.size());
+                }), (double)total);
+
+                report("csf/game_text/ui_x4096", measure_ns([] {}, [&] {
+                        return (std::uint64_t)bench_csf_game_text(db);
+                }), (double)total);
+
+                bench_csf_db_free(db);
         }
 
         // --- math --------------------------------------------------------------------

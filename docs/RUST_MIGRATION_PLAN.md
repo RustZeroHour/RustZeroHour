@@ -233,13 +233,21 @@ is now specified in [`docs/TRACE_FORMAT_V1.md`](TRACE_FORMAT_V1.md).
   golden files) and `proptest` property tests.
 - **Exit:** all P0 checks pass; benchmarks within budget (§6).
 
-### Phase 2: Data and asset formats (M–L)
+### Phase 2: Data and asset formats (M–L) — **status: started (2026-11-03)**
+
+`rzh-formats` exists and its first module, the CSF string tables, is done
+to the Phase 1 standard: the runtime reader (`GameText.cpp::parseCSF`) and
+the Babylon writer (`expimp.cpp::generate_csf`) are transcribed in
+`tools/differential/gen_csf_golden.cpp`, the goldens pin both directions
+(writer bytes and the game-visible view, quirks included), proptests
+round-trip arbitrary structures, and the §6 budget comparison extends to
+the new `csf/…` benches (all within budget, docs/benchmarks.md).
 
 - `rzh-ini`: lexer/parser (includes, `#define` macros, inheritance/reskin, load order) and a
   **derive-based schema layer** replacing the 195 hand-written `FieldParse` tables. Keep it
   format-agnostic so the data format can change later (ADR-003).
-- `rzh-formats`: map files, W3D (meshes, skeletons, animations, HLOD), TGA/DDS, CSF string tables,
-  WND layouts, fonts, audio containers.
+- `rzh-formats`: map files, W3D (meshes, skeletons, animations, HLOD), TGA/DDS, CSF string tables
+  (**done**), WND layouts, fonts, audio containers.
 - `rzh-data`: typed templates (objects, weapons, armor, locomotors, upgrades, sciences, ranks,
   special powers, FX/particles, audio events, command sets, ...).
 - **Module census:** count how often each module type appears in the data → port order for Phase 3.

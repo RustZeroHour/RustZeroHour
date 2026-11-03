@@ -349,6 +349,14 @@ dependencies = [
 ]
 
 [[package]]
+name = "rzh-formats"
+version = "0.1.0"
+dependencies = [
+ "criterion",
+ "proptest",
+]
+
+[[package]]
 name = "rzh-ini"
 version = "0.1.0"
 dependencies = [

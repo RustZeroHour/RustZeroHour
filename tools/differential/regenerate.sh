@@ -192,4 +192,16 @@ mkdir -p "$REPO_ROOT/crates/rzh-ini/tests/golden"
     "$REPO_ROOT/crates/rzh-ini/tests/golden/ini.txt" \
     "$REPO_ROOT/crates/rzh-ini/tests/fixtures"
 echo "wrote crates/rzh-ini/tests/golden/ini.txt"
+
+# --- csf golden dump: the Babylon writer transcription (expimp.cpp,
+# minus its tool-only content transforms) plus the runtime reader
+# transcription (GameText.cpp parseCSF + stripSpaces), over hand-crafted
+# corpora and assembled edge-case blobs.
+echo "compiling gen_csf_golden.cpp ..."
+"$CXX" -O2 -std=c++17 -Wall -Wextra -Werror -ffp-contract=off \
+    -c -o "$BUILD_DIR/gen_csf_golden.o" "$SCRIPT_DIR/gen_csf_golden.cpp"
+"$CXX" -o "$BUILD_DIR/gen_csf_golden" "$BUILD_DIR/gen_csf_golden.o"
+mkdir -p "$REPO_ROOT/crates/rzh-formats/tests/golden"
+"$BUILD_DIR/gen_csf_golden" "$REPO_ROOT/crates/rzh-formats/tests/golden/csf.txt"
+echo "wrote crates/rzh-formats/tests/golden/csf.txt"
 echo "now run: cargo test --workspace"

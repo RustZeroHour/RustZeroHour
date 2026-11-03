@@ -27,19 +27,23 @@ recorded in [ADR-000](docs/adr/000-migrate-to-rust.md):
 
 ## Current status
 
-[Phase 1 of the plan](docs/RUST_MIGRATION_PLAN.md) is **complete**: the
-foundation crates — [`rzh-util`](crates/rzh-util/) (CRC, deterministic
-RNGs, name-key interning), [`rzh-math`](crates/rzh-math/) (WWMath
-scalars/vectors/matrices/quaternions, msun-exact gmath, fast-trig tables),
-[`rzh-compress`](crates/rzh-compress/) (byte-exact RefPack),
-[`rzh-vfs`](crates/rzh-vfs/) (BIG archives, loose-file overlay),
-[`rzh-ini`](crates/rzh-ini/) (the INI engine with the first three data
-schemas) and [`rzh-log`](crates/rzh-log/) — are ported bit-exactly,
-validated against golden vectors generated from a C++ reference harness
-([`tools/differential/`](tools/differential/)), property-tested, and
-benchmarked within the plan's §6 budget against the C++ baseline
-([docs/benchmarks.md](docs/benchmarks.md)). Next up: Phase 2, the data and
-asset formats (`rzh-formats`: map files, W3D, CSF, WND, …).
+[Phase 1 of the plan](docs/RUST_MIGRATION_PLAN.md) is **complete** and
+[Phase 2](docs/RUST_MIGRATION_PLAN.md) (data and asset formats) is
+**underway**: the foundation crates — [`rzh-util`](crates/rzh-util/)
+(CRC, deterministic RNGs, name-key interning), [`rzh-math`](crates/rzh-math/)
+(WWMath scalars/vectors/matrices/quaternions, msun-exact gmath,
+fast-trig tables), [`rzh-compress`](crates/rzh-compress/) (byte-exact
+RefPack), [`rzh-vfs`](crates/rzh-vfs/) (BIG archives, loose-file
+overlay), [`rzh-ini`](crates/rzh-ini/) (the INI engine with the first
+three data schemas) and [`rzh-log`](crates/rzh-log/) — are ported
+bit-exactly, validated against golden vectors generated from a C++
+reference harness ([`tools/differential/`](tools/differential/)),
+property-tested, and benchmarked within the plan's §6 budget against the
+C++ baseline ([docs/benchmarks.md](docs/benchmarks.md)). Phase 2 opened
+with [`rzh-formats`](crates/rzh-formats/), whose first module parses and
+writes the CSF string tables byte-exactly (runtime reader + Babylon
+writer, goldens in both directions); map files, WND, W3D and TGA/DDS
+follow, along with the `rzh-ini` schema layer and `rzh-data`.
 
 | Stack | State |
 |-------|-------|
