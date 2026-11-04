@@ -102,6 +102,11 @@ long bench_tga_write(void *handle);
 long bench_tga_encode(void *handle);
 long bench_tga_materialize(void *handle, int compress, uint8_t *out, size_t cap);
 std::uint32_t bench_tga_parse(const uint8_t *data, size_t len);
+
+// the chunk transcription (chunkio.cpp: ChunkSaveClass + ChunkLoadClass)
+long bench_chunk_write();
+long bench_chunk_materialize(uint8_t *out, size_t cap);
+std::uint64_t bench_chunk_walk(const uint8_t *data, size_t len);
 }
 
 // --- corpora (identical to the Rust benches) ---------------------------------
@@ -484,6 +489,30 @@ int main(int argc, char **argv)
 
                 bench_tga_targa_free(raw24);
                 bench_tga_targa_free(tex32);
+        }
+
+        // --- chunk ---------------------------------------------------------------------
+        {
+                // The corpus is materialized once (untimed) through the
+                // transcribed writer; the Rust bench builds the identical
+                // bytes through the port's own writer (the golden writer
+                // corpora pin the two byte-identical).
+                std::vector<uint8_t> scratch(4 * 1024 * 1024);
+                long total = bench_chunk_materialize(scratch.data(), scratch.size());
+                if (total <= 0)
+                {
+                        fprintf(stderr, "error: chunk corpus write failed\n");
+                        exit(1);
+                }
+                std::vector<uint8_t> bytes(scratch.begin(), scratch.begin() + total);
+
+                report("chunk/write/mesh_x4096", measure_ns([] {}, [&] {
+                        return (std::uint64_t)bench_chunk_write();
+                }), (double)total);
+
+                report("chunk/read/walk_x4096", measure_ns([] {}, [&] {
+                        return bench_chunk_walk(bytes.data(), bytes.size());
+                }), (double)total);
         }
 
         // --- math --------------------------------------------------------------------

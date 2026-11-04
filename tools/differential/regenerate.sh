@@ -216,4 +216,15 @@ echo "compiling gen_tga_golden.cpp ..."
 mkdir -p "$REPO_ROOT/crates/rzh-formats/tests/golden"
 "$BUILD_DIR/gen_tga_golden" "$REPO_ROOT/crates/rzh-formats/tests/golden/tga.txt"
 echo "wrote crates/rzh-formats/tests/golden/tga.txt"
+
+# --- chunk golden dump: the chunkio.cpp transcription (ChunkSaveClass,
+# ChunkLoadClass — the W3D chunk container both directions) over
+# hand-crafted writer trees, hand-assembled edge-case blobs and scripted
+# step sequences.
+echo "compiling gen_chunk_golden.cpp ..."
+"$CXX" -O2 -std=c++17 -Wall -Wextra -Werror -ffp-contract=off \
+    -c -o "$BUILD_DIR/gen_chunk_golden.o" "$SCRIPT_DIR/gen_chunk_golden.cpp"
+"$CXX" -o "$BUILD_DIR/gen_chunk_golden" "$BUILD_DIR/gen_chunk_golden.o"
+"$BUILD_DIR/gen_chunk_golden" "$REPO_ROOT/crates/rzh-formats/tests/golden/chunk.txt"
+echo "wrote crates/rzh-formats/tests/golden/chunk.txt"
 echo "now run: cargo test --workspace"

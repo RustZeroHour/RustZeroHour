@@ -96,6 +96,8 @@ EAC_DIR="$REPO_ROOT/Core/Libraries/Source/Compression/EAC"
 "$CXX" -O2 -std=c++17 -Wall -Wextra -Werror -ffp-contract=off \
     -c -o "$BUILD_DIR/bench_wrap_tga.o" "$SCRIPT_DIR/bench_wrap_tga.cpp"
 "$CXX" -O2 -std=c++17 -Wall -Wextra -Werror -ffp-contract=off \
+    -c -o "$BUILD_DIR/bench_wrap_chunk.o" "$SCRIPT_DIR/bench_wrap_chunk.cpp"
+"$CXX" -O2 -std=c++17 -Wall -Wextra -Werror -ffp-contract=off \
     -c -o "$BUILD_DIR/bench_baseline.o" "$SCRIPT_DIR/bench_baseline.cpp"
 
 "$CXX" -o "$BUILD_DIR/bench_baseline" \
@@ -105,6 +107,7 @@ EAC_DIR="$REPO_ROOT/Core/Libraries/Source/Compression/EAC"
     "$BUILD_DIR/bench_wrap_ini.o" \
     "$BUILD_DIR/bench_wrap_csf.o" \
     "$BUILD_DIR/bench_wrap_tga.o" \
+    "$BUILD_DIR/bench_wrap_chunk.o" \
     "$BUILD_DIR/refdecode.o" \
     "$BUILD_DIR/refencode.o" \
     "$BUILD_DIR"/*.c.o -lm

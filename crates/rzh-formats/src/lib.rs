@@ -14,10 +14,15 @@
 //!   (`GameText.cpp`) and the Babylon writer (`Core/Tools/Babylon`).
 //! - [`tga`]: the Targa images (`.tga`) — the WWLib `TARGA.cpp` class the
 //!   texture loader, the font loader and the screenshot path all drive.
+//! - [`chunk`]: the W3D chunk container — the IFF-style framing layer
+//!   (`WWLib/chunkio.cpp`) every W3D asset (meshes, skeletons,
+//!   animations, HLOD) is stored in; the base the upcoming W3D parsers
+//!   are built on.
 //!
-//! Deferred to later Phase 2 slices, in plan order: map files, WND
-//! layouts, W3D meshes/animations, DDS textures, fonts and audio
-//! containers. Consumer-side normalizations the original performs on top
+//! Deferred to later Phase 2 slices, in plan order: the W3D format
+//! modules themselves (mesh, HLOD, animation, …), map files, WND
+//! layouts, DDS textures, fonts and audio containers. Consumer-side
+//! normalizations the original performs on top
 //! of a format (space stripping, first-string selection, the texture
 //! loader's descriptor XOR, …) live in the format modules as explicit
 //! helpers or parameters so the parser stays byte-faithful and the
@@ -29,9 +34,15 @@
 
 #![forbid(unsafe_code)]
 
+pub mod chunk;
 pub mod csf;
 pub mod tga;
 
+pub use chunk::{
+    CHUNK_HEADER_SIZE, CHUNK_SIZE_MASK, CHUNK_SUB_CHUNK_FLAG, ChunkError, ChunkHeader, ChunkLoad,
+    ChunkSave, MAX_CHUNK_DEPTH, MAX_SAVE_DEPTH, MICRO_CHUNK_HEADER_SIZE, MICRO_CHUNK_MAX_SIZE,
+    MicroChunkHeader,
+};
 pub use csf::{CsfError, CsfFile, CsfHeader, CsfLabel, CsfString};
 pub use tga::{
     TGA_CMAPPED, TGA_CMAPPED_ENCODED, TGA_MONO, TGA_MONO_ENCODED, TGA_NOIMAGE, TGA_TRUECOLOR,

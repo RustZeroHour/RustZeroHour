@@ -759,3 +759,406 @@ mod tga_size_guard {
         assert_eq!(TgaFile::parse(&bytes), Err(TgaError::TooLarge));
     }
 }
+
+// ---------------------------------------------------------------------------
+// chunk — the W3D chunk container (chunkio.cpp port)
+// ---------------------------------------------------------------------------
+
+mod chunk_props {
+    use proptest::prelude::*;
+    use rzh_formats::chunk::{ChunkError, ChunkLoad, ChunkSave, MAX_CHUNK_DEPTH, MAX_SAVE_DEPTH};
+
+    /// A well-formed chunk tree: containers hold children, data chunks hold
+    /// micro chunks (payloads within the writer's `u8` size field) plus raw
+    /// trailing bytes.
+    #[derive(Debug, Clone, PartialEq)]
+    enum Node {
+        Data {
+            id: u32,
+            micros: Vec<(u8, Vec<u8>)>,
+            payload: Vec<u8>,
+        },
+        Container {
+            id: u32,
+            children: Vec<Node>,
+        },
+    }
+
+    fn node(depth: u8) -> impl Strategy<Value = Node> {
+        let id = prop::sample::select(vec![
+            0u32, 1, 2, 0x5E, 0x1A, 0xABCDEF, 0x7FFFFFFF, 0xFFFFFFFF, 0x80000000,
+        ]);
+        if depth == 0 {
+            (
+                id,
+                prop::collection::vec(
+                    (
+                        prop::num::u8::ANY,
+                        prop::collection::vec(prop::num::u8::ANY, 0..64),
+                    ),
+                    0..3,
+                ),
+                prop::collection::vec(prop::num::u8::ANY, 0..96),
+            )
+                .prop_map(|(id, micros, payload)| Node::Data {
+                    id,
+                    micros,
+                    payload,
+                })
+                .boxed()
+        } else {
+            (id, prop::collection::vec(node(depth - 1), 0..3))
+                .prop_map(move |(id, children)| {
+                    if children.is_empty() {
+                        Node::Data {
+                            id,
+                            micros: Vec::new(),
+                            payload: Vec::new(),
+                        }
+                    } else {
+                        Node::Container { id, children }
+                    }
+                })
+                .boxed()
+        }
+    }
+
+    fn tree() -> impl Strategy<Value = Node> {
+        node(3)
+    }
+
+    fn write_node(save: &mut ChunkSave, node: &Node) -> Result<(), ChunkError> {
+        match node {
+            Node::Data {
+                id,
+                micros,
+                payload,
+            } => {
+                save.begin_chunk(*id)?;
+                for (mid, mpayload) in micros {
+                    save.begin_micro_chunk(*mid)?;
+                    save.write(mpayload)?;
+                    save.end_micro_chunk()?;
+                }
+                save.write(payload)?;
+                save.end_chunk()?;
+            }
+            Node::Container { id, children } => {
+                save.begin_chunk(*id)?;
+                for child in children {
+                    write_node(save, child)?;
+                }
+                save.end_chunk()?;
+            }
+        }
+        Ok(())
+    }
+
+    /// Reads a tree back with the same lens the writer used (data chunks:
+    /// the whole payload raw; containers: recurse). The micro bytes come
+    /// back as part of the payload — the framing cannot tell them apart,
+    /// so the comparison uses the concatenated form.
+    fn read_node(load: &mut ChunkLoad) -> Result<Option<Node>, ChunkError> {
+        if !load.open_chunk()? {
+            return Ok(None);
+        }
+        let id = load.cur_chunk_id();
+        let node = if load.contains_chunks() {
+            let mut children = Vec::new();
+            while let Some(child) = read_node(load)? {
+                children.push(child);
+            }
+            Node::Container { id, children }
+        } else {
+            let mut payload = Vec::new();
+            let mut remaining = load.cur_chunk_length();
+            let mut buf = [0u8; 64];
+            while remaining > 0 {
+                let piece = remaining.min(64) as usize;
+                let n = load.read(&mut buf[..piece])?;
+                if n == 0 {
+                    break;
+                }
+                payload.extend_from_slice(&buf[..n as usize]);
+                remaining -= n;
+            }
+            Node::Data {
+                id,
+                micros: Vec::new(),
+                payload,
+            }
+        };
+        load.close_chunk()?;
+        Ok(Some(node))
+    }
+
+    /// The concatenated form: micro chunks serialize into the payload.
+    fn flatten(node: &Node) -> Node {
+        match node {
+            Node::Data {
+                id,
+                micros,
+                payload,
+            } => {
+                let mut flat = Vec::new();
+                for (mid, mpayload) in micros {
+                    flat.push(*mid);
+                    flat.push(mpayload.len() as u8);
+                    flat.extend_from_slice(mpayload);
+                }
+                flat.extend_from_slice(payload);
+                Node::Data {
+                    id: *id,
+                    micros: Vec::new(),
+                    payload: flat,
+                }
+            }
+            Node::Container { id, children } => Node::Container {
+                id: *id,
+                children: children.iter().map(flatten).collect(),
+            },
+        }
+    }
+
+    proptest! {
+        #![proptest_config(ProptestConfig::with_cases(256))]
+
+        /// Trees survive write → read unchanged (in the concatenated form
+        /// the framing can express).
+        #[test]
+        fn round_trips_through_bytes(tree in tree()) {
+            let mut save = ChunkSave::new();
+            write_node(&mut save, &tree).unwrap();
+            let bytes = save.into_bytes().unwrap();
+            let mut load = ChunkLoad::new(&bytes);
+            let mut read_back = Vec::new();
+            while let Some(node) = read_node(&mut load).unwrap() {
+                read_back.push(node);
+            }
+            prop_assert_eq!(read_back, vec![flatten(&tree)]);
+        }
+
+        /// The byte form is a fixed point: read back and rewritten, the
+        /// bytes are identical.
+        #[test]
+        fn canonical_form_is_stable(tree in tree()) {
+            let mut save = ChunkSave::new();
+            write_node(&mut save, &tree).unwrap();
+            let once = save.into_bytes().unwrap();
+
+            let mut load = ChunkLoad::new(&once);
+            let mut rewritten = ChunkSave::new();
+            rewrite_tree(&mut load, &mut rewritten).unwrap();
+            let twice = rewritten.into_bytes().unwrap();
+            prop_assert_eq!(twice, once);
+        }
+
+        /// Walking arbitrary bytes never panics (errors are fine — the
+        /// depth cap and the state contracts are port guarantees).
+        #[test]
+        fn arbitrary_bytes_never_panic(bytes in prop::collection::vec(prop::num::u8::ANY, 0..1024)) {
+            let mut load = ChunkLoad::new(&bytes);
+            tolerant_walk(&mut load, 0);
+        }
+    }
+
+    /// Rewrites whatever the reader accepts through the writer (the
+    /// fixed-point property's second half).
+    fn rewrite_tree(load: &mut ChunkLoad, save: &mut ChunkSave) -> Result<(), ChunkError> {
+        while load.open_chunk()? {
+            let id = load.cur_chunk_id();
+            save.begin_chunk(id)?;
+            if load.contains_chunks() {
+                rewrite_tree(load, save)?;
+            } else {
+                let mut remaining = load.cur_chunk_length();
+                let mut buf = [0u8; 64];
+                while remaining > 0 {
+                    let piece = remaining.min(64) as usize;
+                    let n = load.read(&mut buf[..piece])?;
+                    if n == 0 {
+                        break;
+                    }
+                    save.write(&buf[..n as usize])?;
+                    remaining -= n;
+                }
+            }
+            load.close_chunk()?;
+            save.end_chunk()?;
+        }
+        Ok(())
+    }
+
+    /// The never-panic walker: both lenses, errors tolerated, iteration
+    /// caps so a pathological loop fails the property instead of hanging.
+    fn tolerant_walk(load: &mut ChunkLoad, depth: usize) {
+        let mut cap = 100_000usize;
+        while cap > 0 {
+            cap -= 1;
+            let Ok(true) = load.open_chunk() else { return };
+            if load.contains_chunks() && depth < 300 {
+                tolerant_walk(load, depth + 1);
+            } else {
+                // payload lens
+                let mut remaining = load.cur_chunk_length();
+                let mut buf = [0u8; 64];
+                let mut reads = 0usize;
+                while remaining > 0 && reads < 100_000 {
+                    reads += 1;
+                    let piece = remaining.min(64) as usize;
+                    let Ok(n) = load.read(&mut buf[..piece]) else {
+                        break;
+                    };
+                    if n == 0 {
+                        break;
+                    }
+                    remaining -= n;
+                }
+                // micro lens
+                let mut micros = 0usize;
+                while micros < 100_000 {
+                    micros += 1;
+                    let Ok(true) = load.open_micro_chunk() else {
+                        break;
+                    };
+                    let mut mremaining = load.cur_micro_chunk_length() as u32;
+                    let mut mreads = 0usize;
+                    while mremaining > 0 && mreads < 300 {
+                        mreads += 1;
+                        let piece = mremaining.min(64) as usize;
+                        let Ok(n) = load.read(&mut buf[..piece]) else {
+                            break;
+                        };
+                        if n == 0 {
+                            break;
+                        }
+                        mremaining -= n;
+                    }
+                    let _ = load.close_micro_chunk();
+                }
+            }
+            let _ = load.close_chunk();
+        }
+        panic!("tolerant walk exceeded its iteration cap");
+    }
+
+    // --- writer state contracts (the original's asserts, as errors) ---------
+
+    #[test]
+    fn write_requires_an_open_chunk() {
+        let mut save = ChunkSave::new();
+        assert_eq!(save.write(b"x"), Err(ChunkError::NoOpenChunk));
+        assert_eq!(save.end_chunk(), Err(ChunkError::NoOpenChunk));
+        assert_eq!(save.end_micro_chunk(), Err(ChunkError::NoOpenChunk));
+    }
+
+    #[test]
+    fn data_cannot_follow_sub_chunks() {
+        let mut save = ChunkSave::new();
+        save.begin_chunk(1).unwrap();
+        save.begin_chunk(2).unwrap();
+        save.end_chunk().unwrap();
+        assert_eq!(save.write(b"x"), Err(ChunkError::DataAfterSubChunks));
+    }
+
+    #[test]
+    fn micro_chunks_cannot_nest_or_outlive_their_chunk() {
+        let mut save = ChunkSave::new();
+        save.begin_chunk(1).unwrap();
+        save.begin_micro_chunk(7).unwrap();
+        assert_eq!(save.begin_micro_chunk(8), Err(ChunkError::NestedMicroChunk));
+        // chunk-level operations while the micro chunk is open
+        assert_eq!(save.end_chunk(), Err(ChunkError::MicroChunkOpen));
+        // a chunk whose payload begins with a real micro header (id 7,
+        // size 2) so the micro chunk actually opens
+        let bytes: Vec<u8> = [1u32, 4u32]
+            .iter()
+            .flat_map(|v| v.to_le_bytes())
+            .chain([7u8, 2, 0xAA, 0xBB].iter().copied())
+            .collect();
+        let mut load = ChunkLoad::new(&bytes);
+        load.open_chunk().unwrap();
+        assert!(load.open_micro_chunk().unwrap());
+        assert_eq!(load.open_micro_chunk(), Err(ChunkError::NestedMicroChunk));
+        assert_eq!(load.open_chunk(), Err(ChunkError::MicroChunkOpen));
+        assert_eq!(load.close_chunk(), Err(ChunkError::MicroChunkOpen));
+    }
+
+    #[test]
+    fn micro_chunk_size_wraps_are_refused() {
+        // 255 total is the release-build limit (the debug assert is an
+        // off-by-one that rejects it — see the module docs); 256 would
+        // wrap the u8 size field.
+        let mut save = ChunkSave::new();
+        save.begin_chunk(1).unwrap();
+        save.begin_micro_chunk(7).unwrap();
+        assert_eq!(save.write(&[0xA5; 255]).unwrap(), 255);
+        assert_eq!(save.write(&[0x5A; 1]), Err(ChunkError::MicroChunkTooLarge));
+    }
+
+    #[test]
+    fn writer_depth_caps_at_the_stack_bound() {
+        let mut save = ChunkSave::new();
+        for _ in 0..MAX_SAVE_DEPTH {
+            save.begin_chunk(1).unwrap();
+        }
+        assert_eq!(save.cur_chunk_depth(), MAX_SAVE_DEPTH);
+        assert_eq!(save.begin_chunk(1), Err(ChunkError::TooDeep));
+    }
+
+    #[test]
+    fn reader_depth_caps_at_the_assert_boundary() {
+        // A tree exactly MAX_CHUNK_DEPTH deep reads back fine (the
+        // original's assert allows exactly this); one level more refuses.
+        let build = |depth: usize| {
+            let mut save = ChunkSave::new();
+            for _ in 0..depth {
+                save.begin_chunk(1).unwrap();
+            }
+            for _ in 0..depth {
+                save.end_chunk().unwrap();
+            }
+            save.into_bytes().unwrap()
+        };
+        fn deepest(load: &mut ChunkLoad) -> Result<usize, ChunkError> {
+            let mut max = 0;
+            while load.open_chunk()? {
+                max = max.max(load.cur_chunk_depth());
+                if load.contains_chunks() {
+                    max = max.max(deepest(load)?);
+                }
+                load.close_chunk()?;
+            }
+            Ok(max)
+        }
+
+        let legal = build(MAX_CHUNK_DEPTH);
+        let mut load = ChunkLoad::new(&legal);
+        assert_eq!(deepest(&mut load).unwrap(), MAX_CHUNK_DEPTH);
+
+        let over = build(MAX_SAVE_DEPTH); // the writer can build deeper…
+        let mut load = ChunkLoad::new(&over);
+        assert_eq!(deepest(&mut load), Err(ChunkError::TooDeep));
+    }
+
+    #[test]
+    fn unclosed_chunks_refuse_the_bytes() {
+        let mut save = ChunkSave::new();
+        save.begin_chunk(1).unwrap();
+        assert_eq!(save.into_bytes(), Err(ChunkError::UnclosedChunk));
+
+        let mut save = ChunkSave::new();
+        save.begin_chunk(1).unwrap();
+        save.begin_micro_chunk(2).unwrap();
+        save.end_micro_chunk().unwrap();
+        assert_eq!(save.into_bytes(), Err(ChunkError::UnclosedChunk));
+    }
+
+    #[test]
+    fn read_and_seek_refuse_without_an_open_chunk() {
+        let mut load = ChunkLoad::new(&[0; 32]);
+        let mut buf = [0u8; 4];
+        assert_eq!(load.read(&mut buf), Err(ChunkError::NoOpenChunk));
+        assert_eq!(load.seek(4), Err(ChunkError::NoOpenChunk));
+    }
+}

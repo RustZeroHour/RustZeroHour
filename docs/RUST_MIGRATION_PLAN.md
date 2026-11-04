@@ -235,7 +235,7 @@ is now specified in [`docs/TRACE_FORMAT_V1.md`](TRACE_FORMAT_V1.md).
 
 ### Phase 2: Data and asset formats (M–L) — **status: started (2026-11-03)**
 
-`rzh-formats` exists and two modules are done to the Phase 1 standard:
+`rzh-formats` exists and three modules are done to the Phase 1 standard:
 
 - the **CSF** string tables: the runtime reader (`GameText.cpp::parseCSF`)
   and the Babylon writer (`expimp.cpp::generate_csf`) are transcribed in
@@ -251,11 +251,24 @@ is now specified in [`docs/TRACE_FORMAT_V1.md`](TRACE_FORMAT_V1.md).
   the re-encoded bytes; the `tga/…` benches are all within budget (the
   raw-parse check surfaced the `invert_in_place` depth specialization,
   docs/benchmarks.md finding 5).
+- the **W3D chunk container**: the IFF-style framing layer every W3D asset
+  is stored in (`WWLib/chunkio.cpp`, `ChunkSaveClass`/`ChunkLoadClass`)
+  is transcribed in `tools/differential/gen_chunk_golden.cpp` and ported
+  as `rzh-formats::chunk` — both directions, micro chunks included — with
+  the goldens pinning the header patching, the equality-based parent
+  exhaustion test (over-declared children walk past their parent's
+  boundary, as found), the clamped reads and unclamped close seeks, the
+  short-read consumes-then-fails quirk, the 255-deep reader stack
+  boundary and the IOVector read helpers' pointer-size bug; the
+  `chunk/…` benches are within budget on both comparisons
+  (docs/benchmarks.md). This is the base the W3D mesh/skeleton/animation/
+  HLOD parsers (the next slices) build on.
 
 - `rzh-ini`: lexer/parser (includes, `#define` macros, inheritance/reskin, load order) and a
   **derive-based schema layer** replacing the 195 hand-written `FieldParse` tables. Keep it
   format-agnostic so the data format can change later (ADR-003).
-- `rzh-formats`: map files, W3D (meshes, skeletons, animations, HLOD), TGA/DDS (**TGA done**), CSF string tables
+- `rzh-formats`: map files, W3D (meshes, skeletons, animations, HLOD) **on
+  top of the ported chunk container**, TGA/DDS (**TGA done**), CSF string tables
   (**done**), WND layouts, fonts, audio containers.
 - `rzh-data`: typed templates (objects, weapons, armor, locomotors, upgrades, sciences, ranks,
   special powers, FX/particles, audio events, command sets, ...).

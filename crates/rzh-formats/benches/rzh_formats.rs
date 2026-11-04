@@ -33,6 +33,7 @@
 use std::hint::black_box;
 
 use criterion::{Criterion, Throughput, criterion_group, criterion_main};
+use rzh_formats::chunk::{ChunkLoad, ChunkSave};
 use rzh_formats::csf::{CsfFile, CsfLabel, CsfString};
 use rzh_formats::tga::{SaveFlags, TGA_TRUECOLOR, TgaFile, TgaHeader};
 
@@ -128,7 +129,9 @@ criterion_group!(
     bench_write,
     bench_game_text,
     bench_tga_parse,
-    bench_tga_write
+    bench_tga_write,
+    bench_chunk_write,
+    bench_chunk_read
 );
 criterion_main!(benches);
 
@@ -233,4 +236,131 @@ fn bench_tga_write(c: &mut Criterion) {
         })
     });
     group.finish();
+}
+
+// ---------------------------------------------------------------------------
+// chunk — the W3D container read/write workloads (plan §6 discipline,
+// continued into Phase 2). The C++ baseline is the chunkio.cpp
+// transcription in tools/differential/bench_wrap_chunk.cpp.
+// ---------------------------------------------------------------------------
+
+/// Vertex records of the mesh-shaped corpus (matches the C++ baseline).
+const CHUNK_VERTICES: usize = 4096;
+
+/// The corpus formula anchored at an absolute offset (the C++ baseline
+/// generates the same absolute-indexed bytes).
+fn chunk_formula_at(offset: usize, n: usize) -> Vec<u8> {
+    (offset..offset + n)
+        .map(|i| ((i * 7 + 13) & 0xFF) as u8)
+        .collect()
+}
+
+/// Builds the mesh-shaped corpus tree through the writer: a top-level
+/// container with a micro-chunk header child, a 4096-vertex data child
+/// (one 12-byte write per vertex) and an index-array child. The payload
+/// formulas form one continuous byte stream: micros 0..24, then the
+/// vertex records, then the index array.
+fn chunk_mesh_tree(save: &mut ChunkSave) {
+    save.begin_chunk(100).unwrap();
+    // header child: three micro chunks
+    save.begin_chunk(1).unwrap();
+    save.begin_micro_chunk(1).unwrap();
+    save.write(&chunk_formula_at(0, 4)).unwrap();
+    save.end_micro_chunk().unwrap();
+    save.begin_micro_chunk(2).unwrap();
+    save.write(&chunk_formula_at(4, 4)).unwrap();
+    save.end_micro_chunk().unwrap();
+    save.begin_micro_chunk(3).unwrap();
+    save.write(&chunk_formula_at(8, 16)).unwrap();
+    save.end_micro_chunk().unwrap();
+    save.end_chunk().unwrap();
+    // vertex child: one write per 12-byte vertex record
+    save.begin_chunk(2).unwrap();
+    for i in 0..CHUNK_VERTICES {
+        save.write(&chunk_formula_at(24 + i * 12, 12)).unwrap();
+    }
+    save.end_chunk().unwrap();
+    // index child: one big write
+    save.begin_chunk(3).unwrap();
+    save.write(&chunk_formula_at(
+        24 + CHUNK_VERTICES * 12,
+        CHUNK_VERTICES * 4 + 4,
+    ))
+    .unwrap();
+    save.end_chunk().unwrap();
+    save.end_chunk().unwrap();
+}
+
+/// Structures → bytes: the exporter shape (the tree build through the
+/// writer, header patching included).
+fn bench_chunk_write(c: &mut Criterion) {
+    let mut save = ChunkSave::new();
+    chunk_mesh_tree(&mut save);
+    let len = save.into_bytes().unwrap().len() as u64;
+    assert_eq!(
+        len, 65_602,
+        "the bench corpus drifted from the C++ baseline"
+    );
+
+    let mut group = c.benchmark_group("chunk/write");
+    group.throughput(Throughput::Bytes(len));
+    group.bench_function("mesh_x4096", |b| {
+        b.iter(|| {
+            let mut save = ChunkSave::new();
+            chunk_mesh_tree(&mut save);
+            black_box(save.into_bytes().unwrap().len())
+        })
+    });
+    group.finish();
+}
+
+/// The consumer view: the walk-A lens (structure + payload reads in
+/// 64-byte pieces) over the materialized corpus — the shape the future
+/// W3D loaders drive.
+fn bench_chunk_read(c: &mut Criterion) {
+    let mut save = ChunkSave::new();
+    chunk_mesh_tree(&mut save);
+    let bytes = save.into_bytes().unwrap();
+    let len = bytes.len() as u64;
+    assert_eq!(
+        len, 65_602,
+        "the bench corpus drifted from the C++ baseline"
+    );
+
+    let mut group = c.benchmark_group("chunk/read");
+    group.throughput(Throughput::Bytes(len));
+    group.bench_function("walk_x4096", |b| {
+        b.iter(|| {
+            let mut load = rzh_formats::chunk::ChunkLoad::new(black_box(&bytes));
+            let mut checksum: u64 = 0;
+            walk_a_bench(&mut load, &mut checksum);
+            checksum
+        })
+    });
+    group.finish();
+}
+
+/// The walk-A loop shape (mirrors the golden walker and the C++
+/// baseline's `bench_chunk_walk` one-to-one).
+fn walk_a_bench(load: &mut ChunkLoad, checksum: &mut u64) {
+    while load.open_chunk().unwrap() {
+        if load.contains_chunks() {
+            walk_a_bench(load, checksum);
+        } else {
+            let mut remaining = load.cur_chunk_length();
+            let mut buf = [0u8; 64];
+            while remaining > 0 {
+                let piece = remaining.min(64) as usize;
+                let n = load.read(&mut buf[..piece]).unwrap();
+                if n == 0 {
+                    break;
+                }
+                for b in &buf[..n as usize] {
+                    *checksum = checksum.wrapping_add(u64::from(*b));
+                }
+                remaining -= n;
+            }
+        }
+        load.close_chunk().unwrap();
+    }
 }

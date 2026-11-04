@@ -66,6 +66,29 @@ branchy per-pixel loop on both sides — the transcription's shape and the
 port's are the same, and the remaining ~8 % is the bounds-checked slice
 writes the C++ does not do.
 
+The third slice, the W3D chunk container, adds two comparisons.
+Measured on 2026-11-04, same setup and flags as above. The corpus is a
+mesh-shaped chunk tree (65,602 bytes: a micro-chunk header record, 4096
+twelve-byte vertex records written one write per record, and an index
+array) built through each side's own writer — **verified byte-identical
+across the two builders** — so the read bench walks identical bytes. The
+C++ side builds and walks through the `chunkio.cpp` transcription in
+`bench_wrap_chunk.cpp`; the Rust side through `rzh-formats::chunk`.
+
+| Benchmark | Rust (criterion) | C++ baseline | Rust/C++ | Verdict |
+|---|---|---:|---:|---|
+| `chunk/write/mesh_x4096` | 70.04 µs | 112.81 µs | 0.62x | within |
+| `chunk/read/walk_x4096` | 16.67 µs | 30.85 µs | 0.54x | within |
+
+The write gap is structural: the original patches each chunk header with
+a seek-back-and-rewrite through its `FileClass` (transcribed as a
+position-tracked vector), while the port patches the same eight bytes in
+place on its `Vec` sink; both re-walk the whole tree per call. The read
+gap comes from the same shape difference in reverse (the port's
+stack frames live in a `Vec` the optimizer keeps hot) plus the
+bounds-checked slice reads the C++ does not do. Two reruns of each side
+kept both comparisons inside budget with margins unchanged.
+
 ## Methodology
 
 - **Same code, same corpora.** The C++ side times the *verbatim

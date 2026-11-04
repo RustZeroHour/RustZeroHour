@@ -5,6 +5,9 @@
 #                                                     getCSFInfo, parseCSF, stripSpaces)
 #   Core/Tools/Babylon/expimp.{h,cpp}                (CSF writer: CSF_HEADER,
 #                                                     generate_csf, writeCSFLabel, writeCSFString)
+#   Core/Libraries/Source/WWVegas/WWLib/chunkio.{h,cpp}
+#                                                     (the W3D chunk container:
+#                                                     ChunkSaveClass, ChunkLoadClass)
 #
 # Original: Copyright 2025 Electronic Arts Inc.
 # Rust port Copyright 2026 the RustZeroHour contributors.
@@ -20,13 +23,13 @@
 
 [package]
 name = "rzh-formats"
-description = "Zero Hour asset format parsers: CSF string tables and TGA textures (map, W3D, WND, DDS follow)"
+description = "Zero Hour asset format parsers: CSF string tables, TGA textures and the W3D chunk container (map, W3D, WND, DDS follow)"
 version.workspace = true
 edition.workspace = true
 rust-version.workspace = true
 license.workspace = true
 repository.workspace = true
-keywords = ["gamedev", "rts", "zerohour", "csf", "file-format", "tga"]
+keywords = ["gamedev", "rts", "zerohour", "file-format", "w3d"]
 categories = ["game-development", "parser-implementations"]
 readme = "README.md"
 

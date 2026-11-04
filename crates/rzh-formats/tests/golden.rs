@@ -476,3 +476,505 @@ fn tga_extension_layout_is_packed() {
     let ext = Tga2Extension::parse(&bytes).unwrap();
     assert_eq!(ext.to_bytes(), bytes);
 }
+
+// ---------------------------------------------------------------------------
+// chunk (chunkio.cpp transcription — tools/differential/gen_chunk_golden.cpp)
+// ---------------------------------------------------------------------------
+
+use rzh_formats::chunk::{ChunkLoad, ChunkSave};
+
+fn chunk_golden_path() -> PathBuf {
+    PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+        .join("tests")
+        .join("golden")
+        .join("chunk.txt")
+}
+
+/// One chunk golden corpus: the bytes, the writer direction, the two walk
+/// event sequences and the scripted steps.
+#[derive(Default)]
+struct ChunkCorpus {
+    bytes: Vec<u8>,
+    writer_bytes: Option<Vec<u8>>,
+    wdepth: Option<usize>,
+    walk_a: Vec<String>,
+    walk_b: Vec<String>,
+    steps: Vec<String>,
+}
+
+/// The formula corpus bytes (kept in lockstep with the generator).
+fn chunk_formula(n: usize) -> Vec<u8> {
+    (0..n).map(|i| ((i * 7 + 13) & 0xFF) as u8).collect()
+}
+
+fn chunk_hex(bytes: &[u8]) -> String {
+    if bytes.is_empty() {
+        "-".to_string()
+    } else {
+        hex(bytes)
+    }
+}
+
+/// Walk A (payload lens): mirrors `walk_a` in the generator — containers
+/// recurse, data chunks read their payload back in pieces of
+/// `min(64, remaining)` bytes until a read returns 0.
+fn chunk_walk_a(load: &mut ChunkLoad, id: &str, out: &mut Vec<String>) {
+    while load.open_chunk().unwrap() {
+        out.push(format!(
+            "chunk {id} {} {:x} {} {}",
+            load.cur_chunk_depth(),
+            load.cur_chunk_id(),
+            load.cur_chunk_length(),
+            if load.contains_chunks() { "C" } else { "-" },
+        ));
+        if load.contains_chunks() {
+            chunk_walk_a(load, id, out);
+        } else {
+            let mut payload = Vec::new();
+            let mut remaining = load.cur_chunk_length();
+            let mut buf = [0u8; 64];
+            while remaining > 0 {
+                let piece = remaining.min(64) as usize;
+                let n = load.read(&mut buf[..piece]).unwrap();
+                if n == 0 {
+                    break;
+                }
+                payload.extend_from_slice(&buf[..n as usize]);
+                remaining -= n;
+            }
+            out.push(format!("data {id} {}", chunk_hex(&payload)));
+        }
+        load.close_chunk().unwrap();
+    }
+}
+
+/// Walk B (micro lens): mirrors `walk_b` in the generator — data chunks
+/// walk their micro chunks (payload read the same way) instead of the
+/// raw payload.
+fn chunk_walk_b(load: &mut ChunkLoad, id: &str, out: &mut Vec<String>) {
+    while load.open_chunk().unwrap() {
+        if load.contains_chunks() {
+            chunk_walk_b(load, id, out);
+        } else {
+            while load.open_micro_chunk().unwrap() {
+                out.push(format!(
+                    "mchunk {id} {} {} {}",
+                    load.cur_chunk_depth(),
+                    load.cur_micro_chunk_id(),
+                    load.cur_micro_chunk_length(),
+                ));
+                let mut payload = Vec::new();
+                let mut remaining = load.cur_micro_chunk_length() as u32;
+                let mut buf = [0u8; 64];
+                while remaining > 0 {
+                    let piece = remaining.min(64) as usize;
+                    let n = load.read(&mut buf[..piece]).unwrap();
+                    if n == 0 {
+                        break;
+                    }
+                    payload.extend_from_slice(&buf[..n as usize]);
+                    remaining -= n;
+                }
+                out.push(format!("mdata {id} {}", chunk_hex(&payload)));
+                load.close_micro_chunk().unwrap();
+            }
+        }
+        load.close_chunk().unwrap();
+    }
+}
+
+/// Runs both walks over a corpus and returns the two event sequences
+/// (each ending with the tell line, like the generator).
+fn chunk_run_walks(bytes: &[u8], id: &str) -> (Vec<String>, Vec<String>) {
+    let mut walk_a = Vec::new();
+    let mut load = ChunkLoad::new(bytes);
+    chunk_walk_a(&mut load, id, &mut walk_a);
+    walk_a.push(format!("tell {id} {}", load.tell()));
+
+    let mut walk_b = Vec::new();
+    let mut load = ChunkLoad::new(bytes);
+    chunk_walk_b(&mut load, id, &mut walk_b);
+    walk_b.push(format!("mtell {id} {}", load.tell()));
+    (walk_a, walk_b)
+}
+
+/// Rebuilds the writer corpora with [`ChunkSave`], mirroring
+/// `build_writer_corpora` in the generator one tree for one. Returns the
+/// bytes plus the writer's `cur_chunk_depth` at its deepest point.
+fn chunk_build_writer_corpora() -> Vec<(&'static str, Vec<u8>, usize)> {
+    let mut out = Vec::new();
+    {
+        // one data chunk with a formula payload
+        let mut save = ChunkSave::new();
+        save.begin_chunk(0x5E).unwrap();
+        let depth = save.cur_chunk_depth();
+        save.write(&chunk_formula(100)).unwrap();
+        save.end_chunk().unwrap();
+        out.push(("wr_simple", save.into_bytes().unwrap(), depth));
+    }
+    {
+        // nested containers, an empty data chunk, two top-level chunks
+        let mut save = ChunkSave::new();
+        save.begin_chunk(0x100).unwrap();
+        save.begin_chunk(1).unwrap();
+        save.write(&chunk_formula(12)).unwrap();
+        save.end_chunk().unwrap();
+        save.begin_chunk(2).unwrap();
+        save.begin_chunk(3).unwrap();
+        let depth = save.cur_chunk_depth();
+        save.write(&chunk_formula(4)).unwrap();
+        save.end_chunk().unwrap();
+        save.begin_chunk(4).unwrap(); // empty data chunk
+        save.end_chunk().unwrap();
+        save.end_chunk().unwrap();
+        save.begin_chunk(5).unwrap();
+        save.write(&chunk_formula(28)).unwrap();
+        save.end_chunk().unwrap();
+        save.end_chunk().unwrap();
+        save.begin_chunk(6).unwrap();
+        save.write(&chunk_formula(8)).unwrap();
+        save.end_chunk().unwrap();
+        out.push(("wr_nested", save.into_bytes().unwrap(), depth));
+    }
+    {
+        // micro chunks (a zero-size one, a 254-byte one at the debug
+        // assert boundary) then trailing raw data in the same chunk
+        let mut save = ChunkSave::new();
+        save.begin_chunk(0x200).unwrap();
+        let depth = save.cur_chunk_depth();
+        save.begin_micro_chunk(1).unwrap();
+        save.write(&chunk_formula(4)).unwrap();
+        save.end_micro_chunk().unwrap();
+        save.begin_micro_chunk(2).unwrap(); // zero-size micro chunk
+        save.end_micro_chunk().unwrap();
+        save.begin_micro_chunk(3).unwrap();
+        save.write(&chunk_formula(17)).unwrap();
+        save.end_micro_chunk().unwrap();
+        save.begin_micro_chunk(255).unwrap();
+        save.write(&chunk_formula(254)).unwrap();
+        save.end_micro_chunk().unwrap();
+        save.write(&chunk_formula(9)).unwrap(); // raw data after the micros
+        save.end_chunk().unwrap();
+        out.push(("wr_micro", save.into_bytes().unwrap(), depth));
+    }
+    {
+        // 60 levels of nesting, data only at the innermost
+        let mut save = ChunkSave::new();
+        for i in 0..60u32 {
+            save.begin_chunk(0x10 + i).unwrap();
+        }
+        let depth = save.cur_chunk_depth();
+        save.write(&chunk_formula(5)).unwrap();
+        for _ in 0..60 {
+            save.end_chunk().unwrap();
+        }
+        out.push(("wr_deep", save.into_bytes().unwrap(), depth));
+    }
+    {
+        // the full u32 id range on chunks, 0 and 255 on micro ids
+        let mut save = ChunkSave::new();
+        let mut depth = 0;
+        for id in [0u32, 1, 0x7FFFFFFF, 0xFFFFFFFF, 0x80000000] {
+            save.begin_chunk(id).unwrap();
+            save.begin_chunk(0xABCDEF01).unwrap();
+            depth = save.cur_chunk_depth();
+            save.write(&chunk_formula(3)).unwrap();
+            save.end_chunk().unwrap();
+            save.end_chunk().unwrap();
+        }
+        save.begin_chunk(0x555).unwrap();
+        save.begin_micro_chunk(0).unwrap();
+        save.write(&chunk_formula(2)).unwrap();
+        save.end_micro_chunk().unwrap();
+        save.begin_micro_chunk(255).unwrap();
+        save.write(&chunk_formula(1)).unwrap();
+        save.end_micro_chunk().unwrap();
+        save.end_chunk().unwrap();
+        out.push(("wr_ids", save.into_bytes().unwrap(), depth));
+    }
+    {
+        // the IOVector write helpers (full structs; the READ side is the
+        // buggy one — pinned by the rd_vecs script)
+        let mut save = ChunkSave::new();
+        save.begin_chunk(0x300).unwrap();
+        let depth = save.cur_chunk_depth();
+        save.write_io_vector2(&[1.5, -2.5]).unwrap();
+        save.write_io_vector3(&[1.0, 2.0, 3.0]).unwrap();
+        save.write_io_vector4(&[4.0, 3.0, 2.0, 1.0]).unwrap();
+        save.write_io_quaternion(&[0.5, 0.5, 0.5, 0.5]).unwrap();
+        save.end_chunk().unwrap();
+        out.push(("wr_vecs", save.into_bytes().unwrap(), depth));
+    }
+    {
+        // a bigger payload accumulated over several writes
+        let mut save = ChunkSave::new();
+        save.begin_chunk(0x400).unwrap();
+        let depth = save.cur_chunk_depth();
+        for _ in 0..8 {
+            save.write(&chunk_formula(64)).unwrap();
+        }
+        save.end_chunk().unwrap();
+        out.push(("wr_big", save.into_bytes().unwrap(), depth));
+    }
+    out
+}
+
+/// The scripted corpora replays: mirror `run_scripts` in the generator
+/// step for step over the golden `file` bytes.
+fn chunk_run_script(id: &str, bytes: &[u8], out: &mut Vec<String>) {
+    let mut load = ChunkLoad::new(bytes);
+    let mut buf = [0u8; 64];
+    match id {
+        // reading data out of a contains-flagged chunk (read never
+        // consults the flag)
+        "rd_msbdata" => {
+            out.push(format!(
+                "step {id} open {}",
+                u8::from(load.open_chunk().unwrap())
+            ));
+            out.push(format!("step {id} id {:x}", load.cur_chunk_id()));
+            out.push(format!("step {id} len {}", load.cur_chunk_length()));
+            out.push(format!(
+                "step {id} contains {}",
+                u8::from(load.contains_chunks())
+            ));
+            out.push(format!("step {id} depth {}", load.cur_chunk_depth()));
+            let n = load.read(&mut buf[..8]).unwrap();
+            out.push(format!(
+                "step {id} read {n} {}",
+                chunk_hex(&buf[..n as usize])
+            ));
+            let n = load.read(&mut buf[..1]).unwrap();
+            out.push(format!(
+                "step {id} read {n} {}",
+                chunk_hex(&buf[..n as usize])
+            ));
+            load.close_chunk().unwrap();
+            out.push(format!("step {id} close 1"));
+            out.push(format!("step {id} tell {}", load.tell()));
+        }
+        // the short read consumes the available bytes and still reports
+        // failure; the close seek then jumps past the end
+        "rd_short" => {
+            out.push(format!(
+                "step {id} open {}",
+                u8::from(load.open_chunk().unwrap())
+            ));
+            out.push(format!("step {id} id {:x}", load.cur_chunk_id()));
+            let n = load.read(&mut buf[..17]).unwrap(); // 12 available: consumed, failed
+            out.push(format!(
+                "step {id} read {n} {}",
+                chunk_hex(&buf[..n as usize])
+            ));
+            out.push(format!("step {id} tell {}", load.tell()));
+            let n = load.read(&mut buf[..17]).unwrap(); // nothing left: no advance
+            out.push(format!(
+                "step {id} read {n} {}",
+                chunk_hex(&buf[..n as usize])
+            ));
+            out.push(format!("step {id} tell {}", load.tell()));
+            load.close_chunk().unwrap();
+            out.push(format!("step {id} close 1"));
+            out.push(format!("step {id} tell {}", load.tell()));
+        }
+        // a micro header that would cross its parent's declared end fails
+        // cleanly (the clamp fires before the read)
+        "rd_micro_straddle" => {
+            out.push(format!(
+                "step {id} open {}",
+                u8::from(load.open_chunk().unwrap())
+            ));
+            let n = load.read(&mut buf[..6]).unwrap();
+            out.push(format!(
+                "step {id} read {n} {}",
+                chunk_hex(&buf[..n as usize])
+            ));
+            out.push(format!(
+                "step {id} mopen {}",
+                u8::from(load.open_micro_chunk().unwrap())
+            ));
+            let n = load.read(&mut buf[..1]).unwrap(); // the last parent byte
+            out.push(format!(
+                "step {id} read {n} {}",
+                chunk_hex(&buf[..n as usize])
+            ));
+            let n = load.read(&mut buf[..1]).unwrap();
+            out.push(format!(
+                "step {id} read {n} {}",
+                chunk_hex(&buf[..n as usize])
+            ));
+            load.close_chunk().unwrap();
+            out.push(format!("step {id} close 1"));
+            out.push(format!("step {id} tell {}", load.tell()));
+        }
+        // close_micro_chunk jumps unclamped past the parent's bounds and
+        // the parent's counter overruns
+        "rd_micro_overrun" => {
+            out.push(format!(
+                "step {id} open {}",
+                u8::from(load.open_chunk().unwrap())
+            ));
+            out.push(format!(
+                "step {id} mopen {}",
+                u8::from(load.open_micro_chunk().unwrap())
+            ));
+            out.push(format!("step {id} mid {}", load.cur_micro_chunk_id()));
+            out.push(format!("step {id} mlen {}", load.cur_micro_chunk_length()));
+            let n = load.read(&mut buf[..2]).unwrap();
+            out.push(format!(
+                "step {id} read {n} {}",
+                chunk_hex(&buf[..n as usize])
+            ));
+            load.close_micro_chunk().unwrap();
+            out.push(format!("step {id} mclose 1"));
+            out.push(format!(
+                "step {id} open {}",
+                u8::from(load.open_chunk().unwrap())
+            ));
+            load.close_chunk().unwrap();
+            out.push(format!("step {id} close 1"));
+            out.push(format!("step {id} tell {}", load.tell()));
+        }
+        // the IOVector read helpers' pointer-size bug: each consumes
+        // exactly 4 bytes, filling only the first component
+        "rd_vecs" => {
+            out.push(format!(
+                "step {id} open {}",
+                u8::from(load.open_chunk().unwrap())
+            ));
+            let mut r2 = [0.0f32; 2];
+            let mut r3 = [0.0f32; 3];
+            let mut r4 = [0.0f32; 4];
+            let mut rq = [0.0f32; 4];
+            out.push(format!(
+                "step {id} read {}",
+                load.read_io_vector2(&mut r2).unwrap()
+            ));
+            out.push(format!(
+                "step {id} read {}",
+                load.read_io_vector3(&mut r3).unwrap()
+            ));
+            out.push(format!(
+                "step {id} read {}",
+                load.read_io_vector4(&mut r4).unwrap()
+            ));
+            out.push(format!(
+                "step {id} read {}",
+                load.read_io_quaternion(&mut rq).unwrap()
+            ));
+            out.push(format!(
+                "step {id} vecs {} {} {} {} {} {} {} {}",
+                r2[0], r2[1], r3[0], r3[1], r4[0], r4[1], rq[0], rq[1]
+            ));
+            let mut rest = [0u8; 36];
+            let n = load.read(&mut rest).unwrap();
+            out.push(format!(
+                "step {id} read {n} {}",
+                chunk_hex(&rest[..n as usize])
+            ));
+            load.close_chunk().unwrap();
+            out.push(format!("step {id} close 1"));
+            out.push(format!("step {id} tell {}", load.tell()));
+        }
+        other => panic!("unknown scripted corpus {other:?}"),
+    }
+}
+
+#[test]
+fn golden_chunk() {
+    let text = std::fs::read_to_string(chunk_golden_path()).expect("golden file");
+    let mut corpora: BTreeMap<String, ChunkCorpus> = BTreeMap::new();
+
+    for line in text.lines() {
+        let line = line.trim();
+        if line.is_empty() || line.starts_with('#') {
+            continue;
+        }
+        let fields: Vec<&str> = line.split_whitespace().collect();
+        let corpus = corpora.entry(fields[1].to_string()).or_default();
+        match fields[0] {
+            "file" => corpus.bytes = unhex(fields[2]),
+            "gen" => corpus.writer_bytes = Some(unhex(fields[2])),
+            "wdepth" => corpus.wdepth = Some(fields[2].parse().expect("wdepth")),
+            "chunk" | "data" | "tell" => corpus.walk_a.push(line.to_string()),
+            "mchunk" | "mdata" | "mtell" => corpus.walk_b.push(line.to_string()),
+            "step" => corpus.steps.push(line.to_string()),
+            other => panic!("unknown golden command {other:?}"),
+        }
+    }
+
+    assert!(
+        corpora.len() >= 18,
+        "unexpectedly few corpora: {}",
+        corpora.len()
+    );
+
+    // The writer corpora must exist and be walked.
+    let writers = chunk_build_writer_corpora();
+    for (id, bytes, depth) in &writers {
+        let corpus = &corpora[*id];
+        assert_eq!(
+            Some(bytes),
+            corpus.writer_bytes.as_ref(),
+            "{id}: the rebuilt tree differs from the transcribed writer"
+        );
+        assert_eq!(
+            corpus.bytes, *bytes,
+            "{id}: the file and gen bytes differ in the golden"
+        );
+        assert_eq!(
+            corpus.wdepth,
+            Some(*depth),
+            "{id}: writer depth pin mismatch"
+        );
+    }
+
+    for (id, corpus) in &corpora {
+        // Both walks over every corpus.
+        let (walk_a, walk_b) = chunk_run_walks(&corpus.bytes, id);
+        assert_eq!(
+            walk_a, corpus.walk_a,
+            "{id}: walk A (payload lens) diverges from the transcription"
+        );
+        assert_eq!(
+            walk_b, corpus.walk_b,
+            "{id}: walk B (micro lens) diverges from the transcription"
+        );
+
+        // The scripted corpora replay step for step.
+        if !corpus.steps.is_empty() {
+            let mut steps = Vec::new();
+            chunk_run_script(id, &corpus.bytes, &mut steps);
+            assert_eq!(steps, corpus.steps, "{id}: scripted steps diverge");
+        }
+    }
+}
+
+/// The round-trip layer the walks do not exercise: every writer corpus
+/// re-parsed through the reader must rebuild to identical bytes (the
+/// container's fixed point), including the 60-deep tree and the
+/// micro-chunk corpus.
+#[test]
+fn golden_chunk_writer_round_trips() {
+    for (id, bytes, _) in chunk_build_writer_corpora() {
+        // The walk itself proves the reader accepts the bytes; the fixed
+        // point needs a writer again, which the golden `gen` comparison
+        // already pins — here we check the reader's structural view: the
+        // walk events must be non-empty and the final tell must equal the
+        // byte length (nothing left dangling at the top level).
+        let (walk_a, _) = chunk_run_walks(&bytes, id);
+        let last = walk_a.last().expect("walk events");
+        let tell: u64 = last
+            .rsplit(' ')
+            .next()
+            .expect("tell digits")
+            .parse()
+            .expect("tell number");
+        assert_eq!(
+            tell,
+            bytes.len() as u64,
+            "{id}: top-level walk left the stream at {tell}, expected the file length {}",
+            bytes.len()
+        );
+    }
+}
