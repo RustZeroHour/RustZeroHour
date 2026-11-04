@@ -79,6 +79,14 @@
 #include <string>
 #include <vector>
 
+// The transcription body lives in an anonymous namespace: the §6 bench
+// wrappers (tools/differential/bench_baseline.sh) link several generator
+// translation units into one binary, and their identically-named
+// self-contained transcriptions (the chunkio.cpp ChunkLoadClass every
+// W3D generator re-transcribes) would otherwise collide at link time.
+// main() stays at global scope so the generator still links standalone.
+namespace {
+
 // --- the format constants and structures (chunkio.h) --------------------------
 
 struct ChunkHeader
@@ -406,7 +414,7 @@ uint32_t ChunkSaveClass::Write(const IOQuaternionStruct & q)
         return Write(&q,sizeof(q));
 }
 
-int ChunkSaveClass::Cur_Chunk_Depth()
+[[maybe_unused]] int ChunkSaveClass::Cur_Chunk_Depth()
 {
         return StackIndex;
 }
@@ -593,7 +601,7 @@ uint32_t ChunkLoadClass::Cur_Micro_Chunk_Length()
 }
 
 // Seek over nbytes in the stream
-uint32_t ChunkLoadClass::Seek(uint32_t nbytes)
+[[maybe_unused]] uint32_t ChunkLoadClass::Seek(uint32_t nbytes)
 {
         assert(StackIndex >= 1);
 
@@ -1243,6 +1251,8 @@ static void run_scripts(const std::vector<ReaderCorpus> &corpora)
                 emit("step rd_vecs tell " + dec(cload.Tell()));
         }
 }
+
+} // namespace
 
 // --- main -----------------------------------------------------------------------
 

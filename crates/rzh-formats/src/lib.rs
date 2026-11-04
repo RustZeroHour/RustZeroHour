@@ -24,9 +24,15 @@
 //!   selection and alternate-description routing, and the AABTree. The
 //!   first real W3D model module, unlocking the plan's model-viewer
 //!   milestone (M3).
+//! - [`w3d_htree`]: the W3D hierarchy trees — the data path of
+//!   `HTreeClass::Load_W3D` (`WW3D2/htree.cpp`): the 36-byte header, the
+//!   60-byte pivots with their base-pose transforms (the original's
+//!   mixed-precision `Build_Matrix3D` included), the pre-3.0 root
+//!   synthesis and parent fixup, and the `stricmp` bone lookup the
+//!   skinning path resolves bones against.
 //!
 //! Deferred to later Phase 2 slices, in plan order: the remaining W3D
-//! modules (skeletons, animations, HLOD, …), map files, WND
+//! modules (animations, HLOD, …), map files, WND
 //! layouts, DDS textures, fonts and audio containers. Consumer-side
 //! normalizations the original performs on top
 //! of a format (space stripping, first-string selection, the texture
@@ -43,6 +49,7 @@
 pub mod chunk;
 pub mod csf;
 pub mod tga;
+pub mod w3d_htree;
 pub mod w3d_mesh;
 
 pub use chunk::{
@@ -55,6 +62,11 @@ pub use tga::{
     TGA_CMAPPED, TGA_CMAPPED_ENCODED, TGA_MONO, TGA_MONO_ENCODED, TGA_NOIMAGE, TGA_TRUECOLOR,
     TGA_TRUECOLOR_ENCODED, TGA2_SIGNATURE, TGAIDF_ATTRIB_BITS, TGAIDF_XORIGIN, TGAIDF_YORIGIN,
     Tga2Extension, Tga2Footer, TgaError, TgaFile, TgaHeader,
+};
+pub use w3d_htree::{
+    HtreeError, W3D_CHUNK_HIERARCHY, W3D_CHUNK_HIERARCHY_HEADER, W3D_CHUNK_PIVOT_FIXUPS,
+    W3D_CHUNK_PIVOTS, W3D_CURRENT_HTREE_VERSION, W3D_NAME_LEN, W3dHierarchyHeader, W3dHtree,
+    W3dPivot, W3dPivotStruct,
 };
 pub use w3d_mesh::{
     AabNode, AabTree, LegacyMaterial, MAX_PASSES, MAX_TEX_STAGES, MatDesc, MaterialInfo, MeshError,

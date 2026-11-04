@@ -239,4 +239,15 @@ echo "compiling gen_mesh_golden.cpp ..."
 "$CXX" -o "$BUILD_DIR/gen_mesh_golden" "$BUILD_DIR/gen_mesh_golden.o"
 "$BUILD_DIR/gen_mesh_golden" "$REPO_ROOT/crates/rzh-formats/tests/golden/mesh.txt"
 echo "wrote crates/rzh-formats/tests/golden/mesh.txt"
+
+# --- htree golden dump: the htree.cpp hierarchy tree transcription
+# (Load_W3D, read_pivots, the PivotClass state, the Build_Matrix3D /
+# Translate / postMul base-pose formulas, the stricmp bone lookup) over
+# hand-built modern, pre-3.0 and malformed hierarchy corpora.
+echo "compiling gen_htree_golden.cpp ..."
+"$CXX" -O2 -std=c++17 -Wall -Wextra -Werror -ffp-contract=off \
+    -c -o "$BUILD_DIR/gen_htree_golden.o" "$SCRIPT_DIR/gen_htree_golden.cpp"
+"$CXX" -o "$BUILD_DIR/gen_htree_golden" "$BUILD_DIR/gen_htree_golden.o"
+"$BUILD_DIR/gen_htree_golden" "$REPO_ROOT/crates/rzh-formats/tests/golden/htree.txt"
+echo "wrote crates/rzh-formats/tests/golden/htree.txt"
 echo "now run: cargo test --workspace"

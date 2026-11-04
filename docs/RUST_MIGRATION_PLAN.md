@@ -235,7 +235,7 @@ is now specified in [`docs/TRACE_FORMAT_V1.md`](TRACE_FORMAT_V1.md).
 
 ### Phase 2: Data and asset formats (M–L) — **status: started (2026-11-03)**
 
-`rzh-formats` exists and four modules are done to the Phase 1 standard:
+`rzh-formats` exists and five modules are done to the Phase 1 standard:
 
 - the **CSF** string tables: the runtime reader (`GameText.cpp::parseCSF`)
   and the Babylon writer (`expimp.cpp::generate_csf`) are transcribed in
@@ -283,13 +283,33 @@ is now specified in [`docs/TRACE_FORMAT_V1.md`](TRACE_FORMAT_V1.md).
   bounds standing for the original's out-of-bounds reads; the
   `mesh` bench is within budget
   (docs/benchmarks.md).
+- the **W3D hierarchy trees**: the data path of `HTreeClass::Load_W3D`
+  (`WW3D2/htree.cpp` — the 36-byte header, the 60-byte pivots with the
+  base-pose transforms `read_pivots` builds through the WWMath
+  mixed-precision `Build_Matrix3D`/`Translate`/`postMul` formulas, the
+  pre-3.0 root synthesis and parent-index fixup, and the `stricmp` bone
+  lookups the skinning path resolves bones against; plus the
+  `PivotClass` constructor state the pivot array is born with) is
+  transcribed in `tools/differential/gen_htree_golden.cpp` and ported
+  as `rzh-formats::w3d_htree` — the skeleton module the skinning path
+  and the HLOD assemblies both sit on. The goldens pin 36 hierarchy
+  payloads: the modern full tree and the 24-bone skeleton shape, the
+  pre-3.0 fixup (with the `0xFFFFFFFE` parent wrap that mints a second
+  root, and the count wrap that fails the load), the default-constructed
+  pivots a missing pivots chunk leaves, the failing-sub-read-fails-the-
+  load contrast with the mesh loader's discarded error, the unresolvable
+  parent stated as a contract (the original stores a dangling pointer
+  the first `Base_Update` would dereference) and the negative-zero
+  translation rounding through the identity rows; the `htree` bench is
+  within budget (docs/benchmarks.md).
 
 - `rzh-ini`: lexer/parser (includes, `#define` macros, inheritance/reskin, load order) and a
   **derive-based schema layer** replacing the 195 hand-written `FieldParse` tables. Keep it
   format-agnostic so the data format can change later (ADR-003).
-- `rzh-formats`: map files, W3D (meshes **done**, skeletons, animations, HLOD)
-  **on top of the ported chunk container**, TGA/DDS (**TGA done**), CSF string
-  tables (**done**), WND layouts, fonts, audio containers.
+- `rzh-formats`: map files, W3D (meshes **done**, skeletons **done**,
+  animations, HLOD) **on top of the ported chunk container**, TGA/DDS
+  (**TGA done**), CSF string tables (**done**), WND layouts, fonts,
+  audio containers.
 - `rzh-data`: typed templates (objects, weapons, armor, locomotors, upgrades, sciences, ranks,
   special powers, FX/particles, audio events, command sets, ...).
 - **Module census:** count how often each module type appears in the data → port order for Phase 3.

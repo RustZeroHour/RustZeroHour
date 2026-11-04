@@ -121,6 +121,14 @@
 #include <string>
 #include <vector>
 
+// The transcription body lives in an anonymous namespace: the §6 bench
+// wrappers (tools/differential/bench_baseline.sh) link several generator
+// translation units into one binary, and their identically-named
+// self-contained transcriptions (the chunkio.cpp ChunkLoadClass every
+// W3D generator re-transcribes) would otherwise collide at link time.
+// main() stays at global scope so the generator still links standalone.
+namespace {
+
 // --- the format constants (w3d_file.h / w3d_obsolete.h) ----------------------
 
 enum
@@ -533,9 +541,9 @@ uint32_t ChunkLoadClass::Cur_Chunk_Length()
         return HeaderStack[StackIndex - 1].Get_Size();
 }
 
-int ChunkLoadClass::Cur_Chunk_Depth() { return StackIndex; }
+[[maybe_unused]] int ChunkLoadClass::Cur_Chunk_Depth() { return StackIndex; }
 
-int ChunkLoadClass::Contains_Chunks() { return HeaderStack[StackIndex - 1].Get_Sub_Chunk_Flag(); }
+[[maybe_unused]] int ChunkLoadClass::Contains_Chunks() { return HeaderStack[StackIndex - 1].Get_Sub_Chunk_Flag(); }
 
 uint32_t ChunkLoadClass::Read(void *buf, uint32_t nbytes)
 {
@@ -4651,6 +4659,8 @@ static void dump_mesh(const MeshModelClass &m, FILE *out, const char *id)
                 fprintf(out, "aabtree %s -\n", id);
         }
 }
+
+} // namespace
 
 // --- main -------------------------------------------------------------------------
 

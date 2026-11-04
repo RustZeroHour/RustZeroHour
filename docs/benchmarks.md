@@ -113,6 +113,32 @@ allocator serves in one batch; the per-element `Read` call shape is the
 same on both sides. Two reruns of each side kept the comparison inside
 budget with the margin unchanged (215.3–220.5 µs vs 148.1–149.1 µs).
 
+The fifth slice, the W3D hierarchy trees, adds one comparison. Measured
+on 2026-11-05, same setup and flags as above. The corpus is a v4.1
+skeleton of 2048 chained pivots (122,932 bytes: the 36-byte header and
+2048 60-byte pivot structs, every struct's bytes from the same
+absolute-indexed formula with the parent index structured) — **verified
+byte-identical across the two builders**, and the two loaders' loaded
+state cross-checked (pivot count, resolved parents, base-transform bits
+and name length agree). The C++ side loads through the `htree.cpp`
+transcription in `bench_wrap_htree.cpp`; the Rust side through
+`rzh-formats::w3d_htree`.
+
+| Benchmark | Rust (criterion) | C++ baseline | Rust/C++ | Verdict |
+|---|---|---:|---:|---|
+| `htree/parse_x2048` | 78.28 µs | 88.32 µs | 0.89x | within |
+
+The margin is modest and structural: the transcription allocates a
+`PivotClass[]` per load (one `new[]`/`delete[]` pair of 128-byte
+pointer-carrying elements with two embedded `Matrix3D` members) and
+walks it through pointer-linked `Parent` fields, while the port packs
+the same load-path state into one `Vec` of plain values; the
+mixed-precision `Build_Matrix3D`/`Translate`/`postMul` arithmetic is
+identical on both sides, so the gap is the allocation shape and the
+C++ class-member call overhead the per-pivot loop pays. Three reruns
+of each side kept the comparison inside budget with the margin
+unchanged (88.2–88.5 µs vs 78.1–78.6 µs).
+
 ## Methodology
 
 - **Same code, same corpora.** The C++ side times the *verbatim

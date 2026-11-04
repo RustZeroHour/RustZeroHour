@@ -19,6 +19,19 @@
 #                                                     texture data paths the mesh
 #                                                     loader drives, the ShaderClass
 #                                                     bit packing, the WWLib CRC-32)
+#   Core/Libraries/Source/WWVegas/WW3D2/htree.{h,cpp} (the W3D hierarchy trees:
+#                                                     HTreeClass::Load_W3D,
+#                                                     read_pivots, the bone lookups)
+#   Core/Libraries/Source/WWVegas/WW3D2/pivot.{h,cpp} (the PivotClass state
+#                                                     the pivot array is born with)
+#   Core/Libraries/Source/WWVegas/WWMath/quat.h      (Build_Matrix3D — the
+#                                                     quaternion-to-rotation
+#                                                     builder, mixed f64/f32
+#                                                     literals included)
+#   Core/Libraries/Source/WWVegas/WWMath/matrix3d.h  (Make_Identity,
+#                                                     Translate(const Vector3&),
+#                                                     postMul — the base-pose
+#                                                     formulas read_pivots drives)
 #
 # Original: Copyright 2025 Electronic Arts Inc.
 # Rust port Copyright 2026 the RustZeroHour contributors.
@@ -34,7 +47,7 @@
 
 [package]
 name = "rzh-formats"
-description = "Zero Hour asset format parsers: CSF string tables, TGA textures, the W3D chunk container and the W3D mesh chunk tree (skeletons, HLOD, map, WND, DDS follow)"
+description = "Zero Hour asset format parsers: CSF string tables, TGA textures, the W3D chunk container, the W3D mesh chunk tree and the W3D hierarchy trees (animations, HLOD, map, WND, DDS follow)"
 version.workspace = true
 edition.workspace = true
 rust-version.workspace = true

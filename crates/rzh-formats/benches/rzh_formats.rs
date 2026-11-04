@@ -36,6 +36,7 @@ use criterion::{Criterion, Throughput, criterion_group, criterion_main};
 use rzh_formats::chunk::{ChunkLoad, ChunkSave};
 use rzh_formats::csf::{CsfFile, CsfLabel, CsfString};
 use rzh_formats::tga::{SaveFlags, TGA_TRUECOLOR, TgaFile, TgaHeader};
+use rzh_formats::w3d_htree::W3dHtree;
 use rzh_formats::w3d_mesh::W3dMesh;
 
 /// Label count of the corpus (matches the C++ baseline).
@@ -133,7 +134,8 @@ criterion_group!(
     bench_tga_write,
     bench_chunk_write,
     bench_chunk_read,
-    bench_mesh_parse
+    bench_mesh_parse,
+    bench_htree_parse
 );
 criterion_main!(benches);
 
@@ -591,6 +593,82 @@ fn bench_mesh_parse(c: &mut Criterion) {
                 mesh.flags,
                 mesh.materials.dcg_source[0],
                 mesh.aabtree.as_ref().map(|t| t.node_count),
+            ))
+        })
+    });
+    group.finish();
+}
+
+// ---------------------------------------------------------------------------
+// w3d_htree — the skeleton-load workload (plan §6 discipline, Phase 2's
+// W3D track). The C++ baseline is the htree.cpp transcription in
+// tools/differential/bench_wrap_htree.cpp, driving the identical corpus
+// bytes through its own Load_W3D.
+// ---------------------------------------------------------------------------
+
+/// Pivot count of the corpus (matches the C++ baseline).
+const HTREE_PIVOTS: u32 = 2048;
+
+/// The corpus formula anchored at an absolute offset (the C++ baseline
+/// generates the same absolute-indexed bytes).
+fn htree_formula_at(offset: usize, n: usize) -> Vec<u8> {
+    (offset..offset + n)
+        .map(|i| ((i * 7 + 13) & 0xFF) as u8)
+        .collect()
+}
+
+/// Builds the hierarchy-shaped corpus: a v4.1 tree of 2048 chained
+/// pivots, every 60-byte struct from the formula with the parent index
+/// structured. Keep in lockstep with the C++ baseline's
+/// `build_htree_corpus`.
+fn htree_corpus() -> Vec<u8> {
+    let mut bytes = Vec::with_capacity(8 + 36 + 8 + HTREE_PIVOTS as usize * 60);
+
+    // the header chunk (36 bytes)
+    bytes.extend_from_slice(&0x0000_0101u32.to_le_bytes());
+    bytes.extend_from_slice(&36u32.to_le_bytes());
+    bytes.extend_from_slice(&0x0004_0001u32.to_le_bytes()); // version 4.1
+    let mut name = [0u8; 16];
+    name[..5].copy_from_slice(b"bench");
+    bytes.extend_from_slice(&name);
+    bytes.extend_from_slice(&HTREE_PIVOTS.to_le_bytes());
+    for word in [1.5f32, -2.25, 0.5] {
+        bytes.extend_from_slice(&word.to_bits().to_le_bytes());
+    }
+
+    // the pivots chunk
+    bytes.extend_from_slice(&0x0000_0102u32.to_le_bytes());
+    bytes.extend_from_slice(&(HTREE_PIVOTS * 60).to_le_bytes());
+    let base = 36 + 8; // past the header chunk
+    for i in 0..HTREE_PIVOTS as usize {
+        let mut raw = htree_formula_at(base + 8 + i * 60, 60);
+        let parent: u32 = if i == 0 { 0xFFFF_FFFF } else { (i - 1) as u32 };
+        raw[16..20].copy_from_slice(&parent.to_le_bytes());
+        bytes.extend_from_slice(&raw);
+    }
+    bytes
+}
+
+/// Bytes → the loaded tree: the skeleton-resolution startup workload.
+fn bench_htree_parse(c: &mut Criterion) {
+    let bytes = htree_corpus();
+    let len = bytes.len() as u64;
+    assert_eq!(
+        len, 122_932,
+        "the bench corpus drifted from the C++ baseline"
+    );
+
+    let mut group = c.benchmark_group("htree");
+    group.throughput(Throughput::Bytes(len));
+    group.bench_function("parse_x2048", |b| {
+        b.iter(|| {
+            let tree = W3dHtree::parse(black_box(&bytes)).expect("the corpus parses");
+            black_box((
+                tree.pivots.len(),
+                tree.get_parent_index(HTREE_PIVOTS as usize - 1),
+                tree.pivots[HTREE_PIVOTS as usize - 1].base_transform[0].to_bits(),
+                tree.pivots[HTREE_PIVOTS as usize - 1].base_transform[11].to_bits(),
+                tree.pivots[HTREE_PIVOTS as usize - 1].name_str().len(),
             ))
         })
     });

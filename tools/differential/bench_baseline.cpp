@@ -109,6 +109,8 @@ long bench_chunk_materialize(uint8_t *out, size_t cap);
 std::uint64_t bench_chunk_walk(const uint8_t *data, size_t len);
 long bench_mesh_materialize(uint8_t *out, size_t cap);
 std::uint64_t bench_mesh_load(const uint8_t *data, size_t len);
+long bench_htree_materialize(uint8_t *out, size_t cap);
+std::uint64_t bench_htree_load(const uint8_t *data, size_t len);
 }
 
 // --- corpora (identical to the Rust benches) ---------------------------------
@@ -530,6 +532,22 @@ int main(int argc, char **argv)
 
                 report("mesh/parse_x2048", measure_ns([] {}, [&] {
                         return bench_mesh_load(bytes.data(), bytes.size());
+                }), (double)total);
+        }
+
+        // --- w3d hierarchy tree --------------------------------------------------------------
+        {
+                std::vector<uint8_t> scratch(4 * 1024 * 1024);
+                long total = bench_htree_materialize(scratch.data(), scratch.size());
+                if (total <= 0)
+                {
+                        fprintf(stderr, "error: htree corpus write failed\n");
+                        exit(1);
+                }
+                std::vector<uint8_t> bytes(scratch.begin(), scratch.begin() + total);
+
+                report("htree/parse_x2048", measure_ns([] {}, [&] {
+                        return bench_htree_load(bytes.data(), bytes.size());
                 }), (double)total);
         }
 
