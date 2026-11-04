@@ -89,6 +89,30 @@ stack frames live in a `Vec` the optimizer keeps hot) plus the
 bounds-checked slice reads the C++ does not do. Two reruns of each side
 kept both comparisons inside budget with margins unchanged.
 
+The fourth slice, the W3D mesh chunk tree, adds one comparison.
+Measured on 2026-11-05, same setup and flags as above. The corpus is a
+2048-vertex prelit-vertex mesh (180,684 bytes: the header, vertex and
+normal arrays, 2048 triangles, the complete material tree inside the
+prelit wrapper — one shader, one vertex material, one texture, one
+material pass with DCG and UV arrays — and a 1024-node AABTree) built
+from the same absolute-indexed byte formula on both sides — **verified
+byte-identical across the two builders** (the corpus size assert in the
+Rust bench pins the lockstep). The C++ side loads through the full
+`meshmdlio.cpp` transcription in `bench_wrap_mesh.cpp`; the Rust side
+through `rzh-formats::w3d_mesh`.
+
+| Benchmark | Rust (criterion) | C++ baseline | Rust/C++ | Verdict |
+|---|---|---:|---:|---|
+| `mesh/parse_x2048` | 148.41 µs | 215.34 µs | 0.69x | within |
+
+The margin is structural: the transcription's model is a web of
+individually heap-allocated `ShareBufferClass` arrays joined by raw
+pointers (six allocations per load plus the material description's), all
+freed in the destructor, while the port's arrays are `Vec`s the
+allocator serves in one batch; the per-element `Read` call shape is the
+same on both sides. Two reruns of each side kept the comparison inside
+budget with the margin unchanged (215.3–220.5 µs vs 148.1–149.1 µs).
+
 ## Methodology
 
 - **Same code, same corpora.** The C++ side times the *verbatim

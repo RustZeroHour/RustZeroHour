@@ -12,7 +12,8 @@ dependencies, `#![forbid(unsafe_code)]`.
 | [`csf`](src/csf.rs) | `.csf` compiled string tables | `GameText.cpp` (runtime reader), `Core/Tools/Babylon/expimp.cpp` (writer) | done |
 | [`tga`](src/tga.rs) | `.tga` Targa images | `WWLib/TARGA.cpp` (the class behind the texture loader, the font loader and the screenshot path) | done |
 | [`chunk`](src/chunk.rs) | the W3D chunk container | `WWLib/chunkio.cpp` (`ChunkSaveClass`/`ChunkLoadClass`, the IFF-style framing every W3D asset is stored in) | done |
-| — | W3D meshes/skeletons/animations/HLOD | `WW3D2` (`meshmdlio.cpp`, `hlod.cpp`, `hrawanim.cpp`, …) on top of [`chunk`] | next |
+| [`w3d_mesh`](src/w3d_mesh.rs) | W3D mesh chunk trees | `WW3D2/meshmdlio.cpp` (`MeshModelClass::Load_W3D` and every sub-reader), the geometry/AABTree/vertex-material/texture data paths, the load-path half of `meshmatdesc.cpp`, the `ShaderClass` bit packing and the WWLib CRC-32 | done |
+| — | W3D skeletons/animations/HLOD | `WW3D2` (`htree.cpp`, `hrawanim.cpp`, `hlod.cpp`, …) on top of [`chunk`] | next |
 | — | map files | `WorldBuilder`/`MapObject.cpp`, … | planned |
 | — | WND layouts | `GameWindowManager`, GUIEdit | planned |
 | — | DDS textures | `WW3D2/ddsfile.cpp` | planned |

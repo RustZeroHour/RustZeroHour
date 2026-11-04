@@ -8,6 +8,17 @@
 #   Core/Libraries/Source/WWVegas/WWLib/chunkio.{h,cpp}
 #                                                     (the W3D chunk container:
 #                                                     ChunkSaveClass, ChunkLoadClass)
+#   GeneralsMD/Code/Libraries/Source/WWVegas/WW3D2/meshmdlio.cpp
+#                                                     (the W3D mesh chunk tree:
+#                                                     MeshModelClass::Load_W3D and
+#                                                     the sub-readers)
+#   GeneralsMD/Code/Libraries/Source/WWVegas/WW3D2/meshgeometry.cpp, vertmaterial.cpp,
+#   shader.{h,cpp}, w3d_util.cpp, meshmatdesc.{h,cpp}, aabtree.cpp, texture.cpp,
+#   Core/Libraries/Source/WWVegas/WWLib/realcrc.cpp
+#                                                     (the geometry/material/AABTree/
+#                                                     texture data paths the mesh
+#                                                     loader drives, the ShaderClass
+#                                                     bit packing, the WWLib CRC-32)
 #
 # Original: Copyright 2025 Electronic Arts Inc.
 # Rust port Copyright 2026 the RustZeroHour contributors.
@@ -23,7 +34,7 @@
 
 [package]
 name = "rzh-formats"
-description = "Zero Hour asset format parsers: CSF string tables, TGA textures and the W3D chunk container (map, W3D, WND, DDS follow)"
+description = "Zero Hour asset format parsers: CSF string tables, TGA textures, the W3D chunk container and the W3D mesh chunk tree (skeletons, HLOD, map, WND, DDS follow)"
 version.workspace = true
 edition.workspace = true
 rust-version.workspace = true

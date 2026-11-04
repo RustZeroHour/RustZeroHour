@@ -235,7 +235,7 @@ is now specified in [`docs/TRACE_FORMAT_V1.md`](TRACE_FORMAT_V1.md).
 
 ### Phase 2: Data and asset formats (M–L) — **status: started (2026-11-03)**
 
-`rzh-formats` exists and three modules are done to the Phase 1 standard:
+`rzh-formats` exists and four modules are done to the Phase 1 standard:
 
 - the **CSF** string tables: the runtime reader (`GameText.cpp::parseCSF`)
   and the Babylon writer (`expimp.cpp::generate_csf`) are transcribed in
@@ -263,13 +263,33 @@ is now specified in [`docs/TRACE_FORMAT_V1.md`](TRACE_FORMAT_V1.md).
   `chunk/…` benches are within budget on both comparisons
   (docs/benchmarks.md). This is the base the W3D mesh/skeleton/animation/
   HLOD parsers (the next slices) build on.
+- the **W3D mesh chunk tree**: the data path of
+  `MeshModelClass::Load_W3D` (`WW3D2/meshmdlio.cpp` — the header, the
+  geometry chunks, the material tree with its passes, prelit selection
+  and alternate-description routing, and the AABTree; plus the geometry,
+  vertex-material, texture and AABTree readers it drives, the
+  `ShaderClass` bit packing and the WWLib CRC-32 the UV dedup uses) is
+  transcribed in `tools/differential/gen_mesh_golden.cpp` and ported as
+  `rzh-formats::w3d_mesh` — the first real W3D model module on top of the
+  container, unlocking the Phase 4 model viewer (M3). The goldens pin 30
+  mesh payloads: the modern full mesh, the prelit selection matrix (the
+  game's prelit mode is never changed — the multi-texture check is dead
+  code), the pre-3.0 bone-link fixup, the legacy v3 materials with their
+  CRC/name dedup, the alternate-material routing and merge (including
+  shader-only alternates counting as empty), DCG/DIG colour-array
+  ownership, the discarded sub-reader error (a failing reader aborts the
+  walk, the load still succeeds), the lowercased texture identity with
+  duplicate list entries, the u16 TriIndex truncation and the pass/stage
+  bounds standing for the original's out-of-bounds reads; the
+  `mesh` bench is within budget
+  (docs/benchmarks.md).
 
 - `rzh-ini`: lexer/parser (includes, `#define` macros, inheritance/reskin, load order) and a
   **derive-based schema layer** replacing the 195 hand-written `FieldParse` tables. Keep it
   format-agnostic so the data format can change later (ADR-003).
-- `rzh-formats`: map files, W3D (meshes, skeletons, animations, HLOD) **on
-  top of the ported chunk container**, TGA/DDS (**TGA done**), CSF string tables
-  (**done**), WND layouts, fonts, audio containers.
+- `rzh-formats`: map files, W3D (meshes **done**, skeletons, animations, HLOD)
+  **on top of the ported chunk container**, TGA/DDS (**TGA done**), CSF string
+  tables (**done**), WND layouts, fonts, audio containers.
 - `rzh-data`: typed templates (objects, weapons, armor, locomotors, upgrades, sciences, ranks,
   special powers, FX/particles, audio events, command sets, ...).
 - **Module census:** count how often each module type appears in the data → port order for Phase 3.

@@ -16,11 +16,17 @@
 //!   texture loader, the font loader and the screenshot path all drive.
 //! - [`chunk`]: the W3D chunk container — the IFF-style framing layer
 //!   (`WWLib/chunkio.cpp`) every W3D asset (meshes, skeletons,
-//!   animations, HLOD) is stored in; the base the upcoming W3D parsers
+//!   animations, HLOD) is stored in; the base the W3D parsers
 //!   are built on.
+//! - [`w3d_mesh`]: the W3D mesh chunk tree — the data path of
+//!   `MeshModelClass::Load_W3D` (`WW3D2/meshmdlio.cpp`): the header,
+//!   the geometry chunks, the material tree with its passes, prelit
+//!   selection and alternate-description routing, and the AABTree. The
+//!   first real W3D model module, unlocking the plan's model-viewer
+//!   milestone (M3).
 //!
-//! Deferred to later Phase 2 slices, in plan order: the W3D format
-//! modules themselves (mesh, HLOD, animation, …), map files, WND
+//! Deferred to later Phase 2 slices, in plan order: the remaining W3D
+//! modules (skeletons, animations, HLOD, …), map files, WND
 //! layouts, DDS textures, fonts and audio containers. Consumer-side
 //! normalizations the original performs on top
 //! of a format (space stripping, first-string selection, the texture
@@ -37,6 +43,7 @@
 pub mod chunk;
 pub mod csf;
 pub mod tga;
+pub mod w3d_mesh;
 
 pub use chunk::{
     CHUNK_HEADER_SIZE, CHUNK_SIZE_MASK, CHUNK_SUB_CHUNK_FLAG, ChunkError, ChunkHeader, ChunkLoad,
@@ -48,4 +55,9 @@ pub use tga::{
     TGA_CMAPPED, TGA_CMAPPED_ENCODED, TGA_MONO, TGA_MONO_ENCODED, TGA_NOIMAGE, TGA_TRUECOLOR,
     TGA_TRUECOLOR_ENCODED, TGA2_SIGNATURE, TGAIDF_ATTRIB_BITS, TGAIDF_XORIGIN, TGAIDF_YORIGIN,
     Tga2Extension, Tga2Footer, TgaError, TgaFile, TgaHeader,
+};
+pub use w3d_mesh::{
+    AabNode, AabTree, LegacyMaterial, MAX_PASSES, MAX_TEX_STAGES, MatDesc, MaterialInfo, MeshError,
+    MeshGeometry, MeshHeader3, TextureEntry, UvArray, VertexMaterial, W3dMesh, W3dShaderStruct,
+    W3dTextureInfo, W3dVertexMaterialInfo,
 };

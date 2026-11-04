@@ -107,6 +107,8 @@ std::uint32_t bench_tga_parse(const uint8_t *data, size_t len);
 long bench_chunk_write();
 long bench_chunk_materialize(uint8_t *out, size_t cap);
 std::uint64_t bench_chunk_walk(const uint8_t *data, size_t len);
+long bench_mesh_materialize(uint8_t *out, size_t cap);
+std::uint64_t bench_mesh_load(const uint8_t *data, size_t len);
 }
 
 // --- corpora (identical to the Rust benches) ---------------------------------
@@ -512,6 +514,22 @@ int main(int argc, char **argv)
 
                 report("chunk/read/walk_x4096", measure_ns([] {}, [&] {
                         return bench_chunk_walk(bytes.data(), bytes.size());
+                }), (double)total);
+        }
+
+        // --- w3d mesh --------------------------------------------------------------------
+        {
+                std::vector<uint8_t> scratch(4 * 1024 * 1024);
+                long total = bench_mesh_materialize(scratch.data(), scratch.size());
+                if (total <= 0)
+                {
+                        fprintf(stderr, "error: mesh corpus write failed\n");
+                        exit(1);
+                }
+                std::vector<uint8_t> bytes(scratch.begin(), scratch.begin() + total);
+
+                report("mesh/parse_x2048", measure_ns([] {}, [&] {
+                        return bench_mesh_load(bytes.data(), bytes.size());
                 }), (double)total);
         }
 

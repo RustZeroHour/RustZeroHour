@@ -227,4 +227,16 @@ echo "compiling gen_chunk_golden.cpp ..."
 "$CXX" -o "$BUILD_DIR/gen_chunk_golden" "$BUILD_DIR/gen_chunk_golden.o"
 "$BUILD_DIR/gen_chunk_golden" "$REPO_ROOT/crates/rzh-formats/tests/golden/chunk.txt"
 echo "wrote crates/rzh-formats/tests/golden/chunk.txt"
+
+# --- mesh golden dump: the meshmdlio.cpp mesh chunk tree transcription
+# (Load_W3D and every sub-reader, the load-path half of meshmatdesc.cpp,
+# the geometry/AABTree/vertex-material/texture data paths, the ShaderClass
+# bit packing, the WWLib CRC-32) over hand-built modern, prelit, legacy
+# and malformed mesh corpora.
+echo "compiling gen_mesh_golden.cpp ..."
+"$CXX" -O2 -std=c++17 -Wall -Wextra -Werror -ffp-contract=off \
+    -c -o "$BUILD_DIR/gen_mesh_golden.o" "$SCRIPT_DIR/gen_mesh_golden.cpp"
+"$CXX" -o "$BUILD_DIR/gen_mesh_golden" "$BUILD_DIR/gen_mesh_golden.o"
+"$BUILD_DIR/gen_mesh_golden" "$REPO_ROOT/crates/rzh-formats/tests/golden/mesh.txt"
+echo "wrote crates/rzh-formats/tests/golden/mesh.txt"
 echo "now run: cargo test --workspace"

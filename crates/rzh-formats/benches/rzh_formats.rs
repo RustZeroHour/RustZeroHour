@@ -36,6 +36,7 @@ use criterion::{Criterion, Throughput, criterion_group, criterion_main};
 use rzh_formats::chunk::{ChunkLoad, ChunkSave};
 use rzh_formats::csf::{CsfFile, CsfLabel, CsfString};
 use rzh_formats::tga::{SaveFlags, TGA_TRUECOLOR, TgaFile, TgaHeader};
+use rzh_formats::w3d_mesh::W3dMesh;
 
 /// Label count of the corpus (matches the C++ baseline).
 const LABELS: u32 = 4096;
@@ -131,7 +132,8 @@ criterion_group!(
     bench_tga_parse,
     bench_tga_write,
     bench_chunk_write,
-    bench_chunk_read
+    bench_chunk_read,
+    bench_mesh_parse
 );
 criterion_main!(benches);
 
@@ -363,4 +365,234 @@ fn walk_a_bench(load: &mut ChunkLoad, checksum: &mut u64) {
         }
         load.close_chunk().unwrap();
     }
+}
+
+// ---------------------------------------------------------------------------
+// w3d_mesh — the model-load workload (plan §6 discipline, Phase 2's W3D
+// track). The C++ baseline is the meshmdlio.cpp transcription in
+// tools/differential/bench_wrap_mesh.cpp, driving the identical corpus
+// bytes through its own Load_W3D.
+// ---------------------------------------------------------------------------
+
+/// Vertex/triangle count of the corpus (matches the C++ baseline).
+const MESH_VERTICES: u32 = 2048;
+
+/// The corpus formula anchored at an absolute offset (the C++ baseline
+/// generates the same absolute-indexed bytes).
+fn mesh_formula_at(offset: usize, n: usize) -> Vec<u8> {
+    (offset..offset + n)
+        .map(|i| ((i * 7 + 13) & 0xFF) as u8)
+        .collect()
+}
+
+/// A tiny chunk-framing builder for the corpus bytes (the same framing
+/// the C++ baseline's builder produces).
+struct MeshChunkBuild {
+    bytes: Vec<u8>,
+    marks: Vec<usize>,
+    kids: Vec<i32>,
+}
+
+impl MeshChunkBuild {
+    fn new() -> Self {
+        Self {
+            bytes: Vec::new(),
+            marks: Vec::new(),
+            kids: Vec::new(),
+        }
+    }
+
+    fn begin(&mut self, id: u32) {
+        if !self.marks.is_empty() {
+            *self.kids.last_mut().unwrap() += 1;
+        }
+        self.marks.push(self.bytes.len());
+        self.kids.push(0);
+        self.bytes.extend_from_slice(&id.to_le_bytes());
+        self.bytes.extend_from_slice(&0u32.to_le_bytes());
+    }
+
+    fn end(&mut self) {
+        let off = self.marks.pop().unwrap();
+        let kids = self.kids.pop().unwrap();
+        let mut size = (self.bytes.len() - off - 8) as u32;
+        if kids > 0 {
+            size |= 0x8000_0000;
+        }
+        self.bytes[off + 4..off + 8].copy_from_slice(&size.to_le_bytes());
+    }
+
+    fn write(&mut self, data: &[u8]) {
+        self.bytes.extend_from_slice(data);
+    }
+}
+
+/// Builds the mesh-shaped corpus: a prelit-vertex mesh with the full
+/// geometry, material and AABTree payload. Keep in lockstep with the
+/// C++ baseline's `build_mesh_corpus`.
+fn mesh_corpus() -> Vec<u8> {
+    let mut b = MeshChunkBuild::new();
+    let n = MESH_VERTICES as usize;
+    let mut absolute = 0usize;
+
+    // the mesh header (116 bytes)
+    b.begin(0x1F);
+    let mut header = Vec::with_capacity(116);
+    for v in [
+        0x0004_0002u32, // version 4.2
+        0x0200_0000,    // PRELIT_VERTEX
+    ] {
+        header.extend_from_slice(&v.to_le_bytes());
+    }
+    header.extend_from_slice(b"bench\0\0\0\0\0\0\0\0\0\0\0"); // mesh name (16 bytes)
+    header.extend_from_slice(b"corpus\0\0\0\0\0\0\0\0\0\0"); // container name (16 bytes)
+    for v in [
+        MESH_VERTICES, // tris
+        MESH_VERTICES, // verts
+        1,             // materials
+        0,             // damage stages
+        0,             // sort level
+        0,             // prelit version
+        0,             // future counts
+        0x1F,          // vertex channels
+        0x01,          // face channels
+    ] {
+        header.extend_from_slice(&v.to_le_bytes());
+    }
+    for word in [-1.0f32, -1.0, -1.0, 1.0, 1.0, 1.0, 0.0, 0.0, 0.0, 2.0] {
+        header.extend_from_slice(&word.to_bits().to_le_bytes());
+    }
+    b.write(&header);
+    b.end();
+    absolute += 116;
+
+    // vertices + normals
+    for id in [0x02u32, 0x03] {
+        b.begin(id);
+        let data = mesh_formula_at(absolute, n * 12);
+        b.write(&data);
+        b.end();
+        absolute += n * 12;
+    }
+
+    // triangles
+    b.begin(0x20);
+    let data = mesh_formula_at(absolute, n * 32);
+    b.write(&data);
+    b.end();
+    absolute += n * 32;
+
+    // the prelit wrapper with the material tree
+    b.begin(0x24);
+    {
+        b.begin(0x28); // material info
+        b.write(&[1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0]);
+        b.end();
+        b.begin(0x29); // shaders
+        let data = mesh_formula_at(absolute, 16);
+        b.write(&data);
+        b.end();
+        absolute += 16;
+        b.begin(0x2A); // vertex materials
+        {
+            b.begin(0x2B);
+            b.begin(0x2C); // name
+            b.write(b"bench\0");
+            b.end();
+            b.begin(0x2D); // info
+            let data = mesh_formula_at(absolute, 32);
+            b.write(&data);
+            b.end();
+            absolute += 32;
+            b.end();
+        }
+        b.end();
+        b.begin(0x30); // textures
+        {
+            b.begin(0x31);
+            b.begin(0x32); // name
+            b.write(b"bench.dds\0");
+            b.end();
+            b.begin(0x33); // info
+            b.write(&[0x0C, 0x00, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0]);
+            b.end();
+            b.end();
+        }
+        b.end();
+        b.begin(0x38); // material pass
+        {
+            b.begin(0x39); // vmat ids (single)
+            b.write(&0u32.to_le_bytes());
+            b.end();
+            b.begin(0x3A); // shader ids (single)
+            b.write(&0u32.to_le_bytes());
+            b.end();
+            b.begin(0x3B); // dcg
+            let data = mesh_formula_at(absolute, n * 4);
+            b.write(&data);
+            b.end();
+            absolute += n * 4;
+            b.begin(0x48); // texture stage
+            {
+                b.begin(0x49); // texture ids (single)
+                b.write(&0u32.to_le_bytes());
+                b.end();
+                b.begin(0x4A); // stage texcoords
+                let data = mesh_formula_at(absolute, n * 8);
+                b.write(&data);
+                b.end();
+                absolute += n * 8;
+            }
+            b.end();
+        }
+        b.end();
+    }
+    b.end();
+
+    // the aabtree: half as many nodes as polygons, all leaves
+    b.begin(0x90);
+    {
+        b.begin(0x91); // header
+        b.write(&(n as u32 / 2).to_le_bytes());
+        b.write(&(n as u32).to_le_bytes());
+        b.write(&[0u8; 24]);
+        b.end();
+        b.begin(0x92); // poly indices
+        let data = mesh_formula_at(absolute, n * 4);
+        b.write(&data);
+        b.end();
+        absolute += n * 4;
+        b.begin(0x93); // nodes
+        let data = mesh_formula_at(absolute, (n / 2) * 32);
+        b.write(&data);
+        b.end();
+    }
+    b.end();
+
+    b.bytes
+}
+
+/// Bytes → the loaded mesh: the model-viewer startup workload.
+fn bench_mesh_parse(c: &mut Criterion) {
+    let bytes = mesh_corpus();
+    let len = bytes.len() as u64;
+    assert_eq!(
+        len, 180_684,
+        "the bench corpus drifted from the C++ baseline"
+    );
+
+    let mut group = c.benchmark_group("mesh");
+    group.throughput(Throughput::Bytes(len));
+    group.bench_function("parse_x2048", |b| {
+        b.iter(|| {
+            let mesh = W3dMesh::parse(black_box(&bytes)).expect("the corpus parses");
+            black_box((
+                mesh.geometry.vertices.as_ref().map(|v| v[0]),
+                mesh.flags,
+                mesh.materials.dcg_source[0],
+                mesh.aabtree.as_ref().map(|t| t.node_count),
+            ))
+        })
+    });
+    group.finish();
 }
