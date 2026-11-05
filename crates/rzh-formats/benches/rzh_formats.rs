@@ -35,6 +35,7 @@ use std::hint::black_box;
 use criterion::{Criterion, Throughput, criterion_group, criterion_main};
 use rzh_formats::chunk::{ChunkLoad, ChunkSave};
 use rzh_formats::csf::{CsfFile, CsfLabel, CsfString};
+use rzh_formats::dds::{DdsFile, HsvShift, Ww3dFormat};
 use rzh_formats::tga::{SaveFlags, TGA_TRUECOLOR, TgaFile, TgaHeader};
 use rzh_formats::w3d_hanim::W3dRawAnim;
 use rzh_formats::w3d_hcanim::{W3dCompressedAnim, W3dCompressedChannel};
@@ -265,6 +266,150 @@ fn bench_hlod_parse(c: &mut Criterion) {
     group.finish();
 }
 
+// ---------------------------------------------------------------------------
+// dds — the texture-load and decompression workloads (plan §6 discipline,
+// Phase 2's texture track). The C++ baseline is the ddsfile.cpp
+// transcription in tools/differential/bench_wrap_dds.cpp, driving the
+// identical formula-generated corpora (the size asserts document the
+// lockstep).
+
+/// The parse corpus: a 512x512 DXT1 texture with its full ten-level
+/// mip chain — 16,384 level-0 blocks, 174,904 bytes.
+fn dds_parse_corpus() -> Vec<u8> {
+    let mut bytes = Vec::new();
+    bytes.extend_from_slice(b"DDS ");
+    let mut put = |x: u32| bytes.extend_from_slice(&x.to_le_bytes());
+    put(124); // Size
+    put(0x1007); // Flags
+    put(512); // Height
+    put(512); // Width
+    put(0); // Pitch
+    put(0); // Depth
+    put(10); // MipMapCount
+    put(0); // AlphaBitDepth
+    put(0); // Reserved
+    put(0); // Surface
+    for _ in 0..8 {
+        put(0); // the four color keys
+    }
+    put(32); // PixelFormat.Size
+    put(4); // PixelFormat.Flags
+    put(0x3154_5844); // 'DXT1'
+    for _ in 0..5 {
+        put(0); // the pixel-format union tail
+    }
+    put(0x1000); // Caps
+    put(0); // Caps2
+    put(0); // Caps3
+    put(0); // Caps4
+    put(0); // TextureStage
+    debug_assert_eq!(bytes.len(), 128);
+
+    // the mip chain: the constructor's own size walk
+    let mut size: u32 = (512 / 4) * (512 / 4) * 8;
+    let mut at = 0usize;
+    for _ in 0..10 {
+        for i in 0..size as usize {
+            bytes.push(((128 + at + i) * 11 + 7) as u8);
+        }
+        at += size as usize;
+        if size > 16 {
+            size /= 4;
+        }
+    }
+    bytes
+}
+
+/// The conversion corpus: a 64x64 DXT5 texture, one level — 256 blocks.
+fn dds_convert_corpus() -> Vec<u8> {
+    let mut bytes = Vec::new();
+    bytes.extend_from_slice(b"DDS ");
+    let mut put = |x: u32| bytes.extend_from_slice(&x.to_le_bytes());
+    put(124); // Size
+    put(0x1007); // Flags
+    put(64); // Height
+    put(64); // Width
+    put(0); // Pitch
+    put(0); // Depth
+    put(1); // MipMapCount
+    put(0); // AlphaBitDepth
+    put(0); // Reserved
+    put(0); // Surface
+    for _ in 0..8 {
+        put(0); // the four color keys
+    }
+    put(32); // PixelFormat.Size
+    put(4); // PixelFormat.Flags
+    put(0x3554_5844); // 'DXT5'
+    for _ in 0..5 {
+        put(0); // the pixel-format union tail
+    }
+    put(0x1000); // Caps
+    put(0); // Caps2
+    put(0); // Caps3
+    put(0); // Caps4
+    put(0); // TextureStage
+    debug_assert_eq!(bytes.len(), 128);
+    for i in 0..(64 / 4) * (64 / 4) * 16 {
+        bytes.push(((128 + i) * 11 + 7) as u8);
+    }
+    bytes
+}
+
+/// The constructor + Load: the texture loader's per-texture entry cost.
+fn bench_dds_parse(c: &mut Criterion) {
+    let bytes = dds_parse_corpus();
+    let len = bytes.len() as u64;
+    assert_eq!(
+        len, 174_904,
+        "the bench corpus drifted from the C++ baseline"
+    );
+
+    let mut group = c.benchmark_group("dds");
+    group.throughput(Throughput::Bytes(len));
+    group.bench_function("parse_x16k", |b| {
+        b.iter(|| {
+            let mut file =
+                DdsFile::open(black_box("bench.dds"), 0, black_box(&bytes)).expect("parse");
+            file.load(&bytes).expect("load");
+            black_box((file.mip_level_count(), file.level_size(0).ok()));
+        })
+    });
+    group.finish();
+}
+
+/// The DXT5 → A8R8G8B8 conversion walk the renderer's surface upload
+/// drives: 256 blocks through the alpha tables, the colour decode and
+/// the per-destination writes.
+fn bench_dds_convert(c: &mut Criterion) {
+    let bytes = dds_convert_corpus();
+    let len = bytes.len() as u64;
+    assert_eq!(len, 4_224, "the bench corpus drifted from the C++ baseline");
+
+    let mut file = DdsFile::open("bench.dds", 0, &bytes).expect("parse");
+    file.load(&bytes).expect("load");
+    let mut dest = vec![0u8; 64 * 64 * 4 + 4];
+
+    let mut group = c.benchmark_group("dds");
+    group.throughput(Throughput::Bytes(len));
+    group.bench_function("convert_dxt5_x256", |b| {
+        b.iter(|| {
+            file.copy_level_to_surface(
+                0,
+                Ww3dFormat::A8R8G8B8,
+                64,
+                64,
+                black_box(&mut dest),
+                64 * 4,
+                HsvShift::none(),
+            )
+            .expect("convert");
+            black_box(dest[16384 - 1]);
+        })
+    });
+    group.finish();
+}
+
 criterion_group!(
     benches,
     bench_parse,
@@ -281,7 +426,9 @@ criterion_group!(
     bench_hcanim_parse,
     bench_hcanim_parse_ad,
     bench_hcanim_xforms_ad,
-    bench_hlod_parse
+    bench_hlod_parse,
+    bench_dds_parse,
+    bench_dds_convert
 );
 criterion_main!(benches);
 

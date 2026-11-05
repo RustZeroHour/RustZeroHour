@@ -244,6 +244,37 @@ round-trips per sub-object plus the per-LOD array allocations) costs
 more than the port's two pre-sized `Vec`s. Two reruns of each side kept
 the comparison inside budget with the margins unchanged.
 
+The tenth slice, the DDS textures, adds the texture-load and
+decompression comparisons. Measured on 2026-11-06, same setup and flags
+as above. The parse corpus is a 512×512 DXT1 texture with its full
+ten-level chain — 16,384 level-0 blocks, 174,904 bytes — and the
+conversion corpus a 64×64 one-level DXT5 texture (4,224 bytes; 256
+blocks), both from the shared absolute-offset formula and **verified
+byte-identical across the two builders** (the size asserts document the
+lockstep). The C++ side loads through the `ddsfile.cpp` transcription
+in `bench_wrap_dds.cpp`; the Rust side through `rzh-formats::dds`.
+
+| Benchmark | Rust (criterion) | C++ baseline | Rust/C++ | Verdict |
+|---|---:|---:|---:|---|
+| `dds/parse_x16k` | 3.80 µs | 3.70 µs | 1.03x | within |
+| `dds/convert_dxt5_x256` | 7.80 µs | 14.0 µs | 0.56x | within |
+
+The parse comparison is the pure header-decode-plus-read-window shape
+(the constructor's level walk plus one 171 KiB copy) and sits at parity.
+The conversion comparison went through its own budget iteration: the
+port's first shape measured 1.41x — `Get_4x4_Block` dispatched on the
+destination format *per pixel* (4096 jump tables per surface), each
+write carrying its own bounds check, where the original's
+`Write_B8G8R8A8` is a per-pixel inline switch the C++ compiler folds
+into the block loop. Decoding the block into a 16-word pixel array and
+then writing it through a single per-block format dispatch (monomorphic
+inner loops, one bounds check per block — the R3G3B2 stray-byte store
+stays sequential, so the write order is unchanged and the goldens still
+pin it byte-for-byte) turned the comparison around: the port's walk is
+now comfortably faster than the transcription. Two reruns of each side
+kept both comparisons inside budget with the margins unchanged
+(3.77–3.82 µs and 7.79–7.89 µs vs 3.69–3.70 µs and 13.6–14.5 µs).
+
 ## Methodology
 
 - **Same code, same corpora.** The C++ side times the *verbatim

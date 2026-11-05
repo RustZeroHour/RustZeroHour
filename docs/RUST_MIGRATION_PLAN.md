@@ -235,7 +235,7 @@ is now specified in [`docs/TRACE_FORMAT_V1.md`](TRACE_FORMAT_V1.md).
 
 ### Phase 2: Data and asset formats (M–L) — **status: started (2026-11-03)**
 
-`rzh-formats` exists and eight modules are done to the Phase 1 standard:
+`rzh-formats` exists and nine modules are done to the Phase 1 standard:
 
 - the **CSF** string tables: the runtime reader (`GameText.cpp::parseCSF`)
   and the Babylon writer (`expimp.cpp::generate_csf`) are transcribed in
@@ -405,13 +405,57 @@ is now specified in [`docs/TRACE_FORMAT_V1.md`](TRACE_FORMAT_V1.md).
   checks are the only failures); the `hlod` bench is within budget
   (docs/benchmarks.md).
 
+- the **DDS textures** — the texture pair's compressed half: the
+  data path of `DDSFileClass` (`WW3D2/ddsfile.{h,cpp}` — the
+  constructor's name munging that overwrites the last three
+  characters with "dds", the magic read that is never validated, the
+  124-byte legacy `DDSURFACEDESC2` decode whose read size must equal
+  the `Size` field, the FourCC → WW3DFormat conversion with the
+  numeric small-value route through the formconv table, the
+  mip-level arithmetic — the reduction factor's else branch, the two
+  dropped levels the file still stores and reads, the 4/8 block
+  divisor and the cube face stride's hardcoded +16 — `Load`'s read
+  window, the clamp-to-four level queries, `Get_Pixel` and
+  `Get_4x4_Block` with both DXT1 colour modes and the DXT5 8/6-alpha
+  tables, the surface copies with the DXT1→DXT2 expansion and the
+  hue-shift re-encodes, the dead volume pointer, and the HSV recolour
+  stack from `colorspace.h`/`dx8wrapper.h`/`vector3.h` the
+  team-colour paths drive; plus `Write_B8G8R8A8` from
+  `bitmaphandler.h` with the R3G3B2 two-byte store's zero-extended
+  stray byte, and `Get_Bytes_Per_Pixel` from `ww3dformat.cpp`) is
+  transcribed in `tools/differential/gen_dds_golden.cpp` and ported
+  as `rzh-formats::dds`, completing the texture format pair with the
+  TGA slice. The goldens pin 39 texture payloads: the DXT1/DXT3/DXT5
+  mip chains, the reduction family (including the overrun whose
+  size arithmetic underflows past the `0x80000000` guard while Load
+  still returns success with no memory — the port reports the
+  original's null dereference as `NoData`), the cube maps (the DXT5
+  face-stride drift of 16 bytes) and the volumes (the dead pointer
+  that makes every volume copy a no-op), the numeric (22 =
+  X8R8G8B8) and unknown FourCCs that load with an uncompressed
+  layout, the zero-size and five-wide surfaces, the hand-built DXT1
+  and DXT5 pixel corpora (both colour modes, the 8/6-alpha tables,
+  a two-half index pattern that distinguishes the unrolled reader's
+  byte advance, the level-1/level-2 addressing), every destination
+  format's block dump, the copy family (the verbatim memcpy, the
+  rewrites, the expansion, the untouched DXT3-with-shift and
+  size-mismatch destinations), the name-munging corpus (the
+  255-character truncation, the sub-three-character shapes refused
+  where the original writes before its buffer) and the error
+  verdicts (the empty and magic-only files, the short description,
+  the `Size`-field mismatch whose passing shape reads uninitialised
+  bytes in the original); the `dds` benches are within budget on
+  both comparisons (docs/benchmarks.md — the budget run reshaped
+  the block writer into a per-format inner loop, making the Rust
+  conversion walk faster than the per-pixel-dispatched original).
+
 - `rzh-ini`: lexer/parser (includes, `#define` macros, inheritance/reskin, load order) and a
   **derive-based schema layer** replacing the 195 hand-written `FieldParse` tables. Keep it
   format-agnostic so the data format can change later (ADR-003).
 - `rzh-formats`: map files, W3D (meshes **done**, skeletons **done**, raw
   animations **done**, compressed animations **done**, HLOD **done**) **on
   top of the ported chunk container**, TGA/DDS
-  (**TGA done**), CSF string tables (**done**), WND layouts, fonts,
+  (**both done**), CSF string tables (**done**), WND layouts, fonts,
   audio containers.
 - `rzh-data`: typed templates (objects, weapons, armor, locomotors, upgrades, sciences, ranks,
   special powers, FX/particles, audio events, command sets, ...).

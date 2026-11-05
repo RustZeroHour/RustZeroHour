@@ -14,6 +14,14 @@
 //!   (`GameText.cpp`) and the Babylon writer (`Core/Tools/Babylon`).
 //! - [`tga`]: the Targa images (`.tga`) — the WWLib `TARGA.cpp` class the
 //!   texture loader, the font loader and the screenshot path all drive.
+//! - [`dds`]: the DDS textures (`.dds`) — the WW3D `ddsfile.cpp` reader
+//!   the compressed-texture load path drives: the `.dds` name munging,
+//!   the never-validated magic, the legacy `DDSURFACEDESC2` decode, the
+//!   FourCC format conversion, the reduction/drop mip-level layout,
+//!   the read window, the DXT1/DXT5 pixel queries and the block
+//!   decompressor with its per-destination-format writes, the surface
+//!   copies (the DXT1→DXT2 expansion and the hue-shift re-encodes) and
+//!   the HSV recolour stack the team-colour paths drive.
 //! - [`chunk`]: the W3D chunk container — the IFF-style framing layer
 //!   (`WWLib/chunkio.cpp`) every W3D asset (meshes, skeletons,
 //!   animations, HLOD) is stored in; the base the W3D parsers
@@ -56,8 +64,8 @@
 //!   slices before it.
 //!
 //! Deferred to later Phase 2 slices, in plan order: the remaining W3D
-//! modules (…), map files, WND layouts, DDS
-//! textures, fonts and audio containers. Consumer-side
+//! modules (…), map files, WND layouts, fonts
+//! and audio containers (the DDS textures are done). Consumer-side
 //! normalizations the original performs on top
 //! of a format (space stripping, first-string selection, the texture
 //! loader's descriptor XOR, …) live in the format modules as explicit
@@ -72,6 +80,7 @@
 
 pub mod chunk;
 pub mod csf;
+pub mod dds;
 pub mod tga;
 pub mod w3d_hanim;
 pub mod w3d_hcanim;
@@ -85,6 +94,13 @@ pub use chunk::{
     MicroChunkHeader,
 };
 pub use csf::{CsfError, CsfFile, CsfHeader, CsfLabel, CsfString};
+pub use dds::{
+    DDS_MAGIC_SIZE, DDS_SURFACE_DESC_SIZE, DDSCAPS2_CUBEMAP, DDSCAPS2_VOLUME, DdsError, DdsFile,
+    DdsType, HIGHEST_SUPPORTED_D3DFORMAT, HsvShift, LegacyDdCaps2, LegacyDdColorKey,
+    LegacyDdPixelFormat, LegacyDdSurfaceDesc2, MAX_DATA_BYTES, MAX_MIP_LEVELS, MAX_NAME_LEN,
+    Ww3dFormat, argb8888_to_rgb565, calculate_dxtc_surface_size, munged_name, recolor,
+    rgb565_to_argb8888,
+};
 pub use tga::{
     TGA_CMAPPED, TGA_CMAPPED_ENCODED, TGA_MONO, TGA_MONO_ENCODED, TGA_NOIMAGE, TGA_TRUECOLOR,
     TGA_TRUECOLOR_ENCODED, TGA2_SIGNATURE, TGAIDF_ATTRIB_BITS, TGAIDF_XORIGIN, TGAIDF_YORIGIN,

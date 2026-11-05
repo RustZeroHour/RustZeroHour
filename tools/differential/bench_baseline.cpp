@@ -124,6 +124,10 @@ void bench_hcanim_anim_free(void *handle);
 std::uint64_t bench_hcanim_xforms(void *handle);
 long bench_hlod_materialize(uint8_t *out, size_t cap);
 std::uint64_t bench_hlod_load(const uint8_t *data, size_t len);
+long bench_dds_parse_materialize(uint8_t *out, size_t cap);
+unsigned bench_dds_parse(const uint8_t *data, size_t len);
+long bench_dds_convert_materialize(uint8_t *out, size_t cap);
+unsigned bench_dds_convert(const uint8_t *data, size_t len, uint8_t *dest, size_t dest_cap);
 }
 
 // --- corpora (identical to the Rust benches) ---------------------------------
@@ -647,6 +651,37 @@ int main(int argc, char **argv)
 
                 report("hlod/parse_x1072", measure_ns([] {}, [&] {
                         return bench_hlod_load(bytes.data(), bytes.size());
+                }), (double)total);
+        }
+
+        // --- dds textures ---------------------------------------------------------------
+        {
+                std::vector<uint8_t> scratch(4 * 1024 * 1024);
+                long total = bench_dds_parse_materialize(scratch.data(), scratch.size());
+                if (total <= 0)
+                {
+                        fprintf(stderr, "error: dds parse corpus write failed\n");
+                        exit(1);
+                }
+                std::vector<uint8_t> bytes(scratch.begin(), scratch.begin() + total);
+
+                report("dds/parse_x16k", measure_ns([] {}, [&] {
+                        return bench_dds_parse(bytes.data(), bytes.size());
+                }), (double)total);
+        }
+        {
+                std::vector<uint8_t> scratch(1 * 1024 * 1024);
+                long total = bench_dds_convert_materialize(scratch.data(), scratch.size());
+                if (total <= 0)
+                {
+                        fprintf(stderr, "error: dds convert corpus write failed\n");
+                        exit(1);
+                }
+                std::vector<uint8_t> bytes(scratch.begin(), scratch.begin() + total);
+                std::vector<uint8_t> dest(64 * 64 * 4 + 16);
+
+                report("dds/convert_dxt5_x256", measure_ns([] {}, [&] {
+                        return bench_dds_convert(bytes.data(), bytes.size(), dest.data(), dest.size());
                 }), (double)total);
         }
 

@@ -1162,3 +1162,269 @@ mod chunk_props {
         assert_eq!(load.seek(4), Err(ChunkError::NoOpenChunk));
     }
 }
+
+// ===========================================================================
+// dds — the DDS texture port's invariants
+// ===========================================================================
+//
+// The golden script pins the C++-observable behaviour on fixed corpora;
+// these properties pin the port's invariants on arbitrary input: the two
+// pixel decoders agree on every well-formed DXT1/DXT5 block, the level
+// layout is the prefix-sum walk the constructor builds, the packed-colour
+// helpers round-trip, the zero-shift recolour stays within one quantum of
+// its input, and parsing arbitrary bytes never panics.
+
+mod dds {
+    use proptest::prelude::*;
+
+    use rzh_formats::dds::{
+        DdsFile, HsvShift, Ww3dFormat, argb8888_to_rgb565, calculate_dxtc_surface_size,
+        munged_name, recolor, rgb565_to_argb8888,
+    };
+
+    /// The formula bytes the differential corpus uses (identical on both
+    /// sides of the harness).
+    fn formula_at(offset: usize, n: usize) -> Vec<u8> {
+        (0..n).map(|i| ((offset + i) * 11 + 7) as u8).collect()
+    }
+
+    /// A well-formed corpus: a 124-byte description plus a mip chain
+    /// sized by the constructor's own walk (divide by four above one
+    /// block), filled with the supplied bytes.
+    fn build_corpus(
+        width: u32,
+        height: u32,
+        format: Ww3dFormat,
+        mips: u32,
+        fill: &[u8],
+    ) -> Vec<u8> {
+        let mut bytes = Vec::new();
+        let fourcc: u32 = match format {
+            Ww3dFormat::Dxt1 => 0x3154_5844,
+            Ww3dFormat::Dxt5 => 0x3554_5844,
+            _ => 0x3154_5844,
+        };
+        bytes.extend_from_slice(b"DDS ");
+        let mut put = |x: u32| bytes.extend_from_slice(&x.to_le_bytes());
+        put(124); // Size
+        put(0x1007); // Flags
+        put(height);
+        put(width);
+        put(0); // Pitch
+        put(0); // Depth
+        put(mips);
+        put(0); // AlphaBitDepth
+        put(0); // Reserved
+        put(0); // Surface
+        for _ in 0..8 {
+            put(0); // the four color keys
+        }
+        put(32); // PixelFormat.Size
+        put(4); // PixelFormat.Flags
+        put(fourcc);
+        for _ in 0..5 {
+            put(0); // the pixel-format union tail
+        }
+        put(0x1000); // Caps
+        put(0); // Caps2
+        put(0); // Caps3
+        put(0); // Caps4
+        put(0); // TextureStage
+        debug_assert_eq!(bytes.len(), 128);
+
+        // The constructor's size walk, mirrored so the chain and the
+        // layout agree.
+        let mut size = calculate_dxtc_surface_size(width, height, format);
+        let mut at = 0usize;
+        for _ in 0..mips {
+            let chunk = formula_at(128 + at, size as usize);
+            bytes.extend_from_slice(&chunk);
+            at += size as usize;
+            if size > 16 {
+                size /= 4;
+            }
+        }
+        // splice in the arbitrary fill over the first level (the pixel
+        // queries only read what the fill covers)
+        let level0 = calculate_dxtc_surface_size(width, height, format) as usize;
+        let n = fill.len().min(level0).min(bytes.len() - 128);
+        for (i, b) in fill.iter().take(n).enumerate() {
+            bytes[128 + i] = *b;
+        }
+        bytes
+    }
+
+    fn dxt_format() -> impl Strategy<Value = Ww3dFormat> {
+        prop::sample::select(vec![Ww3dFormat::Dxt1, Ww3dFormat::Dxt5])
+    }
+
+    /// Dimensions of sixteen texels and up: the constructor's
+    /// level-size walk divides the area by four per level while the
+    /// query grid floors each halved dimension to blocks (clamping
+    /// sub-four dimensions up) — the two stay reconcilable only while
+    /// the walk has not out-run the grid. On the small or odd shapes
+    /// (an eight-texel side, a twelve) the original's queries read
+    /// past the level storage into the heap; the port reports
+    /// DataTooShort (the module docs' contract), so the agreement
+    /// property sticks to the chains whose queries stay in-bounds.
+    fn dims() -> impl Strategy<Value = (u32, u32)> {
+        (
+            prop::sample::select(vec![16u32, 32, 64]),
+            prop::sample::select(vec![16u32, 32, 64]),
+        )
+    }
+
+    proptest! {
+        #![proptest_config(ProptestConfig::with_cases(64))]
+
+        /// The two pixel decoders must agree: the block decompressor's
+        /// A8R8G8B8 word at (x, y) is `get_pixel` at (x, y) — on every
+        /// well-formed DXT1/DXT5 corpus, on every addressable level.
+        #[test]
+        fn pixel_queries_agree_with_block_decode(
+            (width, height) in dims(),
+            format in dxt_format(),
+            mips in 1u32..7,
+            fill in prop::collection::vec(prop::num::u8::ANY, 0..256),
+        ) {
+            let bytes = build_corpus(width, height, format, mips, &fill);
+            let mut file = DdsFile::open("corpus.dds", 0, &bytes).expect("well-formed open");
+            file.load(&bytes).expect("well-formed load");
+
+            for level in 0..file.mip_level_count() {
+                let w = file.width(level);
+                let h = file.height(level);
+                for y in (0..h).step_by(4) {
+                    for x in (0..w).step_by(4) {
+                        let bpp = Ww3dFormat::A8R8G8B8.bytes_per_pixel() as usize;
+                        let mut block = vec![0xccu8; 4 * 4 * bpp + 4];
+                        let alpha = file
+                            .get_4x4_block(&mut block, 4 * bpp, Ww3dFormat::A8R8G8B8, level, x, y, HsvShift::none())
+                            .expect("in-range block");
+                        // The DXT1 4-colour mode's code 3 is transparent
+                        // black — its blocks always "contain alpha".
+                        if format == Ww3dFormat::Dxt1 {
+                            let contains = block
+                                .as_chunks::<4>()
+                                .0
+                                .iter()
+                                .any(|p| u32::from_le_bytes([p[0], p[1], p[2], p[3]]) == 0);
+                            prop_assert_eq!(alpha, contains);
+                        }
+                        for dy in 0..4u32.min(h - y) {
+                            for dx in 0..4u32.min(w - x) {
+                                let px = file.get_pixel(level, x + dx, y + dy).expect("pixel");
+                                let at = (dy as usize * 4 + dx as usize) * 4;
+                                let word = u32::from_le_bytes([
+                                    block[at],
+                                    block[at + 1],
+                                    block[at + 2],
+                                    block[at + 3],
+                                ]);
+                                prop_assert_eq!(px, word, "pixel ({},{} of level {}", x + dx, y + dy, level);
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        /// The level layout is the constructor's prefix-sum walk, and a
+        /// well-formed chain never overruns the read window.
+        #[test]
+        fn level_layout_is_the_prefix_sum_walk(
+            (width, height) in dims(),
+            format in dxt_format(),
+            mips in 1u32..7,
+            fill in prop::collection::vec(prop::num::u8::ANY, 0..64),
+        ) {
+            let bytes = build_corpus(width, height, format, mips, &fill);
+            let mut file = DdsFile::open("corpus.dds", 0, &bytes).expect("open");
+            file.load(&bytes).expect("load");
+
+            let mut expect_offset = 0u32;
+            let mut expect_size = calculate_dxtc_surface_size(width, height, format);
+            for level in 0..file.mip_level_count() {
+                prop_assert_eq!(file.level_size(level), Ok(expect_size));
+                prop_assert_eq!(file.level_offset(level), Some(expect_offset));
+                expect_offset += expect_size;
+                if expect_size > 16 {
+                    expect_size /= 4;
+                }
+            }
+            prop_assert!((expect_offset as usize) <= file.data().len());
+        }
+
+        /// Parsing arbitrary bytes never panics (the transcription's
+        /// release no-op asserts become errors, not crashes).
+        #[test]
+        fn arbitrary_bytes_never_panic(
+            bytes in prop::collection::vec(prop::num::u8::ANY, 0..600),
+            reduction in 0u32..8,
+        ) {
+            let mut opened = DdsFile::open("corpus.dds", reduction, &bytes);
+            if let Ok(file) = opened.as_mut() {
+                let _ = file.load(&bytes);
+                if file.data().len() >= 16 {
+                    let _ = file.get_pixel(0, 0, 0);
+                    let mut block = vec![0u8; 72];
+                    let _ = file.get_4x4_block(&mut block, 16, Ww3dFormat::A8R8G8B8, 0, 0, 0, HsvShift::none());
+                    let _ = file.copy_level_to_surface(0, Ww3dFormat::A8R8G8B8, 8, 8, &mut vec![0u8; 260], 32, HsvShift::none());
+                }
+            }
+        }
+
+        /// The RGB565 conversion round-trips exactly (the 8-bit lanes
+        /// carry the 5/6/5 fields in their high bits).
+        #[test]
+        fn rgb565_round_trips(rgb in prop::num::u16::ANY) {
+            let argb = rgb565_to_argb8888(rgb);
+            prop_assert_eq!(argb8888_to_rgb565(argb), rgb);
+            // the lanes are the truncated fields
+            prop_assert_eq!(argb & 0x0000_0007, 0);
+            prop_assert_eq!(argb & 0x0000_0300, 0);
+            prop_assert_eq!(argb & 0x00f8_0000, u32::from(rgb & 0xf800) << 8);
+        }
+
+        /// A zero recolour shift is a near-identity: the packed round
+        /// trip moves no channel by more than one quantum (the Foley
+        /// HSV round trip's float rounding).
+        #[test]
+        fn recolor_zero_shift_stays_within_one(color in prop::num::u32::ANY) {
+            let out = recolor(color, HsvShift::none());
+            for shift in [0, 8, 16, 24] {
+                let a = (color >> shift) & 0xff;
+                let b = (out >> shift) & 0xff;
+                prop_assert!((a as i32 - b as i32).abs() <= 1, "channel {shift}: {a:x} -> {b:x}");
+            }
+        }
+
+        /// The name munging overwrites the last three characters with
+        /// "dds" (after the 255-character truncation), and refuses the
+        /// sub-three-character shapes the original writes out of
+        /// bounds.
+        #[test]
+        fn name_munging_replaces_the_tail(
+            name in prop::collection::vec(b'a'..=b'z', 3..300),
+        ) {
+            let name = String::from_utf8(name).expect("ascii");
+            let munged = munged_name(&name).expect("munge");
+            let effective: Vec<u8> = name.bytes().take(255).collect();
+            let expect: Vec<u8> = effective[..effective.len() - 3]
+                .iter()
+                .copied()
+                .chain(*b"dds")
+                .collect();
+            prop_assert_eq!(munged.as_bytes(), &expect[..]);
+        }
+    }
+
+    #[test]
+    fn short_names_are_refused() {
+        assert!(munged_name("ab").is_err());
+        assert!(munged_name("").is_err());
+        assert!(munged_name("a\0bc").is_err()); // the NUL makes it length 1
+        assert_eq!(munged_name("abc").unwrap(), "dds");
+        assert_eq!(munged_name("tank").unwrap(), "tdds");
+    }
+}

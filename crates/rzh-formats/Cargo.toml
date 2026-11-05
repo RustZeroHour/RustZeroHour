@@ -63,6 +63,39 @@
 #                                                     construction — the proxy
 #                                                     array's records are born
 #                                                     zeroed)
+#   GeneralsMD/Code/Libraries/Source/WWVegas/WW3D2/ddsfile.{h,cpp}
+#                                                     (the DDS textures:
+#                                                     DDSFileClass's
+#                                                     constructor, Load, the
+#                                                     level queries, Get_Pixel,
+#                                                     Get_4x4_Block and the
+#                                                     surface copies, the
+#                                                     dead volume pointer,
+#                                                     Calculate_DXTC_Surface_Size
+#                                                     and the packed-colour
+#                                                     helpers)
+#   Core/Libraries/Source/WWVegas/WW3D2/formconv.{h,cpp}
+#                                                     (the FourCC → WW3DFormat
+#                                                     conversion the DDS
+#                                                     header drives)
+#   Core/Libraries/Source/WWVegas/WW3D2/ww3dformat.{h,cpp}
+#                                                     (the WW3DFormat enum,
+#                                                     Get_Bytes_Per_Pixel)
+#   Core/Libraries/Source/WWVegas/WW3D2/bitmaphandler.h
+#                                                     (Write_B8G8R8A8 — the
+#                                                     per-destination pixel
+#                                                     writer the DDS block
+#                                                     decompressor drives)
+#   Core/Libraries/Source/WWVegas/WW3D2/colorspace.h  (RGB_To_HSV,
+#                                                     HSV_To_RGB, Recolor)
+#   Core/Libraries/Source/WWVegas/WW3D2/dx8wrapper.h,
+#   Core/Libraries/Source/WWVegas/WWMath/vector3.h
+#                                                     (DX8Wrapper::
+#                                                     Convert_Color and
+#                                                     Vector3::Convert_To_ARGB
+#                                                     — the recolour round
+#                                                     trip the hue-shifted
+#                                                     DDS copies drive)
 #   GeneralsMD/Code/Libraries/Source/WWVegas/WW3D2/motchan.cpp
 #                                                     (the compressed channel
 #                                                     readers: TimeCodedMotion,
@@ -100,7 +133,7 @@
 
 [package]
 name = "rzh-formats"
-description = "Zero Hour asset format parsers: CSF string tables, TGA textures, the W3D chunk container, the W3D mesh chunk tree, the W3D hierarchy trees, the W3D raw and compressed animations and the W3D HLOD assemblies (map, WND, DDS follow)"
+description = "Zero Hour asset format parsers: CSF string tables, TGA and DDS textures, the W3D chunk container, the W3D mesh chunk tree, the W3D hierarchy trees, the W3D raw and compressed animations and the W3D HLOD assemblies (map, WND, fonts follow)"
 version.workspace = true
 edition.workspace = true
 rust-version.workspace = true

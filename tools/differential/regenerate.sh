@@ -298,4 +298,17 @@ echo "compiling gen_hlod_golden.cpp ..."
 "$CXX" -o "$BUILD_DIR/gen_hlod_golden" "$BUILD_DIR/gen_hlod_golden.o"
 "$BUILD_DIR/gen_hlod_golden" "$REPO_ROOT/crates/rzh-formats/tests/golden/hlod.txt"
 echo "wrote crates/rzh-formats/tests/golden/hlod.txt"
+
+# --- dds golden dump: the ddsfile.cpp DDS texture reader transcription
+# (the constructor's header decode and mip layout, Load's read window,
+# the pixel queries, the block decompressor with its per-format writes,
+# the surface copies and the HSV recolour stack) over hand-built mip
+# chains, cube and volume layouts, hand-built DXT blocks and the
+# reduction/error/name corpora.
+echo "compiling gen_dds_golden.cpp ..."
+"$CXX" -O2 -std=c++17 -Wall -Wextra -Werror -ffp-contract=off \
+    -c -o "$BUILD_DIR/gen_dds_golden.o" "$SCRIPT_DIR/gen_dds_golden.cpp"
+"$CXX" -o "$BUILD_DIR/gen_dds_golden" "$BUILD_DIR/gen_dds_golden.o"
+"$BUILD_DIR/gen_dds_golden" "$REPO_ROOT/crates/rzh-formats/tests/golden/dds.txt"
+echo "wrote crates/rzh-formats/tests/golden/dds.txt"
 echo "now run: cargo test --workspace"
