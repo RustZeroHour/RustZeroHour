@@ -220,6 +220,30 @@ kept all three comparisons inside budget with the margins unchanged
 (19.1–20.4 µs, 10.4–10.5 µs and 60.9–61.2 µs vs 20.8 µs, 17.2 µs and
 52.7 µs).
 
+The ninth slice, the W3D HLOD assemblies, adds the assembly-load
+comparison. Measured on 2026-11-05, same setup and flags as above. The
+corpus is a 64-LOD assembly — 16 models per LOD, 16 aggregates and 32
+proxies, 1072 sub-objects in all (48,800 bytes: the 40-byte header, the
+per-LOD wrapper/array-header pairs and 36-byte sub-object structs, the
+names from the same absolute-offset formula both sides share) —
+**verified byte-identical across the two builders**, with the loaded
+state cross-checked (the same checksum both sides compute). The C++
+side loads through the `hlod.cpp` transcription in
+`bench_wrap_hlod.cpp`; the Rust side through `rzh-formats::w3d_hlod`.
+
+| Benchmark | Rust (criterion) | C++ baseline | Rust/C++ | Verdict |
+|---|---:|---:|---:|---|
+| `hlod/parse_x1072` | 68.0 µs | 76.9 µs | 0.89x | within |
+
+The assembly parse is faster than the transcription on this corpus
+shape: the walk is dominated by the 1072 chunk opens and 36-byte reads,
+where the port's slice-based reader keeps the bounds checks fused with
+the copies while the C++ `Read` pays its stack-array bookkeeping per
+call, and the C++ side's per-model `strdup`/`new[]` pair (two heap
+round-trips per sub-object plus the per-LOD array allocations) costs
+more than the port's two pre-sized `Vec`s. Two reruns of each side kept
+the comparison inside budget with the margins unchanged.
+
 ## Methodology
 
 - **Same code, same corpora.** The C++ side times the *verbatim

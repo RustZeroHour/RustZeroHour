@@ -46,9 +46,17 @@
 //!   and two-frame decompression caches (the cache-continue off-by-one
 //!   transcribed verbatim), and the same query surface the tree update
 //!   samples — the compressed motion the game's assets ship in.
+//! - [`w3d_hlod`]: the W3D HLOD assemblies — the data path of
+//!   `HLodDefClass::Load_W3D` (`WW3D2/hlod.cpp`): the 40-byte header
+//!   with its `strdup`'d names (the run through the following header
+//!   words included), one sub-object array per level of detail
+//!   (model name + bone pairs), and the aggregate and proxy arrays —
+//!   the model format Zero Hour's units and buildings are assembled
+//!   in, on top of the chunk container and the hierarchy/animation
+//!   slices before it.
 //!
 //! Deferred to later Phase 2 slices, in plan order: the remaining W3D
-//! modules (the HLOD assemblies, …), map files, WND layouts, DDS
+//! modules (…), map files, WND layouts, DDS
 //! textures, fonts and audio containers. Consumer-side
 //! normalizations the original performs on top
 //! of a format (space stripping, first-string selection, the texture
@@ -67,6 +75,7 @@ pub mod csf;
 pub mod tga;
 pub mod w3d_hanim;
 pub mod w3d_hcanim;
+pub mod w3d_hlod;
 pub mod w3d_htree;
 pub mod w3d_mesh;
 
@@ -96,6 +105,13 @@ pub use w3d_hcanim::{
     W3D_CHUNK_COMPRESSED_ANIMATION_HEADER, W3D_CHUNK_COMPRESSED_BIT_CHANNEL,
     W3D_TIMECODED_BINARY_MOVEMENT_FLAG, W3D_TIMECODED_BIT_MASK, W3dCompressedAnim,
     W3dCompressedAnimHeader, W3dCompressedChannel, W3dCompressedNodeMotion,
+};
+pub use w3d_hlod::{
+    HLOD_ARRAY_HEADER_SIZE, HLOD_HEADER_SIZE, HLOD_SUB_OBJECT_SIZE, HlodError, NO_MAX_SCREEN_SIZE,
+    SUB_OBJECT_NAME_LEN, W3D_CHUNK_HLOD, W3D_CHUNK_HLOD_AGGREGATE_ARRAY, W3D_CHUNK_HLOD_HEADER,
+    W3D_CHUNK_HLOD_LOD_ARRAY, W3D_CHUNK_HLOD_PROXY_ARRAY, W3D_CHUNK_HLOD_SUB_OBJECT,
+    W3D_CHUNK_HLOD_SUB_OBJECT_ARRAY_HEADER, W3D_CURRENT_HLOD_VERSION, W3dHlod, W3dHlodArrayHeader,
+    W3dHlodHeader, W3dHlodSubObjectStruct, W3dProxyRecord, W3dSubObjectArray,
 };
 pub use w3d_htree::{
     HtreeError, W3D_CHUNK_HIERARCHY, W3D_CHUNK_HIERARCHY_HEADER, W3D_CHUNK_PIVOT_FIXUPS,

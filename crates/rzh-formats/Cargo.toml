@@ -44,6 +44,25 @@
 #                                                     switched channel routing
 #                                                     and the stateful packet
 #                                                     queries)
+#   GeneralsMD/Code/Libraries/Source/WWVegas/WW3D2/hlod.cpp
+#                                                     (the W3D HLOD assemblies:
+#                                                     HLodDefClass::Load_W3D,
+#                                                     read_header, read_proxy_array,
+#                                                     SubObjectArrayClass::Load_W3D
+#                                                     and the file's own
+#                                                     ProxyRecordClass/ProxyArrayClass
+#                                                     the proxy path fills)
+#   GeneralsMD/Code/Libraries/Source/WWVegas/WW3D2/w3d_file.h
+#                                                     (the HLOD wire structs:
+#                                                     W3dHLodHeaderStruct,
+#                                                     W3dHLodArrayHeaderStruct,
+#                                                     W3dHLodSubObjectStruct, the
+#                                                     W3D_CHUNK_HLOD_* ids)
+#   Core/Libraries/Source/WWVegas/WWLib/Vector.h     (VectorClass(int)'s
+#                                                     `new T[size]` default-
+#                                                     construction — the proxy
+#                                                     array's records are born
+#                                                     zeroed)
 #   GeneralsMD/Code/Libraries/Source/WWVegas/WW3D2/motchan.cpp
 #                                                     (the compressed channel
 #                                                     readers: TimeCodedMotion,
@@ -81,7 +100,7 @@
 
 [package]
 name = "rzh-formats"
-description = "Zero Hour asset format parsers: CSF string tables, TGA textures, the W3D chunk container, the W3D mesh chunk tree, the W3D hierarchy trees and the W3D raw and compressed animations (HLOD, map, WND, DDS follow)"
+description = "Zero Hour asset format parsers: CSF string tables, TGA textures, the W3D chunk container, the W3D mesh chunk tree, the W3D hierarchy trees, the W3D raw and compressed animations and the W3D HLOD assemblies (map, WND, DDS follow)"
 version.workspace = true
 edition.workspace = true
 rust-version.workspace = true

@@ -284,4 +284,18 @@ echo "compiling gen_hcanim_golden.cpp against the pin ..."
 "$CXX" -o "$BUILD_DIR/gen_hcanim_golden" "$BUILD_DIR/gen_hcanim_golden.o" "$BUILD_DIR"/*.c.o -lm
 "$BUILD_DIR/gen_hcanim_golden" "$REPO_ROOT/crates/rzh-formats/tests/golden/hcanim.txt"
 echo "wrote crates/rzh-formats/tests/golden/hcanim.txt"
+
+# --- hlod golden dump: the hlod.cpp HLOD-assembly transcription
+# (HLodDefClass::Load_W3D, read_header, read_proxy_array,
+# SubObjectArrayClass::Load_W3D, the ProxyRecordClass/ProxyArrayClass the
+# proxy path fills, the strdup'd header names with their run-through
+# quirk and the strlcpy'd proxy names with their 31-char truncation)
+# over hand-built modern, aggregate/proxy-bearing and malformed HLOD
+# corpora.
+echo "compiling gen_hlod_golden.cpp ..."
+"$CXX" -O2 -std=c++17 -Wall -Wextra -Werror -ffp-contract=off \
+    -c -o "$BUILD_DIR/gen_hlod_golden.o" "$SCRIPT_DIR/gen_hlod_golden.cpp"
+"$CXX" -o "$BUILD_DIR/gen_hlod_golden" "$BUILD_DIR/gen_hlod_golden.o"
+"$BUILD_DIR/gen_hlod_golden" "$REPO_ROOT/crates/rzh-formats/tests/golden/hlod.txt"
+echo "wrote crates/rzh-formats/tests/golden/hlod.txt"
 echo "now run: cargo test --workspace"

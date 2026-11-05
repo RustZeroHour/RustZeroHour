@@ -38,6 +38,11 @@ use rzh_formats::csf::{CsfFile, CsfLabel, CsfString};
 use rzh_formats::tga::{SaveFlags, TGA_TRUECOLOR, TgaFile, TgaHeader};
 use rzh_formats::w3d_hanim::W3dRawAnim;
 use rzh_formats::w3d_hcanim::{W3dCompressedAnim, W3dCompressedChannel};
+use rzh_formats::w3d_hlod::{
+    W3D_CHUNK_HLOD_AGGREGATE_ARRAY, W3D_CHUNK_HLOD_HEADER, W3D_CHUNK_HLOD_LOD_ARRAY,
+    W3D_CHUNK_HLOD_PROXY_ARRAY, W3D_CHUNK_HLOD_SUB_OBJECT, W3D_CHUNK_HLOD_SUB_OBJECT_ARRAY_HEADER,
+    W3D_CURRENT_HLOD_VERSION, W3dHlod,
+};
 use rzh_formats::w3d_htree::W3dHtree;
 use rzh_formats::w3d_mesh::W3dMesh;
 
@@ -127,6 +132,139 @@ fn bench_game_text(c: &mut Criterion) {
     group.finish();
 }
 
+// ---------------------------------------------------------------------------
+// w3d_hlod — the assembly-load workload (plan §6 discipline, Phase 2's
+// W3D track). The C++ baseline is the hlod.cpp transcription in
+// tools/differential/bench_wrap_hlod.cpp, driving the identical corpus
+// bytes through its own Load_W3D.
+// ---------------------------------------------------------------------------
+
+/// The corpus shape (matches the C++ baseline): 64 LODs of 16 models,
+/// 16 aggregates and 32 proxies — 1072 sub-objects in all.
+const HLOD_BENCH_LODS: usize = 64;
+const HLOD_BENCH_MODELS: usize = 16;
+const HLOD_BENCH_AGGREGATES: usize = 16;
+const HLOD_BENCH_PROXIES: usize = 32;
+
+/// The corpus formula anchored at an absolute offset (the C++ baseline
+/// generates the same absolute-indexed bytes).
+fn hlod_formula_at(offset: usize, n: usize) -> Vec<u8> {
+    (offset..offset + n)
+        .map(|i| ((i * 11 + 7) & 0xFF) as u8)
+        .collect()
+}
+
+/// Builds the assembly-shaped corpus — keep in lockstep with the C++
+/// baseline's `build_hlod_corpus`.
+fn hlod_corpus() -> Vec<u8> {
+    let mut save = ChunkSave::new();
+
+    // the header chunk (40 bytes): version 1.0, 64 LODs
+    save.begin_chunk(W3D_CHUNK_HLOD_HEADER).unwrap();
+    let mut header = [0u8; 40];
+    header[..4].copy_from_slice(&W3D_CURRENT_HLOD_VERSION.to_le_bytes());
+    header[4..8].copy_from_slice(&(HLOD_BENCH_LODS as u32).to_le_bytes());
+    header[8..13].copy_from_slice(b"bench");
+    header[24..29].copy_from_slice(b"bench");
+    save.write(&header).unwrap();
+    save.end_chunk().unwrap();
+
+    // the LOD arrays: 16 models each, the screen size varying per LOD
+    for l in 0..HLOD_BENCH_LODS {
+        save.begin_chunk(W3D_CHUNK_HLOD_LOD_ARRAY).unwrap();
+        save.begin_chunk(W3D_CHUNK_HLOD_SUB_OBJECT_ARRAY_HEADER)
+            .unwrap();
+        save.write(&(HLOD_BENCH_MODELS as u32).to_le_bytes())
+            .unwrap();
+        save.write(&(l as f32).to_le_bytes()).unwrap();
+        save.end_chunk().unwrap();
+        for m in 0..HLOD_BENCH_MODELS {
+            // the name field's absolute position: the bytes so far, the
+            // chunk header (8) and the bone word (4)
+            let at = save.as_bytes().len() + 8 + 4;
+            let name = hlod_formula_at(at, 32);
+            save.begin_chunk(W3D_CHUNK_HLOD_SUB_OBJECT).unwrap();
+            save.write(&((l * HLOD_BENCH_MODELS + m) as u32).to_le_bytes())
+                .unwrap();
+            save.write(&name).unwrap();
+            save.end_chunk().unwrap();
+        }
+        save.end_chunk().unwrap();
+    }
+
+    // the aggregates
+    save.begin_chunk(W3D_CHUNK_HLOD_AGGREGATE_ARRAY).unwrap();
+    save.begin_chunk(W3D_CHUNK_HLOD_SUB_OBJECT_ARRAY_HEADER)
+        .unwrap();
+    save.write(&(HLOD_BENCH_AGGREGATES as u32).to_le_bytes())
+        .unwrap();
+    save.write(&0.0f32.to_le_bytes()).unwrap();
+    save.end_chunk().unwrap();
+    for i in 0..HLOD_BENCH_AGGREGATES {
+        let at = save.as_bytes().len() + 8 + 4;
+        let name = hlod_formula_at(at, 32);
+        save.begin_chunk(W3D_CHUNK_HLOD_SUB_OBJECT).unwrap();
+        save.write(&((0x1000 + i) as u32).to_le_bytes()).unwrap();
+        save.write(&name).unwrap();
+        save.end_chunk().unwrap();
+    }
+    save.end_chunk().unwrap();
+
+    // the proxies
+    save.begin_chunk(W3D_CHUNK_HLOD_PROXY_ARRAY).unwrap();
+    save.begin_chunk(W3D_CHUNK_HLOD_SUB_OBJECT_ARRAY_HEADER)
+        .unwrap();
+    save.write(&(HLOD_BENCH_PROXIES as u32).to_le_bytes())
+        .unwrap();
+    save.write(&0.0f32.to_le_bytes()).unwrap();
+    save.end_chunk().unwrap();
+    for i in 0..HLOD_BENCH_PROXIES {
+        let at = save.as_bytes().len() + 8 + 4;
+        let name = hlod_formula_at(at, 32);
+        save.begin_chunk(W3D_CHUNK_HLOD_SUB_OBJECT).unwrap();
+        save.write(&((0x2000 + i) as u32).to_le_bytes()).unwrap();
+        save.write(&name).unwrap();
+        save.end_chunk().unwrap();
+    }
+    save.end_chunk().unwrap();
+
+    save.into_bytes().unwrap()
+}
+
+/// Bytes → the loaded assembly: the model-resolution startup workload.
+fn bench_hlod_parse(c: &mut Criterion) {
+    let bytes = hlod_corpus();
+    let len = bytes.len() as u64;
+    assert_eq!(
+        len, 48_800,
+        "the bench corpus drifted from the C++ baseline"
+    );
+
+    let mut group = c.benchmark_group("hlod");
+    group.throughput(Throughput::Bytes(len));
+    group.bench_function("parse_x1072", |b| {
+        b.iter(|| {
+            let hlod = W3dHlod::parse(black_box(&bytes)).expect("the corpus parses");
+            let last = &hlod.lods[HLOD_BENCH_LODS - 1];
+            black_box((
+                hlod.lod_count,
+                last.model_count,
+                last.bone_indices[HLOD_BENCH_MODELS - 1],
+                last.model_names[HLOD_BENCH_MODELS - 1].len(),
+                hlod.aggregates.model_count,
+                hlod.proxy_count(),
+                hlod.proxies
+                    .as_ref()
+                    .map(|p| p[HLOD_BENCH_PROXIES - 1].bone_index),
+                hlod.proxies
+                    .as_ref()
+                    .map(|p| p[HLOD_BENCH_PROXIES - 1].name_str().len()),
+            ))
+        })
+    });
+    group.finish();
+}
+
 criterion_group!(
     benches,
     bench_parse,
@@ -142,7 +280,8 @@ criterion_group!(
     bench_hanim_xforms,
     bench_hcanim_parse,
     bench_hcanim_parse_ad,
-    bench_hcanim_xforms_ad
+    bench_hcanim_xforms_ad,
+    bench_hlod_parse
 );
 criterion_main!(benches);
 

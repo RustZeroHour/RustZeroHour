@@ -106,6 +106,8 @@ EAC_DIR="$REPO_ROOT/Core/Libraries/Source/Compression/EAC"
 "$CXX" -O2 -std=c++17 -Wall -Wextra -Werror -ffp-contract=off \
     -c -o "$BUILD_DIR/bench_wrap_hcanim.o" "$SCRIPT_DIR/bench_wrap_hcanim.cpp"
 "$CXX" -O2 -std=c++17 -Wall -Wextra -Werror -ffp-contract=off \
+    -c -o "$BUILD_DIR/bench_wrap_hlod.o" "$SCRIPT_DIR/bench_wrap_hlod.cpp"
+"$CXX" -O2 -std=c++17 -Wall -Wextra -Werror -ffp-contract=off \
     -c -o "$BUILD_DIR/bench_baseline.o" "$SCRIPT_DIR/bench_baseline.cpp"
 
 "$CXX" -o "$BUILD_DIR/bench_baseline" \
@@ -120,6 +122,7 @@ EAC_DIR="$REPO_ROOT/Core/Libraries/Source/Compression/EAC"
     "$BUILD_DIR/bench_wrap_htree.o" \
     "$BUILD_DIR/bench_wrap_hanim.o" \
     "$BUILD_DIR/bench_wrap_hcanim.o" \
+    "$BUILD_DIR/bench_wrap_hlod.o" \
     "$BUILD_DIR/refdecode.o" \
     "$BUILD_DIR/refencode.o" \
     "$BUILD_DIR"/*.c.o -lm

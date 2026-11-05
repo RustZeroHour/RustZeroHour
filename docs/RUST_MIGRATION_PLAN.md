@@ -235,7 +235,7 @@ is now specified in [`docs/TRACE_FORMAT_V1.md`](TRACE_FORMAT_V1.md).
 
 ### Phase 2: Data and asset formats (M–L) — **status: started (2026-11-03)**
 
-`rzh-formats` exists and seven modules are done to the Phase 1 standard:
+`rzh-formats` exists and eight modules are done to the Phase 1 standard:
 
 - the **CSF** string tables: the runtime reader (`GameText.cpp::parseCSF`)
   and the Babylon writer (`expimp.cpp::generate_csf`) are transcribed in
@@ -374,13 +374,43 @@ is now specified in [`docs/TRACE_FORMAT_V1.md`](TRACE_FORMAT_V1.md).
   reshaped the port: the decompression walks are free functions over
   the channel's immutable parts so the cache branches write straight
   into their rows, and `getframe` is force-inlined).
+- the **W3D HLOD assemblies** — the named follow-up slice: the
+  data path of `HLodDefClass::Load_W3D` (`WW3D2/hlod.cpp` — the
+  40-byte header whose two `strdup`'d names run through the
+  following header words when a field has no NUL (the deterministic
+  Name-into-HierarchyName run, capped at the struct on both sides),
+  the version field that is never checked, the per-LOD sub-object
+  arrays (8-byte array headers, 36-byte model structs with the
+  strdup'd names capped at the field), and the aggregate and proxy
+  arrays; plus the file's own ProxyRecordClass/ProxyArrayClass the
+  proxy path fills — the `strlcpy` that truncates a 32-character
+  proxy name to 31 where the model path's `strdup` caps at the
+  struct, and the VectorClass `new T[size]` that births the proxy
+  records zeroed) is transcribed in
+  `tools/differential/gen_hlod_golden.cpp` and ported as
+  `rzh-formats::w3d_hlod`, on top of the chunk container — the
+  format every Zero Hour unit and building is assembled in. The
+  goldens pin 39 assembly payloads: the modern full HLOD and the
+  8-LOD corpus with the non-finite MaxScreenSize shapes stored
+  verbatim, the zero-LOD load (legal), the discarded-error family
+  (every sub-array verdict ignored by the walk — the deliberate
+  contrast with the hierarchy loader — with the zeroed stance for
+  the entries a failing read leaves unread), the unbalanced-failure
+  contrast (a stray chunk in a non-final LOD fails the load through
+  the next iteration's id check; in the final LOD, or inside the
+  trailing arrays, it merely shadows the rest of the file), the
+  last-wins repeated aggregate/proxy arrays (a failing second proxy
+  array still replaces the first), the bone-index `int` wraps and
+  the error verdicts (the first chunk and the LOD loop's open/id
+  checks are the only failures); the `hlod` bench is within budget
+  (docs/benchmarks.md).
 
 - `rzh-ini`: lexer/parser (includes, `#define` macros, inheritance/reskin, load order) and a
   **derive-based schema layer** replacing the 195 hand-written `FieldParse` tables. Keep it
   format-agnostic so the data format can change later (ADR-003).
 - `rzh-formats`: map files, W3D (meshes **done**, skeletons **done**, raw
-  animations **done**, compressed animations **done**, HLOD) **on top of
-  the ported chunk container**, TGA/DDS
+  animations **done**, compressed animations **done**, HLOD **done**) **on
+  top of the ported chunk container**, TGA/DDS
   (**TGA done**), CSF string tables (**done**), WND layouts, fonts,
   audio containers.
 - `rzh-data`: typed templates (objects, weapons, armor, locomotors, upgrades, sciences, ranks,
