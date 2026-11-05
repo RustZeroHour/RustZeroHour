@@ -250,4 +250,24 @@ echo "compiling gen_htree_golden.cpp ..."
 "$CXX" -o "$BUILD_DIR/gen_htree_golden" "$BUILD_DIR/gen_htree_golden.o"
 "$BUILD_DIR/gen_htree_golden" "$REPO_ROOT/crates/rzh-formats/tests/golden/htree.txt"
 echo "wrote crates/rzh-formats/tests/golden/htree.txt"
+
+# --- hanim golden dump: the hrawanim.cpp raw animation transcription
+# (Load_W3D, the motion/bit channel readers, the pre-3.0 pivot shift,
+# the strcpy/strlcat name composition, the frame queries with their
+# Fast_Slerp/Fast_Acos/Fast_Sin tables and the deterministic GameMath
+# entry points) over hand-built modern, pre-3.0 and malformed animation
+# corpora. The generator links the pinned GameMath sources for
+# gm_lrintf / gm_acosf / gm_sinf, like gen_golden.cpp.
+echo "compiling gen_hanim_golden.cpp against the pin ..."
+for src in $PIN_SOURCES; do
+    obj="$BUILD_DIR/$(basename "$src").o"
+    if [ ! -f "$obj" ]; then
+        "$CC" -O2 $PIN_CFLAGS -DBUILD_WITH_INTRINSICS -c -o "$obj" "$src"
+    fi
+done
+"$CXX" -O2 -std=c++17 -Wall -Wextra -Werror -ffp-contract=off \
+    -c -o "$BUILD_DIR/gen_hanim_golden.o" "$SCRIPT_DIR/gen_hanim_golden.cpp"
+"$CXX" -o "$BUILD_DIR/gen_hanim_golden" "$BUILD_DIR/gen_hanim_golden.o" "$BUILD_DIR"/*.c.o -lm
+"$BUILD_DIR/gen_hanim_golden" "$REPO_ROOT/crates/rzh-formats/tests/golden/hanim.txt"
+echo "wrote crates/rzh-formats/tests/golden/hanim.txt"
 echo "now run: cargo test --workspace"

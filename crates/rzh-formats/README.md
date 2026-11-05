@@ -14,7 +14,8 @@ dependencies, `#![forbid(unsafe_code)]`.
 | [`chunk`](src/chunk.rs) | the W3D chunk container | `WWLib/chunkio.cpp` (`ChunkSaveClass`/`ChunkLoadClass`, the IFF-style framing every W3D asset is stored in) | done |
 | [`w3d_mesh`](src/w3d_mesh.rs) | W3D mesh chunk trees | `WW3D2/meshmdlio.cpp` (`MeshModelClass::Load_W3D` and every sub-reader), the geometry/AABTree/vertex-material/texture data paths, the load-path half of `meshmatdesc.cpp`, the `ShaderClass` bit packing and the WWLib CRC-32 | done |
 | [`w3d_htree`](src/w3d_htree.rs) | W3D hierarchy trees (skeletons) | `WW3D2/htree.cpp` (`HTreeClass::Load_W3D`, `read_pivots`, the `stricmp` bone lookup), `WW3D2/pivot.cpp`, the WWMath `Build_Matrix3D`/`Translate`/`postMul` base-pose formulas | done |
-| — | W3D animations/HLOD | `WW3D2` (`hrawanim.cpp`, `hlod.cpp`, …) on top of [`chunk`] and [`w3d_htree`] | next |
+| [`w3d_hanim`](src/w3d_hanim.rs) | W3D raw animations | `WW3D2/hrawanim.cpp` (`HRawAnimClass::Load_W3D`, the channel routing, `Get_Translation`/`Get_Orientation`/`Get_Transform`), `WW3D2/motchan.cpp` (the classic motion/bit channels), the WWMath `Fast_Slerp`/`Fast_Acos`/`Fast_Sin` tables and the pinned GameMath entry points they call | done |
+| — | W3D compressed animations, HLOD | `WW3D2` (`hcanim.cpp`, `hlod.cpp`, …) on top of [`chunk`] and [`w3d_htree`] | next |
 | — | map files | `WorldBuilder`/`MapObject.cpp`, … | planned |
 | — | WND layouts | `GameWindowManager`, GUIEdit | planned |
 | — | DDS textures | `WW3D2/ddsfile.cpp` | planned |

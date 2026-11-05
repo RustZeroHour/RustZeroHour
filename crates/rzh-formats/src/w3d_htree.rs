@@ -87,8 +87,8 @@
 //! `Scale`/`Alter_Avatar_HTree`/`Create_Morphed`/`Create_Interpolated`
 //! tree surgery, and the `HTreeManagerClass` pool itself land with the
 //! animation and model-viewer slices. The query surface the skinning
-//! path needs *today* is ported: [`get_bone_index`](W3dHtree::
-//! get_bone_index) (the `stricmp` first-match scan) and
+//! path needs *today* is ported: [`W3dHtree::get_bone_index`] (the
+//! `stricmp` first-match scan) and
 //! [`get_parent_index`](W3dHtree::get_parent_index).
 //!
 //! # Examples

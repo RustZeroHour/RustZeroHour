@@ -30,9 +30,17 @@
 //!   mixed-precision `Build_Matrix3D` included), the pre-3.0 root
 //!   synthesis and parent fixup, and the `stricmp` bone lookup the
 //!   skinning path resolves bones against.
+//! - [`w3d_hanim`]: the W3D raw animations — the data path of
+//!   `HRawAnimClass::Load_W3D` (`WW3D2/hrawanim.cpp`) and the classic
+//!   motion/bit channels it drives (`WW3D2/motchan.cpp`): the 44-byte
+//!   header with its integer frame rate and strcpy-run name
+//!   composition, the pre-3.0 pivot shift, the per-bone channel slots,
+//!   and the frame queries (`Get_Transform` and friends, the
+//!   table-based `Fast_Slerp` included) the tree update samples to fill
+//!   a skeleton's transforms.
 //!
 //! Deferred to later Phase 2 slices, in plan order: the remaining W3D
-//! modules (animations, HLOD, …), map files, WND
+//! modules (the compressed animations, HLOD, …), map files, WND
 //! layouts, DDS textures, fonts and audio containers. Consumer-side
 //! normalizations the original performs on top
 //! of a format (space stripping, first-string selection, the texture
@@ -49,6 +57,7 @@
 pub mod chunk;
 pub mod csf;
 pub mod tga;
+pub mod w3d_hanim;
 pub mod w3d_htree;
 pub mod w3d_mesh;
 
@@ -62,6 +71,13 @@ pub use tga::{
     TGA_CMAPPED, TGA_CMAPPED_ENCODED, TGA_MONO, TGA_MONO_ENCODED, TGA_NOIMAGE, TGA_TRUECOLOR,
     TGA_TRUECOLOR_ENCODED, TGA2_SIGNATURE, TGAIDF_ATTRIB_BITS, TGAIDF_XORIGIN, TGAIDF_YORIGIN,
     Tga2Extension, Tga2Footer, TgaError, TgaFile, TgaHeader,
+};
+pub use w3d_hanim::{
+    ANIM_CHANNEL_Q, ANIM_CHANNEL_X, ANIM_CHANNEL_XR, ANIM_CHANNEL_Y, ANIM_CHANNEL_YR,
+    ANIM_CHANNEL_Z, ANIM_CHANNEL_ZR, BIT_CHANNEL_VIS, CLASSID_HRAWANIM, HanimError,
+    MAX_CHANNEL_FLOATS, W3D_CHUNK_ANIMATION, W3D_CHUNK_ANIMATION_CHANNEL,
+    W3D_CHUNK_ANIMATION_HEADER, W3D_CHUNK_BIT_CHANNEL, W3dAnimHeader, W3dBitChannel,
+    W3dMotionChannel, W3dNodeMotion, W3dRawAnim,
 };
 pub use w3d_htree::{
     HtreeError, W3D_CHUNK_HIERARCHY, W3D_CHUNK_HIERARCHY_HEADER, W3D_CHUNK_PIVOT_FIXUPS,

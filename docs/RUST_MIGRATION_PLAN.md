@@ -235,7 +235,7 @@ is now specified in [`docs/TRACE_FORMAT_V1.md`](TRACE_FORMAT_V1.md).
 
 ### Phase 2: Data and asset formats (M–L) — **status: started (2026-11-03)**
 
-`rzh-formats` exists and five modules are done to the Phase 1 standard:
+`rzh-formats` exists and six modules are done to the Phase 1 standard:
 
 - the **CSF** string tables: the runtime reader (`GameText.cpp::parseCSF`)
   and the Babylon writer (`expimp.cpp::generate_csf`) are transcribed in
@@ -302,12 +302,49 @@ is now specified in [`docs/TRACE_FORMAT_V1.md`](TRACE_FORMAT_V1.md).
   the first `Base_Update` would dereference) and the negative-zero
   translation rounding through the identity rows; the `htree` bench is
   within budget (docs/benchmarks.md).
+- the **W3D raw animations**: the data path of `HRawAnimClass::Load_W3D`
+  (`WW3D2/hrawanim.cpp` — the 44-byte header with its integer frame
+  rate and the strcpy/strlcat name composition that runs through the
+  header's frame words when a name field has no NUL, the pre-3.0 pivot
+  shift, the channel-to-slot routing with its discard of out-of-range
+  and unknown-typed channels, and the `Get_Translation` /
+  `Get_Orientation` / `Get_Transform` / `Get_Visibility` queries the
+  tree update samples; plus the classic `MotionChannelClass` /
+  `BitChannelClass` readers from `WW3D2/motchan.cpp` with the
+  exporter-junk seek and the disabled `Do_Data_Compression`, and the
+  WWMath frame-math stack the orientation paths drive — `Float_To_Long`
+  (the deterministic `gm_lrintf`), the `Fast_Acos`/`Fast_Sin` tables,
+  `Fast_Slerp` and `Build_Matrix3D`, with the pinned GameMath
+  `acosf`/`sinf`/`lrintf` transcribed privately to keep the crate
+  dependency-free) is transcribed in
+  `tools/differential/gen_hanim_golden.cpp` and ported as
+  `rzh-formats::w3d_hanim` — the module that fills a hierarchy tree's
+  transforms, on top of `w3d_htree` (the tree lookup the original's
+  asset manager performs is the parse callback, mirroring
+  `Get_HTree`'s lowercase exact match). The goldens pin 38 animation
+  payloads: the modern full animation and the 24-bone routing corpus,
+  the slerp branches (the table path, the near-parallel linear branch,
+  the hemisphere flip and the `gm_acosf` fallback window), the
+  pre-3.0 pivot shift with its `0xFFFF` wrap discard, the
+  strcpy-run name composition (the 17-byte hierarchy key that
+  resolves through the frame-count word, the 16-byte trap key that
+  must miss, the unterminated animation name and the 31-character
+  truncation), the numeric frame-rate conversion (a file storing the
+  bits of `50.0f` loading as `1112014848.0`, the division by zero, the
+  f32 rounding), the negative-as-int frame count, the identity
+  blending below a channel's first frame, the exporter-junk seek, the
+  newest-wins duplicate channel and the empty/negative-span stated
+  contracts; the `hanim` benches are within budget on both comparisons
+  (docs/benchmarks.md). The compressed animation flavor
+  (`HCompressedAnimClass` — `hcanim.cpp` with the time-coded and
+  adaptive-delta channels) is the named follow-up slice.
 
 - `rzh-ini`: lexer/parser (includes, `#define` macros, inheritance/reskin, load order) and a
   **derive-based schema layer** replacing the 195 hand-written `FieldParse` tables. Keep it
   format-agnostic so the data format can change later (ADR-003).
-- `rzh-formats`: map files, W3D (meshes **done**, skeletons **done**,
-  animations, HLOD) **on top of the ported chunk container**, TGA/DDS
+- `rzh-formats`: map files, W3D (meshes **done**, skeletons **done**, raw
+  animations **done**, compressed animations, HLOD) **on top of the
+  ported chunk container**, TGA/DDS
   (**TGA done**), CSF string tables (**done**), WND layouts, fonts,
   audio containers.
 - `rzh-data`: typed templates (objects, weapons, armor, locomotors, upgrades, sciences, ranks,

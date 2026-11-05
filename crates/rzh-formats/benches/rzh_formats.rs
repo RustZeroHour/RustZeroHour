@@ -36,6 +36,7 @@ use criterion::{Criterion, Throughput, criterion_group, criterion_main};
 use rzh_formats::chunk::{ChunkLoad, ChunkSave};
 use rzh_formats::csf::{CsfFile, CsfLabel, CsfString};
 use rzh_formats::tga::{SaveFlags, TGA_TRUECOLOR, TgaFile, TgaHeader};
+use rzh_formats::w3d_hanim::W3dRawAnim;
 use rzh_formats::w3d_htree::W3dHtree;
 use rzh_formats::w3d_mesh::W3dMesh;
 
@@ -135,7 +136,9 @@ criterion_group!(
     bench_chunk_write,
     bench_chunk_read,
     bench_mesh_parse,
-    bench_htree_parse
+    bench_htree_parse,
+    bench_hanim_parse,
+    bench_hanim_xforms
 );
 criterion_main!(benches);
 
@@ -670,6 +673,202 @@ fn bench_htree_parse(c: &mut Criterion) {
                 tree.pivots[HTREE_PIVOTS as usize - 1].base_transform[11].to_bits(),
                 tree.pivots[HTREE_PIVOTS as usize - 1].name_str().len(),
             ))
+        })
+    });
+    group.finish();
+}
+
+// ---------------------------------------------------------------------------
+// w3d_hanim — the animation load and transform workloads (plan §6
+// discipline, Phase 2's W3D track). The C++ baseline is the hrawanim.cpp
+// transcription in tools/differential/bench_wrap_hanim.cpp, driving the
+// identical corpus bytes through its own Load_W3D and Get_Transform.
+// ---------------------------------------------------------------------------
+
+/// Pivot count of the corpus (matches the C++ baseline).
+const HANIM_PIVOTS: usize = 64;
+/// Frame count of the corpus (matches the C++ baseline).
+const HANIM_FRAMES: usize = 128;
+/// Frames the transform bench samples (matches the C++ baseline).
+const HANIM_QUERY_FRAMES: usize = 16;
+
+/// One translation-channel word — the same bit formula the C++ baseline
+/// builds (any pattern does: the queries only lerp them).
+fn hanim_word(piv: u32, ty: u32, f: u32) -> f32 {
+    f32::from_bits(
+        f.wrapping_mul(0x0101_0101)
+            ^ piv.wrapping_mul(0x0001_0001)
+            ^ ty.wrapping_mul(0x1001_0010)
+            ^ 0x3C00_0000,
+    )
+}
+
+/// One quaternion word — small positive components keeping every key
+/// pair inside the fast-table slerp domain (the C++ baseline's formula).
+fn hanim_quat_word(piv: u32, f: u32, k: u32) -> f32 {
+    f32::from_bits(0x3C00_0000 | (((f * 7 + k * 13 + piv * 3) & 0x3F) << 17))
+}
+
+/// A tiny chunk-framing builder for the corpus bytes (the same framing
+/// the C++ baseline's builder produces).
+struct AnimChunkBuild {
+    bytes: Vec<u8>,
+}
+
+impl AnimChunkBuild {
+    fn begin(&mut self, id: u32) {
+        self.bytes.extend_from_slice(&id.to_le_bytes());
+        self.bytes.extend_from_slice(&0u32.to_le_bytes());
+    }
+
+    fn end(&mut self, size: usize) {
+        let at = self.bytes.len() - size - 8;
+        self.bytes[at + 4..at + 8].copy_from_slice(&(size as u32).to_le_bytes());
+    }
+
+    fn w_u16(&mut self, v: u16) {
+        self.bytes.extend_from_slice(&v.to_le_bytes());
+    }
+
+    fn w_u32(&mut self, v: u32) {
+        self.bytes.extend_from_slice(&v.to_le_bytes());
+    }
+
+    fn w_f32(&mut self, v: f32) {
+        self.w_u32(v.to_bits());
+    }
+}
+
+/// Builds the animation-shaped corpus: pivots 0..31 carry X/Y/Z
+/// channels (128 frames of 1 float each), pivots 32..63 carry a
+/// quaternion channel (128 frames of 4 components). Keep in lockstep
+/// with the C++ baseline's `build_hanim_corpus`.
+fn hanim_corpus() -> Vec<u8> {
+    let mut b = AnimChunkBuild {
+        bytes: Vec::with_capacity(117_300),
+    };
+
+    // the 44-byte header
+    b.begin(0x0201);
+    b.w_u32(0x0004_0000); // version 4.0
+    let mut name = [0u8; 16];
+    name[..3].copy_from_slice(b"Run");
+    b.bytes.extend_from_slice(&name);
+    let mut hname = [0u8; 16];
+    hname[..5].copy_from_slice(b"bench");
+    b.bytes.extend_from_slice(&hname);
+    b.w_u32(HANIM_FRAMES as u32);
+    b.w_u32(30);
+    b.end(44);
+
+    for piv in 0..HANIM_PIVOTS {
+        if piv < HANIM_PIVOTS / 2 {
+            for ty in 0u32..3 {
+                b.begin(0x0202);
+                b.w_u16(0);
+                b.w_u16(HANIM_FRAMES as u16 - 1);
+                b.w_u16(1);
+                b.w_u16(ty as u16);
+                b.w_u16(piv as u16);
+                b.w_u16(0);
+                for f in 0..HANIM_FRAMES {
+                    b.w_f32(hanim_word(piv as u32, ty, f as u32));
+                }
+                b.end(12 + HANIM_FRAMES * 4);
+            }
+        } else {
+            b.begin(0x0202);
+            b.w_u16(0);
+            b.w_u16(HANIM_FRAMES as u16 - 1);
+            b.w_u16(4);
+            b.w_u16(6); // ANIM_CHANNEL_Q
+            b.w_u16(piv as u16);
+            b.w_u16(0);
+            for f in 0..HANIM_FRAMES {
+                for k in 0..4 {
+                    b.w_f32(hanim_quat_word(piv as u32, f as u32, k));
+                }
+            }
+            b.end(12 + HANIM_FRAMES * 16);
+        }
+    }
+    b.bytes
+}
+
+/// A parse-time tree stand-in for the "bench" hierarchy.
+fn hanim_bench_tree() -> W3dHtree {
+    use rzh_formats::w3d_htree::{W3dHierarchyHeader, W3dPivot};
+    W3dHtree {
+        header: W3dHierarchyHeader {
+            version: 0,
+            name: [0; 16],
+            num_pivots: HANIM_PIVOTS as u32,
+            center: [0.0; 3],
+        },
+        pivots: vec![W3dPivot::default(); HANIM_PIVOTS],
+    }
+}
+
+/// Bytes → the loaded animation: the model-load startup workload.
+fn bench_hanim_parse(c: &mut Criterion) {
+    let bytes = hanim_corpus();
+    let len = bytes.len() as u64;
+    assert_eq!(
+        len, 117_300,
+        "the bench corpus drifted from the C++ baseline"
+    );
+    let tree = hanim_bench_tree();
+
+    let mut group = c.benchmark_group("hanim");
+    group.throughput(Throughput::Bytes(len));
+    group.bench_function("parse_x64", |b| {
+        b.iter(|| {
+            let anim = W3dRawAnim::parse(black_box(&bytes), |name| {
+                (name == b"bench").then_some(&tree)
+            })
+            .expect("the corpus parses");
+            black_box((
+                anim.num_frames(),
+                anim.num_pivots(),
+                anim.node_motion[0]
+                    .x
+                    .as_ref()
+                    .map(|c| c.data[HANIM_FRAMES - 1].to_bits()),
+                anim.node_motion[HANIM_PIVOTS - 1]
+                    .q
+                    .as_ref()
+                    .map(|c| c.data[1].to_bits()),
+            ))
+        })
+    });
+    group.finish();
+}
+
+/// The per-frame Anim_Update shape: `Get_Transform` over every bone at
+/// the sampled frames of the preloaded animation — the workload the tree
+/// update pays per animated model per frame.
+fn bench_hanim_xforms(c: &mut Criterion) {
+    let bytes = hanim_corpus();
+    let tree = hanim_bench_tree();
+    let anim = W3dRawAnim::parse(&bytes, |name| (name == b"bench").then_some(&tree))
+        .expect("the corpus parses");
+
+    let transforms = (HANIM_QUERY_FRAMES * HANIM_PIVOTS) as u64;
+    let mut group = c.benchmark_group("hanim");
+    group.throughput(Throughput::Elements(transforms));
+    group.bench_function("xforms_x1024", |b| {
+        b.iter(|| {
+            let mut checksum = 0u64;
+            for fi in 0..HANIM_QUERY_FRAMES {
+                let frame = (fi * (HANIM_FRAMES / HANIM_QUERY_FRAMES)) as f32 + 0.5;
+                for piv in 0..anim.num_pivots() {
+                    let m = anim.get_transform(piv, frame);
+                    for k in (0..12).step_by(4) {
+                        checksum = checksum.wrapping_add(u64::from(m[k].to_bits()));
+                    }
+                }
+            }
+            black_box(checksum)
         })
     });
     group.finish();

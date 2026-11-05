@@ -139,6 +139,41 @@ C++ class-member call overhead the per-pivot loop pays. Three reruns
 of each side kept the comparison inside budget with the margin
 unchanged (88.2–88.5 µs vs 78.1–78.6 µs).
 
+The seventh slice, the W3D raw animations, adds two comparisons.
+Measured on 2026-11-05, same setup and flags as above. The corpus is a
+64-bone, 128-frame animation (117,300 bytes: the 44-byte header, X/Y/Z
+channels on bones 0..31 and quaternion channels on bones 32..63) built
+from the same word formulas on both sides — **verified byte-identical
+across the two builders** (the corpus size assert in the Rust bench
+pins the lockstep). The C++ side loads and samples through the
+`hrawanim.cpp`/`motchan.cpp` transcription in `bench_wrap_hanim.cpp`;
+the Rust side through `rzh-formats::w3d_hanim`. The transform bench is
+the per-frame `Anim_Update` shape: `Get_Transform` over all 64 bones at
+16 sampled frames (1024 calls through the table-based `Fast_Slerp`),
+on a preloaded animation (the load is untimed).
+
+| Benchmark | Rust (criterion) | C++ baseline | Rust/C++ | Verdict |
+|---|---:|---:|---:|---|
+| `hanim/parse_x64` | 14.06 µs | 13.7 µs | 1.03x | within |
+| `hanim/xforms_x1024` | 39.98 µs | 44.1 µs | 0.91x | within |
+
+The parse margin went through the budget check the plan prescribes: the
+port's first shape (a zero-filled float array plus a zero-filled byte
+staging array per channel — safe Rust cannot read into an
+uninitialized array the way the original's single `new[]` + file read
+does) measured 1.24x, and the stack-buffer variant that replaced the
+staging array with an 8 KiB zeroed buffer made it worse (5x — the
+per-channel zeroing dwarfed the load). The committed shape reads
+through a 512-byte stack buffer into the pre-sized array with indexed
+stores; `f32::from_le_bytes` is a plain load on little-endian hosts, so
+the conversion pass collapses into the copy and the comparison lands at
+1.03x. The transform loop is faster than the transcription because the
+C++ pays four `Get_Vector`/`Get_Vector_As_Quat` member calls plus the
+`Fast_Slerp` helper per bone while the port's queries inline the same
+arithmetic. Two reruns of each side kept both comparisons inside budget
+with the margins unchanged (13.3–14.4 µs vs 14.0–14.1 µs and 44.0–44.3
+µs vs 39.7–40.3 µs).
+
 ## Methodology
 
 - **Same code, same corpora.** The C++ side times the *verbatim

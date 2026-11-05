@@ -111,6 +111,11 @@ long bench_mesh_materialize(uint8_t *out, size_t cap);
 std::uint64_t bench_mesh_load(const uint8_t *data, size_t len);
 long bench_htree_materialize(uint8_t *out, size_t cap);
 std::uint64_t bench_htree_load(const uint8_t *data, size_t len);
+long bench_hanim_materialize(uint8_t *out, size_t cap);
+std::uint64_t bench_hanim_load(const uint8_t *data, size_t len);
+void *bench_hanim_anim_new(const uint8_t *data, size_t len);
+void bench_hanim_anim_free(void *handle);
+std::uint64_t bench_hanim_xforms(void *handle);
 }
 
 // --- corpora (identical to the Rust benches) ---------------------------------
@@ -549,6 +554,32 @@ int main(int argc, char **argv)
                 report("htree/parse_x2048", measure_ns([] {}, [&] {
                         return bench_htree_load(bytes.data(), bytes.size());
                 }), (double)total);
+        }
+
+        // --- w3d raw animation ---------------------------------------------------------------
+        {
+                std::vector<uint8_t> scratch(4 * 1024 * 1024);
+                long total = bench_hanim_materialize(scratch.data(), scratch.size());
+                if (total <= 0)
+                {
+                        fprintf(stderr, "error: hanim corpus write failed\n");
+                        exit(1);
+                }
+                std::vector<uint8_t> bytes(scratch.begin(), scratch.begin() + total);
+
+                report("hanim/parse_x64", measure_ns([] {}, [&] {
+                        return bench_hanim_load(bytes.data(), bytes.size());
+                }), (double)total);
+
+                // the transform loop covers 64 bones x 16 frames = 1024
+                // Get_Transform calls; the element count is the throughput
+                // column (transforms/s). The setup loads the animation
+                // (untimed), the body times the transform loop.
+                report("hanim/xforms_x1024", measure_ns_ctx(
+                        [&] { return bench_hanim_anim_new(bytes.data(), bytes.size()); },
+                        [](void *h) { return bench_hanim_xforms(h); },
+                        [](void *h) { bench_hanim_anim_free(h); }),
+                        1024.0);
         }
 
         // --- math --------------------------------------------------------------------

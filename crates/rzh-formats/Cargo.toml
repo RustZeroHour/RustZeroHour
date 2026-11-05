@@ -32,6 +32,26 @@
 #                                                     Translate(const Vector3&),
 #                                                     postMul — the base-pose
 #                                                     formulas read_pivots drives)
+#   GeneralsMD/Code/Libraries/Source/WWVegas/WW3D2/hrawanim.{h,cpp}
+#                                                     (the W3D raw animations:
+#                                                     HRawAnimClass::Load_W3D, the
+#                                                     channel routing and the
+#                                                     Get_Translation/Orientation/
+#                                                     Transform/Visibility queries)
+#   GeneralsMD/Code/Libraries/Source/WWVegas/WW3D2/motchan.{h,cpp}
+#                                                     (the classic motion and bit
+#                                                     channels the anim loads)
+#   GeneralsMD/Code/Libraries/Source/WWVegas/WW3D2/hanim.h
+#                                                     (the HAnimClass query surface
+#                                                     every animation format shares)
+#   Core/Libraries/Source/WWVegas/WWMath/wwmath.{h,cpp}, quat.cpp, vector3.h,
+#   matrix3d.h        (Float_To_Long, Float_To_Int_Floor, the Fast_Acos/Fast_Sin
+#                     tables, Fast_Slerp, Vector3::Lerp, Set_Translation —
+#                     the frame-math stack the anim queries drive)
+#   The pinned GameMath sources (TheSuperHackers/GameMath @ 59f7ccd4:
+#                     s_rintf.c, s_lrintf.c, e_acosf.c, s_sinf.c, k_sinf.c,
+#                     k_cosf.c, e_rem_pio2f.c — the deterministic entry points
+#                     WWMath calls under USE_DETERMINISTIC_MATH = 1)
 #
 # Original: Copyright 2025 Electronic Arts Inc.
 # Rust port Copyright 2026 the RustZeroHour contributors.
@@ -47,7 +67,7 @@
 
 [package]
 name = "rzh-formats"
-description = "Zero Hour asset format parsers: CSF string tables, TGA textures, the W3D chunk container, the W3D mesh chunk tree and the W3D hierarchy trees (animations, HLOD, map, WND, DDS follow)"
+description = "Zero Hour asset format parsers: CSF string tables, TGA textures, the W3D chunk container, the W3D mesh chunk tree, the W3D hierarchy trees and the W3D raw animations (compressed animations, HLOD, map, WND, DDS follow)"
 version.workspace = true
 edition.workspace = true
 rust-version.workspace = true
