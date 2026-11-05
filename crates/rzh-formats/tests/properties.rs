@@ -1428,3 +1428,463 @@ mod dds {
         assert_eq!(munged_name("tank").unwrap(), "tdds");
     }
 }
+
+/// Properties for the map data-chunk container (`map_chunk`).
+///
+/// The golden vectors pin the C++-observable behaviour on fixed corpora;
+/// these properties pin the port's invariants on arbitrary input: trees
+/// survive write → parse unchanged (values, labels, versions, scopes and
+/// the dict pair order), the writer is a fixed point of its own output,
+/// and arbitrary bytes never panic the reader.
+mod mapchunk_props {
+    use proptest::prelude::*;
+    use rzh_formats::map_chunk::{
+        DataChunkInfo, DataChunkInput, DataChunkOutput, Dict, DictValue, MapChunkError, NameKeys,
+        ParserTable,
+    };
+
+    /// One primitive payload value a leaf chunk can carry.
+    #[derive(Debug, Clone, PartialEq)]
+    enum Value {
+        Int(i32),
+        Real(f32),
+        Byte(u8),
+        Bytes(Vec<u8>),
+        /// NUL-free (the C-string truncation is pinned by the goldens;
+        /// here the round-trip must be lossless).
+        Ascii(Vec<u8>),
+        /// Zero-unit-free UTF-16 content.
+        Unicode(Vec<u16>),
+        /// A name key, by the name it interns.
+        NameKey(Vec<u8>),
+        /// A dict: insertion-order pairs (the stored order is compared
+        /// through the port's own `Dict` semantics).
+        Dict(Vec<(Vec<u8>, DictValue)>),
+    }
+
+    /// A tree node: a leaf of values or a branch of children. Every
+    /// node's name is unique (the generator suffixes an index), so one
+    /// parser dispatches on the label.
+    #[derive(Debug, Clone, PartialEq)]
+    struct Node {
+        name: Vec<u8>,
+        version: u16,
+        values: Vec<Value>,
+        children: Vec<Node>,
+    }
+
+    fn nul_free_ascii() -> impl Strategy<Value = Vec<u8>> {
+        prop::collection::vec(
+            prop::strategy::Union::new_weighted(vec![
+                (8, (b'A'..=b'z').boxed()),
+                (1, (1u8..=0xFF).boxed()),
+            ]),
+            0..24,
+        )
+    }
+
+    fn nul_free_unicode() -> impl Strategy<Value = Vec<u16>> {
+        prop::collection::vec(1u16..=0xFFFF, 0..12)
+    }
+
+    fn dict_value() -> impl Strategy<Value = DictValue> {
+        prop::strategy::Union::new_weighted(vec![
+            (2, prop::bool::ANY.prop_map(DictValue::Bool).boxed()),
+            (2, prop::num::i32::ANY.prop_map(DictValue::Int).boxed()),
+            (2, prop::num::f32::ANY.prop_map(DictValue::Real).boxed()),
+            (2, nul_free_ascii().prop_map(DictValue::AsciiString).boxed()),
+            (
+                2,
+                nul_free_unicode()
+                    .prop_map(DictValue::UnicodeString)
+                    .boxed(),
+            ),
+        ])
+    }
+
+    fn value() -> impl Strategy<Value = Value> {
+        prop::strategy::Union::new_weighted(vec![
+            (3, prop::num::i32::ANY.prop_map(Value::Int).boxed()),
+            (3, prop::num::f32::ANY.prop_map(Value::Real).boxed()),
+            (3, prop::num::u8::ANY.prop_map(Value::Byte).boxed()),
+            (
+                2,
+                prop::collection::vec(prop::num::u8::ANY, 0..40)
+                    .prop_map(Value::Bytes)
+                    .boxed(),
+            ),
+            (3, nul_free_ascii().prop_map(Value::Ascii).boxed()),
+            (2, nul_free_unicode().prop_map(Value::Unicode).boxed()),
+            (2, nul_free_ascii().prop_map(Value::NameKey).boxed()),
+            (
+                2,
+                prop::collection::vec((nul_free_ascii(), dict_value()), 0..4)
+                    .prop_map(Value::Dict)
+                    .boxed(),
+            ),
+        ])
+    }
+
+    fn node(depth: u8) -> impl Strategy<Value = Node> {
+        if depth == 0 {
+            (
+                nul_free_ascii(),
+                prop::num::u16::ANY,
+                prop::collection::vec(value(), 0..5),
+            )
+                .prop_map(move |(name, version, values)| Node {
+                    name,
+                    version,
+                    values,
+                    children: Vec::new(),
+                })
+                .boxed()
+        } else {
+            (
+                nul_free_ascii(),
+                prop::num::u16::ANY,
+                prop::collection::vec(value(), 0..3),
+                prop::collection::vec(node(depth - 1), 0..3),
+            )
+                .prop_map(move |(name, version, values, children)| Node {
+                    name,
+                    version,
+                    values,
+                    children,
+                })
+                .boxed()
+        }
+    }
+
+    fn tree() -> impl Strategy<Value = Node> {
+        node(2)
+    }
+
+    // --- the writer side ----------------------------------------------------
+
+    fn write_node(writer: &mut DataChunkOutput, keys: &mut NameKeys, node: &Node) {
+        writer.open_data_chunk(&node.name, node.version);
+        for value in &node.values {
+            match value {
+                Value::Int(v) => writer.write_int(*v),
+                Value::Real(v) => writer.write_real(*v),
+                Value::Byte(v) => writer.write_byte(*v),
+                Value::Bytes(v) => writer.write_array_of_bytes(v),
+                Value::Ascii(v) => writer.write_ascii_string(v),
+                Value::Unicode(v) => writer.write_unicode_string(v),
+                Value::NameKey(name) => {
+                    let key = keys.name_to_key(name.as_slice());
+                    writer.write_name_key(keys, key);
+                }
+                Value::Dict(pairs) => {
+                    let mut dict = Dict::new();
+                    for (name, value) in pairs {
+                        let key = keys.name_to_key(name.as_slice());
+                        dict.set(key, value.clone());
+                    }
+                    writer.write_dict(keys, &dict);
+                }
+            }
+        }
+        for child in &node.children {
+            write_node(writer, keys, child);
+        }
+        writer.close_data_chunk();
+    }
+
+    // --- the reader side ----------------------------------------------------
+
+    /// The state the parser callbacks walk: the tree's nodes by label,
+    /// the shared key generator, and the labels that fired (in order).
+    struct ReadState<'a> {
+        nodes: std::collections::BTreeMap<Vec<u8>, &'a Node>,
+        keys: NameKeys,
+        seen: Vec<Vec<u8>>,
+        mismatches: Vec<String>,
+    }
+
+    fn read_value(file: &mut DataChunkInput<'_>, state: &mut ReadState<'_>, value: &Value) {
+        match value {
+            Value::Int(want) => {
+                let got = file.read_int();
+                if got != *want {
+                    state.mismatches.push(format!("int {got} != {want}"));
+                }
+            }
+            Value::Real(want) => {
+                let got = file.read_real();
+                if got.to_bits() != want.to_bits() {
+                    state.mismatches.push(format!("real {got:?} != {want:?}"));
+                }
+            }
+            Value::Byte(want) => {
+                let got = file.read_byte();
+                if got != *want {
+                    state.mismatches.push(format!("byte {got} != {want}"));
+                }
+            }
+            Value::Bytes(want) => {
+                let mut buf = vec![0u8; want.len()];
+                file.read_array_of_bytes(&mut buf);
+                if buf != *want {
+                    state.mismatches.push("bytes".to_string());
+                }
+            }
+            Value::Ascii(want) => {
+                let got = file.read_ascii_string();
+                if got != *want {
+                    state.mismatches.push("ascii".to_string());
+                }
+            }
+            Value::Unicode(want) => {
+                let got = file.read_unicode_string();
+                if got != *want {
+                    state.mismatches.push("unicode".to_string());
+                }
+            }
+            Value::NameKey(want) => {
+                let key = file.read_name_key(&mut state.keys);
+                let got = state.keys.key_to_name(key).to_vec();
+                if got != *want {
+                    state
+                        .mismatches
+                        .push(format!("namekey {got:?} != {want:?}"));
+                }
+            }
+            Value::Dict(pairs) => {
+                let dict = match file.read_dict(&mut state.keys) {
+                    Ok(d) => d,
+                    Err(e) => {
+                        state.mismatches.push(format!("dict error {e}"));
+                        return;
+                    }
+                };
+                // the expected stored form: the same sets through the
+                // same generator (the port's own sort semantics)
+                let mut expected = Dict::new();
+                for (name, value) in pairs {
+                    let key = state.keys.name_to_key(name.as_slice());
+                    expected.set(key, value.clone());
+                }
+                if dict.pair_count() != expected.pair_count() {
+                    state.mismatches.push(format!(
+                        "dict len {} != {}",
+                        dict.pair_count(),
+                        expected.pair_count()
+                    ));
+                    return;
+                }
+                for i in 0..dict.pair_count() {
+                    let ok = dict.nth_key(i) == expected.nth_key(i)
+                        && dict.nth_type(i) == expected.nth_type(i)
+                        && dict_value_bits_equal(dict.nth_value(i), expected.nth_value(i));
+                    if !ok {
+                        state.mismatches.push(format!("dict pair {i} differs"));
+                    }
+                }
+            }
+        }
+    }
+
+    /// `DictValue` equality with reals compared bitwise (NaN round-trips
+    /// as an equal value).
+    fn dict_value_bits_equal(a: &DictValue, b: &DictValue) -> bool {
+        match (a, b) {
+            (DictValue::Real(x), DictValue::Real(y)) => x.to_bits() == y.to_bits(),
+            _ => a == b,
+        }
+    }
+
+    fn p_prop<'t, 'k>(
+        file: &mut DataChunkInput<'_>,
+        info: &DataChunkInfo,
+        table: &mut ParserTable<'t, ReadState<'k>>,
+        state: &mut ReadState<'k>,
+    ) -> bool {
+        let Some(node) = state.nodes.get(&info.label).copied() else {
+            // a label with no node (the round-trip sentinel): counted as
+            // seen, its values read by nobody
+            state.seen.push(info.label.clone());
+            return true;
+        };
+        state.seen.push(info.label.clone());
+        let node = node.clone();
+        if info.version != node.version || info.data_size < 0 {
+            state.mismatches.push("header".to_string());
+        }
+        for value in &node.values {
+            read_value(file, state, value);
+        }
+        if !node.children.is_empty() {
+            return file.parse(table, state);
+        }
+        true
+    }
+
+    proptest! {
+        #![proptest_config(ProptestConfig::with_cases(128))]
+
+        /// Trees survive write → parse unchanged: every label fires
+        /// under the right scope exactly once, every value reads back
+        /// identical, and the whole tree re-serializes to the same bytes
+        /// (the writer's fixed point).
+        #[test]
+        fn round_trips_through_bytes(tree in tree()) {
+            let mut tree = tree;
+            let mut counter = 0u32;
+            uniquify(&mut tree, &mut counter);
+            let mut names = std::collections::BTreeSet::new();
+            assert_names_unique(&tree, &mut names);
+
+            // a sentinel chunk ends the file: a chunk whose header lands
+            // at EOF returns the empty label and never fires a parser
+            // (the trailing-empty quirk the goldens pin), so the tree
+            // must not own the file's last bytes
+            const SENTINEL: &[u8] = b"\x01rzh-map-chunk-end-sentinel";
+            let mut keys = NameKeys::new();
+            let mut writer = DataChunkOutput::new();
+            write_node(&mut writer, &mut keys, &tree);
+            writer.open_data_chunk(SENTINEL, 0);
+            writer.write_int(0x2E2E_2E2E);
+            writer.close_data_chunk();
+            let bytes = writer.into_bytes().expect("finish");
+
+            let mut input = DataChunkInput::new(&bytes);
+            prop_assert!(input.is_valid_file_type());
+
+            let mut nodes = std::collections::BTreeMap::new();
+            collect_nodes(&tree, &mut nodes);
+            let mut state = ReadState {
+                nodes,
+                keys: keys.clone(),
+                seen: Vec::new(),
+                mismatches: Vec::new(),
+            };
+
+            let mut table: ParserTable<'_, ReadState<'_>> = ParserTable::new();
+            let mut registrations = Vec::new();
+            collect_registrations(&tree, Vec::new(), &mut registrations);
+            for (name, parent) in registrations {
+                table.register(name, parent, p_prop);
+            }
+            // the sentinel has no node in the map; p_prop counts it seen
+            table.register(SENTINEL, Vec::new(), p_prop);
+
+            prop_assert!(input.parse(&mut table, &mut state));
+            prop_assert!(state.mismatches.is_empty(), "value mismatches: {:?}", state.mismatches);
+
+            let mut expected = Vec::new();
+            collect_seen(&tree, &mut expected);
+            expected.push(SENTINEL.to_vec());
+            prop_assert_eq!(state.seen, expected);
+
+            // the fixed point: rebuilding through the writer reproduces
+            // the file byte-for-byte
+            let mut keys2 = keys.clone();
+            let mut writer2 = DataChunkOutput::new();
+            write_node(&mut writer2, &mut keys2, &tree);
+            writer2.open_data_chunk(SENTINEL, 0);
+            writer2.write_int(0x2E2E_2E2E);
+            writer2.close_data_chunk();
+            let bytes2 = writer2.into_bytes().expect("finish");
+            prop_assert_eq!(bytes2, bytes);
+        }
+
+        /// Arbitrary bytes never panic the reader: construction, the
+        /// parser walk with observers, the manual walk with every
+        /// primitive (dict errors are results, not panics), and reset.
+        #[test]
+        fn arbitrary_bytes_never_panic(bytes in prop::collection::vec(prop::num::u8::ANY, 0..512)) {
+            let mut input = DataChunkInput::new(&bytes);
+            let _ = input.is_valid_file_type();
+            let _ = input.first_chunk_pos();
+            let mut table: ParserTable<'_, ReadState<'_>> = ParserTable::new();
+            table.register(b"", b"", p_prop);
+            let mut state = ReadState {
+                nodes: std::collections::BTreeMap::new(),
+                keys: NameKeys::new(),
+                seen: Vec::new(),
+                mismatches: Vec::new(),
+            };
+            let _ = input.parse(&mut table, &mut state);
+
+            let mut input = DataChunkInput::new(&bytes);
+            for _ in 0..8 {
+                if input.at_end_of_file() {
+                    break;
+                }
+                let _ = input.open_data_chunk();
+                let _ = input.read_int();
+                let _ = input.read_real();
+                let _ = input.read_byte();
+                let _ = input.read_ascii_string();
+                let _ = input.read_unicode_string();
+                let mut keys = NameKeys::new();
+                let _ = input.read_name_key(&mut keys);
+                let _ = input.read_dict(&mut keys);
+                let mut buf = [0u8; 4];
+                input.read_array_of_bytes(&mut buf);
+                input.close_data_chunk();
+            }
+            input.reset();
+            let _ = input.parse(&mut table, &mut state);
+        }
+
+        /// The writer refuses to finish with open chunks, and closing
+        /// with nothing open stays a silent no-op.
+        #[test]
+        fn writer_refuses_unclosed_chunks(
+            name in nul_free_ascii(),
+            version in prop::num::u16::ANY,
+        ) {
+            let mut writer = DataChunkOutput::new();
+            writer.close_data_chunk(); // no-op
+            writer.open_data_chunk(name, version);
+            writer.write_int(7);
+            prop_assert_eq!(writer.finish(), Err(MapChunkError::UnclosedChunk));
+            writer.close_data_chunk();
+            writer.close_data_chunk(); // no-op again
+            prop_assert!(writer.finish().is_ok());
+            prop_assert!(writer.finish().is_ok()); // idempotent
+        }
+    }
+
+    /// Rewrites every node name with a global index suffix, so one
+    /// parser dispatches per label and no two chunks share a TOC entry.
+    fn uniquify(node: &mut Node, counter: &mut u32) {
+        let suffix = format!("#{counter}\x01").into_bytes();
+        *counter += 1;
+        node.name.extend_from_slice(&suffix);
+        for child in &mut node.children {
+            uniquify(child, counter);
+        }
+    }
+
+    fn assert_names_unique(node: &Node, seen: &mut std::collections::BTreeSet<Vec<u8>>) {
+        assert!(seen.insert(node.name.clone()), "names must be unique");
+        for child in &node.children {
+            assert_names_unique(child, seen);
+        }
+    }
+
+    fn collect_nodes<'n>(node: &'n Node, map: &mut std::collections::BTreeMap<Vec<u8>, &'n Node>) {
+        map.insert(node.name.clone(), node);
+        for child in &node.children {
+            collect_nodes(child, map);
+        }
+    }
+
+    fn collect_registrations(node: &Node, parent: Vec<u8>, out: &mut Vec<(Vec<u8>, Vec<u8>)>) {
+        out.push((node.name.clone(), parent));
+        for child in &node.children {
+            collect_registrations(child, node.name.clone(), out);
+        }
+    }
+
+    fn collect_seen(node: &Node, out: &mut Vec<Vec<u8>>) {
+        out.push(node.name.clone());
+        for child in &node.children {
+            collect_seen(child, out);
+        }
+    }
+}

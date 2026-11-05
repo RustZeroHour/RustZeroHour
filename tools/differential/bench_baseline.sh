@@ -13,6 +13,8 @@
 #   - the gen_ini_golden.cpp INI-engine transcription,
 #   - the gen_csf_golden.cpp CSF transcriptions (Babylon writer,
 #     GameText.cpp parseCSF + stripSpaces),
+#   - the gen_mapchunk_golden.cpp map data-chunk transcription
+#     (DataChunk.cpp: the TOC, the parser walk, the writer),
 # compiled exactly the way tools/differential/regenerate.sh compiles them
 # (-O2 -ffp-contract=off, GameMath pin linked for the transcription).
 #
@@ -110,6 +112,8 @@ EAC_DIR="$REPO_ROOT/Core/Libraries/Source/Compression/EAC"
 "$CXX" -O2 -std=c++17 -Wall -Wextra -Werror -ffp-contract=off \
     -c -o "$BUILD_DIR/bench_wrap_dds.o" "$SCRIPT_DIR/bench_wrap_dds.cpp"
 "$CXX" -O2 -std=c++17 -Wall -Wextra -Werror -ffp-contract=off \
+    -c -o "$BUILD_DIR/bench_wrap_mapchunk.o" "$SCRIPT_DIR/bench_wrap_mapchunk.cpp"
+"$CXX" -O2 -std=c++17 -Wall -Wextra -Werror -ffp-contract=off \
     -c -o "$BUILD_DIR/bench_baseline.o" "$SCRIPT_DIR/bench_baseline.cpp"
 
 "$CXX" -o "$BUILD_DIR/bench_baseline" \
@@ -126,6 +130,7 @@ EAC_DIR="$REPO_ROOT/Core/Libraries/Source/Compression/EAC"
     "$BUILD_DIR/bench_wrap_hcanim.o" \
     "$BUILD_DIR/bench_wrap_hlod.o" \
     "$BUILD_DIR/bench_wrap_dds.o" \
+    "$BUILD_DIR/bench_wrap_mapchunk.o" \
     "$BUILD_DIR/refdecode.o" \
     "$BUILD_DIR/refencode.o" \
     "$BUILD_DIR"/*.c.o -lm

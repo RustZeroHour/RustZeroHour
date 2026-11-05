@@ -114,6 +114,33 @@
 #   matrix3d.h        (Float_To_Long, Float_To_Int_Floor, the Fast_Acos/Fast_Sin
 #                     tables, Fast_Slerp, Vector3::Lerp, Set_Translation —
 #                     the frame-math stack the anim queries drive)
+#   GeneralsMD/Code/GameEngine/Source/Common/System/DataChunk.cpp
+#                                                     (the map data-chunk
+#                                                     container: the CkMp
+#                                                     table of contents,
+#                                                     DataChunkInput's
+#                                                     registered-parser walk
+#                                                     and DataChunkOutput's
+#                                                     patch-in-place writer)
+#   GeneralsMD/Code/GameEngine/Include/Common/DataChunk.h
+#                                                     (the InputChunk/
+#                                                     OutputChunk/Mapping
+#                                                     structures and the
+#                                                     DataChunkInfo handed
+#                                                     to registered parsers)
+#   Core/GameEngine/Include/Common/MapReaderWriterInfo.h
+#                                                     (the ChunkInputStream
+#                                                     interface the reader's
+#                                                     cached stream implements)
+#   Core/GameEngine/Source/Common/Dict.cpp + Include/Common/Dict.h
+#                                                     (the load-path half of
+#                                                     Dict: findPairByKey,
+#                                                     setPrep and the
+#                                                     name-key shellsort)
+#   GeneralsMD/Code/GameEngine/Source/Common/NameKeyGenerator.cpp
+#                                                     (the name-key interning
+#                                                     the dict and name-key
+#                                                     primitives drive)
 #   The pinned GameMath sources (TheSuperHackers/GameMath @ 59f7ccd4:
 #                     s_rintf.c, s_lrintf.c, e_acosf.c, s_sinf.c, k_sinf.c,
 #                     k_cosf.c, e_rem_pio2f.c — the deterministic entry points
@@ -133,7 +160,7 @@
 
 [package]
 name = "rzh-formats"
-description = "Zero Hour asset format parsers: CSF string tables, TGA and DDS textures, the W3D chunk container, the W3D mesh chunk tree, the W3D hierarchy trees, the W3D raw and compressed animations and the W3D HLOD assemblies (map, WND, fonts follow)"
+description = "Zero Hour asset format parsers: CSF string tables, TGA and DDS textures, the W3D chunk container, the W3D mesh chunk tree, the W3D hierarchy trees, the W3D raw and compressed animations, the W3D HLOD assemblies and the map data-chunk container (map payloads, WND, fonts follow)"
 version.workspace = true
 edition.workspace = true
 rust-version.workspace = true

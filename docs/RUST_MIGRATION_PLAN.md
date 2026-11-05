@@ -235,7 +235,7 @@ is now specified in [`docs/TRACE_FORMAT_V1.md`](TRACE_FORMAT_V1.md).
 
 ### Phase 2: Data and asset formats (M–L) — **status: started (2026-11-03)**
 
-`rzh-formats` exists and nine modules are done to the Phase 1 standard:
+`rzh-formats` exists and ten modules are done to the Phase 1 standard:
 
 - the **CSF** string tables: the runtime reader (`GameText.cpp::parseCSF`)
   and the Babylon writer (`expimp.cpp::generate_csf`) are transcribed in
@@ -449,12 +449,48 @@ is now specified in [`docs/TRACE_FORMAT_V1.md`](TRACE_FORMAT_V1.md).
   the block writer into a per-format inner loop, making the Rust
   conversion walk faster than the per-pixel-dispatched original).
 
+- the **map data-chunk container** — the first map-files slice: the
+  framing layer of `Common/System/DataChunk.{h,cpp}` — the `CkMp`
+  table of contents (the prepend-list interning with its duplicate-name
+  and duplicate-id lookups, the count>0-but-EOF header refusal, the
+  NUL-truncated names, the `u8` name-length truncation), the reader
+  (`DataChunkInput`'s registered-parser walk with its scope rules and
+  last-registered-wins matching, the 4-byte exhaustion break, the
+  EOF-header phantom chunk, the signed data-left bookkeeping that goes
+  negative on over-declared children and parent-overrun opens, and the
+  primitive readers with their zero-filled short reads and NUL-truncated
+  string views), the writer (`DataChunkOutput`'s placeholder-patched
+  headers, the interleaved chunk/dict-key/name-key TOC ids emitted in
+  reverse allocation order, the `u16` string-length wraps), plus the
+  load-path collaborators the primitives drive — the `Dict` half
+  (`findPairByKey`'s binary search, `setPrep`'s update-or-append, the
+  shellsort that orders pairs by name key, so a dict read reorders
+  against the file order on a pre-seeded generator) and the name-key
+  interning of `NameKeyGenerator` (first-seen sequential ids, kept as
+  an explicit context per the no-globals rule, transcribed privately
+  per the crate's dependency-free policy) — is transcribed in
+  `tools/differential/gen_mapchunk_golden.cpp` and ported as
+  `rzh-formats::map_chunk`, the map-files counterpart of the W3D chunk
+  container the mesh/skeleton/animation/HLOD slices built on. The
+  goldens pin 44 container payloads: the full map-load and map-save
+  shapes with nested object lists and reordering dicts, the TOC edge
+  family (duplicate names and ids, embedded NULs, empty names, the
+  truncated count, the legacy non-chunky tag), the truncated-header and
+  truncated-string shapes, the over-declared and 2 GiB-declared seeks,
+  the negative declared sizes, the parser scope/order/abort/drift/reset
+  behaviours, the dict duplicate-key replace and corrupt-type error,
+  the name-key interning side effects, the length wraps and the
+  trailing empty chunk; the `mapchunk` benches are within budget on
+  both comparisons (docs/benchmarks.md — the budget run caught a
+  64 KiB-memset transcription artifact before it could skew the
+  comparison).
 - `rzh-ini`: lexer/parser (includes, `#define` macros, inheritance/reskin, load order) and a
   **derive-based schema layer** replacing the 195 hand-written `FieldParse` tables. Keep it
   format-agnostic so the data format can change later (ADR-003).
-- `rzh-formats`: map files, W3D (meshes **done**, skeletons **done**, raw
-  animations **done**, compressed animations **done**, HLOD **done**) **on
-  top of the ported chunk container**, TGA/DDS
+- `rzh-formats`: map files (the DataChunk framing container **done**;
+  the payload parsers follow), W3D (meshes **done**, skeletons **done**,
+  raw animations **done**, compressed animations **done**, HLOD
+  **done**) **on top of the ported chunk container**, TGA/DDS
   (**both done**), CSF string tables (**done**), WND layouts, fonts,
   audio containers.
 - `rzh-data`: typed templates (objects, weapons, armor, locomotors, upgrades, sciences, ranks,

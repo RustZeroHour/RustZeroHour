@@ -125,6 +125,9 @@ std::uint64_t bench_hcanim_xforms(void *handle);
 long bench_hlod_materialize(uint8_t *out, size_t cap);
 std::uint64_t bench_hlod_load(const uint8_t *data, size_t len);
 long bench_dds_parse_materialize(uint8_t *out, size_t cap);
+long bench_mapchunk_write();
+long bench_mapchunk_materialize(uint8_t *out, size_t cap);
+std::uint64_t bench_mapchunk_parse(const uint8_t *data, size_t len);
 unsigned bench_dds_parse(const uint8_t *data, size_t len);
 long bench_dds_convert_materialize(uint8_t *out, size_t cap);
 unsigned bench_dds_convert(const uint8_t *data, size_t len, uint8_t *dest, size_t dest_cap);
@@ -651,6 +654,26 @@ int main(int argc, char **argv)
 
                 report("hlod/parse_x1072", measure_ns([] {}, [&] {
                         return bench_hlod_load(bytes.data(), bytes.size());
+                }), (double)total);
+        }
+
+        // --- map data-chunk container ----------------------------------------------------
+        {
+                std::vector<uint8_t> scratch(4 * 1024 * 1024);
+                long total = bench_mapchunk_materialize(scratch.data(), scratch.size());
+                if (total <= 0)
+                {
+                        fprintf(stderr, "error: mapchunk corpus write failed\n");
+                        exit(1);
+                }
+                std::vector<uint8_t> bytes(scratch.begin(), scratch.begin() + total);
+
+                report("mapchunk/write_x2048", measure_ns([] {}, [&] {
+                        return bench_mapchunk_write();
+                }), (double)total);
+
+                report("mapchunk/parse_x2048", measure_ns([] {}, [&] {
+                        return bench_mapchunk_parse(bytes.data(), bytes.size());
                 }), (double)total);
         }
 

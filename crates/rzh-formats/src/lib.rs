@@ -62,9 +62,20 @@
 //!   the model format Zero Hour's units and buildings are assembled
 //!   in, on top of the chunk container and the hierarchy/animation
 //!   slices before it.
+//! - [`map_chunk`]: the map data-chunk container — the `CkMp` framing
+//!   layer of `Common/System/DataChunk.cpp` every `.map` payload
+//!   (height maps, blend tiles, global lighting, world info, object
+//!   lists, polygon triggers, sides lists) is stored in: the
+//!   name-interning table of contents, the nested chunk tree with its
+//!   signed data-left bookkeeping, the parser registration surface the
+//!   map loaders drive, the load-path half of `Dict` and the name-key
+//!   interning its pairs sort on — the map-files counterpart of the
+//!   W3D [`chunk`] container, and the base the map payload parsers
+//!   (the next slices) build on.
 //!
 //! Deferred to later Phase 2 slices, in plan order: the remaining W3D
-//! modules (…), map files, WND layouts, fonts
+//! modules (…), the map payload parsers on top of
+//! [`map_chunk`], WND layouts, fonts
 //! and audio containers (the DDS textures are done). Consumer-side
 //! normalizations the original performs on top
 //! of a format (space stripping, first-string selection, the texture
@@ -81,6 +92,7 @@
 pub mod chunk;
 pub mod csf;
 pub mod dds;
+pub mod map_chunk;
 pub mod tga;
 pub mod w3d_hanim;
 pub mod w3d_hcanim;

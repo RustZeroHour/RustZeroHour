@@ -275,6 +275,39 @@ now comfortably faster than the transcription. Two reruns of each side
 kept both comparisons inside budget with the margins unchanged
 (3.77–3.82 µs and 7.79–7.89 µs vs 3.69–3.70 µs and 13.6–14.5 µs).
 
+The eleventh slice, the map data-chunk container, adds the map-save and
+map-load comparisons. Measured on 2026-11-06, same setup and flags as
+above. The corpus is a map-shaped file — the height-map chunk (2,048
+height bytes), the blend-tile chunk (512 bytes), two dict chunks (the
+global lighting and world info), and an objects list of 256 map objects,
+each carrying a name key, a two-pair dict and a name string (14,998
+bytes) — built through the transcribed writer on the C++ side and the
+port's own writer on the Rust side, **verified byte-identical across the
+two builders**, with the walk cross-checked (the same checksum both
+sides compute). The C++ side runs the `DataChunk.cpp` transcription in
+`bench_wrap_mapchunk.cpp` (the WorldBuilder-shaped writer and the
+registered-parser walk); the Rust side `rzh-formats::map_chunk`.
+
+| Benchmark | Rust (criterion) | C++ baseline | Rust/C++ | Verdict |
+|---|---:|---:|---:|---|
+| `mapchunk/write_x2048` | 55.6 µs | 84.7 µs | 0.66x | within |
+| `mapchunk/parse_x2048` | 73.7 µs | 84.9 µs | 0.87x | within |
+
+Both comparisons sit comfortably inside budget. The transcription's
+walk pays a `new`/`delete` pair per opened chunk (its `InputChunk`
+stack is a linked list) and a `std::string` round-trip per label and
+per dict key, where the port keeps one reusable `Vec` stack and
+borrowed label slices; the writer comparison adds the transcription's
+per-entry `Mapping` allocations against the port's `Vec` table. The
+budget run itself caught a transcription artifact before it could skew
+the comparison: the zero-filled short-read span in `readAsciiString`/
+`readUnicodeString` was initially the whole 64 KiB stack buffer (a
+~800 µs-per-parse `memset` tax); zeroing only the requested span keeps
+the pinned zero-fill semantics at no cost — the golden vectors are
+byte-identical across the fix. Two reruns of each side kept both
+comparisons inside budget with the margins unchanged (55.3–56.1 µs and
+73.7–74.3 µs vs 84.7–85.3 µs and 84.9–85.9 µs).
+
 ## Methodology
 
 - **Same code, same corpora.** The C++ side times the *verbatim

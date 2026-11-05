@@ -305,6 +305,13 @@ echo "wrote crates/rzh-formats/tests/golden/hlod.txt"
 # the surface copies and the HSV recolour stack) over hand-built mip
 # chains, cube and volume layouts, hand-built DXT blocks and the
 # reduction/error/name corpora.
+echo "compiling gen_mapchunk_golden.cpp ..."
+"$CXX" -O2 -std=c++17 -Wall -Wextra -Werror -ffp-contract=off \
+    -c -o "$BUILD_DIR/gen_mapchunk_golden.o" "$SCRIPT_DIR/gen_mapchunk_golden.cpp"
+"$CXX" -o "$BUILD_DIR/gen_mapchunk_golden" "$BUILD_DIR/gen_mapchunk_golden.o"
+"$BUILD_DIR/gen_mapchunk_golden" "$REPO_ROOT/crates/rzh-formats/tests/golden/mapchunk.txt"
+echo "wrote crates/rzh-formats/tests/golden/mapchunk.txt"
+
 echo "compiling gen_dds_golden.cpp ..."
 "$CXX" -O2 -std=c++17 -Wall -Wextra -Werror -ffp-contract=off \
     -c -o "$BUILD_DIR/gen_dds_golden.o" "$SCRIPT_DIR/gen_dds_golden.cpp"

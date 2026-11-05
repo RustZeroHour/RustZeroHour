@@ -428,7 +428,9 @@ criterion_group!(
     bench_hcanim_xforms_ad,
     bench_hlod_parse,
     bench_dds_parse,
-    bench_dds_convert
+    bench_dds_convert,
+    mapchunk_benches::bench_write,
+    mapchunk_benches::bench_parse
 );
 criterion_main!(benches);
 
@@ -1465,4 +1467,215 @@ fn bench_hcanim_xforms_ad(c: &mut Criterion) {
         })
     });
     group.finish();
+}
+
+// ---------------------------------------------------------------------------
+// mapchunk: the map data-chunk container (DataChunk.cpp)
+// ---------------------------------------------------------------------------
+
+mod mapchunk_benches {
+    use super::*;
+    use rzh_formats::map_chunk::{
+        DataChunkInfo, DataChunkInput, DataChunkOutput, Dict, DictValue, NameKeys, ParserTable,
+    };
+
+    /// The bench parser state (the userData the original hands every
+    /// parser); the checksum mirrors the C++ baseline's.
+    struct BenchState {
+        keys: NameKeys,
+        checksum: u64,
+    }
+
+    fn heights(n: usize) -> Vec<u8> {
+        (0..n).map(|i| ((i * 5 + 11) & 0xFF) as u8).collect()
+    }
+
+    fn add_dict_checksum(state: &mut BenchState, dict: &Dict) {
+        state.checksum += dict.pair_count() as u64;
+        for i in 0..dict.pair_count() {
+            state.checksum += dict.nth_key(i).ordinal() as u64;
+            state.checksum += dict.nth_type(i) as u64;
+            match dict.nth_value(i) {
+                DictValue::Bool(b) => state.checksum += u64::from(*b),
+                DictValue::Int(v) => state.checksum = state.checksum.wrapping_add(*v as u64),
+                DictValue::Real(v) => state.checksum += v.to_bits() as u64,
+                DictValue::AsciiString(s) => state.checksum += s.len() as u64,
+                DictValue::UnicodeString(u) => state.checksum += u.len() as u64,
+            }
+        }
+    }
+
+    fn b_height(
+        file: &mut DataChunkInput<'_>,
+        _info: &DataChunkInfo,
+        _table: &mut ParserTable<'_, BenchState>,
+        state: &mut BenchState,
+    ) -> bool {
+        state.checksum = state.checksum.wrapping_add(file.read_int() as u64);
+        state.checksum = state.checksum.wrapping_add(file.read_int() as u64);
+        let mut buf = [0u8; 2048];
+        file.read_array_of_bytes(&mut buf);
+        for byte in buf {
+            state.checksum += byte as u64;
+        }
+        state.checksum = state.checksum.wrapping_add(file.read_int() as u64);
+        true
+    }
+
+    fn b_blend(
+        file: &mut DataChunkInput<'_>,
+        _info: &DataChunkInfo,
+        _table: &mut ParserTable<'_, BenchState>,
+        state: &mut BenchState,
+    ) -> bool {
+        state.checksum = state.checksum.wrapping_add(file.read_int() as u64);
+        let mut buf = [0u8; 512];
+        file.read_array_of_bytes(&mut buf);
+        for byte in buf {
+            state.checksum += byte as u64;
+        }
+        true
+    }
+
+    fn b_dict(
+        file: &mut DataChunkInput<'_>,
+        _info: &DataChunkInfo,
+        _table: &mut ParserTable<'_, BenchState>,
+        state: &mut BenchState,
+    ) -> bool {
+        if let Ok(dict) = file.read_dict(&mut state.keys) {
+            add_dict_checksum(state, &dict);
+        }
+        true
+    }
+
+    fn b_objects(
+        file: &mut DataChunkInput<'_>,
+        _info: &DataChunkInfo,
+        table: &mut ParserTable<'_, BenchState>,
+        state: &mut BenchState,
+    ) -> bool {
+        file.parse(table, state)
+    }
+
+    fn b_object(
+        file: &mut DataChunkInput<'_>,
+        _info: &DataChunkInfo,
+        _table: &mut ParserTable<'_, BenchState>,
+        state: &mut BenchState,
+    ) -> bool {
+        let key = file.read_name_key(&mut state.keys);
+        state.checksum += key.ordinal() as u64;
+        if let Ok(dict) = file.read_dict(&mut state.keys) {
+            add_dict_checksum(state, &dict);
+        }
+        state.checksum += file.read_ascii_string().len() as u64;
+        true
+    }
+
+    /// Builds the map-shaped corpus through the port's writer — keep in
+    /// lockstep with tools/differential/bench_wrap_mapchunk.cpp.
+    fn build_map() -> Vec<u8> {
+        let mut keys = NameKeys::new();
+        let mut writer = DataChunkOutput::new();
+
+        writer.open_data_chunk(b"HeightMapData", 3);
+        writer.write_int(64);
+        writer.write_int(64);
+        writer.write_array_of_bytes(&heights(2048));
+        writer.write_int(5);
+        writer.close_data_chunk();
+
+        writer.open_data_chunk(b"BlendTileData", 7);
+        writer.write_int(512);
+        writer.write_array_of_bytes(&heights(512));
+        writer.close_data_chunk();
+
+        writer.open_data_chunk(b"GlobalLighting", 2);
+        let mut dict = Dict::new();
+        dict.set(keys.name_to_key(b"Ambient"), DictValue::Real(0.25));
+        dict.set(
+            keys.name_to_key(b"Sun"),
+            DictValue::AsciiString(b"Warm".to_vec()),
+        );
+        dict.set(keys.name_to_key(b"Moon"), DictValue::Real(0.125));
+        dict.set(keys.name_to_key(b"Night"), DictValue::Bool(true));
+        writer.write_dict(&keys, &dict);
+        writer.close_data_chunk();
+
+        writer.open_data_chunk(b"WorldInfo", 1);
+        let mut dict = Dict::new();
+        dict.set(
+            keys.name_to_key(b"Name"),
+            DictValue::AsciiString(b"Benchmark Map".to_vec()),
+        );
+        dict.set(keys.name_to_key(b"WidthTiles"), DictValue::Int(64));
+        dict.set(keys.name_to_key(b"HeightTiles"), DictValue::Int(64));
+        dict.set(keys.name_to_key(b"IsMultiplayer"), DictValue::Bool(true));
+        dict.set(
+            keys.name_to_key(b"Author"),
+            DictValue::AsciiString(b"rzh".to_vec()),
+        );
+        writer.write_dict(&keys, &dict);
+        writer.close_data_chunk();
+
+        writer.open_data_chunk(b"ObjectsList", 3);
+        for i in 0..256 {
+            writer.open_data_chunk(b"MapObject", 1);
+            let object_name_key = keys.name_to_key(b"ObjectName");
+            writer.write_name_key(&keys, object_name_key);
+            let mut dict = Dict::new();
+            dict.set(keys.name_to_key(b"ObjectFlags"), DictValue::Int(i));
+            dict.set(
+                keys.name_to_key(b"Owner"),
+                DictValue::AsciiString(b"Player1".to_vec()),
+            );
+            writer.write_dict(&keys, &dict);
+            writer.write_ascii_string(format!("Obj{i:05}").as_bytes());
+            writer.close_data_chunk();
+        }
+        writer.close_data_chunk();
+
+        writer.into_bytes().expect("finish")
+    }
+
+    /// The WorldBuilder shape: a fresh writer per batch, the whole map
+    /// built, the byte count returned.
+    pub fn bench_write(c: &mut Criterion) {
+        let mut group = c.benchmark_group("mapchunk");
+        let bytes = build_map();
+        group.throughput(Throughput::Bytes(bytes.len() as u64));
+        group.bench_function("write_x2048", |b| b.iter(|| black_box(build_map()).len()));
+        group.finish();
+    }
+
+    /// The game-load shape: the registered-parser walk reading every
+    /// value, returning the checksum (the same value the C++ baseline
+    /// computes).
+    pub fn bench_parse(c: &mut Criterion) {
+        let bytes = build_map();
+        let mut group = c.benchmark_group("mapchunk");
+        group.throughput(Throughput::Bytes(bytes.len() as u64));
+        group.bench_function("parse_x2048", |b| {
+            b.iter(|| {
+                let mut input = DataChunkInput::new(black_box(&bytes));
+                let mut state = BenchState {
+                    keys: NameKeys::new(),
+                    checksum: 0,
+                };
+                let mut table: ParserTable<'_, BenchState> = ParserTable::new();
+                table.register(b"HeightMapData", b"", b_height);
+                table.register(b"BlendTileData", b"", b_blend);
+                table.register(b"GlobalLighting", b"", b_dict);
+                table.register(b"WorldInfo", b"", b_dict);
+                table.register(b"ObjectsList", b"", b_objects);
+                table.register(b"MapObject", b"ObjectsList", b_object);
+                if !black_box(input.parse(&mut table, &mut state)) {
+                    return 0xdead_beef_u64;
+                }
+                state.checksum
+            })
+        });
+        group.finish();
+    }
 }
