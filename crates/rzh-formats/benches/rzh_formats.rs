@@ -37,6 +37,7 @@ use rzh_formats::chunk::{ChunkLoad, ChunkSave};
 use rzh_formats::csf::{CsfFile, CsfLabel, CsfString};
 use rzh_formats::tga::{SaveFlags, TGA_TRUECOLOR, TgaFile, TgaHeader};
 use rzh_formats::w3d_hanim::W3dRawAnim;
+use rzh_formats::w3d_hcanim::{W3dCompressedAnim, W3dCompressedChannel};
 use rzh_formats::w3d_htree::W3dHtree;
 use rzh_formats::w3d_mesh::W3dMesh;
 
@@ -138,7 +139,10 @@ criterion_group!(
     bench_mesh_parse,
     bench_htree_parse,
     bench_hanim_parse,
-    bench_hanim_xforms
+    bench_hanim_xforms,
+    bench_hcanim_parse,
+    bench_hcanim_parse_ad,
+    bench_hcanim_xforms_ad
 );
 criterion_main!(benches);
 
@@ -730,6 +734,10 @@ impl AnimChunkBuild {
         self.bytes.extend_from_slice(&v.to_le_bytes());
     }
 
+    fn w_u8(&mut self, v: u8) {
+        self.bytes.push(v);
+    }
+
     fn w_u32(&mut self, v: u32) {
         self.bytes.extend_from_slice(&v.to_le_bytes());
     }
@@ -861,6 +869,305 @@ fn bench_hanim_xforms(c: &mut Criterion) {
             let mut checksum = 0u64;
             for fi in 0..HANIM_QUERY_FRAMES {
                 let frame = (fi * (HANIM_FRAMES / HANIM_QUERY_FRAMES)) as f32 + 0.5;
+                for piv in 0..anim.num_pivots() {
+                    let m = anim.get_transform(piv, frame);
+                    for k in (0..12).step_by(4) {
+                        checksum = checksum.wrapping_add(u64::from(m[k].to_bits()));
+                    }
+                }
+            }
+            black_box(checksum)
+        })
+    });
+    group.finish();
+}
+
+// ---------------------------------------------------------------------------
+// w3d_hcanim — the compressed-animation load and transform workloads
+// (plan §6 discipline, Phase 2's W3D track; the named follow-up to the
+// raw animations). The C++ baseline is the hcanim.cpp transcription in
+// tools/differential/bench_wrap_hcanim.cpp, driving the identical
+// corpora bytes through its own Load_W3D and Get_Transform, for both
+// compression flavors.
+// ---------------------------------------------------------------------------
+
+/// Pivot count of the corpora (matches the C++ baseline).
+const HCANIM_PIVOTS: usize = 64;
+/// Frame count of the corpora (matches the C++ baseline).
+const HCANIM_FRAMES: usize = 128;
+/// Frames the transform bench samples (matches the C++ baseline).
+const HCANIM_QUERY_FRAMES: usize = 16;
+
+/// One translation-channel word — the same bit formula the C++ baseline
+/// builds (any pattern does: the queries only lerp or delta them).
+fn hcanim_word(piv: u32, ty: u32, f: u32) -> f32 {
+    f32::from_bits(
+        f.wrapping_mul(0x0101_0101)
+            ^ piv.wrapping_mul(0x0001_0001)
+            ^ ty.wrapping_mul(0x1001_0010)
+            ^ 0x3C00_0000,
+    )
+}
+
+/// One quaternion word — small positive components keeping every key
+/// pair inside the fast-table slerp domain (the C++ baseline's formula).
+fn hcanim_quat_word(piv: u32, f: u32, k: u32) -> f32 {
+    f32::from_bits(0x3C00_0000 | (((f * 7 + k * 13 + piv * 3) & 0x3F) << 17))
+}
+
+/// Deterministic adaptive-delta packet bytes for block `block`, vector
+/// index `vi` (the golden corpus's own formula).
+fn hcanim_ad_packet(vi: usize, block: usize) -> [u8; 9] {
+    let mut p = [0u8; 9];
+    p[0] = ((vi.wrapping_mul(37) + block.wrapping_mul(11)) & 0xFF) as u8;
+    for k in 0..8 {
+        p[1 + k] =
+            ((vi.wrapping_mul(53) + block.wrapping_mul(29) + k.wrapping_mul(17)) & 0xFF) as u8;
+    }
+    p
+}
+
+/// blocks needed to cover frames 1..num_frames-1
+fn hcanim_ad_blocks(num_frames: usize) -> usize {
+    if num_frames <= 1 {
+        0
+    } else {
+        (num_frames - 1).div_ceil(16)
+    }
+}
+
+/// Builds the TIME-CODED corpus: pivots 0..31 carry X/Y/Z channels
+/// (128 time-coded packets of one float each), pivots 32..63 carry a
+/// quaternion channel (128 packets of four floats). Keep in lockstep
+/// with the C++ baseline's `build_hcanim_corpus`.
+fn hcanim_corpus() -> Vec<u8> {
+    use rzh_formats::w3d_hcanim::W3D_CHUNK_COMPRESSED_ANIMATION_HEADER;
+
+    let mut b = AnimChunkBuild {
+        bytes: Vec::with_capacity(182_000),
+    };
+
+    // the 44-byte compressed header
+    b.begin(W3D_CHUNK_COMPRESSED_ANIMATION_HEADER);
+    b.w_u32(0x0004_0000); // version 4.0
+    let mut name = [0u8; 16];
+    name[..3].copy_from_slice(b"Run");
+    b.bytes.extend_from_slice(&name);
+    let mut hname = [0u8; 16];
+    hname[..5].copy_from_slice(b"bench");
+    b.bytes.extend_from_slice(&hname);
+    b.w_u32(HCANIM_FRAMES as u32);
+    b.w_u16(30); // the frame rate
+    b.w_u16(0); // ANIM_FLAVOR_TIMECODED
+    b.end(44);
+
+    for piv in 0..HCANIM_PIVOTS {
+        if piv < HCANIM_PIVOTS / 2 {
+            for ty in 0u32..3 {
+                b.begin(0x0282);
+                b.w_u32(HCANIM_FRAMES as u32);
+                b.w_u16(piv as u16);
+                b.w_u8(1); // VectorLen
+                b.w_u8(ty as u8); // ANIM_CHANNEL_X/Y/Z
+                for f in 0..HCANIM_FRAMES {
+                    b.w_u32(f as u32);
+                    b.w_f32(hcanim_word(piv as u32, ty, f as u32));
+                }
+                b.end(8 + HCANIM_FRAMES * 8);
+            }
+        } else {
+            b.begin(0x0282);
+            b.w_u32(HCANIM_FRAMES as u32);
+            b.w_u16(piv as u16);
+            b.w_u8(4); // VectorLen
+            b.w_u8(6); // ANIM_CHANNEL_Q
+            for f in 0..HCANIM_FRAMES {
+                b.w_u32(f as u32);
+                for k in 0..4 {
+                    b.w_f32(hcanim_quat_word(piv as u32, f as u32, k));
+                }
+            }
+            b.end(8 + HCANIM_FRAMES * 20);
+        }
+    }
+    b.bytes
+}
+
+/// Builds the ADAPTIVE-DELTA corpus of the same shape: pivots 0..31
+/// carry X/Y/Z channels (one base float plus eight 9-byte packet
+/// blocks), pivots 32..63 carry a quaternion channel (four base floats
+/// plus eight blocks of four packets). Keep in lockstep with the C++
+/// baseline's `build_hcanim_ad_corpus`.
+fn hcanim_ad_corpus() -> Vec<u8> {
+    use rzh_formats::w3d_hcanim::W3D_CHUNK_COMPRESSED_ANIMATION_HEADER;
+
+    let mut b = AnimChunkBuild {
+        bytes: Vec::with_capacity(19_500),
+    };
+
+    // the 44-byte compressed header
+    b.begin(W3D_CHUNK_COMPRESSED_ANIMATION_HEADER);
+    b.w_u32(0x0004_0000);
+    let mut name = [0u8; 16];
+    name[..3].copy_from_slice(b"Run");
+    b.bytes.extend_from_slice(&name);
+    let mut hname = [0u8; 16];
+    hname[..5].copy_from_slice(b"bench");
+    b.bytes.extend_from_slice(&hname);
+    b.w_u32(HCANIM_FRAMES as u32);
+    b.w_u16(30);
+    b.w_u16(1); // ANIM_FLAVOR_ADAPTIVE_DELTA
+    b.end(44);
+
+    let blocks = hcanim_ad_blocks(HCANIM_FRAMES);
+    for piv in 0..HCANIM_PIVOTS {
+        if piv < HCANIM_PIVOTS / 2 {
+            for ty in 0u32..3 {
+                b.begin(0x0282);
+                b.w_u32(HCANIM_FRAMES as u32);
+                b.w_u16(piv as u16);
+                b.w_u8(1); // VectorLen
+                b.w_u8(ty as u8); // ANIM_CHANNEL_X/Y/Z
+                b.w_f32(0.01); // Scale
+                b.w_f32(hcanim_word(piv as u32, ty, 0)); // Data[0], the base float
+                for blk in 0..blocks {
+                    let p = hcanim_ad_packet(0, blk);
+                    b.bytes.extend_from_slice(&p);
+                }
+                // the exporter's word-alignment pad: the payload after the
+                // 16-byte struct must be whole u32 words
+                let payload = 12 + 4 + blocks * 9;
+                let pad = (4 - (payload - 16) % 4) % 4;
+                for _ in 0..pad {
+                    b.bytes.push(0xAB);
+                }
+                b.end(payload + pad);
+            }
+        } else {
+            b.begin(0x0282);
+            b.w_u32(HCANIM_FRAMES as u32);
+            b.w_u16(piv as u16);
+            b.w_u8(4); // VectorLen
+            b.w_u8(6); // ANIM_CHANNEL_Q
+            b.w_f32(0.001); // Scale
+            for k in 0..4 {
+                b.w_f32(hcanim_quat_word(piv as u32, 0, k)); // Data[0] and the rest
+            }
+            for blk in 0..blocks {
+                for vi in 0..4 {
+                    let p = hcanim_ad_packet(vi, blk);
+                    b.bytes.extend_from_slice(&p);
+                }
+            }
+            let payload = 12 + 4 * 4 + blocks * 4 * 9;
+            let pad = (4 - (payload - 16) % 4) % 4;
+            for _ in 0..pad {
+                b.bytes.push(0xAB);
+            }
+            b.end(payload + pad);
+        }
+    }
+    b.bytes
+}
+
+/// A parse-time tree stand-in for the "bench" hierarchy.
+fn hcanim_bench_tree() -> W3dHtree {
+    use rzh_formats::w3d_htree::{W3dHierarchyHeader, W3dPivot};
+    W3dHtree {
+        header: W3dHierarchyHeader {
+            version: 0,
+            name: [0; 16],
+            num_pivots: HCANIM_PIVOTS as u32,
+            center: [0.0; 3],
+        },
+        pivots: vec![W3dPivot::default(); HCANIM_PIVOTS],
+    }
+}
+
+/// Bytes → the loaded TIME-CODED animation: the model-load startup
+/// workload for the compressed flavor every `.w3d` asset ships in.
+fn bench_hcanim_parse(c: &mut Criterion) {
+    let bytes = hcanim_corpus();
+    let len = bytes.len() as u64;
+    assert_eq!(
+        len, 182_324,
+        "the bench corpus drifted from the C++ baseline"
+    );
+    let tree = hcanim_bench_tree();
+
+    let mut group = c.benchmark_group("hcanim");
+    group.throughput(Throughput::Bytes(len));
+    group.bench_function("parse_x64", |b| {
+        b.iter(|| {
+            let anim = W3dCompressedAnim::parse(black_box(&bytes), |name| {
+                (name == b"bench").then_some(&tree)
+            })
+            .expect("the corpus parses");
+            black_box((
+                anim.num_frames(),
+                anim.num_pivots(),
+                anim.node_motion[0].x.as_ref().map(|ch| match ch {
+                    W3dCompressedChannel::TimeCoded(tc) => tc.data[HCANIM_FRAMES * 2 - 1],
+                    _ => unreachable!(),
+                }),
+            ))
+        })
+    });
+    group.finish();
+}
+
+/// Bytes → the loaded ADAPTIVE-DELTA animation: the same walk over the
+/// delta-compressed flavor (the 16-byte struct, the base floats and the
+/// 9-byte packet blocks, the exporter's word pad included).
+fn bench_hcanim_parse_ad(c: &mut Criterion) {
+    let bytes = hcanim_ad_corpus();
+    let len = bytes.len() as u64;
+    assert_eq!(
+        len, 19_636,
+        "the AD bench corpus drifted from the C++ baseline"
+    );
+    let tree = hcanim_bench_tree();
+
+    let mut group = c.benchmark_group("hcanim");
+    group.throughput(Throughput::Bytes(len));
+    group.bench_function("parse_ad_x64", |b| {
+        b.iter(|| {
+            let anim = W3dCompressedAnim::parse(black_box(&bytes), |name| {
+                (name == b"bench").then_some(&tree)
+            })
+            .expect("the corpus parses");
+            black_box((
+                anim.num_frames(),
+                anim.num_pivots(),
+                anim.node_motion[0].x.as_ref().map(|ch| match ch {
+                    W3dCompressedChannel::AdaptiveDelta(ad) => ad.data[4],
+                    _ => unreachable!(),
+                }),
+            ))
+        })
+    });
+    group.finish();
+}
+
+/// The per-frame Anim_Update shape on the adaptive-delta corpus:
+/// `Get_Transform` over every bone at 16 consecutive sampled frames of
+/// the preloaded animation — the decompression cache's slide path plus
+/// the slerp and `Build_Matrix3D`, the workload the tree update pays
+/// per animated model per frame.
+fn bench_hcanim_xforms_ad(c: &mut Criterion) {
+    let bytes = hcanim_ad_corpus();
+    let tree = hcanim_bench_tree();
+    let mut anim = W3dCompressedAnim::parse(&bytes, |name| (name == b"bench").then_some(&tree))
+        .expect("the corpus parses");
+
+    let transforms = (HCANIM_QUERY_FRAMES * HCANIM_PIVOTS) as u64;
+    let mut group = c.benchmark_group("hcanim");
+    group.throughput(Throughput::Elements(transforms));
+    group.bench_function("xforms_ad_x1024", |b| {
+        b.iter(|| {
+            let mut checksum = 0u64;
+            for fi in 0..HCANIM_QUERY_FRAMES {
+                let frame = fi as f32 + 0.5;
                 for piv in 0..anim.num_pivots() {
                     let m = anim.get_transform(piv, frame);
                     for k in (0..12).step_by(4) {

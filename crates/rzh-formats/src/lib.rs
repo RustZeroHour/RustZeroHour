@@ -38,10 +38,18 @@
 //!   and the frame queries (`Get_Transform` and friends, the
 //!   table-based `Fast_Slerp` included) the tree update samples to fill
 //!   a skeleton's transforms.
+//! - [`w3d_hcanim`]: the W3D compressed animations — the data path of
+//!   `HCompressedAnimClass::Load_W3D` (`WW3D2/hcanim.cpp`) and the
+//!   compressed channel readers it drives (`WW3D2/motchan.cpp`'s
+//!   time-coded and adaptive-delta channels): the flavor-picked header
+//!   decode, the stateful packet queries with their scan/binary-search
+//!   and two-frame decompression caches (the cache-continue off-by-one
+//!   transcribed verbatim), and the same query surface the tree update
+//!   samples — the compressed motion the game's assets ship in.
 //!
 //! Deferred to later Phase 2 slices, in plan order: the remaining W3D
-//! modules (the compressed animations, HLOD, …), map files, WND
-//! layouts, DDS textures, fonts and audio containers. Consumer-side
+//! modules (the HLOD assemblies, …), map files, WND layouts, DDS
+//! textures, fonts and audio containers. Consumer-side
 //! normalizations the original performs on top
 //! of a format (space stripping, first-string selection, the texture
 //! loader's descriptor XOR, …) live in the format modules as explicit
@@ -58,6 +66,7 @@ pub mod chunk;
 pub mod csf;
 pub mod tga;
 pub mod w3d_hanim;
+pub mod w3d_hcanim;
 pub mod w3d_htree;
 pub mod w3d_mesh;
 
@@ -78,6 +87,15 @@ pub use w3d_hanim::{
     MAX_CHANNEL_FLOATS, W3D_CHUNK_ANIMATION, W3D_CHUNK_ANIMATION_CHANNEL,
     W3D_CHUNK_ANIMATION_HEADER, W3D_CHUNK_BIT_CHANNEL, W3dAnimHeader, W3dBitChannel,
     W3dMotionChannel, W3dNodeMotion, W3dRawAnim,
+};
+pub use w3d_hcanim::{
+    ADAPTIVE_DELTA_CHANNEL_STRUCT_SIZE, ADAPTIVE_DELTA_PACKET_SIZE, ANIM_FLAVOR_ADAPTIVE_DELTA,
+    ANIM_FLAVOR_TIMECODED, COMPRESSED_ANIM_HEADER_SIZE, HcanimError,
+    TIMECODED_ANIM_CHANNEL_STRUCT_SIZE, TIMECODED_BIT_CHANNEL_STRUCT_SIZE,
+    W3D_CHUNK_COMPRESSED_ANIMATION, W3D_CHUNK_COMPRESSED_ANIMATION_CHANNEL,
+    W3D_CHUNK_COMPRESSED_ANIMATION_HEADER, W3D_CHUNK_COMPRESSED_BIT_CHANNEL,
+    W3D_TIMECODED_BINARY_MOVEMENT_FLAG, W3D_TIMECODED_BIT_MASK, W3dCompressedAnim,
+    W3dCompressedAnimHeader, W3dCompressedChannel, W3dCompressedNodeMotion,
 };
 pub use w3d_htree::{
     HtreeError, W3D_CHUNK_HIERARCHY, W3D_CHUNK_HIERARCHY_HEADER, W3D_CHUNK_PIVOT_FIXUPS,

@@ -235,7 +235,7 @@ is now specified in [`docs/TRACE_FORMAT_V1.md`](TRACE_FORMAT_V1.md).
 
 ### Phase 2: Data and asset formats (M–L) — **status: started (2026-11-03)**
 
-`rzh-formats` exists and six modules are done to the Phase 1 standard:
+`rzh-formats` exists and seven modules are done to the Phase 1 standard:
 
 - the **CSF** string tables: the runtime reader (`GameText.cpp::parseCSF`)
   and the Babylon writer (`expimp.cpp::generate_csf`) are transcribed in
@@ -335,16 +335,52 @@ is now specified in [`docs/TRACE_FORMAT_V1.md`](TRACE_FORMAT_V1.md).
   blending below a channel's first frame, the exporter-junk seek, the
   newest-wins duplicate channel and the empty/negative-span stated
   contracts; the `hanim` benches are within budget on both comparisons
-  (docs/benchmarks.md). The compressed animation flavor
-  (`HCompressedAnimClass` — `hcanim.cpp` with the time-coded and
-  adaptive-delta channels) is the named follow-up slice.
+  (docs/benchmarks.md).
+- the **W3D compressed animations** — the named follow-up slice: the
+  data path of `HCompressedAnimClass::Load_W3D` (`WW3D2/hcanim.cpp` —
+  the 44-byte header whose `Flavor` field picks the channel reader,
+  read with the raw header's `sizeof` (the same 44, a stated
+  coincidence), the strcpy-run name composition, the flavor-switched
+  channel routing that reads no motion channel at all for an unknown
+  flavor (the release-assert contract) and the stateful queries the
+  tree update samples; plus the three compressed channel readers from
+  `WW3D2/motchan.cpp` — `TimeCodedMotionChannelClass` (the packet scan
+  with its look-ahead cache, the `leftIdx ^ dx` binary search and the
+  binary-movement flag), `TimeCodedBitChannelClass` (the linear scan
+  with its underflow clamp and the dead `DefaultVal`) and
+  `AdaptiveDeltaMotionChannelClass` (the 9-byte nybble packets over the
+  256-entry filtertable, the two-frame decompression cache with its
+  sliding window and the cache-continue path that re-applies the delta
+  for `CacheFrame+1` — the original's off-by-one — and the
+  never-reset `done` flag that stops every vector index after the
+  first block once the first reaches the target frame)) is transcribed
+  in `tools/differential/gen_hcanim_golden.cpp` and ported as
+  `rzh-formats::w3d_hcanim`, on top of `w3d_htree` through the same
+  parse callback. The goldens pin 43 compressed animation payloads:
+  both flavors' modern full animations, the binary-movement and
+  last-packet branches, the packet-search rewind, the `VectorLen`-2 X
+  channel whose multi-word write reaches the caller's second slot and
+  clobbers the transform, the slerp branches, the TIMECODED_X..Q type
+  values that never route, the 2^24+1 time-code whose numeric f32
+  conversion rounds the interpolation ratio, the cross-shape flavor
+  reads (the reader follows the header's flavor, not the payload's
+  shape), the adaptive-delta filter-table halves and sign-extended
+  nybbles, the getframe clamp, the sliding window and the far-jump
+  off-by-one, the dead `DefaultVal` and the negative-frame bit clamp,
+  and the error verdicts (the mid-chunk file truncation, the
+  zero-time-code bit channel, the channel chunk smaller than the
+  adaptive-delta struct); the `hcanim` benches are within budget on
+  all three comparisons (docs/benchmarks.md — the budget run itself
+  reshaped the port: the decompression walks are free functions over
+  the channel's immutable parts so the cache branches write straight
+  into their rows, and `getframe` is force-inlined).
 
 - `rzh-ini`: lexer/parser (includes, `#define` macros, inheritance/reskin, load order) and a
   **derive-based schema layer** replacing the 195 hand-written `FieldParse` tables. Keep it
   format-agnostic so the data format can change later (ADR-003).
 - `rzh-formats`: map files, W3D (meshes **done**, skeletons **done**, raw
-  animations **done**, compressed animations, HLOD) **on top of the
-  ported chunk container**, TGA/DDS
+  animations **done**, compressed animations **done**, HLOD) **on top of
+  the ported chunk container**, TGA/DDS
   (**TGA done**), CSF string tables (**done**), WND layouts, fonts,
   audio containers.
 - `rzh-data`: typed templates (objects, weapons, armor, locomotors, upgrades, sciences, ranks,

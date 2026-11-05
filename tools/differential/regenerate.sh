@@ -270,4 +270,18 @@ done
 "$CXX" -o "$BUILD_DIR/gen_hanim_golden" "$BUILD_DIR/gen_hanim_golden.o" "$BUILD_DIR"/*.c.o -lm
 "$BUILD_DIR/gen_hanim_golden" "$REPO_ROOT/crates/rzh-formats/tests/golden/hanim.txt"
 echo "wrote crates/rzh-formats/tests/golden/hanim.txt"
+
+# --- hcanim golden dump: the hcanim.cpp compressed animation transcription
+# (Load_W3D, the time-coded/adaptive-delta/bit channel readers, the
+# flavor-switched routing, the strcpy/strlcat name composition, the stateful
+# packet queries with their scan/binary-search and two-frame decompression
+# caches, and the deterministic GameMath entry points) over hand-built
+# modern, cross-shaped and malformed compressed animation corpora. The
+# generator links the pinned GameMath sources like gen_hanim_golden.cpp.
+echo "compiling gen_hcanim_golden.cpp against the pin ..."
+"$CXX" -O2 -std=c++17 -Wall -Wextra -Werror -ffp-contract=off \
+    -c -o "$BUILD_DIR/gen_hcanim_golden.o" "$SCRIPT_DIR/gen_hcanim_golden.cpp"
+"$CXX" -o "$BUILD_DIR/gen_hcanim_golden" "$BUILD_DIR/gen_hcanim_golden.o" "$BUILD_DIR"/*.c.o -lm
+"$BUILD_DIR/gen_hcanim_golden" "$REPO_ROOT/crates/rzh-formats/tests/golden/hcanim.txt"
+echo "wrote crates/rzh-formats/tests/golden/hcanim.txt"
 echo "now run: cargo test --workspace"

@@ -116,6 +116,12 @@ std::uint64_t bench_hanim_load(const uint8_t *data, size_t len);
 void *bench_hanim_anim_new(const uint8_t *data, size_t len);
 void bench_hanim_anim_free(void *handle);
 std::uint64_t bench_hanim_xforms(void *handle);
+long bench_hcanim_materialize(uint8_t *out, size_t cap);
+long bench_hcanim_ad_materialize(uint8_t *out, size_t cap);
+std::uint64_t bench_hcanim_load(const uint8_t *data, size_t len);
+void *bench_hcanim_anim_new(const uint8_t *data, size_t len);
+void bench_hcanim_anim_free(void *handle);
+std::uint64_t bench_hcanim_xforms(void *handle);
 }
 
 // --- corpora (identical to the Rust benches) ---------------------------------
@@ -579,6 +585,50 @@ int main(int argc, char **argv)
                         [&] { return bench_hanim_anim_new(bytes.data(), bytes.size()); },
                         [](void *h) { return bench_hanim_xforms(h); },
                         [](void *h) { bench_hanim_anim_free(h); }),
+                        1024.0);
+        }
+
+        // --- w3d compressed animation (time-coded) ------------------------------------------
+        {
+                std::vector<uint8_t> scratch(4 * 1024 * 1024);
+                long total = bench_hcanim_materialize(scratch.data(), scratch.size());
+                if (total <= 0)
+                {
+                        fprintf(stderr, "error: hcanim corpus write failed\n");
+                        exit(1);
+                }
+                std::vector<uint8_t> bytes(scratch.begin(), scratch.begin() + total);
+
+                report("hcanim/parse_x64", measure_ns([] {}, [&] {
+                        return bench_hcanim_load(bytes.data(), bytes.size());
+                }), (double)total);
+        }
+
+        // --- w3d compressed animation (adaptive delta) ---------------------------------------
+        {
+                std::vector<uint8_t> scratch(4 * 1024 * 1024);
+                long total = bench_hcanim_ad_materialize(scratch.data(), scratch.size());
+                if (total <= 0)
+                {
+                        fprintf(stderr, "error: hcanim AD corpus write failed\n");
+                        exit(1);
+                }
+                std::vector<uint8_t> bytes(scratch.begin(), scratch.begin() + total);
+
+                report("hcanim/parse_ad_x64", measure_ns([] {}, [&] {
+                        return bench_hcanim_load(bytes.data(), bytes.size());
+                }), (double)total);
+
+                // the transform loop covers 64 bones x 16 frames = 1024
+                // Get_Transform calls on the adaptive-delta corpus: the
+                // decompression cache's slide path plus the slerp and
+                // Build_Matrix3D. The stateful caches make each iteration
+                // rewind once before the walk — the same work the Rust
+                // bench performs.
+                report("hcanim/xforms_ad_x1024", measure_ns_ctx(
+                        [&] { return bench_hcanim_anim_new(bytes.data(), bytes.size()); },
+                        [](void *h) { return bench_hcanim_xforms(h); },
+                        [](void *h) { bench_hcanim_anim_free(h); }),
                         1024.0);
         }
 

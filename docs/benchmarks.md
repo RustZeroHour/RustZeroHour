@@ -174,6 +174,52 @@ arithmetic. Two reruns of each side kept both comparisons inside budget
 with the margins unchanged (13.3–14.4 µs vs 14.0–14.1 µs and 44.0–44.3
 µs vs 39.7–40.3 µs).
 
+The eighth slice, the W3D compressed animations, adds three
+comparisons — one per compression flavor's load path plus the
+adaptive-delta query path. Measured on 2026-11-05, same setup and flags
+as above. The time-coded corpus is a 64-bone, 128-frame animation
+(182,324 bytes: the 44-byte header, time-coded X/Y/Z channels on bones
+0..31 and quaternion channels on bones 32..63); the adaptive-delta
+corpus carries the same shape (19,636 bytes: the 16-byte channel
+structs with their base floats, eight 9-byte packet blocks per channel
+and the exporter's word-alignment pad). Both are built from the same
+word and packet formulas on both sides — **verified byte-identical
+across the two builders** (the corpus size asserts in the Rust benches
+pin the lockstep). The C++ side loads and samples through the
+`hcanim.cpp`/`motchan.cpp` transcription in `bench_wrap_hcanim.cpp`;
+the Rust side through `rzh-formats::w3d_hcanim`. The transform bench is
+the per-frame `Anim_Update` shape on the adaptive-delta corpus:
+`Get_Transform` over all 64 bones at 16 consecutive frames (1024 calls
+through the decompression cache's sliding window, the table-based
+`Fast_Slerp` and `Build_Matrix3D`), on a preloaded animation (the load
+is untimed).
+
+| Benchmark | Rust (criterion) | C++ baseline | Rust/C++ | Verdict |
+|---|---:|---:|---:|---|
+| `hcanim/parse_x64` | 19.5 µs | 20.8 µs | 0.94x | within |
+| `hcanim/parse_ad_x64` | 10.5 µs | 17.2 µs | 0.61x | within |
+| `hcanim/xforms_ad_x1024` | 61.0 µs | 52.7 µs | 1.16x | within |
+
+The adaptive-delta query comparison went through its own budget
+iteration: the port's first shape measured 1.46x — the cache branches
+copied rows through stack scratch arrays (a borrow-checker workaround)
+and `getframe` stayed a real call, so each of the eight stateful cache
+probes per quaternion query paid call and copy overhead the original's
+raw-pointer `getframe` does not. Writing the decompression walks as
+free functions over the channel's immutable parts (so the cache
+branches write straight into their rows, exactly where the original's
+`decompress` writes) closed the copy half, and `#[inline(always)]` on
+`getframe` — the eight probes are the entire hot path, and the compiler
+would not inline the mutating method on its own — closed the rest. The
+load-path comparisons are comfortably inside budget on both flavors
+(the adaptive-delta parse is 0.61x: the C++ channel reader allocates a
+`CacheData` float array per channel that the port keeps as a fixed
+eight-float value, and the C++ corpus walk pays the adaptive-delta
+corpus's smaller, allocation-dominated shape). Two reruns of each side
+kept all three comparisons inside budget with the margins unchanged
+(19.1–20.4 µs, 10.4–10.5 µs and 60.9–61.2 µs vs 20.8 µs, 17.2 µs and
+52.7 µs).
+
 ## Methodology
 
 - **Same code, same corpora.** The C++ side times the *verbatim

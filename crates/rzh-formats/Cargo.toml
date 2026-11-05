@@ -38,6 +38,20 @@
 #                                                     channel routing and the
 #                                                     Get_Translation/Orientation/
 #                                                     Transform/Visibility queries)
+#   GeneralsMD/Code/Libraries/Source/WWVegas/WW3D2/hcanim.{h,cpp}
+#                                                     (the W3D compressed
+#                                                     animations: the flavor-
+#                                                     switched channel routing
+#                                                     and the stateful packet
+#                                                     queries)
+#   GeneralsMD/Code/Libraries/Source/WWVegas/WW3D2/motchan.cpp
+#                                                     (the compressed channel
+#                                                     readers: TimeCodedMotion,
+#                                                     TimeCodedBit and
+#                                                     AdaptiveDelta channels,
+#                                                     the filtertable and the
+#                                                     two-frame decompression
+#                                                     cache)
 #   GeneralsMD/Code/Libraries/Source/WWVegas/WW3D2/motchan.{h,cpp}
 #                                                     (the classic motion and bit
 #                                                     channels the anim loads)
@@ -67,7 +81,7 @@
 
 [package]
 name = "rzh-formats"
-description = "Zero Hour asset format parsers: CSF string tables, TGA textures, the W3D chunk container, the W3D mesh chunk tree, the W3D hierarchy trees and the W3D raw animations (compressed animations, HLOD, map, WND, DDS follow)"
+description = "Zero Hour asset format parsers: CSF string tables, TGA textures, the W3D chunk container, the W3D mesh chunk tree, the W3D hierarchy trees and the W3D raw and compressed animations (HLOD, map, WND, DDS follow)"
 version.workspace = true
 edition.workspace = true
 rust-version.workspace = true
