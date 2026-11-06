@@ -324,6 +324,18 @@ echo "compiling gen_mapheightmap_golden.cpp ..."
 "$BUILD_DIR/gen_mapheightmap_golden" "$REPO_ROOT/crates/rzh-formats/tests/golden/mapheightmap.txt"
 echo "wrote crates/rzh-formats/tests/golden/mapheightmap.txt"
 
+# --- map blend-tile payload golden dump: the WorldHeightMap.cpp
+# BlendTileData load-path transcription (ParseBlendTileData, the cliff
+# derivation, the constructor's full-load walk and patch loop) over the
+# version/3-way/patch/error/walk corpora.
+echo "compiling gen_mapblendtile_golden.cpp ..."
+"$CXX" -O2 -std=c++17 -Wall -Wextra -Werror -ffp-contract=off \
+    -c -o "$BUILD_DIR/gen_mapblendtile_golden.o" "$SCRIPT_DIR/gen_mapblendtile_golden.cpp"
+"$CXX" -o "$BUILD_DIR/gen_mapblendtile_golden" \
+    "$BUILD_DIR/gen_mapblendtile_golden.o"
+"$BUILD_DIR/gen_mapblendtile_golden" "$REPO_ROOT/crates/rzh-formats/tests/golden/mapblendtile.txt"
+echo "wrote crates/rzh-formats/tests/golden/mapblendtile.txt"
+
 echo "compiling gen_dds_golden.cpp ..."
 "$CXX" -O2 -std=c++17 -Wall -Wextra -Werror -ffp-contract=off \
     -c -o "$BUILD_DIR/gen_dds_golden.o" "$SCRIPT_DIR/gen_dds_golden.cpp"

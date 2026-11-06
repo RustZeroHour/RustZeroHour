@@ -514,12 +514,50 @@ is now specified in [`docs/TRACE_FORMAT_V1.md`](TRACE_FORMAT_V1.md).
   (a nested `HeightMapData` never fires), last-wins repeats and the
   walk refusals; the `mapheightmap` benches are within budget on
   both comparisons (docs/benchmarks.md).
+- the **map blend-tile payload** — the largest map payload, on top of
+  the data-chunk container and the height-map half of the shared walk
+  state: the data path of `WorldHeightMap.cpp`'s `ParseBlendTileData`
+  (the four per-cell `Short` index arrays — tile, blend, extra blend
+  and cliff info — the flip/cliff state bitmaps with the version-7
+  `(width+1)/8` row-length remap into the `(width+7)/8` bitmap and the
+  pre-version-7 `initCliffFlagsFromHeights` derivation over the height
+  samples, the texture classes with their read-and-discarded legacy GDF
+  word and the edge classes, the blend records with their `FLAG_VAL`
+  sentinels and the cliff u/v tables with the `Short` tile-index
+  truncation, the version-1 downsample that compacts all four arrays in
+  place, forces the blended-tile and cliff-info counts to 1 and halves
+  the shared `m_width`/`m_height`/`m_dataSize`, and the
+  `use3WayTerrainBlends` gates — the extra-array flush and the
+  `FLIPPED_MASK` filter), plus the constructor's full-load walk shape
+  and its post-walk "patch bad maps" loop that clamps the three blend
+  index arrays over the live data size — is transcribed in
+  `tools/differential/gen_mapblendtile_golden.cpp` (over the re-included
+  mapchunk container and height-map full-load reader transcriptions)
+  and ported as `rzh-formats::map_blendtile`. The goldens pin 39
+  payload corpora in both 3-way settings: the version family (0 through
+  9), the v7 remap shapes (the padded row tails, the 1-wide map that
+  reads no cliff-state bytes), the 16-vs-15-unit cliff boundary of the
+  height derivation, the v1 downsample with its halved extents and
+  forced counts, the len check against the live (possibly halved)
+  data size that a later blend chunk must match, the 3-way
+  filter/flush, the patch-loop clamps (including the partial walk when
+  a later height map shrinks the bound, and the never-clamped tile
+  indices), the texture-class names with their embedded NULs, the
+  negative counts, the four count-over-array-bound refusals, the
+  null-array patch death, the blend-before-height-map shape, the
+  short-read zero fills, the under-declared chunk whose counts read the
+  following chunk's header, the leftovers the release close skips, the
+  global-scope rule, last-wins repeats and the walk refusals; the
+  `mapblendtile` benches are within budget on both comparisons — the
+  port is faster than the baseline (docs/benchmarks.md).
 - `rzh-ini`: lexer/parser (includes, `#define` macros, inheritance/reskin, load order) and a
   **derive-based schema layer** replacing the 195 hand-written `FieldParse` tables. Keep it
   format-agnostic so the data format can change later (ADR-003).
 - `rzh-formats`: map files (the DataChunk framing container **done**,
-  the height-map payload **done**; the remaining payload parsers
-  follow), W3D (meshes **done**, skeletons **done**,
+  the height-map payload **done**, the blend-tile payload **done**; the
+  remaining payload parsers — the global lighting, world info, object
+  lists, polygon triggers and sides lists — follow), W3D (meshes
+  **done**, skeletons **done**,
   raw animations **done**, compressed animations **done**, HLOD
   **done**) **on top of the ported chunk container**, TGA/DDS
   (**both done**), CSF string tables (**done**), WND layouts, fonts,

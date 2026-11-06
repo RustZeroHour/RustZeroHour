@@ -109,8 +109,9 @@
 //! # Writer semantics (transcribed)
 //!
 //! [`DataChunkOutput`] mirrors `DataChunkOutput`: chunks open with a
-//! `0xffff` size placeholder that [`close_data_chunk`]
-//! (DataChunkOutput::close_data_chunk) patches in place; dict key names
+//! `0xffff` size placeholder that
+//! [`close_data_chunk`](DataChunkOutput::close_data_chunk) patches in
+//! place; dict key names
 //! and name keys allocate table ids just like chunk names, interleaved in
 //! first-use order; the table is emitted (reverse allocation order)
 //! before the data on [`finish`]. The `u16` string lengths and the `u8`

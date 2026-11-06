@@ -154,7 +154,22 @@
 #                                                     contracts and the
 #                                                     constructor's
 #                                                     registerParser/parse
-#                                                     walk shape)
+#                                                     walk shape; and the map
+#                                                     blend-tile payload:
+#                                                     ParseBlendTileData, the
+#                                                     initCliffFlagsFromHeights
+#                                                     derivation and the
+#                                                     constructor's full-load
+#                                                     walk with its patch
+#                                                     loop)
+#   Core/GameEngineDevice/Include/W3DDevice/GameClient/TileData.h
+#                                                     (TBlendTileInfo, the
+#                                                     INVERTED/FLIPPED masks)
+#   Core/GameEngine/Include/Common/MapReaderWriterInfo.h
+#                                                     (K_BLEND_TILE_VERSION_*
+#                                                     — the blend-tile
+#                                                     version words and
+#                                                     their gates)
 #   Core/GameEngineDevice/Include/W3DDevice/GameClient/WorldHeightMap.h
 #                                                     (the height-map members
 #                                                     the reader writes and
@@ -181,7 +196,7 @@
 
 [package]
 name = "rzh-formats"
-description = "Zero Hour asset format parsers: CSF string tables, TGA and DDS textures, the W3D chunk container, the W3D mesh chunk tree, the W3D hierarchy trees, the W3D raw and compressed animations, the W3D HLOD assemblies, the map data-chunk container and the map height-map payload (the remaining map payloads, WND, fonts follow)"
+description = "Zero Hour asset format parsers: CSF string tables, TGA and DDS textures, the W3D chunk container, the W3D mesh chunk tree, the W3D hierarchy trees, the W3D raw and compressed animations, the W3D HLOD assemblies, the map data-chunk container, the map height-map payload and the map blend-tile payload (the remaining map payloads, WND, fonts follow)"
 version.workspace = true
 edition.workspace = true
 rust-version.workspace = true

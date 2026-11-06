@@ -341,6 +341,43 @@ workloads, not the sample traffic. Two runs of each side kept both
 comparisons inside budget with the margins unchanged (12.2–12.3 µs and
 23.7–24.0 µs vs 23.78–23.78 µs and 56.7–56.9 µs).
 
+The thirteenth slice, the map blend-tile payload, adds the two
+blend-tile-load comparisons — the largest map payload, over the same
+container and height-map walk. Measured on 2026-11-06, same setup and
+flags as above. The corpus is a skirmish-shaped 256×256 map carrying a
+full blend payload (four 128 KiB index arrays, 8 texture classes and 8
+edge classes, 512 blend records, 64 cliff tables): the version-8 shape
+(the direct cliff-state bitmap read) for the modern load, and the
+version-6 shape (the cliff bitmap derived from the heights — the float
+min/max chains over all 65 536 cells) for the legacy load. The corpora
+are semantically identical across the two builders (both 610 240 and
+602 048 bytes; the Rust side assembles its bytes through the ported
+container writer, whose table of contents emits in reverse allocation
+order — its documented behaviour — so the files differ only there),
+with the loaded state cross-checked through the same walk checksum both
+sides compute (454 954 969 336 and 454 953 987 841 — the Rust bench
+asserts them). The C++ side runs the `WorldHeightMap.cpp`
+transcription in `bench_wrap_mapblendtile.cpp`; the Rust side
+`rzh-formats::map_blendtile`.
+
+| Benchmark | Rust (criterion) | C++ baseline | Rust/C++ | Verdict |
+|---|---:|---:|---:|---|
+| `mapblendtile/parse_x64k` | 221.0 µs | 272.1 µs | 0.81x | within |
+| `mapblendtile/parse_v6_x64k` | 524.0 µs | 661.3 µs | 0.79x | within |
+
+Both comparisons sit comfortably inside budget. The port reads the four
+index arrays through one zero-born `Vec` each (the transcription's
+`new Short[]` buffers zero-fill through `readArrayOfBytes` the same
+way) and its records land in pre-sized vectors against the
+transcription's fixed member arrays; the `u16`-list checksum walk in
+the harness runs identically on both sides. The version-6 comparison
+adds the height-derived cliff bitmap: the port's `f32` min/max chains
+over the bounds-checked sample query (`get_height`) land at four
+fifths of the transcription's raw-pointer `getHeight` — the derivation
+is compute-bound, not memory-bound, and the same `MAP_HEIGHT_SCALE`
+constants keep it bit-identical (the goldens pin the derived bitmap
+byte-for-byte).
+
 ## Methodology
 
 - **Same code, same corpora.** The C++ side times the *verbatim

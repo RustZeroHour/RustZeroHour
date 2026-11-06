@@ -432,7 +432,9 @@ criterion_group!(
     mapchunk_benches::bench_write,
     mapchunk_benches::bench_parse,
     mapheightmap_benches::bench_parse,
-    mapheightmap_benches::bench_parse_v1
+    mapheightmap_benches::bench_parse_v1,
+    mapblendtile_benches::bench_parse,
+    mapblendtile_benches::bench_parse_v6
 );
 criterion_main!(benches);
 
@@ -1836,6 +1838,247 @@ mod mapheightmap_benches {
         group.throughput(Throughput::Bytes(bytes.len() as u64));
         group.bench_function("parse_v1_x64k", |b| {
             b.iter(|| black_box(run_walk(black_box(&bytes), true)))
+        });
+        group.finish();
+    }
+}
+
+// ---------------------------------------------------------------------------
+// mapblendtile: the map blend-tile payload (WorldHeightMap.cpp)
+// ---------------------------------------------------------------------------
+
+mod mapblendtile_benches {
+    use super::*;
+    use rzh_formats::map_blendtile::{
+        BLEND_TILE_DATA_LABEL, FLAG_VAL, K_BLEND_TILE_VERSION_6, K_BLEND_TILE_VERSION_8,
+        TerrainLoad,
+    };
+    use rzh_formats::map_chunk::DataChunkOutput;
+    use rzh_formats::map_heightmap::{HEIGHT_MAP_DATA_LABEL, K_HEIGHT_MAP_VERSION_4};
+
+    /// The bench corpus extent (a typical skirmish map: 256×256 cells).
+    const EXTENT: i32 = 256;
+    /// The bench counts (a busy but realistic payload).
+    const NBMP: i32 = 512;
+    const NBLEND: i32 = 513;
+    const NCLIFF: i32 = 65;
+    const NTEX: i32 = 8;
+
+    /// The authoring-time cross-check constants: both sides walk
+    /// identical bytes and agree on the checksums
+    /// (tools/differential/bench_wrap_mapblendtile.cpp).
+    const V8_CHECKSUM: u64 = 454_954_969_336;
+    const V6_CHECKSUM: u64 = 454_953_987_841;
+
+    fn heights(n: usize, seed: u8) -> Vec<u8> {
+        (0..n).map(|i| seed.wrapping_add((i * 7) as u8)).collect()
+    }
+    fn i16_formula(n: usize, seed: i16) -> Vec<i16> {
+        (0..n)
+            .map(|i| ((i32::from(seed) + (i as i32) * 7) & 0xFFFF) as i16)
+            .collect()
+    }
+
+    /// The height-map payload: a version-4 256×256 map, border 3, 8
+    /// boundaries — the mapheightmap bench's v4 corpus shape.
+    fn height_payload() -> Vec<u8> {
+        let mut p = Vec::new();
+        p.extend_from_slice(&EXTENT.to_le_bytes());
+        p.extend_from_slice(&EXTENT.to_le_bytes());
+        p.extend_from_slice(&3i32.to_le_bytes());
+        p.extend_from_slice(&8i32.to_le_bytes());
+        for i in 0..8i32 {
+            p.extend_from_slice(&(240 - 8 * i).to_le_bytes());
+            p.extend_from_slice(&(200 + 4 * i).to_le_bytes());
+        }
+        let data = heights(EXTENT as usize * EXTENT as usize, 91);
+        p.extend_from_slice(&(data.len() as i32).to_le_bytes());
+        p.extend_from_slice(&data);
+        p
+    }
+
+    /// The blend chunk written through the container's writer — the same
+    /// bytes the C++ baseline's builder assembles.
+    fn write_blend(out: &mut DataChunkOutput, version: u16, with_cliff_state: bool) {
+        let len = EXTENT * EXTENT;
+        out.open_data_chunk(BLEND_TILE_DATA_LABEL, version);
+        out.write_int(len);
+        for seed in [33i16, 44, 55, 66] {
+            for v in i16_formula(len as usize, seed) {
+                out.write_array_of_bytes(&v.to_le_bytes());
+            }
+        }
+        if with_cliff_state {
+            out.write_array_of_bytes(&heights(((EXTENT + 7) / 8 * EXTENT) as usize, 77));
+        }
+        out.write_int(NBMP);
+        out.write_int(NBLEND);
+        out.write_int(NCLIFF);
+        out.write_int(NTEX);
+        for i in 0..NTEX {
+            out.write_int(i * 4); // first tile
+            out.write_int(4); // num tiles
+            out.write_int(2); // width
+            out.write_int(0); // the legacy GDF word
+            out.write_ascii_string(format!("BenchTex{i}").as_bytes());
+        }
+        out.write_int(NTEX * 4); // edge tiles
+        out.write_int(NTEX); // edge classes
+        for i in 0..NTEX {
+            out.write_int(NTEX * 4 + i * 4);
+            out.write_int(4);
+            out.write_int(2);
+            out.write_ascii_string(format!("BenchTex{i}").as_bytes());
+        }
+        for i in 1..NBLEND {
+            out.write_int(i); // blend ndx
+            out.write_byte((i & 0xff) as u8);
+            out.write_byte(((i * 3) & 0xff) as u8);
+            out.write_byte(((i * 5) & 0xff) as u8);
+            out.write_byte(((i * 7) & 0xff) as u8);
+            out.write_byte((i & 0x03) as u8); // inverted
+            out.write_byte((i & 1) as u8); // long diagonal
+            out.write_int((i % 7) - 1); // custom edge class
+            out.write_int(FLAG_VAL); // the sentinel
+        }
+        for i in 1..NCLIFF {
+            let f = (i as f32) * 0.25;
+            out.write_int(i * 100); // tile index
+            for v in [
+                f,
+                f + 0.125,
+                f + 0.25,
+                f + 0.375,
+                f + 0.5,
+                f + 0.625,
+                f + 0.75,
+                f + 0.875,
+            ] {
+                out.write_real(v);
+            }
+            out.write_byte((i & 1) as u8); // flip
+            out.write_byte(((i >> 1) & 1) as u8); // mutant
+        }
+        out.close_data_chunk();
+    }
+
+    /// The version-8 corpus (the direct cliff-state bitmap) — keep in
+    /// lockstep with tools/differential/bench_wrap_mapblendtile.cpp.
+    fn build_corpus(version: u16, with_cliff_state: bool) -> Vec<u8> {
+        let mut out = DataChunkOutput::new();
+        out.open_data_chunk(HEIGHT_MAP_DATA_LABEL, K_HEIGHT_MAP_VERSION_4);
+        out.write_array_of_bytes(&height_payload());
+        out.close_data_chunk();
+        write_blend(&mut out, version, with_cliff_state);
+        out.into_bytes().expect("finish")
+    }
+
+    /// The checksum over the loaded state (the C++ baseline computes the
+    /// same walk over the same fields).
+    fn checksum(load: &TerrainLoad) -> u64 {
+        let bt = load.blend_tiles.as_ref().expect("blend payload");
+        let mut c = 0u64;
+        for v in [
+            load.width,
+            load.height,
+            load.data_size,
+            bt.num_bitmap_tiles,
+            bt.num_blended_tiles,
+            bt.num_cliff_info,
+            bt.num_texture_classes,
+            bt.num_edge_tiles,
+            bt.num_edge_texture_classes,
+            bt.flip_state_width,
+        ] {
+            c = c.wrapping_add(v as u32 as u64);
+        }
+        for arr in [
+            &bt.tile_ndxes,
+            &bt.blend_tile_ndxes,
+            &bt.extra_blend_tile_ndxes,
+            &bt.cliff_info_ndxes,
+        ] {
+            for &v in arr {
+                c = c.wrapping_add(v as u16 as u64);
+            }
+        }
+        for b in bt.cell_flip_state.iter().chain(&bt.cell_cliff_state) {
+            c = c.wrapping_add(u64::from(*b));
+        }
+        for t in &bt.texture_classes {
+            c = c.wrapping_add(t.first_tile as u32 as u64);
+            c = c.wrapping_add(t.num_tiles as u32 as u64);
+            c = c.wrapping_add(t.width as u32 as u64);
+            for &b in &t.name {
+                c = c.wrapping_add(u64::from(b));
+            }
+        }
+        for t in &bt.edge_texture_classes {
+            c = c.wrapping_add(t.first_tile as u32 as u64);
+            c = c.wrapping_add(t.num_tiles as u32 as u64);
+            c = c.wrapping_add(t.width as u32 as u64);
+            for &b in &t.name {
+                c = c.wrapping_add(u64::from(b));
+            }
+        }
+        for i in 1..bt.num_blended_tiles {
+            let r = &bt.blended_tiles[i as usize];
+            c = c.wrapping_add(r.blend_ndx as u32 as u64);
+            c = c.wrapping_add(u64::from(r.horiz));
+            c = c.wrapping_add(u64::from(r.vert));
+            c = c.wrapping_add(u64::from(r.right_diagonal));
+            c = c.wrapping_add(u64::from(r.left_diagonal));
+            c = c.wrapping_add(u64::from(r.inverted));
+            c = c.wrapping_add(u64::from(r.long_diagonal));
+            c = c.wrapping_add(r.custom_blend_edge_class as u32 as u64);
+        }
+        for i in 1..bt.num_cliff_info {
+            let cl = &bt.cliff_infos[i as usize];
+            c = c.wrapping_add(cl.tile_index as u16 as u64);
+            c = c.wrapping_add(u64::from(cl.u0.to_bits()));
+            c = c.wrapping_add(u64::from(cl.v3.to_bits()));
+            c = c.wrapping_add(u64::from(cl.flip));
+            c = c.wrapping_add(u64::from(cl.mutant));
+        }
+        c
+    }
+
+    /// The modern load: the constructor's full walk (both readers, the
+    /// patch loop) over the version-8 corpus — the largest map payload.
+    pub fn bench_parse(c: &mut Criterion) {
+        let bytes = build_corpus(K_BLEND_TILE_VERSION_8, true);
+        let expect = checksum(&TerrainLoad::from_map(&bytes, true).expect("loads"));
+        assert_eq!(
+            expect, V8_CHECKSUM,
+            "the v8 corpus drifted from the C++ baseline"
+        );
+        let mut group = c.benchmark_group("mapblendtile");
+        group.throughput(Throughput::Bytes(bytes.len() as u64));
+        group.bench_function("parse_x64k", |b| {
+            b.iter(|| {
+                let load = TerrainLoad::from_map(black_box(&bytes), true).expect("loads");
+                black_box(checksum(&load))
+            })
+        });
+        group.finish();
+    }
+
+    /// The legacy load: the same walk over the version-6 corpus (the
+    /// height-derived cliff bitmap over all 65 536 cells).
+    pub fn bench_parse_v6(c: &mut Criterion) {
+        let bytes = build_corpus(K_BLEND_TILE_VERSION_6, false);
+        let expect = checksum(&TerrainLoad::from_map(&bytes, true).expect("loads"));
+        assert_eq!(
+            expect, V6_CHECKSUM,
+            "the v6 corpus drifted from the C++ baseline"
+        );
+        let mut group = c.benchmark_group("mapblendtile");
+        group.throughput(Throughput::Bytes(bytes.len() as u64));
+        group.bench_function("parse_v6_x64k", |b| {
+            b.iter(|| {
+                let load = TerrainLoad::from_map(black_box(&bytes), true).expect("loads");
+                black_box(checksum(&load))
+            })
         });
         group.finish();
     }

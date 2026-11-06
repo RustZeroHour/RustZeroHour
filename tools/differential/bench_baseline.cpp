@@ -132,6 +132,10 @@ long bench_mapheightmap_materialize(uint8_t *out, size_t cap);
 long bench_mapheightmap_materialize_v1(uint8_t *out, size_t cap);
 std::uint64_t bench_mapheightmap_parse(const uint8_t *data, size_t len);
 std::uint64_t bench_mapheightmap_parse_v1(const uint8_t *data, size_t len);
+long bench_mapblendtile_materialize(uint8_t *out, size_t cap);
+long bench_mapblendtile_materialize_v6(uint8_t *out, size_t cap);
+std::uint64_t bench_mapblendtile_parse(const uint8_t *data, size_t len);
+std::uint64_t bench_mapblendtile_parse_v6(const uint8_t *data, size_t len);
 unsigned bench_dds_parse(const uint8_t *data, size_t len);
 long bench_dds_convert_materialize(uint8_t *out, size_t cap);
 unsigned bench_dds_convert(const uint8_t *data, size_t len, uint8_t *dest, size_t dest_cap);
@@ -707,6 +711,34 @@ int main(int argc, char **argv)
                 report("mapheightmap/parse_v1_x64k", measure_ns([] {}, [&] {
                         return bench_mapheightmap_parse_v1(bytes_v1.data(), bytes_v1.size());
                 }), (double)total_v1);
+        }
+
+        // --- map blend-tile payload -----------------------------------------------------
+        {
+                std::vector<uint8_t> scratch(4 * 1024 * 1024);
+                long total = bench_mapblendtile_materialize(scratch.data(), scratch.size());
+                if (total <= 0)
+                {
+                        fprintf(stderr, "error: mapblendtile v8 corpus write failed\n");
+                        exit(1);
+                }
+                std::vector<uint8_t> bytes(scratch.begin(), scratch.begin() + total);
+
+                report("mapblendtile/parse_x64k", measure_ns([] {}, [&] {
+                        return bench_mapblendtile_parse(bytes.data(), bytes.size());
+                }), (double)total);
+
+                long total_v6 = bench_mapblendtile_materialize_v6(scratch.data(), scratch.size());
+                if (total_v6 <= 0)
+                {
+                        fprintf(stderr, "error: mapblendtile v6 corpus write failed\n");
+                        exit(1);
+                }
+                std::vector<uint8_t> bytes_v6(scratch.begin(), scratch.begin() + total_v6);
+
+                report("mapblendtile/parse_v6_x64k", measure_ns([] {}, [&] {
+                        return bench_mapblendtile_parse_v6(bytes_v6.data(), bytes_v6.size());
+                }), (double)total_v6);
         }
 
         // --- dds textures ---------------------------------------------------------------

@@ -79,10 +79,21 @@
 //!   sample-count contracts, and the version-1 in-place downsample
 //!   with its mode-divergent `width`/`height` update — the first map
 //!   payload parser on top of the data-chunk container.
+//! - [`map_blendtile`]: the map blend-tile payload — the
+//!   `BlendTileData` chunk reader of `WorldHeightMap.cpp`
+//!   (`ParseBlendTileData`, the largest map payload): the four
+//!   per-cell index arrays, the flip/cliff state bitmaps with the
+//!   version-7 row-length remap and the pre-version-7 height
+//!   derivation, the texture and edge classes, the blend records with
+//!   their `FLAG_VAL` sentinels, the cliff u/v tables, the version-1
+//!   downsample that halves the shared extent members, the 3-way
+//!   blend gate, and the constructor's post-walk patch loop — over
+//!   the same container, on top of [`map_heightmap`]'s half of the
+//!   shared walk state.
 //!
 //! Deferred to later Phase 2 slices, in plan order: the remaining W3D
 //! modules (…), the remaining map payload parsers on top of
-//! [`map_chunk`] (the blend tiles, global lighting, world info, object
+//! [`map_chunk`] (the global lighting, world info, object
 //! lists, polygon triggers and sides lists), WND layouts, fonts
 //! and audio containers (the DDS textures are done). Consumer-side
 //! normalizations the original performs on top
@@ -100,6 +111,7 @@
 pub mod chunk;
 pub mod csf;
 pub mod dds;
+pub mod map_blendtile;
 pub mod map_chunk;
 pub mod map_heightmap;
 pub mod tga;
