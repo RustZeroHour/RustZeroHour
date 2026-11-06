@@ -140,6 +140,8 @@ long bench_maplighting_materialize(uint8_t *out, size_t cap);
 std::uint64_t bench_maplighting_parse(const uint8_t *data, size_t len);
 long bench_mapobjects_materialize(uint8_t *out, size_t cap);
 std::uint64_t bench_mapobjects_parse(const uint8_t *data, size_t len);
+long bench_mapworldinfo_materialize(uint8_t *out, size_t cap);
+std::uint64_t bench_mapworldinfo_parse(const uint8_t *data, size_t len);
 unsigned bench_dds_parse(const uint8_t *data, size_t len);
 long bench_dds_convert_materialize(uint8_t *out, size_t cap);
 unsigned bench_dds_convert(const uint8_t *data, size_t len, uint8_t *dest, size_t dest_cap);
@@ -774,6 +776,22 @@ int main(int argc, char **argv)
 
                 report("mapobjects/parse_x180k", measure_ns([] {}, [&] {
                         return bench_mapobjects_parse(bytes.data(), bytes.size());
+                }), (double)total);
+        }
+
+        // --- map world-info payload --------------------------------------------------
+        {
+                std::vector<uint8_t> scratch(4 * 1024 * 1024);
+                long total = bench_mapworldinfo_materialize(scratch.data(), scratch.size());
+                if (total <= 0)
+                {
+                        fprintf(stderr, "error: mapworldinfo corpus write failed\n");
+                        exit(1);
+                }
+                std::vector<uint8_t> bytes(scratch.begin(), scratch.begin() + total);
+
+                report("mapworldinfo/parse_x190k", measure_ns([] {}, [&] {
+                        return bench_mapworldinfo_parse(bytes.data(), bytes.size());
                 }), (double)total);
         }
 

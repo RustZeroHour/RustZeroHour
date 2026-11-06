@@ -436,7 +436,8 @@ criterion_group!(
     mapblendtile_benches::bench_parse,
     mapblendtile_benches::bench_parse_v6,
     maplighting_benches::bench_parse,
-    mapobjects_benches::bench_parse
+    mapobjects_benches::bench_parse,
+    mapworldinfo_benches::bench_parse
 );
 criterion_main!(benches);
 
@@ -2360,6 +2361,227 @@ mod mapobjects_benches {
                 let list = ObjectsListData::from_map(black_box(&bytes)).expect("loads");
                 black_box(checksum(&list.objects))
             })
+        });
+        group.finish();
+    }
+}
+
+// ---------------------------------------------------------------------------
+// mapworldinfo: the map world-info payload (WorldHeightMap.cpp)
+// ---------------------------------------------------------------------------
+
+mod mapworldinfo_benches {
+    use super::*;
+    use rzh_formats::map_chunk::{DataChunkInfo, DataChunkInput, DictValue, NameKeys, ParserTable};
+    use rzh_formats::map_worldinfo::{
+        K_WORLDDICT_VERSION_1, WORLD_INFO_LABEL, parse_world_dict_data_chunk,
+    };
+
+    /// The bench corpus repetition: 2560 8-pair dicts ≈ 190 KiB (matches
+    /// the C++ baseline).
+    const BENCH_CHUNKS: usize = 2560;
+
+    /// The corpus checksum the C++ baseline computes over the same
+    /// fields (bench_wrap_mapworldinfo.cpp, verified at authoring time).
+    const CHECKSUM: u64 = 2_764_705_683_974;
+
+    fn put_i32(b: &mut Vec<u8>, v: i32) {
+        b.extend_from_slice(&v.to_le_bytes());
+    }
+    fn put_f32(b: &mut Vec<u8>, v: f32) {
+        b.extend_from_slice(&v.to_le_bytes());
+    }
+    fn put_chunk(b: &mut Vec<u8>, id: u32, ver: u16, data: &[u8]) {
+        b.extend_from_slice(&id.to_le_bytes());
+        b.extend_from_slice(&ver.to_le_bytes());
+        b.extend_from_slice(&(data.len() as i32).to_le_bytes());
+        b.extend_from_slice(data);
+    }
+    fn toc_bytes(entries: &[(&[u8], u32)]) -> Vec<u8> {
+        let mut b = Vec::new();
+        b.extend_from_slice(b"CkMp");
+        b.extend_from_slice(&(entries.len() as i32).to_le_bytes());
+        for (name, id) in entries {
+            b.push(name.len() as u8);
+            b.extend_from_slice(name);
+            b.extend_from_slice(&id.to_le_bytes());
+        }
+        b
+    }
+
+    /// One WorldInfo chunk payload: the dict pair count and the 8
+    /// formula pairs (the gen's `worldinfo_payload` shape).
+    fn worldinfo_payload(i: usize) -> Vec<u8> {
+        let mut p = Vec::new();
+        p.extend_from_slice(&8u16.to_le_bytes());
+        // weather INT
+        put_i32(&mut p, ((2u32 << 8) | 1) as i32);
+        put_i32(&mut p, (i % 3) as i32);
+        // mapName ASCII
+        let name = format!("Map{:04}", i);
+        put_i32(&mut p, ((3u32 << 8) | 3) as i32);
+        p.extend_from_slice(&(name.len() as u16).to_le_bytes());
+        p.extend_from_slice(name.as_bytes());
+        // flag BOOL
+        put_i32(
+            &mut p,
+            ((4u32 << 8) | u32::from(rzh_formats::map_chunk::dict_type::DICT_BOOL)) as i32,
+        );
+        p.push(u8::from(i & 1 != 0));
+        // gravity REAL
+        put_i32(&mut p, ((5u32 << 8) | 2) as i32);
+        put_f32(&mut p, (i % 97) as f32 * 0.25);
+        // title UNICODE
+        put_i32(&mut p, ((6u32 << 8) | 4) as i32);
+        p.extend_from_slice(&2u16.to_le_bytes());
+        p.extend_from_slice(&0x0048u16.to_le_bytes());
+        p.extend_from_slice(&(0x61 + (i % 26) as u16).to_le_bytes());
+        // sky INT
+        put_i32(&mut p, ((7u32 << 8) | 1) as i32);
+        put_i32(&mut p, (i % 100) as i32);
+        // detail BOOL
+        put_i32(
+            &mut p,
+            ((8u32 << 8) | u32::from(rzh_formats::map_chunk::dict_type::DICT_BOOL)) as i32,
+        );
+        p.push(u8::from(i & 2 != 0));
+        // extra INT
+        put_i32(&mut p, ((9u32 << 8) | 1) as i32);
+        put_i32(&mut p, i as i32);
+        p
+    }
+
+    /// Builds the corpus: 2560 WorldInfo chunks with 8-pair formula
+    /// dicts — keep in lockstep with
+    /// tools/differential/bench_wrap_mapworldinfo.cpp.
+    fn build_corpus() -> Vec<u8> {
+        let mut b = toc_bytes(&[
+            (WORLD_INFO_LABEL, 1),
+            (b"weather", 2),
+            (b"mapName", 3),
+            (b"flag", 4),
+            (b"gravity", 5),
+            (b"title", 6),
+            (b"sky", 7),
+            (b"detail", 8),
+            (b"extra", 9),
+        ]);
+        for i in 0..BENCH_CHUNKS {
+            let p = worldinfo_payload(i);
+            put_chunk(&mut b, 1, K_WORLDDICT_VERSION_1, &p);
+        }
+        b
+    }
+
+    /// The walk's user state: the dict the last chunk left, the sticky
+    /// weather and the accumulated per-chunk checksum (the same fields
+    /// the C++ baseline sums).
+    struct BenchWi {
+        dict: Option<rzh_formats::map_chunk::Dict>,
+        weather_set: bool,
+        weather: i32,
+        keys: NameKeys,
+        checksum: u64,
+    }
+
+    impl BenchWi {
+        fn new() -> Self {
+            let mut keys = NameKeys::new();
+            keys.name_to_key(b"weather");
+            BenchWi {
+                dict: None,
+                weather_set: false,
+                weather: 0,
+                keys,
+                checksum: 0,
+            }
+        }
+
+        /// The per-chunk checksum over the world dict as the chunk left
+        /// it (the gen's `addChunk`).
+        fn add_chunk(&mut self, load: &rzh_formats::map_worldinfo::WorldDictLoad) {
+            self.checksum = self.checksum.wrapping_add(load.dict.pair_count() as u64);
+            for p in 0..load.dict.pair_count() {
+                self.checksum = self
+                    .checksum
+                    .wrapping_add(load.dict.nth_key(p).ordinal() as u64);
+                self.checksum = self
+                    .checksum
+                    .wrapping_add(load.dict.nth_type(p) as u32 as u64);
+                match load.dict.nth_value(p) {
+                    DictValue::Bool(v) => {
+                        self.checksum = self.checksum.wrapping_add(u64::from(*v));
+                    }
+                    DictValue::Int(v) => {
+                        self.checksum = self.checksum.wrapping_add(*v as u32 as u64);
+                    }
+                    DictValue::Real(v) => {
+                        self.checksum = self.checksum.wrapping_add(v.to_bits() as u64);
+                    }
+                    DictValue::AsciiString(s) => {
+                        self.checksum = self.checksum.wrapping_add(s.len() as u64);
+                        for &c in s {
+                            self.checksum = self.checksum.wrapping_add(c as u64);
+                        }
+                    }
+                    DictValue::UnicodeString(u) => {
+                        self.checksum = self.checksum.wrapping_add(u.len() as u64);
+                        for &w in u {
+                            self.checksum = self.checksum.wrapping_add(w as u64);
+                        }
+                    }
+                }
+            }
+            if let Some(w) = load.weather {
+                self.weather_set = true;
+                self.weather = w;
+                self.checksum = self.checksum.wrapping_add(w as u32 as u64);
+            } else {
+                self.checksum = self.checksum.wrapping_add(0x5a5a_5a5a);
+            }
+            self.dict = Some(load.dict.clone());
+        }
+    }
+
+    fn bench_wi_parser(
+        file: &mut DataChunkInput<'_>,
+        _info: &DataChunkInfo,
+        _table: &mut ParserTable<'_, BenchWi>,
+        st: &mut BenchWi,
+    ) -> bool {
+        match parse_world_dict_data_chunk(file, &mut st.keys) {
+            Ok(load) => {
+                st.add_chunk(&load);
+                true
+            }
+            Err(_) => false,
+        }
+    }
+
+    fn run_walk(bytes: &[u8]) -> u64 {
+        let mut input = DataChunkInput::new(bytes);
+        let mut table: ParserTable<'_, BenchWi> = ParserTable::new();
+        table.register(WORLD_INFO_LABEL, b"", bench_wi_parser);
+        let mut st = BenchWi::new();
+        if !input.parse(&mut table, &mut st) {
+            return 0xdead_beef_u64;
+        }
+        st.checksum
+    }
+
+    /// The world-info load: the logical walk over the repeated-chunk
+    /// corpus (every chunk parses; the last one wins).
+    pub fn bench_parse(c: &mut Criterion) {
+        let bytes = build_corpus();
+        let got = run_walk(&bytes);
+        assert_eq!(
+            got, CHECKSUM,
+            "the worldinfo corpus drifted from the C++ baseline"
+        );
+        let mut group = c.benchmark_group("mapworldinfo");
+        group.throughput(Throughput::Bytes(bytes.len() as u64));
+        group.bench_function("parse_x190k", |b| {
+            b.iter(|| black_box(run_walk(black_box(&bytes))))
         });
         group.finish();
     }

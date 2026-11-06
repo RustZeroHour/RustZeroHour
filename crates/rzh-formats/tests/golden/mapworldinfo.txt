@@ -1,0 +1,129 @@
+# gen_mapworldinfo_golden.cpp — WorldHeightMap.cpp ParseWorldDictDataChunk transcription (baseline 571a7c5).
+# Golden script for rzh-formats::map_worldinfo; see tools/differential/README.md.
+# Grammar: file/valid/walk/werr/wnone/wdict/wpair/wkey/wstate.
+file wi_v1 436b4d700400000009576f726c64496e666f010000000e6d61704865696768745363616c6502000000077765617468657203000000076d61704e616d6504000000010000000100220000000300030400000d005761746572736964655061726b00020000010103000001000000
+valid wi_v1 t
+walk wi_v1 t
+wdict wi_v1 3 t 1
+wpair wi_v1 weather i 1
+wpair wi_v1 mapName a WatersidePark
+wpair wi_v1 mapHeightScale b t
+wkey wi_v1 1 weather
+wkey wi_v1 2 mapName
+wkey wi_v1 3 mapHeightScale
+wstate wi_v1 109 0 t
+file wi_weather_types 436b4d700300000009576f726c64496e666f0100000007776561746865720200000003736b79030000000100000001000a0000000100010200000000000001000000010007000000010000020000010100000001000a0000000100020200000000803f010000000100090000000100030200000100310100000001000a00000001000402000001003100
+valid wi_weather_types t
+walk wi_weather_types t
+wdict wi_weather_types 1 t 0
+wpair wi_weather_types weather u 0031
+wkey wi_weather_types 1 weather
+wstate wi_weather_types 138 0 t
+file wi_sticky 436b4d700300000009576f726c64496e666f01000000077765617468657202000000076d61704e616d65030000000100000001000a000000010001020000020000000100000001000e00000001000303000006005365636f6e64
+valid wi_sticky t
+walk wi_sticky t
+wdict wi_sticky 1 t 2
+wpair wi_sticky mapName a Second
+wkey wi_sticky 1 weather
+wkey wi_sticky 2 mapName
+wstate wi_sticky 90 0 t
+file wi_versions 436b4d700300000009576f726c64496e666f01000000077765617468657202000000076d61704e616d65030000000100000000000a000000010001020000010000000100000009000a00000001000102000000000000
+valid wi_versions t
+walk wi_versions t
+wdict wi_versions 1 t 0
+wpair wi_versions weather i 0
+wkey wi_versions 1 weather
+wstate wi_versions 86 0 t
+file wi_empty_dict 436b4d700100000009576f726c64496e666f01000000010000000100020000000000
+valid wi_empty_dict t
+walk wi_empty_dict t
+wdict wi_empty_dict 0 f 0
+wkey wi_empty_dict 1 weather
+wstate wi_empty_dict 34 0 t
+file wi_all_types 436b4d700600000009576f726c64496e666f01000000077765617468657202000000076d61704e616d650300000004666c616704000000076772617669747905000000057469746c6506000000010000000100320000000600000200000103030000060044657365727400040000000205000000002041040600000200480069000102000001000000
+valid wi_all_types t
+walk wi_all_types t
+wdict wi_all_types 5 t 1
+wpair wi_all_types weather i 1
+wpair wi_all_types mapName a Desert
+wpair wi_all_types flag b f
+wpair wi_all_types gravity r 41200000
+wpair wi_all_types title u 00480069
+wkey wi_all_types 1 weather
+wkey wi_all_types 2 mapName
+wkey wi_all_types 3 flag
+wkey wi_all_types 4 gravity
+wkey wi_all_types 5 title
+wstate wi_all_types 137 0 t
+file wi_nulname 436b4d700400000009576f726c64496e666f0100000008776561007468657202000000017821000000027777000100000100000001001f00000004000102000007000000012100000900000000000100010103000003000000
+valid wi_nulname t
+walk wi_nulname t
+wdict wi_nulname 4 f 0
+wpair wi_nulname wea i 7
+wpair wi_nulname x i 9
+wpair wi_nulname ww b t
+wpair wi_nulname - i 3
+wkey wi_nulname 1 weather
+wkey wi_nulname 2 wea
+wkey wi_nulname 3 x
+wkey wi_nulname 4 ww
+wkey wi_nulname 5 -
+wstate wi_nulname 89 0 t
+file wi_corrupt 436b4d700200000009576f726c64496e666f0100000007776561746865720200000001000000010012000000020001020000010000000702000000000000
+valid wi_corrupt t
+walk wi_corrupt f
+werr wi_corrupt dict 7
+wkey wi_corrupt 1 weather
+wstate wi_corrupt 58 1 f
+file wi_leftover 436b4d700100000009576f726c64496e666f01000000010000000100040000000000eeee
+valid wi_leftover t
+walk wi_leftover t
+wdict wi_leftover 0 f 0
+wkey wi_leftover 1 weather
+wstate wi_leftover 36 0 t
+file wi_underdeclared 436b4d700200000009576f726c64496e666f0100000007776561746865720200000001000000010004000000020001020000010000000102000001000000
+valid wi_underdeclared t
+walk wi_underdeclared t
+wdict wi_underdeclared 1 t 1
+wpair wi_underdeclared weather i 1
+wkey wi_underdeclared 1 weather
+wstate wi_underdeclared 62 0 t
+file wi_short 436b4d700200000009576f726c64496e666f01000000077765617468657202000000010000000100050000000200010200
+valid wi_short t
+walk wi_short t
+wdict wi_short 2 t 0
+wpair wi_short weather i 0
+wpair wi_short - b f
+wkey wi_short 1 weather
+wkey wi_short 2 -
+wstate wi_short 49 0 t
+file wi_nested 436b4d700300000009436f6e7461696e65720100000009576f726c64496e666f02000000077765617468657203000000010000000100140000000200000001000a00000001000103000001000000
+valid wi_nested t
+walk wi_nested t
+wnone wi_nested
+wkey wi_nested 1 weather
+wstate wi_nested 78 0 t
+file wi_none 436b4d70010000000d4865696768744d617044617461010000000100000003001000000002000000020000000400000010101010
+valid wi_none t
+walk wi_none t
+wnone wi_none
+wkey wi_none 1 weather
+wstate wi_none 52 0 t
+file wi_not_chunky 6e6f742061206d617020617420616c6c
+valid wi_not_chunky f
+walk wi_not_chunky f
+werr wi_not_chunky corrupt
+wkey wi_not_chunky 1 weather
+wstate wi_not_chunky 4 0 f
+file wi_toc_only 436b4d700100000009576f726c64496e666f01000000
+valid wi_toc_only f
+walk wi_toc_only f
+werr wi_toc_only corrupt
+wkey wi_toc_only 1 weather
+wstate wi_toc_only 22 0 t
+file wi_empty -
+valid wi_empty f
+walk wi_empty f
+werr wi_empty corrupt
+wkey wi_empty 1 weather
+wstate wi_empty 0 0 t

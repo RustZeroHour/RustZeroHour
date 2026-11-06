@@ -108,10 +108,17 @@
 //!   the z-range drops, and the head-overwrite list semantics — the
 //!   first payload with a nested parser registration, over the same
 //!   container.
+//! - [`map_worldinfo`]: the map world-info payload — the `WorldInfo`
+//!   chunk reader of `WorldHeightMap.cpp`
+//!   (`ParseWorldDictDataChunk`, the logical load's settings dict): the
+//!   dict that replaces the world global whole on every chunk, and the
+//!   weather word its exact-type `INT` query re-derives (the raw word,
+//!   never range-checked, sticky across chunks without the pair) —
+//!   over the same container.
 //!
 //! Deferred to later Phase 2 slices, in plan order: the remaining W3D
 //! modules (…), the remaining map payload parsers on top of
-//! [`map_chunk`] (the world info, polygon triggers and sides lists),
+//! [`map_chunk`] (the polygon triggers and sides lists),
 //! WND layouts, fonts
 //! and audio containers (the DDS textures are done). Consumer-side
 //! normalizations the original performs on top
@@ -134,6 +141,7 @@ pub mod map_chunk;
 pub mod map_heightmap;
 pub mod map_lighting;
 pub mod map_objects;
+pub mod map_worldinfo;
 pub mod tga;
 pub mod w3d_hanim;
 pub mod w3d_hcanim;

@@ -360,6 +360,19 @@ echo "compiling gen_mapobjects_golden.cpp ..."
 "$BUILD_DIR/gen_mapobjects_golden" "$REPO_ROOT/crates/rzh-formats/tests/golden/mapobjects.txt"
 echo "wrote crates/rzh-formats/tests/golden/mapobjects.txt"
 
+# --- map world-info payload golden dump: the WorldHeightMap.cpp
+# ParseWorldDictDataChunk transcription (the dict replaced whole per
+# chunk, the exact-type INT weather gate and its sticky word, the
+# version words never read) over the version/gate/sticky/types/
+# NUL-name/corrupt/leftover/under-declared/short/nested/scope/error/
+# walk corpora.
+echo "compiling gen_mapworldinfo_golden.cpp ..."
+"$CXX" -O2 -std=c++17 -Wall -Wextra -Werror -ffp-contract=off \
+    -c -o "$BUILD_DIR/gen_mapworldinfo_golden.o" "$SCRIPT_DIR/gen_mapworldinfo_golden.cpp"
+"$CXX" -o "$BUILD_DIR/gen_mapworldinfo_golden" "$BUILD_DIR/gen_mapworldinfo_golden.o"
+"$BUILD_DIR/gen_mapworldinfo_golden" "$REPO_ROOT/crates/rzh-formats/tests/golden/mapworldinfo.txt"
+echo "wrote crates/rzh-formats/tests/golden/mapworldinfo.txt"
+
 echo "compiling gen_dds_golden.cpp ..."
 "$CXX" -O2 -std=c++17 -Wall -Wextra -Werror -ffp-contract=off \
     -c -o "$BUILD_DIR/gen_dds_golden.o" "$SCRIPT_DIR/gen_dds_golden.cpp"

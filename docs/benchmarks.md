@@ -434,6 +434,31 @@ time) plus its `AsciiString` comparisons in the name-key scans. The
 `normalizeAngle` wrap is bit-identical on both sides (the goldens pin
 the wrapped angles' words).
 
+The sixteenth slice, the map world-info payload, adds the one
+world-info-load comparison. Measured on 2026-11-07, same setup and
+flags as above. The corpus is 2560 WorldInfo chunks with 8-pair
+formula dicts each (the weather INT, a map name, two bools, a real, a
+unicode title and two more ints — 197,226 bytes), built through the
+same byte formulas on both sides, with the walk cross-checked through
+the accumulated per-chunk checksum both sides compute
+(2,764,705,683,974 — the Rust bench asserts it). The C++ side runs the
+`WorldHeightMap.cpp` transcription in `bench_wrap_mapworldinfo.cpp`;
+the Rust side `rzh-formats::map_worldinfo`.
+
+| Benchmark | Rust (criterion) | C++ baseline | Rust/C++ | Verdict |
+|---|---:|---:|---:|---|
+| `mapworldinfo/parse_x190k` | 1.73 ms | 1.60 ms | 1.08x | within |
+
+The dict-dominated workload sits at the walk's bookkeeping floor: the
+world-info reader is one `readDict` per chunk, so the bench is 2560
+chunk opens plus 20,480 dict pairs, and the port's per-pair cost (the
+`keyAndType` resolve through the name-key table, the sorted `set`
+insert, the value read) matches the transcription's within the
+sandbox's run-to-run noise. The gap is the port's bounds-checked
+short-read path and the `NameKeys` linear scans the transcription's
+`std::string` compares also pay; both sides re-derive the sticky
+weather word per chunk (the checksum folds it in).
+
 ## Methodology
 
 - **Same code, same corpora.** The C++ side times the *verbatim
