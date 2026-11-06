@@ -438,7 +438,8 @@ criterion_group!(
     maplighting_benches::bench_parse,
     mapobjects_benches::bench_parse,
     mapworldinfo_benches::bench_parse,
-    mappolygons_benches::bench_parse
+    mappolygons_benches::bench_parse,
+    mapsides_benches::bench_parse
 );
 criterion_main!(benches);
 
@@ -2709,6 +2710,314 @@ mod mappolygons_benches {
                     .expect("loads")
                     .expect("fired");
                 black_box(checksum(&data))
+            })
+        });
+        group.finish();
+    }
+}
+
+// ---------------------------------------------------------------------------
+// mapsides: the map sides-list payload (SidesList.cpp)
+// ---------------------------------------------------------------------------
+
+mod mapsides_benches {
+    use super::*;
+    use rzh_formats::map_chunk::{Dict, DictValue, NameKeys};
+    use rzh_formats::map_sideslist::{
+        K_SIDES_DATA_VERSION_3, PLAYER_ALLIES_KEY, PLAYER_DISPLAY_NAME_KEY, PLAYER_ENEMIES_KEY,
+        PLAYER_FACTION_KEY, PLAYER_IS_HUMAN_KEY, PLAYER_NAME_KEY, SIDES_LIST_LABEL, SidesListData,
+        TEAM_IS_SINGLETON_KEY, TEAM_NAME_KEY, TEAM_OWNER_KEY,
+    };
+
+    /// The bench corpus repetition: 264 chunks ≈ 190 KiB (matches the
+    /// C++ baseline).
+    const BENCH_CHUNKS: usize = 264;
+
+    /// The corpus checksum the C++ baseline computes over the same
+    /// fields (bench_wrap_mapsides.cpp, verified at authoring time).
+    const CHECKSUM: u64 = 15_503_518_536;
+
+    fn put_i32(b: &mut Vec<u8>, v: i32) {
+        b.extend_from_slice(&v.to_le_bytes());
+    }
+    fn put_f32(b: &mut Vec<u8>, v: f32) {
+        b.extend_from_slice(&v.to_le_bytes());
+    }
+    fn put_chunk(b: &mut Vec<u8>, id: u32, ver: u16, data: &[u8]) {
+        b.extend_from_slice(&id.to_le_bytes());
+        b.extend_from_slice(&ver.to_le_bytes());
+        b.extend_from_slice(&(data.len() as i32).to_le_bytes());
+        b.extend_from_slice(data);
+    }
+    fn toc_bytes(entries: &[(&[u8], u32)]) -> Vec<u8> {
+        let mut b = Vec::new();
+        b.extend_from_slice(b"CkMp");
+        b.extend_from_slice(&(entries.len() as i32).to_le_bytes());
+        for (name, id) in entries {
+            b.push(name.len() as u8);
+            b.extend_from_slice(name);
+            b.extend_from_slice(&id.to_le_bytes());
+        }
+        b
+    }
+
+    // the standard corpus key ids (the gen's `SidesKeys`)
+    const SK_PLAYER_NAME: u32 = 2;
+    const SK_PLAYER_IS_HUMAN: u32 = 3;
+    const SK_PLAYER_DISPLAY_NAME: u32 = 4;
+    const SK_PLAYER_FACTION: u32 = 5;
+    const SK_PLAYER_ENEMIES: u32 = 6;
+    const SK_PLAYER_ALLIES: u32 = 7;
+    const SK_TEAM_NAME: u32 = 8;
+    const SK_TEAM_OWNER: u32 = 9;
+    const SK_TEAM_IS_SINGLETON: u32 = 10;
+
+    fn pair_ascii(key_id: u32, s: &str) -> Vec<u8> {
+        let mut p = Vec::new();
+        put_i32(&mut p, ((key_id << 8) | 3) as i32);
+        p.extend_from_slice(&(s.len() as u16).to_le_bytes());
+        p.extend_from_slice(s.as_bytes());
+        p
+    }
+    fn pair_bool(key_id: u32, v: bool) -> Vec<u8> {
+        let mut p = Vec::new();
+        let kind = u32::from(rzh_formats::map_chunk::dict_type::DICT_BOOL);
+        put_i32(&mut p, ((key_id << 8) | kind) as i32);
+        p.push(u8::from(v));
+        p
+    }
+
+    /// One build entry (the gen's `build_entry`, version-3 shape).
+    #[allow(clippy::too_many_arguments)]
+    fn build_entry(
+        building: &str,
+        tpl: &str,
+        x: f32,
+        y: f32,
+        angle: f32,
+        built: bool,
+        rebuilds: i32,
+        script: &str,
+        health: i32,
+        whiner: bool,
+        unsellable: bool,
+        repairable: bool,
+    ) -> Vec<u8> {
+        let mut p = Vec::new();
+        p.extend_from_slice(&(building.len() as u16).to_le_bytes());
+        p.extend_from_slice(building.as_bytes());
+        p.extend_from_slice(&(tpl.len() as u16).to_le_bytes());
+        p.extend_from_slice(tpl.as_bytes());
+        put_f32(&mut p, x);
+        put_f32(&mut p, y);
+        put_f32(&mut p, 0.0); // z
+        put_f32(&mut p, angle);
+        p.push(u8::from(built));
+        put_i32(&mut p, rebuilds);
+        p.extend_from_slice(&(script.len() as u16).to_le_bytes());
+        p.extend_from_slice(script.as_bytes());
+        put_i32(&mut p, health);
+        p.push(u8::from(whiner));
+        p.push(u8::from(unsellable));
+        p.push(u8::from(repairable));
+        p
+    }
+
+    /// Builds the corpus: 264 SidesList chunks (the neutral, three
+    /// players with two build entries each, five teams) — keep in
+    /// lockstep with tools/differential/bench_wrap_mapsides.cpp.
+    fn build_corpus() -> Vec<u8> {
+        let mut b = toc_bytes(&[
+            (SIDES_LIST_LABEL, 1),
+            (PLAYER_NAME_KEY, SK_PLAYER_NAME),
+            (PLAYER_IS_HUMAN_KEY, SK_PLAYER_IS_HUMAN),
+            (PLAYER_DISPLAY_NAME_KEY, SK_PLAYER_DISPLAY_NAME),
+            (PLAYER_FACTION_KEY, SK_PLAYER_FACTION),
+            (PLAYER_ENEMIES_KEY, SK_PLAYER_ENEMIES),
+            (PLAYER_ALLIES_KEY, SK_PLAYER_ALLIES),
+            (TEAM_NAME_KEY, SK_TEAM_NAME),
+            (TEAM_OWNER_KEY, SK_TEAM_OWNER),
+            (TEAM_IS_SINGLETON_KEY, SK_TEAM_IS_SINGLETON),
+            (b"playerMoney", 11),
+        ]);
+        for c in 0..BENCH_CHUNKS {
+            let mut p = Vec::new();
+            put_i32(&mut p, 4);
+            {
+                // the neutral
+                let mut sp = Vec::new();
+                sp.extend_from_slice(&1u16.to_le_bytes());
+                sp.extend_from_slice(&pair_ascii(SK_PLAYER_NAME, ""));
+                put_i32(&mut sp, 0); // build count
+                p.extend_from_slice(&sp);
+            }
+            for s in 0..3usize {
+                let name = format!("Plyr{}_{}", s, c % 7);
+                let ally = format!("Plyr{}_{}", (s + 1) % 3, c % 7);
+                let faction = format!("Faction{}", s % 3);
+                let mut sp = Vec::new();
+                sp.extend_from_slice(&5u16.to_le_bytes());
+                sp.extend_from_slice(&pair_ascii(SK_PLAYER_NAME, &name));
+                sp.extend_from_slice(&pair_bool(SK_PLAYER_IS_HUMAN, s == 0));
+                sp.extend_from_slice(&pair_ascii(SK_PLAYER_FACTION, &faction));
+                sp.extend_from_slice(&pair_ascii(SK_PLAYER_ALLIES, &ally));
+                sp.extend_from_slice(&pair_ascii(SK_PLAYER_ENEMIES, &ally));
+                put_i32(&mut sp, 2); // the build count
+                for e in 0..2usize {
+                    let building = format!("Bldg{}_{}", s, e);
+                    let script = format!("Script{}", e);
+                    sp.extend_from_slice(&build_entry(
+                        &building,
+                        &faction,
+                        ((c * 4 + s * 2 + e) % 400) as f32,
+                        (e * 100 + s) as f32,
+                        e as f32 * 1.5,
+                        e & 1 == 0,
+                        (e * 3) as i32,
+                        &script,
+                        80 + (e * 5) as i32,
+                        e == 0,
+                        e != 1,
+                        e != 2,
+                    ));
+                }
+                p.extend_from_slice(&sp);
+            }
+            put_i32(&mut p, 5); // the team count
+            for s in 0..3usize {
+                let name = format!("teamPlyr{}_{}", s, c % 7);
+                let owner = format!("Plyr{}_{}", s, c % 7);
+                let mut tp = Vec::new();
+                tp.extend_from_slice(&3u16.to_le_bytes());
+                tp.extend_from_slice(&pair_ascii(SK_TEAM_NAME, &name));
+                tp.extend_from_slice(&pair_ascii(SK_TEAM_OWNER, &owner));
+                tp.extend_from_slice(&pair_bool(SK_TEAM_IS_SINGLETON, true));
+                p.extend_from_slice(&tp);
+            }
+            for &(name, owner, singleton) in
+                &[("AttackSquad", "Plyr0_0", false), ("team", "", true)]
+            {
+                let mut tp = Vec::new();
+                tp.extend_from_slice(&3u16.to_le_bytes());
+                tp.extend_from_slice(&pair_ascii(SK_TEAM_NAME, name));
+                tp.extend_from_slice(&pair_ascii(SK_TEAM_OWNER, owner));
+                tp.extend_from_slice(&pair_bool(SK_TEAM_IS_SINGLETON, singleton));
+                p.extend_from_slice(&tp);
+            }
+            put_chunk(&mut b, 1, K_SIDES_DATA_VERSION_3, &p);
+        }
+        b
+    }
+
+    /// The final-state checksum over the payload's observable fields
+    /// (the same fields the C++ baseline sums).
+    fn value_word(value: &DictValue) -> u64 {
+        match value {
+            DictValue::Bool(v) => u64::from(*v),
+            DictValue::Int(i) => *i as u32 as u64,
+            DictValue::Real(r) => r.to_bits() as u64,
+            DictValue::AsciiString(s) => s
+                .iter()
+                .fold(s.len() as u64, |acc, &c| acc.wrapping_add(c as u64)),
+            DictValue::UnicodeString(u) => u
+                .iter()
+                .fold(u.len() as u64, |acc, &w| acc.wrapping_add(w as u64)),
+        }
+    }
+
+    fn dict_checksum(dict: &Dict, keys: &NameKeys) -> u64 {
+        let mut checksum = dict.pair_count() as u64;
+        for p in 0..dict.pair_count() {
+            checksum = checksum
+                .wrapping_add(dict.nth_key(p).ordinal() as u64)
+                .wrapping_add(dict.nth_type(p) as u32 as u64)
+                .wrapping_add(value_word(dict.nth_value(p)));
+        }
+        let _ = keys;
+        checksum
+    }
+
+    fn checksum(data: &SidesListData, keys: &NameKeys) -> u64 {
+        let mut checksum =
+            (data.sides.len() + data.teams.len() + usize::from(data.modified)) as u64;
+        for side in &data.sides {
+            checksum = checksum.wrapping_add(dict_checksum(&side.dict, keys));
+            checksum = checksum.wrapping_add(side.build_list.len() as u64);
+            for b in &side.build_list {
+                checksum = checksum
+                    .wrapping_add(
+                        b.building_name
+                            .iter()
+                            .fold(b.building_name.len() as u64, |acc, &c| {
+                                acc.wrapping_add(c as u64)
+                            }),
+                    )
+                    .wrapping_add(
+                        b.template_name
+                            .iter()
+                            .fold(b.template_name.len() as u64, |acc, &c| {
+                                acc.wrapping_add(c as u64)
+                            }),
+                    )
+                    .wrapping_add(b.location.x.to_bits() as u64)
+                    .wrapping_add(b.location.y.to_bits() as u64)
+                    .wrapping_add(b.location.z.to_bits() as u64)
+                    .wrapping_add(b.angle.to_bits() as u64)
+                    .wrapping_add(u64::from(b.initially_built))
+                    .wrapping_add(b.num_rebuilds as i32 as u32 as u64)
+                    .wrapping_add(b.health as u32 as u64)
+                    .wrapping_add(u64::from(b.whiner))
+                    .wrapping_add(u64::from(b.unsellable) * 2)
+                    .wrapping_add(u64::from(b.repairable) * 4)
+                    .wrapping_add(
+                        b.script
+                            .iter()
+                            .fold(b.script.len() as u64, |acc, &c| acc.wrapping_add(c as u64)),
+                    );
+            }
+        }
+        for team in &data.teams {
+            checksum = checksum.wrapping_add(dict_checksum(team, keys));
+        }
+        checksum
+    }
+
+    /// The sides load: the logical walk over the repeated-chunk corpus
+    /// (every chunk parses and validates; the last one wins).
+    pub fn bench_parse(c: &mut Criterion) {
+        let bytes = build_corpus();
+        let data = SidesListData::from_map(&bytes)
+            .expect("loads")
+            .expect("fired");
+        // the well-known keys seeded the walk's way, for the checksum's
+        // name-key ordinals
+        let mut keys = NameKeys::new();
+        for key in [
+            TEAM_NAME_KEY,
+            TEAM_OWNER_KEY,
+            TEAM_IS_SINGLETON_KEY,
+            PLAYER_NAME_KEY,
+            PLAYER_IS_HUMAN_KEY,
+            PLAYER_DISPLAY_NAME_KEY,
+            PLAYER_FACTION_KEY,
+            PLAYER_ENEMIES_KEY,
+            PLAYER_ALLIES_KEY,
+        ] {
+            keys.name_to_key(key);
+        }
+        let got = checksum(&data, &keys);
+        assert_eq!(
+            got, CHECKSUM,
+            "the sides corpus drifted from the C++ baseline"
+        );
+        let mut group = c.benchmark_group("mapsides");
+        group.throughput(Throughput::Bytes(bytes.len() as u64));
+        group.bench_function("parse_x190k", |b| {
+            b.iter(|| {
+                let data = SidesListData::from_map(black_box(&bytes))
+                    .expect("loads")
+                    .expect("fired");
+                black_box(checksum(&data, &keys))
             })
         });
         group.finish();

@@ -153,9 +153,14 @@ EAC_DIR="$REPO_ROOT/Core/Libraries/Source/Compression/EAC"
 "$CXX" -O2 -std=c++17 -Wall -Wextra -Werror -ffp-contract=off \
     -Wno-stringop-overflow -Wno-array-bounds -Wno-restrict \
     -c -o "$BUILD_DIR/bench_wrap_mapworldinfo.o" "$SCRIPT_DIR/bench_wrap_mapworldinfo.cpp"
+# the same three suppressions as the other map wrappers (the sides
+# walk inlines the transcription's TOC reads the same way).
 "$CXX" -O2 -std=c++17 -Wall -Wextra -Werror -ffp-contract=off \
     -Wno-stringop-overflow -Wno-array-bounds -Wno-restrict \
     -c -o "$BUILD_DIR/bench_wrap_mappolygons.o" "$SCRIPT_DIR/bench_wrap_mappolygons.cpp"
+"$CXX" -O2 -std=c++17 -Wall -Wextra -Werror -ffp-contract=off \
+    -Wno-stringop-overflow -Wno-array-bounds -Wno-restrict \
+    -c -o "$BUILD_DIR/bench_wrap_mapsides.o" "$SCRIPT_DIR/bench_wrap_mapsides.cpp"
 "$CXX" -O2 -std=c++17 -Wall -Wextra -Werror -ffp-contract=off \
     -c -o "$BUILD_DIR/bench_baseline.o" "$SCRIPT_DIR/bench_baseline.cpp"
 
@@ -180,6 +185,7 @@ EAC_DIR="$REPO_ROOT/Core/Libraries/Source/Compression/EAC"
     "$BUILD_DIR/bench_wrap_mapobjects.o" \
     "$BUILD_DIR/bench_wrap_mapworldinfo.o" \
     "$BUILD_DIR/bench_wrap_mappolygons.o" \
+    "$BUILD_DIR/bench_wrap_mapsides.o" \
     "$BUILD_DIR/refdecode.o" \
     "$BUILD_DIR/refencode.o" \
     "$BUILD_DIR"/*.c.o -lm

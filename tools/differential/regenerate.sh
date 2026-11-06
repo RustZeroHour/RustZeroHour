@@ -387,6 +387,21 @@ echo "compiling gen_mappolygons_golden.cpp ..."
 "$BUILD_DIR/gen_mappolygons_golden" "$REPO_ROOT/crates/rzh-formats/tests/golden/mappolygons.txt"
 echo "wrote crates/rzh-formats/tests/golden/mappolygons.txt"
 
+# --- map sides-list payload golden dump: the SidesList.cpp
+# ParseSidesDataChunk + validateSides transcription (the bounded side
+# loop with its build lists, the team list, the scripts-slice boundary
+# and the whole validation family — the neutral ensure, the default
+# teams, the allies/enemies cleanup, the collision removal, the owner
+# reparent) over the version/validation/collision/bound/garbage/
+# negative/multi/corrupt/short/scripts/leftover/scope/error/walk
+# corpora.
+echo "compiling gen_mapsides_golden.cpp ..."
+"$CXX" -O2 -std=c++17 -Wall -Wextra -Werror -ffp-contract=off \
+    -c -o "$BUILD_DIR/gen_mapsides_golden.o" "$SCRIPT_DIR/gen_mapsides_golden.cpp"
+"$CXX" -o "$BUILD_DIR/gen_mapsides_golden" "$BUILD_DIR/gen_mapsides_golden.o"
+"$BUILD_DIR/gen_mapsides_golden" "$REPO_ROOT/crates/rzh-formats/tests/golden/mapsides.txt"
+echo "wrote crates/rzh-formats/tests/golden/mapsides.txt"
+
 echo "compiling gen_dds_golden.cpp ..."
 "$CXX" -O2 -std=c++17 -Wall -Wextra -Werror -ffp-contract=off \
     -c -o "$BUILD_DIR/gen_dds_golden.o" "$SCRIPT_DIR/gen_dds_golden.cpp"

@@ -144,6 +144,8 @@ long bench_mapworldinfo_materialize(uint8_t *out, size_t cap);
 std::uint64_t bench_mapworldinfo_parse(const uint8_t *data, size_t len);
 long bench_mappolygons_materialize(uint8_t *out, size_t cap);
 std::uint64_t bench_mappolygons_parse(const uint8_t *data, size_t len);
+long bench_mapsides_materialize(uint8_t *out, size_t cap);
+std::uint64_t bench_mapsides_parse(const uint8_t *data, size_t len);
 unsigned bench_dds_parse(const uint8_t *data, size_t len);
 long bench_dds_convert_materialize(uint8_t *out, size_t cap);
 unsigned bench_dds_convert(const uint8_t *data, size_t len, uint8_t *dest, size_t dest_cap);
@@ -810,6 +812,22 @@ int main(int argc, char **argv)
 
                 report("mappolygons/parse_x190k", measure_ns([] {}, [&] {
                         return bench_mappolygons_parse(bytes.data(), bytes.size());
+                }), (double)total);
+        }
+
+        // --- map sides-list payload ---------------------------------------------------
+        {
+                std::vector<uint8_t> scratch(4 * 1024 * 1024);
+                long total = bench_mapsides_materialize(scratch.data(), scratch.size());
+                if (total <= 0)
+                {
+                        fprintf(stderr, "error: mapsides corpus write failed\n");
+                        exit(1);
+                }
+                std::vector<uint8_t> bytes(scratch.begin(), scratch.begin() + total);
+
+                report("mapsides/parse_x190k", measure_ns([] {}, [&] {
+                        return bench_mapsides_parse(bytes.data(), bytes.size());
                 }), (double)total);
         }
 

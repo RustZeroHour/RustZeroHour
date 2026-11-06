@@ -1,0 +1,821 @@
+# gen_mapsides_golden.cpp — SidesList.cpp ParseSidesDataChunk transcription (baseline 571a7c5).
+# Golden script for rzh-formats::map_sideslist; see tools/differential/README.md.
+# Grammar: file/valid/walk/serr/snone/sn/sside/spair/sbuild/steamn/stpair/smod/skey/sstate.
+file sd_v3 436b4d700b0000000953696465734c697374010000000a706c617965724e616d65020000000d706c61796572497348756d616e0300000011706c61796572446973706c61794e616d65040000000d706c6179657246616374696f6e050000000d706c61796572456e656d696573060000000c706c61796572416c6c69657307000000087465616d4e616d6508000000097465616d4f776e6572090000000f7465616d497353696e676c65746f6e0a0000000b706c617965724d6f6e65790b000000010000000300c4010000030000000100030200000000000000000800030200000500506c7972310003000001030500000e0046616374696f6e416d6572696361030700000500506c797232030600000500506c797232010b000088130000020b00000000c03f04040000020050003100020000000500426c6467411100416d6572696361506f776572506c616e740000c842000048430000fa430000003f01030000000c004275696c6453637269707441500000000100010500426c6467420f00416d65726963614261727261636b73000096430000c8430000fa430000c0bf00000000000000640000000001000500030200000500506c7972320003000000030500000a0046616374696f6e474c41030700000500506c797231030600000500506c797231010000000500426c6467430d00474c41506f776572506c616e740000c8c2000048c300c079440000404001ffffffff070053637269707443640000000100010300000003000308000009007465616d506c797231030900000500506c797231000a00000103000308000009007465616d506c797232030900000500506c797232000a0000010300030800000b0041747461636b5371756164030900000500506c797232000a000000
+valid sd_v3 t
+walk sd_v3 t
+sn sd_v3 3 4
+sside sd_v3 0 1 0
+spair sd_v3 0 playerName a -
+sside sd_v3 1 7 2
+spair sd_v3 1 playerName a Plyr1
+spair sd_v3 1 playerIsHuman b t
+spair sd_v3 1 playerDisplayName u 00500031
+spair sd_v3 1 playerFaction a FactionAmerica
+spair sd_v3 1 playerEnemies a Plyr2
+spair sd_v3 1 playerAllies a Plyr2
+spair sd_v3 1 playerMoney r 3fc00000
+sbuild sd_v3 1 0 BldgA AmericaPowerPlant 42c80000 43480000 00000000 3f000000 t 3 BuildScriptA 80 t f t
+sbuild sd_v3 1 1 BldgB AmericaBarracks 43960000 43c80000 00000000 bfc00000 f 0 - 100 f t f
+sside sd_v3 2 5 1
+spair sd_v3 2 playerName a Plyr2
+spair sd_v3 2 playerIsHuman b f
+spair sd_v3 2 playerFaction a FactionGLA
+spair sd_v3 2 playerEnemies a Plyr1
+spair sd_v3 2 playerAllies a Plyr1
+sbuild sd_v3 2 0 BldgC GLAPowerPlant c2c80000 c3480000 00000000 40400000 t -1 ScriptC 100 t f t
+steamn sd_v3 0 3
+stpair sd_v3 0 teamName a teamPlyr1
+stpair sd_v3 0 teamOwner a Plyr1
+stpair sd_v3 0 teamIsSingleton b t
+steamn sd_v3 1 3
+stpair sd_v3 1 teamName a teamPlyr2
+stpair sd_v3 1 teamOwner a Plyr2
+stpair sd_v3 1 teamIsSingleton b t
+steamn sd_v3 2 3
+stpair sd_v3 2 teamName a AttackSquad
+stpair sd_v3 2 teamOwner a Plyr2
+stpair sd_v3 2 teamIsSingleton b f
+steamn sd_v3 3 3
+stpair sd_v3 3 teamName a team
+stpair sd_v3 3 teamOwner a -
+stpair sd_v3 3 teamIsSingleton b t
+smod sd_v3 t
+skey sd_v3 1 teamName
+skey sd_v3 2 teamOwner
+skey sd_v3 3 teamIsSingleton
+skey sd_v3 4 playerName
+skey sd_v3 5 playerIsHuman
+skey sd_v3 6 playerDisplayName
+skey sd_v3 7 playerFaction
+skey sd_v3 8 playerEnemies
+skey sd_v3 9 playerAllies
+skey sd_v3 10 playerMoney
+sstate sd_v3 655 0 t
+file sd_v2 436b4d700b0000000953696465734c697374010000000a706c617965724e616d65020000000d706c61796572497348756d616e0300000011706c61796572446973706c61794e616d65040000000d706c6179657246616374696f6e050000000d706c61796572456e656d696573060000000c706c61796572416c6c69657307000000087465616d4e616d6508000000097465616d4f776e6572090000000f7465616d497353696e676c65746f6e0a0000000b706c617965724d6f6e65790b0000000100000002008c000000010000000500030200000400536f6c6f0003000001030500000c0046616374696f6e4368696e610307000000000306000000000100000007004e75636c65617212004368696e614e75636c65617243656e746572000020410000a04100009a420000a03f01020000000100000003000308000008007465616d536f6c6f030900000400536f6c6f000a000001
+valid sd_v2 t
+walk sd_v2 t
+sn sd_v2 2 2
+sside sd_v2 0 5 1
+spair sd_v2 0 playerName a Solo
+spair sd_v2 0 playerIsHuman b t
+spair sd_v2 0 playerFaction a FactionChina
+spair sd_v2 0 playerEnemies a -
+spair sd_v2 0 playerAllies a -
+sbuild sd_v2 0 0 Nuclear ChinaNuclearCenter 41200000 41a00000 00000000 3fa00000 t 2 - 100 t f t
+sside sd_v2 1 6 0
+spair sd_v2 1 playerName a -
+spair sd_v2 1 playerIsHuman b f
+spair sd_v2 1 playerDisplayName u 004e00650075007400720061006c
+spair sd_v2 1 playerFaction a -
+spair sd_v2 1 playerEnemies a -
+spair sd_v2 1 playerAllies a -
+steamn sd_v2 0 3
+stpair sd_v2 0 teamName a teamSolo
+stpair sd_v2 0 teamOwner a Solo
+stpair sd_v2 0 teamIsSingleton b t
+steamn sd_v2 1 3
+stpair sd_v2 1 teamName a team
+stpair sd_v2 1 teamOwner a -
+stpair sd_v2 1 teamIsSingleton b t
+smod sd_v2 t
+skey sd_v2 1 teamName
+skey sd_v2 2 teamOwner
+skey sd_v2 3 teamIsSingleton
+skey sd_v2 4 playerName
+skey sd_v2 5 playerIsHuman
+skey sd_v2 6 playerDisplayName
+skey sd_v2 7 playerFaction
+skey sd_v2 8 playerEnemies
+skey sd_v2 9 playerAllies
+sstate sd_v2 343 0 t
+file sd_v1 436b4d700b0000000953696465734c697374010000000a706c617965724e616d65020000000d706c61796572497348756d616e0300000011706c61796572446973706c61794e616d65040000000d706c6179657246616374696f6e050000000d706c61796572456e656d696573060000000c706c61796572416c6c69657307000000087465616d4e616d6508000000097465616d4f776e6572090000000f7465616d497353696e676c65746f6e0a0000000b706c617965724d6f6e65790b000000010000000100340000000100000005000302000003004f6c640003000001030500000a0046616374696f6e4f6c6403070000000003060000000000000000
+valid sd_v1 t
+walk sd_v1 t
+sn sd_v1 2 2
+sside sd_v1 0 5 0
+spair sd_v1 0 playerName a Old
+spair sd_v1 0 playerIsHuman b t
+spair sd_v1 0 playerFaction a FactionOld
+spair sd_v1 0 playerEnemies a -
+spair sd_v1 0 playerAllies a -
+sside sd_v1 1 6 0
+spair sd_v1 1 playerName a -
+spair sd_v1 1 playerIsHuman b f
+spair sd_v1 1 playerDisplayName u 004e00650075007400720061006c
+spair sd_v1 1 playerFaction a -
+spair sd_v1 1 playerEnemies a -
+spair sd_v1 1 playerAllies a -
+steamn sd_v1 0 3
+stpair sd_v1 0 teamName a team
+stpair sd_v1 0 teamOwner a -
+stpair sd_v1 0 teamIsSingleton b t
+steamn sd_v1 1 3
+stpair sd_v1 1 teamName a teamOld
+stpair sd_v1 1 teamOwner a Old
+stpair sd_v1 1 teamIsSingleton b t
+smod sd_v1 t
+skey sd_v1 1 teamName
+skey sd_v1 2 teamOwner
+skey sd_v1 3 teamIsSingleton
+skey sd_v1 4 playerName
+skey sd_v1 5 playerIsHuman
+skey sd_v1 6 playerDisplayName
+skey sd_v1 7 playerFaction
+skey sd_v1 8 playerEnemies
+skey sd_v1 9 playerAllies
+sstate sd_v1 255 0 t
+file sd_v0 436b4d700b0000000953696465734c697374010000000a706c617965724e616d65020000000d706c61796572497348756d616e0300000011706c61796572446973706c61794e616d65040000000d706c6179657246616374696f6e050000000d706c61796572456e656d696573060000000c706c61796572416c6c69657307000000087465616d4e616d6508000000097465616d4f776e6572090000000f7465616d497353696e676c65746f6e0a0000000b706c617965724d6f6e65790b000000010000000000320000000100000005000302000002005630000300000103050000090046616374696f6e563003070000000003060000000000000000
+valid sd_v0 t
+walk sd_v0 t
+sn sd_v0 2 2
+sside sd_v0 0 5 0
+spair sd_v0 0 playerName a V0
+spair sd_v0 0 playerIsHuman b t
+spair sd_v0 0 playerFaction a FactionV0
+spair sd_v0 0 playerEnemies a -
+spair sd_v0 0 playerAllies a -
+sside sd_v0 1 6 0
+spair sd_v0 1 playerName a -
+spair sd_v0 1 playerIsHuman b f
+spair sd_v0 1 playerDisplayName u 004e00650075007400720061006c
+spair sd_v0 1 playerFaction a -
+spair sd_v0 1 playerEnemies a -
+spair sd_v0 1 playerAllies a -
+steamn sd_v0 0 3
+stpair sd_v0 0 teamName a team
+stpair sd_v0 0 teamOwner a -
+stpair sd_v0 0 teamIsSingleton b t
+steamn sd_v0 1 3
+stpair sd_v0 1 teamName a teamV0
+stpair sd_v0 1 teamOwner a V0
+stpair sd_v0 1 teamIsSingleton b t
+smod sd_v0 t
+skey sd_v0 1 teamName
+skey sd_v0 2 teamOwner
+skey sd_v0 3 teamIsSingleton
+skey sd_v0 4 playerName
+skey sd_v0 5 playerIsHuman
+skey sd_v0 6 playerDisplayName
+skey sd_v0 7 playerFaction
+skey sd_v0 8 playerEnemies
+skey sd_v0 9 playerAllies
+sstate sd_v0 253 0 t
+file sd_v4 436b4d700b0000000953696465734c697374010000000a706c617965724e616d65020000000d706c61796572497348756d616e0300000011706c61796572446973706c61794e616d65040000000d706c6179657246616374696f6e050000000d706c61796572456e656d696573060000000c706c61796572416c6c69657307000000087465616d4e616d6508000000097465616d4f776e6572090000000f7465616d497353696e676c65746f6e0a0000000b706c617965724d6f6e65790b00000001000000040069000000010000000500030200000600467574757265000300000103050000080046616374696f6e5803070000000003060000000001000000020046620a00467574757265426c64670000803f0000004000004040000080400105000000020046730600000001010100000000
+valid sd_v4 t
+walk sd_v4 t
+sn sd_v4 2 2
+sside sd_v4 0 5 1
+spair sd_v4 0 playerName a Future
+spair sd_v4 0 playerIsHuman b t
+spair sd_v4 0 playerFaction a FactionX
+spair sd_v4 0 playerEnemies a -
+spair sd_v4 0 playerAllies a -
+sbuild sd_v4 0 0 Fb FutureBldg 3f800000 40000000 00000000 40800000 t 5 Fs 6 t t t
+sside sd_v4 1 6 0
+spair sd_v4 1 playerName a -
+spair sd_v4 1 playerIsHuman b f
+spair sd_v4 1 playerDisplayName u 004e00650075007400720061006c
+spair sd_v4 1 playerFaction a -
+spair sd_v4 1 playerEnemies a -
+spair sd_v4 1 playerAllies a -
+steamn sd_v4 0 3
+stpair sd_v4 0 teamName a team
+stpair sd_v4 0 teamOwner a -
+stpair sd_v4 0 teamIsSingleton b t
+steamn sd_v4 1 3
+stpair sd_v4 1 teamName a teamFuture
+stpair sd_v4 1 teamOwner a Future
+stpair sd_v4 1 teamIsSingleton b t
+smod sd_v4 t
+skey sd_v4 1 teamName
+skey sd_v4 2 teamOwner
+skey sd_v4 3 teamIsSingleton
+skey sd_v4 4 playerName
+skey sd_v4 5 playerIsHuman
+skey sd_v4 6 playerDisplayName
+skey sd_v4 7 playerFaction
+skey sd_v4 8 playerEnemies
+skey sd_v4 9 playerAllies
+sstate sd_v4 308 0 t
+file sd_neutral_added 436b4d700b0000000953696465734c697374010000000a706c617965724e616d65020000000d706c61796572497348756d616e0300000011706c61796572446973706c61794e616d65040000000d706c6179657246616374696f6e050000000d706c61796572456e656d696573060000000c706c61796572416c6c69657307000000087465616d4e616d6508000000097465616d4f776e6572090000000f7465616d497353696e676c65746f6e0a0000000b706c617965724d6f6e65790b000000010000000300650000000100000005000302000007004f6e6c794f6e650003000001030500000e0046616374696f6e416d657269636103070000000003060000000000000000010000000300030800000b007465616d4f6e6c794f6e650309000007004f6e6c794f6e65000a000001
+valid sd_neutral_added t
+walk sd_neutral_added t
+sn sd_neutral_added 2 2
+sside sd_neutral_added 0 5 0
+spair sd_neutral_added 0 playerName a OnlyOne
+spair sd_neutral_added 0 playerIsHuman b t
+spair sd_neutral_added 0 playerFaction a FactionAmerica
+spair sd_neutral_added 0 playerEnemies a -
+spair sd_neutral_added 0 playerAllies a -
+sside sd_neutral_added 1 6 0
+spair sd_neutral_added 1 playerName a -
+spair sd_neutral_added 1 playerIsHuman b f
+spair sd_neutral_added 1 playerDisplayName u 004e00650075007400720061006c
+spair sd_neutral_added 1 playerFaction a -
+spair sd_neutral_added 1 playerEnemies a -
+spair sd_neutral_added 1 playerAllies a -
+steamn sd_neutral_added 0 3
+stpair sd_neutral_added 0 teamName a teamOnlyOne
+stpair sd_neutral_added 0 teamOwner a OnlyOne
+stpair sd_neutral_added 0 teamIsSingleton b t
+steamn sd_neutral_added 1 3
+stpair sd_neutral_added 1 teamName a team
+stpair sd_neutral_added 1 teamOwner a -
+stpair sd_neutral_added 1 teamIsSingleton b t
+smod sd_neutral_added t
+skey sd_neutral_added 1 teamName
+skey sd_neutral_added 2 teamOwner
+skey sd_neutral_added 3 teamIsSingleton
+skey sd_neutral_added 4 playerName
+skey sd_neutral_added 5 playerIsHuman
+skey sd_neutral_added 6 playerDisplayName
+skey sd_neutral_added 7 playerFaction
+skey sd_neutral_added 8 playerEnemies
+skey sd_neutral_added 9 playerAllies
+sstate sd_neutral_added 304 0 t
+file sd_default_team 436b4d700b0000000953696465734c697374010000000a706c617965724e616d65020000000d706c61796572497348756d616e0300000011706c61796572446973706c61794e616d65040000000d706c6179657246616374696f6e050000000d706c61796572456e656d696573060000000c706c61796572416c6c69657307000000087465616d4e616d6508000000097465616d4f776e6572090000000f7465616d497353696e676c65746f6e0a0000000b706c617965724d6f6e65790b000000010000000300a30000000200000001000302000000000000000005000302000006004f727068616e0003000000030500000a0046616374696f6e474c410307000000000306000000000000000005000302000008005465616d6c6573730003000001030500000c0046616374696f6e4368696e6103070000000003060000000000000000010000000300030800000a007465616d4f727068616e0309000008005465616d6c657373000a000000
+valid sd_default_team t
+walk sd_default_team f
+serr sd_default_team dict 84
+skey sd_default_team 1 teamName
+skey sd_default_team 2 teamOwner
+skey sd_default_team 3 teamIsSingleton
+skey sd_default_team 4 playerName
+skey sd_default_team 5 playerIsHuman
+skey sd_default_team 6 playerDisplayName
+skey sd_default_team 7 playerFaction
+skey sd_default_team 8 playerEnemies
+skey sd_default_team 9 playerAllies
+skey sd_default_team 10 -
+sstate sd_default_team 282 1 f
+file sd_allies 436b4d700b0000000953696465734c697374010000000a706c617965724e616d65020000000d706c61796572497348756d616e0300000011706c61796572446973706c61794e616d65040000000d706c6179657246616374696f6e050000000d706c61796572456e656d696573060000000c706c61796572416c6c69657307000000087465616d4e616d6508000000097465616d4f776e6572090000000f7465616d497353696e676c65746f6e0a0000000b706c617965724d6f6e65790b000000010000000300cb000000030000000100030200000000000000000400030200000500416c70686100030000010307000014002020416c7068610942657461204e6f626f647909030600000500416c706861000000000500030200000400426574610003000000030500000b0046616374696f6e42657461030700000500416c706861030600000500416c706861000000000200000003000308000009007465616d416c706861030900000500416c706861000a00000103000308000008007465616d4265746103090000040042657461000a000001
+valid sd_allies t
+walk sd_allies t
+sn sd_allies 3 3
+sside sd_allies 0 1 0
+spair sd_allies 0 playerName a -
+sside sd_allies 1 4 0
+spair sd_allies 1 playerName a Alpha
+spair sd_allies 1 playerIsHuman b t
+spair sd_allies 1 playerEnemies a -
+spair sd_allies 1 playerAllies a Beta
+sside sd_allies 2 5 0
+spair sd_allies 2 playerName a Beta
+spair sd_allies 2 playerIsHuman b f
+spair sd_allies 2 playerFaction a FactionBeta
+spair sd_allies 2 playerEnemies a Alpha
+spair sd_allies 2 playerAllies a Alpha
+steamn sd_allies 0 3
+stpair sd_allies 0 teamName a teamAlpha
+stpair sd_allies 0 teamOwner a Alpha
+stpair sd_allies 0 teamIsSingleton b t
+steamn sd_allies 1 3
+stpair sd_allies 1 teamName a teamBeta
+stpair sd_allies 1 teamOwner a Beta
+stpair sd_allies 1 teamIsSingleton b t
+steamn sd_allies 2 3
+stpair sd_allies 2 teamName a team
+stpair sd_allies 2 teamOwner a -
+stpair sd_allies 2 teamIsSingleton b t
+smod sd_allies t
+skey sd_allies 1 teamName
+skey sd_allies 2 teamOwner
+skey sd_allies 3 teamIsSingleton
+skey sd_allies 4 playerName
+skey sd_allies 5 playerIsHuman
+skey sd_allies 6 playerDisplayName
+skey sd_allies 7 playerFaction
+skey sd_allies 8 playerEnemies
+skey sd_allies 9 playerAllies
+sstate sd_allies 406 0 t
+file sd_collision 436b4d700b0000000953696465734c697374010000000a706c617965724e616d65020000000d706c61796572497348756d616e0300000011706c61796572446973706c61794e616d65040000000d706c6179657246616374696f6e050000000d706c61796572456e656d696573060000000c706c61796572416c6c69657307000000087465616d4e616d6508000000097465616d4f776e6572090000000f7465616d497353696e676c65746f6e0a0000000b706c617965724d6f6e65790b00000001000000030099000000020000000100030200000000000000000500030200000500436c617368000300000103050000080046616374696f6e58030700000000030600000000000000000300000003000308000009007465616d436c617368030900000500436c617368000a0000010300030800000500436c617368030900000500436c617368000a00000003000308000004007465616d030900000000000a000001
+valid sd_collision t
+walk sd_collision t
+sn sd_collision 2 2
+sside sd_collision 0 1 0
+spair sd_collision 0 playerName a -
+sside sd_collision 1 5 0
+spair sd_collision 1 playerName a Clash
+spair sd_collision 1 playerIsHuman b t
+spair sd_collision 1 playerFaction a FactionX
+spair sd_collision 1 playerEnemies a -
+spair sd_collision 1 playerAllies a -
+steamn sd_collision 0 3
+stpair sd_collision 0 teamName a teamClash
+stpair sd_collision 0 teamOwner a Clash
+stpair sd_collision 0 teamIsSingleton b t
+steamn sd_collision 1 3
+stpair sd_collision 1 teamName a team
+stpair sd_collision 1 teamOwner a -
+stpair sd_collision 1 teamIsSingleton b t
+smod sd_collision t
+skey sd_collision 1 teamName
+skey sd_collision 2 teamOwner
+skey sd_collision 3 teamIsSingleton
+skey sd_collision 4 playerName
+skey sd_collision 5 playerIsHuman
+skey sd_collision 6 playerDisplayName
+skey sd_collision 7 playerFaction
+skey sd_collision 8 playerEnemies
+skey sd_collision 9 playerAllies
+sstate sd_collision 356 0 t
+file sd_solo_collision 436b4d700b0000000953696465734c697374010000000a706c617965724e616d65020000000d706c61796572497348756d616e0300000011706c61796572446973706c61794e616d65040000000d706c6179657246616374696f6e050000000d706c61796572456e656d696573060000000c706c61796572416c6c69657307000000087465616d4e616d6508000000097465616d4f776e6572090000000f7465616d497353696e676c65746f6e0a0000000b706c617965724d6f6e65790b0000000100000003005e000000020000000100030200000000000000000500030200000400536f6c6f000300000103050000080046616374696f6e5803070000000003060000000000000000010000000300030800000400536f6c6f030900000400536f6c6f000a000001
+valid sd_solo_collision t
+walk sd_solo_collision t
+sn sd_solo_collision 2 2
+sside sd_solo_collision 0 1 0
+spair sd_solo_collision 0 playerName a -
+sside sd_solo_collision 1 5 0
+spair sd_solo_collision 1 playerName a Solo
+spair sd_solo_collision 1 playerIsHuman b t
+spair sd_solo_collision 1 playerFaction a FactionX
+spair sd_solo_collision 1 playerEnemies a -
+spair sd_solo_collision 1 playerAllies a -
+steamn sd_solo_collision 0 3
+stpair sd_solo_collision 0 teamName a team
+stpair sd_solo_collision 0 teamOwner a -
+stpair sd_solo_collision 0 teamIsSingleton b t
+steamn sd_solo_collision 1 3
+stpair sd_solo_collision 1 teamName a teamSolo
+stpair sd_solo_collision 1 teamOwner a Solo
+stpair sd_solo_collision 1 teamIsSingleton b t
+smod sd_solo_collision t
+skey sd_solo_collision 1 teamName
+skey sd_solo_collision 2 teamOwner
+skey sd_solo_collision 3 teamIsSingleton
+skey sd_solo_collision 4 playerName
+skey sd_solo_collision 5 playerIsHuman
+skey sd_solo_collision 6 playerDisplayName
+skey sd_solo_collision 7 playerFaction
+skey sd_solo_collision 8 playerEnemies
+skey sd_solo_collision 9 playerAllies
+sstate sd_solo_collision 297 0 t
+file sd_reparent 436b4d700b0000000953696465734c697374010000000a706c617965724e616d65020000000d706c61796572497348756d616e0300000011706c61796572446973706c61794e616d65040000000d706c6179657246616374696f6e050000000d706c61796572456e656d696573060000000c706c61796572416c6c69657307000000087465616d4e616d6508000000097465616d4f776e6572090000000f7465616d497353696e676c65746f6e0a0000000b706c617965724d6f6e65790b000000010000000300c80000000200000001000302000000000000000005000302000005004f776e6572000300000003050000080046616374696f6e58030700000000030600000000000000000400000003000308000009007465616d4f776e65720309000005004f776e6572000a0000010300030800000a004f727068616e5465616d03090000050047686f7374000a000001030003080000080053656c665465616d03090000080053656c665465616d000a0000010300030800000b004e65757472616c5465616d030900000000000a000001
+valid sd_reparent t
+walk sd_reparent t
+sn sd_reparent 2 5
+sside sd_reparent 0 1 0
+spair sd_reparent 0 playerName a -
+sside sd_reparent 1 5 0
+spair sd_reparent 1 playerName a Owner
+spair sd_reparent 1 playerIsHuman b f
+spair sd_reparent 1 playerFaction a FactionX
+spair sd_reparent 1 playerEnemies a -
+spair sd_reparent 1 playerAllies a -
+steamn sd_reparent 0 3
+stpair sd_reparent 0 teamName a teamOwner
+stpair sd_reparent 0 teamOwner a Owner
+stpair sd_reparent 0 teamIsSingleton b t
+steamn sd_reparent 1 3
+stpair sd_reparent 1 teamName a OrphanTeam
+stpair sd_reparent 1 teamOwner a -
+stpair sd_reparent 1 teamIsSingleton b t
+steamn sd_reparent 2 3
+stpair sd_reparent 2 teamName a SelfTeam
+stpair sd_reparent 2 teamOwner a -
+stpair sd_reparent 2 teamIsSingleton b t
+steamn sd_reparent 3 3
+stpair sd_reparent 3 teamName a NeutralTeam
+stpair sd_reparent 3 teamOwner a -
+stpair sd_reparent 3 teamIsSingleton b t
+steamn sd_reparent 4 3
+stpair sd_reparent 4 teamName a team
+stpair sd_reparent 4 teamOwner a -
+stpair sd_reparent 4 teamIsSingleton b t
+smod sd_reparent t
+skey sd_reparent 1 teamName
+skey sd_reparent 2 teamOwner
+skey sd_reparent 3 teamIsSingleton
+skey sd_reparent 4 playerName
+skey sd_reparent 5 playerIsHuman
+skey sd_reparent 6 playerDisplayName
+skey sd_reparent 7 playerFaction
+skey sd_reparent 8 playerEnemies
+skey sd_reparent 9 playerAllies
+sstate sd_reparent 403 0 t
+file sd_maxplayers 436b4d700b0000000953696465734c697374010000000a706c617965724e616d65020000000d706c61796572497348756d616e0300000011706c61796572446973706c61794e616d65040000000d706c6179657246616374696f6e050000000d706c61796572456e656d696573060000000c706c61796572416c6c69657307000000087465616d4e616d6508000000097465616d4f776e6572090000000f7465616d497353696e676c65746f6e0a0000000b706c617965724d6f6e65790b0000000100000003007f030000120000000500030200000600536964653030000300000003050000080046616374696f6e58030700000000030600000000000000000500030200000600536964653031000300000003050000080046616374696f6e58030700000000030600000000000000000500030200000600536964653032000300000003050000080046616374696f6e58030700000000030600000000000000000500030200000600536964653033000300000003050000080046616374696f6e58030700000000030600000000000000000500030200000600536964653034000300000003050000080046616374696f6e58030700000000030600000000000000000500030200000600536964653035000300000003050000080046616374696f6e58030700000000030600000000000000000500030200000600536964653036000300000003050000080046616374696f6e58030700000000030600000000000000000500030200000600536964653037000300000003050000080046616374696f6e58030700000000030600000000000000000500030200000600536964653038000300000003050000080046616374696f6e58030700000000030600000000000000000500030200000600536964653039000300000003050000080046616374696f6e58030700000000030600000000000000000500030200000600536964653130000300000003050000080046616374696f6e58030700000000030600000000000000000500030200000600536964653131000300000003050000080046616374696f6e58030700000000030600000000000000000500030200000600536964653132000300000003050000080046616374696f6e58030700000000030600000000000000000500030200000600536964653133000300000003050000080046616374696f6e58030700000000030600000000000000000500030200000600536964653134000300000003050000080046616374696f6e58030700000000030600000000000000000500030200000600536964653135000300000003050000080046616374696f6e580307000000000306000000000000000001000000000001010000000900536576656e7465656e0400426c64670000803f00000040000040400000000001000000000000640000000100010500030200000600536964653137000300000003050000080046616374696f6e5803070000000003060000000000000000
+valid sd_maxplayers t
+walk sd_maxplayers t
+sn sd_maxplayers 16 18
+sside sd_maxplayers 0 5 0
+spair sd_maxplayers 0 playerName a Side00
+spair sd_maxplayers 0 playerIsHuman b f
+spair sd_maxplayers 0 playerFaction a FactionX
+spair sd_maxplayers 0 playerEnemies a -
+spair sd_maxplayers 0 playerAllies a -
+sside sd_maxplayers 1 5 0
+spair sd_maxplayers 1 playerName a Side01
+spair sd_maxplayers 1 playerIsHuman b f
+spair sd_maxplayers 1 playerFaction a FactionX
+spair sd_maxplayers 1 playerEnemies a -
+spair sd_maxplayers 1 playerAllies a -
+sside sd_maxplayers 2 5 0
+spair sd_maxplayers 2 playerName a Side02
+spair sd_maxplayers 2 playerIsHuman b f
+spair sd_maxplayers 2 playerFaction a FactionX
+spair sd_maxplayers 2 playerEnemies a -
+spair sd_maxplayers 2 playerAllies a -
+sside sd_maxplayers 3 5 0
+spair sd_maxplayers 3 playerName a Side03
+spair sd_maxplayers 3 playerIsHuman b f
+spair sd_maxplayers 3 playerFaction a FactionX
+spair sd_maxplayers 3 playerEnemies a -
+spair sd_maxplayers 3 playerAllies a -
+sside sd_maxplayers 4 5 0
+spair sd_maxplayers 4 playerName a Side04
+spair sd_maxplayers 4 playerIsHuman b f
+spair sd_maxplayers 4 playerFaction a FactionX
+spair sd_maxplayers 4 playerEnemies a -
+spair sd_maxplayers 4 playerAllies a -
+sside sd_maxplayers 5 5 0
+spair sd_maxplayers 5 playerName a Side05
+spair sd_maxplayers 5 playerIsHuman b f
+spair sd_maxplayers 5 playerFaction a FactionX
+spair sd_maxplayers 5 playerEnemies a -
+spair sd_maxplayers 5 playerAllies a -
+sside sd_maxplayers 6 5 0
+spair sd_maxplayers 6 playerName a Side06
+spair sd_maxplayers 6 playerIsHuman b f
+spair sd_maxplayers 6 playerFaction a FactionX
+spair sd_maxplayers 6 playerEnemies a -
+spair sd_maxplayers 6 playerAllies a -
+sside sd_maxplayers 7 5 0
+spair sd_maxplayers 7 playerName a Side07
+spair sd_maxplayers 7 playerIsHuman b f
+spair sd_maxplayers 7 playerFaction a FactionX
+spair sd_maxplayers 7 playerEnemies a -
+spair sd_maxplayers 7 playerAllies a -
+sside sd_maxplayers 8 5 0
+spair sd_maxplayers 8 playerName a Side08
+spair sd_maxplayers 8 playerIsHuman b f
+spair sd_maxplayers 8 playerFaction a FactionX
+spair sd_maxplayers 8 playerEnemies a -
+spair sd_maxplayers 8 playerAllies a -
+sside sd_maxplayers 9 5 0
+spair sd_maxplayers 9 playerName a Side09
+spair sd_maxplayers 9 playerIsHuman b f
+spair sd_maxplayers 9 playerFaction a FactionX
+spair sd_maxplayers 9 playerEnemies a -
+spair sd_maxplayers 9 playerAllies a -
+sside sd_maxplayers 10 5 0
+spair sd_maxplayers 10 playerName a Side10
+spair sd_maxplayers 10 playerIsHuman b f
+spair sd_maxplayers 10 playerFaction a FactionX
+spair sd_maxplayers 10 playerEnemies a -
+spair sd_maxplayers 10 playerAllies a -
+sside sd_maxplayers 11 5 0
+spair sd_maxplayers 11 playerName a Side11
+spair sd_maxplayers 11 playerIsHuman b f
+spair sd_maxplayers 11 playerFaction a FactionX
+spair sd_maxplayers 11 playerEnemies a -
+spair sd_maxplayers 11 playerAllies a -
+sside sd_maxplayers 12 5 0
+spair sd_maxplayers 12 playerName a Side12
+spair sd_maxplayers 12 playerIsHuman b f
+spair sd_maxplayers 12 playerFaction a FactionX
+spair sd_maxplayers 12 playerEnemies a -
+spair sd_maxplayers 12 playerAllies a -
+sside sd_maxplayers 13 5 0
+spair sd_maxplayers 13 playerName a Side13
+spair sd_maxplayers 13 playerIsHuman b f
+spair sd_maxplayers 13 playerFaction a FactionX
+spair sd_maxplayers 13 playerEnemies a -
+spair sd_maxplayers 13 playerAllies a -
+sside sd_maxplayers 14 5 0
+spair sd_maxplayers 14 playerName a Side14
+spair sd_maxplayers 14 playerIsHuman b f
+spair sd_maxplayers 14 playerFaction a FactionX
+spair sd_maxplayers 14 playerEnemies a -
+spair sd_maxplayers 14 playerAllies a -
+sside sd_maxplayers 15 5 0
+spair sd_maxplayers 15 playerName a Side15
+spair sd_maxplayers 15 playerIsHuman b f
+spair sd_maxplayers 15 playerFaction a FactionX
+spair sd_maxplayers 15 playerEnemies a -
+spair sd_maxplayers 15 playerAllies a -
+steamn sd_maxplayers 0 1
+stpair sd_maxplayers 0 teamOwner a -
+steamn sd_maxplayers 1 3
+stpair sd_maxplayers 1 teamName a team
+stpair sd_maxplayers 1 teamOwner a -
+stpair sd_maxplayers 1 teamIsSingleton b t
+steamn sd_maxplayers 2 3
+stpair sd_maxplayers 2 teamName a teamSide00
+stpair sd_maxplayers 2 teamOwner a Side00
+stpair sd_maxplayers 2 teamIsSingleton b t
+steamn sd_maxplayers 3 3
+stpair sd_maxplayers 3 teamName a teamSide01
+stpair sd_maxplayers 3 teamOwner a Side01
+stpair sd_maxplayers 3 teamIsSingleton b t
+steamn sd_maxplayers 4 3
+stpair sd_maxplayers 4 teamName a teamSide02
+stpair sd_maxplayers 4 teamOwner a Side02
+stpair sd_maxplayers 4 teamIsSingleton b t
+steamn sd_maxplayers 5 3
+stpair sd_maxplayers 5 teamName a teamSide03
+stpair sd_maxplayers 5 teamOwner a Side03
+stpair sd_maxplayers 5 teamIsSingleton b t
+steamn sd_maxplayers 6 3
+stpair sd_maxplayers 6 teamName a teamSide04
+stpair sd_maxplayers 6 teamOwner a Side04
+stpair sd_maxplayers 6 teamIsSingleton b t
+steamn sd_maxplayers 7 3
+stpair sd_maxplayers 7 teamName a teamSide05
+stpair sd_maxplayers 7 teamOwner a Side05
+stpair sd_maxplayers 7 teamIsSingleton b t
+steamn sd_maxplayers 8 3
+stpair sd_maxplayers 8 teamName a teamSide06
+stpair sd_maxplayers 8 teamOwner a Side06
+stpair sd_maxplayers 8 teamIsSingleton b t
+steamn sd_maxplayers 9 3
+stpair sd_maxplayers 9 teamName a teamSide07
+stpair sd_maxplayers 9 teamOwner a Side07
+stpair sd_maxplayers 9 teamIsSingleton b t
+steamn sd_maxplayers 10 3
+stpair sd_maxplayers 10 teamName a teamSide08
+stpair sd_maxplayers 10 teamOwner a Side08
+stpair sd_maxplayers 10 teamIsSingleton b t
+steamn sd_maxplayers 11 3
+stpair sd_maxplayers 11 teamName a teamSide09
+stpair sd_maxplayers 11 teamOwner a Side09
+stpair sd_maxplayers 11 teamIsSingleton b t
+steamn sd_maxplayers 12 3
+stpair sd_maxplayers 12 teamName a teamSide10
+stpair sd_maxplayers 12 teamOwner a Side10
+stpair sd_maxplayers 12 teamIsSingleton b t
+steamn sd_maxplayers 13 3
+stpair sd_maxplayers 13 teamName a teamSide11
+stpair sd_maxplayers 13 teamOwner a Side11
+stpair sd_maxplayers 13 teamIsSingleton b t
+steamn sd_maxplayers 14 3
+stpair sd_maxplayers 14 teamName a teamSide12
+stpair sd_maxplayers 14 teamOwner a Side12
+stpair sd_maxplayers 14 teamIsSingleton b t
+steamn sd_maxplayers 15 3
+stpair sd_maxplayers 15 teamName a teamSide13
+stpair sd_maxplayers 15 teamOwner a Side13
+stpair sd_maxplayers 15 teamIsSingleton b t
+steamn sd_maxplayers 16 3
+stpair sd_maxplayers 16 teamName a teamSide14
+stpair sd_maxplayers 16 teamOwner a Side14
+stpair sd_maxplayers 16 teamIsSingleton b t
+steamn sd_maxplayers 17 3
+stpair sd_maxplayers 17 teamName a teamSide15
+stpair sd_maxplayers 17 teamOwner a Side15
+stpair sd_maxplayers 17 teamIsSingleton b t
+smod sd_maxplayers t
+skey sd_maxplayers 1 teamName
+skey sd_maxplayers 2 teamOwner
+skey sd_maxplayers 3 teamIsSingleton
+skey sd_maxplayers 4 playerName
+skey sd_maxplayers 5 playerIsHuman
+skey sd_maxplayers 6 playerDisplayName
+skey sd_maxplayers 7 playerFaction
+skey sd_maxplayers 8 playerEnemies
+skey sd_maxplayers 9 playerAllies
+sstate sd_maxplayers 1098 0 t
+file sd_negative 436b4d700b0000000953696465734c697374010000000a706c617965724e616d65020000000d706c61796572497348756d616e0300000011706c61796572446973706c61794e616d65040000000d706c6179657246616374696f6e050000000d706c61796572456e656d696573060000000c706c61796572416c6c69657307000000087465616d4e616d6508000000097465616d4f776e6572090000000f7465616d497353696e676c65746f6e0a0000000b706c617965724d6f6e65790b00000001000000030008000000fdfffffffbffffff
+valid sd_negative t
+walk sd_negative t
+sn sd_negative 1 1
+sside sd_negative 0 6 0
+spair sd_negative 0 playerName a -
+spair sd_negative 0 playerIsHuman b f
+spair sd_negative 0 playerDisplayName u 004e00650075007400720061006c
+spair sd_negative 0 playerFaction a -
+spair sd_negative 0 playerEnemies a -
+spair sd_negative 0 playerAllies a -
+steamn sd_negative 0 3
+stpair sd_negative 0 teamName a team
+stpair sd_negative 0 teamOwner a -
+stpair sd_negative 0 teamIsSingleton b t
+smod sd_negative t
+skey sd_negative 1 teamName
+skey sd_negative 2 teamOwner
+skey sd_negative 3 teamIsSingleton
+skey sd_negative 4 playerName
+skey sd_negative 5 playerIsHuman
+skey sd_negative 6 playerDisplayName
+skey sd_negative 7 playerFaction
+skey sd_negative 8 playerEnemies
+skey sd_negative 9 playerAllies
+sstate sd_negative 211 0 t
+file sd_build_negative 436b4d700b0000000953696465734c697374010000000a706c617965724e616d65020000000d706c61796572497348756d616e0300000011706c61796572446973706c61794e616d65040000000d706c6179657246616374696f6e050000000d706c61796572456e656d696573060000000c706c61796572416c6c69657307000000087465616d4e616d6508000000097465616d4f776e6572090000000f7465616d497353696e676c65746f6e0a0000000b706c617965724d6f6e65790b00000001000000030014000000010000000100030200000000feffffff00000000
+valid sd_build_negative t
+walk sd_build_negative t
+sn sd_build_negative 1 1
+sside sd_build_negative 0 1 0
+spair sd_build_negative 0 playerName a -
+steamn sd_build_negative 0 3
+stpair sd_build_negative 0 teamName a team
+stpair sd_build_negative 0 teamOwner a -
+stpair sd_build_negative 0 teamIsSingleton b t
+smod sd_build_negative t
+skey sd_build_negative 1 teamName
+skey sd_build_negative 2 teamOwner
+skey sd_build_negative 3 teamIsSingleton
+skey sd_build_negative 4 playerName
+skey sd_build_negative 5 playerIsHuman
+skey sd_build_negative 6 playerDisplayName
+skey sd_build_negative 7 playerFaction
+skey sd_build_negative 8 playerEnemies
+skey sd_build_negative 9 playerAllies
+sstate sd_build_negative 223 0 t
+file sd_multi 436b4d700b0000000953696465734c697374010000000a706c617965724e616d65020000000d706c61796572497348756d616e0300000011706c61796572446973706c61794e616d65040000000d706c6179657246616374696f6e050000000d706c61796572456e656d696573060000000c706c61796572416c6c69657307000000087465616d4e616d6508000000097465616d4f776e6572090000000f7465616d497353696e676c65746f6e0a0000000b706c617965724d6f6e65790b0000000100000003006500000001000000050003020000090046726f6d4669727374000300000103050000080046616374696f6e4103070000000003060000000000000000010000000300030800000d007465616d46726f6d466972737403090000090046726f6d4669727374000a0000010100000003003d000000010000000500030200000a0046726f6d5365636f6e64000300000003050000080046616374696f6e420307000000000306000000000000000000000000
+valid sd_multi t
+walk sd_multi t
+sn sd_multi 2 2
+sside sd_multi 0 5 0
+spair sd_multi 0 playerName a FromSecond
+spair sd_multi 0 playerIsHuman b f
+spair sd_multi 0 playerFaction a FactionB
+spair sd_multi 0 playerEnemies a -
+spair sd_multi 0 playerAllies a -
+sside sd_multi 1 6 0
+spair sd_multi 1 playerName a -
+spair sd_multi 1 playerIsHuman b f
+spair sd_multi 1 playerDisplayName u 004e00650075007400720061006c
+spair sd_multi 1 playerFaction a -
+spair sd_multi 1 playerEnemies a -
+spair sd_multi 1 playerAllies a -
+steamn sd_multi 0 3
+stpair sd_multi 0 teamName a team
+stpair sd_multi 0 teamOwner a -
+stpair sd_multi 0 teamIsSingleton b t
+steamn sd_multi 1 3
+stpair sd_multi 1 teamName a teamFromSecond
+stpair sd_multi 1 teamOwner a FromSecond
+stpair sd_multi 1 teamIsSingleton b t
+smod sd_multi t
+skey sd_multi 1 teamName
+skey sd_multi 2 teamOwner
+skey sd_multi 3 teamIsSingleton
+skey sd_multi 4 playerName
+skey sd_multi 5 playerIsHuman
+skey sd_multi 6 playerDisplayName
+skey sd_multi 7 playerFaction
+skey sd_multi 8 playerEnemies
+skey sd_multi 9 playerAllies
+sstate sd_multi 375 0 t
+file sd_corrupt 436b4d700b0000000953696465734c697374010000000a706c617965724e616d65020000000d706c61796572497348756d616e0300000011706c61796572446973706c61794e616d65040000000d706c6179657246616374696f6e050000000d706c61796572456e656d696573060000000c706c61796572416c6c69657307000000087465616d4e616d6508000000097465616d4f776e6572090000000f7465616d497353696e676c65746f6e0a0000000b706c617965724d6f6e65790b00000001000000030022000000010000000200030200000600446f6f6d6564090b0000000000000000000000000000
+valid sd_corrupt t
+walk sd_corrupt f
+serr sd_corrupt dict 9
+skey sd_corrupt 1 teamName
+skey sd_corrupt 2 teamOwner
+skey sd_corrupt 3 teamIsSingleton
+skey sd_corrupt 4 playerName
+skey sd_corrupt 5 playerIsHuman
+skey sd_corrupt 6 playerDisplayName
+skey sd_corrupt 7 playerFaction
+skey sd_corrupt 8 playerEnemies
+skey sd_corrupt 9 playerAllies
+skey sd_corrupt 10 playerMoney
+sstate sd_corrupt 225 1 f
+file sd_corrupt_team 436b4d700b0000000953696465734c697374010000000a706c617965724e616d65020000000d706c61796572497348756d616e0300000011706c61796572446973706c61794e616d65040000000d706c6179657246616374696f6e050000000d706c61796572456e656d696573060000000c706c61796572416c6c69657307000000087465616d4e616d6508000000097465616d4f776e6572090000000f7465616d497353696e676c65746f6e0a0000000b706c617965724d6f6e65790b0000000100000003001e000000010000000100030200000000000000000100000001000508000000000000
+valid sd_corrupt_team t
+walk sd_corrupt_team f
+serr sd_corrupt_team dict 5
+skey sd_corrupt_team 1 teamName
+skey sd_corrupt_team 2 teamOwner
+skey sd_corrupt_team 3 teamIsSingleton
+skey sd_corrupt_team 4 playerName
+skey sd_corrupt_team 5 playerIsHuman
+skey sd_corrupt_team 6 playerDisplayName
+skey sd_corrupt_team 7 playerFaction
+skey sd_corrupt_team 8 playerEnemies
+skey sd_corrupt_team 9 playerAllies
+sstate sd_corrupt_team 229 1 f
+file sd_short 436b4d700b0000000953696465734c697374010000000a706c617965724e616d65020000000d706c61796572497348756d616e0300000011706c61796572446973706c61794e616d65040000000d706c6179657246616374696f6e050000000d706c61796572456e656d696573060000000c706c61796572416c6c69657307000000087465616d4e616d6508000000097465616d4f776e6572090000000f7465616d497353696e676c65746f6e0a0000000b706c617965724d6f6e65790b0000000100000003001000000001000000020003020000030043757400
+valid sd_short t
+walk sd_short t
+sn sd_short 2 2
+sside sd_short 0 2 0
+spair sd_short 0 playerName a Cut
+spair sd_short 0 - b f
+sside sd_short 1 6 0
+spair sd_short 1 playerName a -
+spair sd_short 1 playerIsHuman b f
+spair sd_short 1 playerDisplayName u 004e00650075007400720061006c
+spair sd_short 1 playerFaction a -
+spair sd_short 1 playerEnemies a -
+spair sd_short 1 playerAllies a -
+steamn sd_short 0 3
+stpair sd_short 0 teamName a team
+stpair sd_short 0 teamOwner a -
+stpair sd_short 0 teamIsSingleton b t
+steamn sd_short 1 3
+stpair sd_short 1 teamName a teamCut
+stpair sd_short 1 teamOwner a Cut
+stpair sd_short 1 teamIsSingleton b t
+smod sd_short t
+skey sd_short 1 teamName
+skey sd_short 2 teamOwner
+skey sd_short 3 teamIsSingleton
+skey sd_short 4 playerName
+skey sd_short 5 playerIsHuman
+skey sd_short 6 playerDisplayName
+skey sd_short 7 playerFaction
+skey sd_short 8 playerEnemies
+skey sd_short 9 playerAllies
+skey sd_short 10 -
+sstate sd_short 219 0 t
+file sd_scripts 436b4d70030000000953696465734c6973740100000011506c61796572536372697074734c697374020000000a706c617965724e616d65020000000100000003002200000001000000010003020000000000000000000000000200000001000400000001020304
+valid sd_scripts t
+walk sd_scripts t
+sn sd_scripts 1 1
+sside sd_scripts 0 1 0
+spair sd_scripts 0 playerName a -
+steamn sd_scripts 0 3
+stpair sd_scripts 0 teamName a team
+stpair sd_scripts 0 teamOwner a -
+stpair sd_scripts 0 teamIsSingleton b t
+smod sd_scripts t
+skey sd_scripts 1 teamName
+skey sd_scripts 2 teamOwner
+skey sd_scripts 3 teamIsSingleton
+skey sd_scripts 4 playerName
+skey sd_scripts 5 playerIsHuman
+skey sd_scripts 6 playerDisplayName
+skey sd_scripts 7 playerFaction
+skey sd_scripts 8 playerEnemies
+skey sd_scripts 9 playerAllies
+sstate sd_scripts 103 0 t
+file sd_leftover 436b4d700b0000000953696465734c697374010000000a706c617965724e616d65020000000d706c61796572497348756d616e0300000011706c61796572446973706c61794e616d65040000000d706c6179657246616374696f6e050000000d706c61796572456e656d696573060000000c706c61796572416c6c69657307000000087465616d4e616d6508000000097465616d4f776e6572090000000f7465616d497353696e676c65746f6e0a0000000b706c617965724d6f6e65790b000000010000000300160000000100000001000302000000000000000000000000eeee
+valid sd_leftover t
+walk sd_leftover t
+sn sd_leftover 1 1
+sside sd_leftover 0 1 0
+spair sd_leftover 0 playerName a -
+steamn sd_leftover 0 3
+stpair sd_leftover 0 teamName a team
+stpair sd_leftover 0 teamOwner a -
+stpair sd_leftover 0 teamIsSingleton b t
+smod sd_leftover t
+skey sd_leftover 1 teamName
+skey sd_leftover 2 teamOwner
+skey sd_leftover 3 teamIsSingleton
+skey sd_leftover 4 playerName
+skey sd_leftover 5 playerIsHuman
+skey sd_leftover 6 playerDisplayName
+skey sd_leftover 7 playerFaction
+skey sd_leftover 8 playerEnemies
+skey sd_leftover 9 playerAllies
+sstate sd_leftover 225 0 t
+file sd_none 436b4d70010000000d4865696768744d617044617461010000000100000003001000000002000000020000000400000010101010
+valid sd_none t
+walk sd_none t
+snone sd_none
+skey sd_none 1 teamName
+skey sd_none 2 teamOwner
+skey sd_none 3 teamIsSingleton
+skey sd_none 4 playerName
+skey sd_none 5 playerIsHuman
+skey sd_none 6 playerDisplayName
+skey sd_none 7 playerFaction
+skey sd_none 8 playerEnemies
+skey sd_none 9 playerAllies
+sstate sd_none 52 0 t
+file sd_not_chunky 6e6f742061206d617020617420616c6c
+valid sd_not_chunky f
+walk sd_not_chunky f
+serr sd_not_chunky corrupt
+skey sd_not_chunky 1 teamName
+skey sd_not_chunky 2 teamOwner
+skey sd_not_chunky 3 teamIsSingleton
+skey sd_not_chunky 4 playerName
+skey sd_not_chunky 5 playerIsHuman
+skey sd_not_chunky 6 playerDisplayName
+skey sd_not_chunky 7 playerFaction
+skey sd_not_chunky 8 playerEnemies
+skey sd_not_chunky 9 playerAllies
+sstate sd_not_chunky 4 0 f
+file sd_toc_only 436b4d700b0000000953696465734c697374010000000a706c617965724e616d65020000000d706c61796572497348756d616e0300000011706c61796572446973706c61794e616d65040000000d706c6179657246616374696f6e050000000d706c61796572456e656d696573060000000c706c61796572416c6c69657307000000087465616d4e616d6508000000097465616d4f776e6572090000000f7465616d497353696e676c65746f6e0a0000000b706c617965724d6f6e65790b000000
+valid sd_toc_only f
+walk sd_toc_only f
+serr sd_toc_only corrupt
+skey sd_toc_only 1 teamName
+skey sd_toc_only 2 teamOwner
+skey sd_toc_only 3 teamIsSingleton
+skey sd_toc_only 4 playerName
+skey sd_toc_only 5 playerIsHuman
+skey sd_toc_only 6 playerDisplayName
+skey sd_toc_only 7 playerFaction
+skey sd_toc_only 8 playerEnemies
+skey sd_toc_only 9 playerAllies
+sstate sd_toc_only 193 0 t
+file sd_empty -
+valid sd_empty f
+walk sd_empty f
+serr sd_empty corrupt
+skey sd_empty 1 teamName
+skey sd_empty 2 teamOwner
+skey sd_empty 3 teamIsSingleton
+skey sd_empty 4 playerName
+skey sd_empty 5 playerIsHuman
+skey sd_empty 6 playerDisplayName
+skey sd_empty 7 playerFaction
+skey sd_empty 8 playerEnemies
+skey sd_empty 9 playerAllies
+sstate sd_empty 0 0 t

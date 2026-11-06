@@ -122,12 +122,19 @@
 //!   deletion, the version-1 auto-added water area whose id duplicates
 //!   the maximum, and the id counter the load leaves behind — over the
 //!   same container.
+//! - [`map_sideslist`]: the map sides-list payload — the
+//!   `SidesList` chunk reader of `SidesList.cpp`
+//!   (`ParseSidesDataChunk` with `validateSides`, the logical load's
+//!   player setup): the bounded side loop with its build lists, the
+//!   team list, the nested scripts walk (the script-engine slice's
+//!   boundary) and the post-load cleanup (the neutral ensure, the
+//!   default teams, the allies/enemies token cleanup, the collision
+//!   removal and the owner reparent) — the last of the map payload
+//!   family, over the same container.
 //!
 //! Deferred to later Phase 2 slices, in plan order: the remaining W3D
-//! modules (…), the remaining map payload parser on top of
-//! [`map_chunk`] (the sides lists — the last of the family, whose
-//! nested `PlayerScriptsList` belongs to the script-engine slice),
-//! WND layouts, fonts
+//! modules (…), the map payloads' nested `PlayerScriptsList` (the
+//! script-engine slice, plan §3.4 WP7), WND layouts, fonts
 //! and audio containers (the DDS textures are done). Consumer-side
 //! normalizations the original performs on top
 //! of a format (space stripping, first-string selection, the texture
@@ -150,6 +157,7 @@ pub mod map_heightmap;
 pub mod map_lighting;
 pub mod map_objects;
 pub mod map_polygontriggers;
+pub mod map_sideslist;
 pub mod map_worldinfo;
 pub mod tga;
 pub mod w3d_hanim;

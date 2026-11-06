@@ -553,12 +553,11 @@ is now specified in [`docs/TRACE_FORMAT_V1.md`](TRACE_FORMAT_V1.md).
 - `rzh-ini`: lexer/parser (includes, `#define` macros, inheritance/reskin, load order) and a
   **derive-based schema layer** replacing the 195 hand-written `FieldParse` tables. Keep it
   format-agnostic so the data format can change later (ADR-003).
-- `rzh-formats`: map files (the DataChunk framing container **done**,
-  the height-map payload **done**, the blend-tile payload **done**, the
-  global-lighting payload **done**, the objects-list payload **done**,
-  the world-info payload **done**, the polygon-triggers payload
-  **done**; the remaining payload parser — the sides lists — follows),
-  W3D (meshes **done**, skeletons **done**,
+- `rzh-formats`: map files (the DataChunk framing container **done**;
+  the payload family **complete** — the height-map, blend-tile,
+  global-lighting, objects-list, world-info, polygon-triggers and
+  sides-list payloads all **done**, the nested `PlayerScriptsList`
+  being the script-engine slice's), W3D (meshes **done**, skeletons **done**,
   raw animations **done**, compressed animations **done**, HLOD
   **done**) **on top of the ported chunk container**, TGA/DDS
   (**both done**), CSF string tables (**done**), WND layouts, fonts,

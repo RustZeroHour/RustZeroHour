@@ -489,6 +489,33 @@ maplighting slice already documented. The struct layer (the two string
 `Vec`s and the points `Vec` per record — where the C++ `std::string`'s
 SSO hides the short-name allocations) is the residual gap.
 
+The eighteenth slice, the map sides-list payload — the last of the
+map payload family — adds the one sides-load comparison. Measured on
+2026-11-07, same setup and flags as above. The corpus is 264 repeated
+SidesList chunks (each: the neutral side, three player sides with
+two-pair dicts and two build entries, and a five-team list — 192,649
+bytes), built through the same byte formulas on both sides, with the
+walk cross-checked through the final-state checksum both sides compute
+(15,503,518,536 — the Rust bench asserts it) — every chunk's dicts,
+build lists and validation run, the last chunk owning the state. The
+C++ side runs the `SidesList.cpp` transcription in
+`bench_wrap_mapsides.cpp`; the Rust side `rzh_formats::map_sideslist`.
+
+| Benchmark | Rust (criterion) | C++ baseline | Rust/C++ | Verdict |
+|---|---:|---:|---:|---|
+| `mapsides/parse_x190k` | 1.55 ms | 1.59 ms | 0.98x | within |
+
+The validation-heavy workload is where the port's dict model pays:
+every chunk drives `readDict` for four sides and five teams plus the
+whole `validateSides` cleanup (the default-team lookups and the
+allies/enemies tokenizing are linear scans over the walk's name-key
+table on both sides), and the port's `Dict::set` (a sorted insert over
+a handful of pairs) edges out the transcription's `std::vector`
+shellsort. The payload family's budget summary: container 0.62–0.99x,
+height map 0.53–0.77x, blend tiles 0.79–0.81x, lighting 1.15x,
+objects 0.78x, world info 1.08x, polygons 1.08x, sides 0.98x — all
+within the §6 threshold.
+
 ## Methodology
 
 - **Same code, same corpora.** The C++ side times the *verbatim
