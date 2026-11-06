@@ -141,6 +141,27 @@
 #                                                     (the name-key interning
 #                                                     the dict and name-key
 #                                                     primitives drive)
+#   Core/GameEngineDevice/Source/W3DDevice/GameClient/WorldHeightMap.cpp
+#                                                     (the map height-map
+#                                                     payload: the
+#                                                     HeightMapData chunk
+#                                                     readers of both load
+#                                                     modes, ParseHeightMapData
+#                                                     and ParseSizeOnly, the
+#                                                     isValidTotalMapSize/
+#                                                     isValidPlayableMapSize/
+#                                                     isValidHeightDataSize
+#                                                     contracts and the
+#                                                     constructor's
+#                                                     registerParser/parse
+#                                                     walk shape)
+#   Core/GameEngineDevice/Include/W3DDevice/GameClient/WorldHeightMap.h
+#                                                     (the height-map members
+#                                                     the reader writes and
+#                                                     K_MIN_HEIGHT/K_MAX_HEIGHT)
+#   Core/Libraries/Source/Lib/Include/Lib/ICoord2D.h
+#                                                     (the x/y int pair a
+#                                                     boundary is)
 #   The pinned GameMath sources (TheSuperHackers/GameMath @ 59f7ccd4:
 #                     s_rintf.c, s_lrintf.c, e_acosf.c, s_sinf.c, k_sinf.c,
 #                     k_cosf.c, e_rem_pio2f.c — the deterministic entry points
@@ -160,7 +181,7 @@
 
 [package]
 name = "rzh-formats"
-description = "Zero Hour asset format parsers: CSF string tables, TGA and DDS textures, the W3D chunk container, the W3D mesh chunk tree, the W3D hierarchy trees, the W3D raw and compressed animations, the W3D HLOD assemblies and the map data-chunk container (map payloads, WND, fonts follow)"
+description = "Zero Hour asset format parsers: CSF string tables, TGA and DDS textures, the W3D chunk container, the W3D mesh chunk tree, the W3D hierarchy trees, the W3D raw and compressed animations, the W3D HLOD assemblies, the map data-chunk container and the map height-map payload (the remaining map payloads, WND, fonts follow)"
 version.workspace = true
 edition.workspace = true
 rust-version.workspace = true

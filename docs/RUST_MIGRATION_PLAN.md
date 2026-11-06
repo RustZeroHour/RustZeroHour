@@ -484,11 +484,42 @@ is now specified in [`docs/TRACE_FORMAT_V1.md`](TRACE_FORMAT_V1.md).
   both comparisons (docs/benchmarks.md — the budget run caught a
   64 KiB-memset transcription artifact before it could skew the
   comparison).
+- the **map height-map payload** — the first map-files payload slice,
+  on top of the data-chunk container: the data path of
+  `WorldHeightMap.cpp`'s `HeightMapData` readers —
+  `ParseHeightMapData` (the full load) and `ParseSizeOnly` (the
+  logical-data-only load the validation and preview paths drive),
+  the `isValidTotalMapSize`/`isValidPlayableMapSize`/
+  `isValidHeightDataSize` size contracts (the `MAX_MAP_DIMENSION`/
+  `MAX_MAP_AREA` ceilings, the per-axis `(width-1)/2` border halves,
+  the sample-count check's unsigned data-left view), the
+  version-gated reads (the border word from version 3, the boundary
+  list from version 4 — with the synthesised pre-version-4 playable
+  rectangle — and the version-1 in-place downsample whose extent
+  update diverges between the two load modes while neither updates
+  the declared sample count), and the constructor's
+  registerParser/parse walk shape (global scope, last-wins repeated
+  chunks, the absent payload as `None`) — is transcribed in
+  `tools/differential/gen_mapheightmap_golden.cpp` (over the
+  re-included mapchunk container transcription) and ported as
+  `rzh-formats::map_heightmap`. The goldens pin 35 payload corpora
+  plus a validator matrix: the version family (0 through 5), the
+  boundary family (empty, raw negative/large values, the negative
+  count the original's `resize` dies on), every size-contract
+  rejection (including the 2-high map that refuses border 1 through
+  the height axis), the under-declared chunk whose negative
+  data-left passes the sample-count check and whose samples read
+  into the next chunk's header, the zero-filled short sample tail,
+  the leftover bytes the release close skips, the global-scope rule
+  (a nested `HeightMapData` never fires), last-wins repeats and the
+  walk refusals; the `mapheightmap` benches are within budget on
+  both comparisons (docs/benchmarks.md).
 - `rzh-ini`: lexer/parser (includes, `#define` macros, inheritance/reskin, load order) and a
   **derive-based schema layer** replacing the 195 hand-written `FieldParse` tables. Keep it
   format-agnostic so the data format can change later (ADR-003).
-- `rzh-formats`: map files (the DataChunk framing container **done**;
-  the payload parsers follow), W3D (meshes **done**, skeletons **done**,
+- `rzh-formats`: map files (the DataChunk framing container **done**,
+  the height-map payload **done**; the remaining payload parsers
+  follow), W3D (meshes **done**, skeletons **done**,
   raw animations **done**, compressed animations **done**, HLOD
   **done**) **on top of the ported chunk container**, TGA/DDS
   (**both done**), CSF string tables (**done**), WND layouts, fonts,

@@ -113,6 +113,18 @@ EAC_DIR="$REPO_ROOT/Core/Libraries/Source/Compression/EAC"
     -c -o "$BUILD_DIR/bench_wrap_dds.o" "$SCRIPT_DIR/bench_wrap_dds.cpp"
 "$CXX" -O2 -std=c++17 -Wall -Wextra -Werror -ffp-contract=off \
     -c -o "$BUILD_DIR/bench_wrap_mapchunk.o" "$SCRIPT_DIR/bench_wrap_mapchunk.cpp"
+# -Wno-stringop-overflow -Wno-array-bounds -Wno-restrict: this wrapper
+# is the first whose parsers feed a DATA-DEPENDENT length into the
+# verbatim transcription's readArrayOfBytes (m_dataSize). GCC 14's IPA
+# range analysis cannot track the payload reader's throw-guarded
+# `dataSize > 0` contract through the exception edge, so the union of
+# inlined memcpy bounds picks up impossible negative lengths and fires
+# the three diagnostics. The standalone generator compile (its main()
+# path) and the mapchunk wrapper (constant-length reads) stay
+# warning-free; the guards are real, the ranges are not.
+"$CXX" -O2 -std=c++17 -Wall -Wextra -Werror -ffp-contract=off \
+    -Wno-stringop-overflow -Wno-array-bounds -Wno-restrict \
+    -c -o "$BUILD_DIR/bench_wrap_mapheightmap.o" "$SCRIPT_DIR/bench_wrap_mapheightmap.cpp"
 "$CXX" -O2 -std=c++17 -Wall -Wextra -Werror -ffp-contract=off \
     -c -o "$BUILD_DIR/bench_baseline.o" "$SCRIPT_DIR/bench_baseline.cpp"
 
@@ -131,6 +143,7 @@ EAC_DIR="$REPO_ROOT/Core/Libraries/Source/Compression/EAC"
     "$BUILD_DIR/bench_wrap_hlod.o" \
     "$BUILD_DIR/bench_wrap_dds.o" \
     "$BUILD_DIR/bench_wrap_mapchunk.o" \
+    "$BUILD_DIR/bench_wrap_mapheightmap.o" \
     "$BUILD_DIR/refdecode.o" \
     "$BUILD_DIR/refencode.o" \
     "$BUILD_DIR"/*.c.o -lm

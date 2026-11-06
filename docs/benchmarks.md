@@ -308,6 +308,39 @@ byte-identical across the fix. Two reruns of each side kept both
 comparisons inside budget with the margins unchanged (55.3–56.1 µs and
 73.7–74.3 µs vs 84.7–85.3 µs and 84.9–85.9 µs).
 
+The twelfth slice, the map height-map payload, adds the two
+height-map-load comparisons — the first payload parser on top of the
+map data-chunk container. Measured on 2026-11-06, same setup and flags
+as above. The corpus is a skirmish-shaped 256×256 map (65 536 height
+samples): the version-4 shape (border 3, 8 boundaries) for the modern
+full load, and the version-1 shape for the logical load (the in-place
+downsample plus the extent re-point) — hand-assembled on both sides,
+**verified byte-identical across the two builders** (65 656 and 65 584
+bytes), with the walk cross-checked (the same checksum both sides
+compute: 8 425 299 and 8 430 336). The C++ side runs the
+`WorldHeightMap.cpp` transcription in `bench_wrap_mapheightmap.cpp`
+(the `ParseHeightMapData`/`ParseSizeOnly` readers through the
+re-transcribed container walk); the Rust side
+`rzh-formats::map_heightmap`.
+
+| Benchmark | Rust (criterion) | C++ baseline | Rust/C++ | Verdict |
+|---|---:|---:|---:|---|
+| `mapheightmap/parse_x64k` | 12.2 µs | 23.8 µs | 0.51x | within |
+| `mapheightmap/parse_v1_x64k` | 23.8 µs | 56.8 µs | 0.42x | within |
+
+Both comparisons sit comfortably inside budget. The port inherits the
+container's stance (one reusable `Vec` chunk stack, borrowed label
+slices, no per-chunk allocations) against the transcription's
+linked-list stack and `std::string` labels, and its zero-born `Vec`
+sample array reads at the same bandwidth the transcription's heap
+buffer does. The version-1 comparison adds the 16 384-iteration
+in-place downsample on both sides; the port's bounds-checked `Vec`
+indexing against the transcription's raw pointers still lands at less
+than half the baseline — the walk's per-read bookkeeping dominates both
+workloads, not the sample traffic. Two runs of each side kept both
+comparisons inside budget with the margins unchanged (12.2–12.3 µs and
+23.7–24.0 µs vs 23.78–23.78 µs and 56.7–56.9 µs).
+
 ## Methodology
 
 - **Same code, same corpora.** The C++ side times the *verbatim

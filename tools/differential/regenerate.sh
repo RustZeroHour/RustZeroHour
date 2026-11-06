@@ -312,6 +312,18 @@ echo "compiling gen_mapchunk_golden.cpp ..."
 "$BUILD_DIR/gen_mapchunk_golden" "$REPO_ROOT/crates/rzh-formats/tests/golden/mapchunk.txt"
 echo "wrote crates/rzh-formats/tests/golden/mapchunk.txt"
 
+# --- map height-map payload golden dump: the WorldHeightMap.cpp
+# HeightMapData load-path transcription (ParseHeightMapData and
+# ParseSizeOnly over both constructor load modes, the isValid* size
+# contracts, the version-1 downsample and the constructor's walk shape)
+# over the version/edge/error/walk corpora.
+echo "compiling gen_mapheightmap_golden.cpp ..."
+"$CXX" -O2 -std=c++17 -Wall -Wextra -Werror -ffp-contract=off \
+    -c -o "$BUILD_DIR/gen_mapheightmap_golden.o" "$SCRIPT_DIR/gen_mapheightmap_golden.cpp"
+"$CXX" -o "$BUILD_DIR/gen_mapheightmap_golden" "$BUILD_DIR/gen_mapheightmap_golden.o"
+"$BUILD_DIR/gen_mapheightmap_golden" "$REPO_ROOT/crates/rzh-formats/tests/golden/mapheightmap.txt"
+echo "wrote crates/rzh-formats/tests/golden/mapheightmap.txt"
+
 echo "compiling gen_dds_golden.cpp ..."
 "$CXX" -O2 -std=c++17 -Wall -Wextra -Werror -ffp-contract=off \
     -c -o "$BUILD_DIR/gen_dds_golden.o" "$SCRIPT_DIR/gen_dds_golden.cpp"

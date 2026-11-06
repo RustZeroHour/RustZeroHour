@@ -430,7 +430,9 @@ criterion_group!(
     bench_dds_parse,
     bench_dds_convert,
     mapchunk_benches::bench_write,
-    mapchunk_benches::bench_parse
+    mapchunk_benches::bench_parse,
+    mapheightmap_benches::bench_parse,
+    mapheightmap_benches::bench_parse_v1
 );
 criterion_main!(benches);
 
@@ -1675,6 +1677,165 @@ mod mapchunk_benches {
                 }
                 state.checksum
             })
+        });
+        group.finish();
+    }
+}
+
+// ---------------------------------------------------------------------------
+// mapheightmap: the map height-map payload (WorldHeightMap.cpp)
+// ---------------------------------------------------------------------------
+
+mod mapheightmap_benches {
+    use super::*;
+    use rzh_formats::map_chunk::{DataChunkInfo, DataChunkInput, ParserTable};
+    use rzh_formats::map_heightmap::{
+        HEIGHT_MAP_DATA_LABEL, HeightMapData, HeightMapError, K_HEIGHT_MAP_VERSION_1,
+        K_HEIGHT_MAP_VERSION_4, parse_height_map_data, parse_size_only,
+    };
+
+    /// The bench corpus extent (a typical skirmish map: 256×256 cells).
+    const EXTENT: i32 = 256;
+
+    fn heights(n: usize, seed: u8) -> Vec<u8> {
+        (0..n).map(|i| seed.wrapping_add((i * 7) as u8)).collect()
+    }
+
+    fn put_i32(b: &mut Vec<u8>, v: i32) {
+        b.extend_from_slice(&v.to_le_bytes());
+    }
+    fn put_chunk(b: &mut Vec<u8>, id: u32, ver: u16, data: &[u8]) {
+        b.extend_from_slice(&id.to_le_bytes());
+        b.extend_from_slice(&ver.to_le_bytes());
+        b.extend_from_slice(&(data.len() as i32).to_le_bytes());
+        b.extend_from_slice(data);
+    }
+    fn toc_bytes(entries: &[(&[u8], u32)]) -> Vec<u8> {
+        let mut b = Vec::new();
+        b.extend_from_slice(b"CkMp");
+        b.extend_from_slice(&(entries.len() as i32).to_le_bytes());
+        for (name, id) in entries {
+            b.push(name.len() as u8);
+            b.extend_from_slice(name);
+            b.extend_from_slice(&id.to_le_bytes());
+        }
+        b
+    }
+
+    /// The version-4 corpus: a 256×256 map, border 3, 8 boundaries,
+    /// 65 536 formula samples — keep in lockstep with
+    /// tools/differential/bench_wrap_mapheightmap.cpp.
+    fn build_v4_corpus() -> Vec<u8> {
+        let mut b = toc_bytes(&[(HEIGHT_MAP_DATA_LABEL, 1)]);
+        let mut p = Vec::new();
+        put_i32(&mut p, EXTENT);
+        put_i32(&mut p, EXTENT);
+        put_i32(&mut p, 3);
+        put_i32(&mut p, 8);
+        for i in 0..8 {
+            put_i32(&mut p, 240 - 8 * i);
+            put_i32(&mut p, 200 + 4 * i);
+        }
+        let data = heights(EXTENT as usize * EXTENT as usize, 91);
+        put_i32(&mut p, data.len() as i32);
+        p.extend_from_slice(&data);
+        put_chunk(&mut b, 1, K_HEIGHT_MAP_VERSION_4, &p);
+        b
+    }
+
+    /// The version-1 corpus: the same extent and samples, the legacy
+    /// no-border payload.
+    fn build_v1_corpus() -> Vec<u8> {
+        let mut b = toc_bytes(&[(HEIGHT_MAP_DATA_LABEL, 1)]);
+        let mut p = Vec::new();
+        put_i32(&mut p, EXTENT);
+        put_i32(&mut p, EXTENT);
+        let data = heights(EXTENT as usize * EXTENT as usize, 93);
+        put_i32(&mut p, data.len() as i32);
+        p.extend_from_slice(&data);
+        put_chunk(&mut b, 1, K_HEIGHT_MAP_VERSION_1, &p);
+        b
+    }
+
+    /// The walk's user state: the loaded height map and the checksum
+    /// the C++ baseline computes over the same fields.
+    struct BenchHm {
+        logical_only: bool,
+        checksum: u64,
+        err: Option<HeightMapError>,
+    }
+
+    fn add_checksum(hm: &HeightMapData, checksum: &mut u64) {
+        *checksum = checksum.wrapping_add(hm.width as u32 as u64);
+        *checksum = checksum.wrapping_add(hm.height as u32 as u64);
+        *checksum = checksum.wrapping_add(hm.border_size as u32 as u64);
+        *checksum = checksum.wrapping_add(hm.data_size() as u32 as u64);
+        for bnd in &hm.boundaries {
+            *checksum = checksum.wrapping_add(bnd.x as u32 as u64);
+            *checksum = checksum.wrapping_add(bnd.y as u32 as u64);
+        }
+        for &c in &hm.data {
+            *checksum = checksum.wrapping_add(c as u64);
+        }
+    }
+
+    fn bench_hm_parser(
+        file: &mut DataChunkInput<'_>,
+        info: &DataChunkInfo,
+        _table: &mut ParserTable<'_, BenchHm>,
+        st: &mut BenchHm,
+    ) -> bool {
+        let parsed = if st.logical_only {
+            parse_size_only(file, info)
+        } else {
+            parse_height_map_data(file, info)
+        };
+        match parsed {
+            Ok(hm) => {
+                add_checksum(&hm, &mut st.checksum);
+                true
+            }
+            Err(e) => {
+                st.err = Some(e);
+                false
+            }
+        }
+    }
+
+    fn run_walk(bytes: &[u8], logical_only: bool) -> u64 {
+        let mut input = DataChunkInput::new(bytes);
+        let mut table: ParserTable<'_, BenchHm> = ParserTable::new();
+        table.register(HEIGHT_MAP_DATA_LABEL, b"", bench_hm_parser);
+        let mut st = BenchHm {
+            logical_only,
+            checksum: 0,
+            err: None,
+        };
+        if !input.parse(&mut table, &mut st) || st.err.is_some() {
+            return 0xdead_beef_u64;
+        }
+        st.checksum
+    }
+
+    /// The modern load: the full walk over the version-4 corpus.
+    pub fn bench_parse(c: &mut Criterion) {
+        let bytes = build_v4_corpus();
+        let mut group = c.benchmark_group("mapheightmap");
+        group.throughput(Throughput::Bytes(bytes.len() as u64));
+        group.bench_function("parse_x64k", |b| {
+            b.iter(|| black_box(run_walk(black_box(&bytes), false)))
+        });
+        group.finish();
+    }
+
+    /// The legacy load: the logical walk over the version-1 corpus (the
+    /// in-place downsample of 65 536 samples and the extent re-point).
+    pub fn bench_parse_v1(c: &mut Criterion) {
+        let bytes = build_v1_corpus();
+        let mut group = c.benchmark_group("mapheightmap");
+        group.throughput(Throughput::Bytes(bytes.len() as u64));
+        group.bench_function("parse_v1_x64k", |b| {
+            b.iter(|| black_box(run_walk(black_box(&bytes), true)))
         });
         group.finish();
     }

@@ -72,10 +72,18 @@
 //!   interning its pairs sort on — the map-files counterpart of the
 //!   W3D [`chunk`] container, and the base the map payload parsers
 //!   (the next slices) build on.
+//! - [`map_heightmap`]: the map height-map payload — the
+//!   `HeightMapData` chunk reader of `WorldHeightMap.cpp`
+//!   (`ParseHeightMapData` and the logical-data-only `ParseSizeOnly`):
+//!   the version-gated border and boundary reads, the map-size and
+//!   sample-count contracts, and the version-1 in-place downsample
+//!   with its mode-divergent `width`/`height` update — the first map
+//!   payload parser on top of the data-chunk container.
 //!
 //! Deferred to later Phase 2 slices, in plan order: the remaining W3D
-//! modules (…), the map payload parsers on top of
-//! [`map_chunk`], WND layouts, fonts
+//! modules (…), the remaining map payload parsers on top of
+//! [`map_chunk`] (the blend tiles, global lighting, world info, object
+//! lists, polygon triggers and sides lists), WND layouts, fonts
 //! and audio containers (the DDS textures are done). Consumer-side
 //! normalizations the original performs on top
 //! of a format (space stripping, first-string selection, the texture
@@ -93,6 +101,7 @@ pub mod chunk;
 pub mod csf;
 pub mod dds;
 pub mod map_chunk;
+pub mod map_heightmap;
 pub mod tga;
 pub mod w3d_hanim;
 pub mod w3d_hcanim;
