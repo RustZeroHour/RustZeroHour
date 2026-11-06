@@ -148,9 +148,14 @@ EAC_DIR="$REPO_ROOT/Core/Libraries/Source/Compression/EAC"
 # reads, where GCC 14's IPA range analysis picks up impossible negative
 # lengths (see the mapheightmap note above — the guards are real, the
 # ranges are not).
+# the same three suppressions as the world-info wrapper (its parse walk
+# inlines the transcription's TOC reads the same way).
 "$CXX" -O2 -std=c++17 -Wall -Wextra -Werror -ffp-contract=off \
     -Wno-stringop-overflow -Wno-array-bounds -Wno-restrict \
     -c -o "$BUILD_DIR/bench_wrap_mapworldinfo.o" "$SCRIPT_DIR/bench_wrap_mapworldinfo.cpp"
+"$CXX" -O2 -std=c++17 -Wall -Wextra -Werror -ffp-contract=off \
+    -Wno-stringop-overflow -Wno-array-bounds -Wno-restrict \
+    -c -o "$BUILD_DIR/bench_wrap_mappolygons.o" "$SCRIPT_DIR/bench_wrap_mappolygons.cpp"
 "$CXX" -O2 -std=c++17 -Wall -Wextra -Werror -ffp-contract=off \
     -c -o "$BUILD_DIR/bench_baseline.o" "$SCRIPT_DIR/bench_baseline.cpp"
 
@@ -174,6 +179,7 @@ EAC_DIR="$REPO_ROOT/Core/Libraries/Source/Compression/EAC"
     "$BUILD_DIR/bench_wrap_maplighting.o" \
     "$BUILD_DIR/bench_wrap_mapobjects.o" \
     "$BUILD_DIR/bench_wrap_mapworldinfo.o" \
+    "$BUILD_DIR/bench_wrap_mappolygons.o" \
     "$BUILD_DIR/refdecode.o" \
     "$BUILD_DIR/refencode.o" \
     "$BUILD_DIR"/*.c.o -lm

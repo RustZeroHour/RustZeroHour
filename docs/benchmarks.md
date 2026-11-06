@@ -459,6 +459,36 @@ short-read path and the `NameKeys` linear scans the transcription's
 `std::string` compares also pay; both sides re-derive the sticky
 weather word per chunk (the checksum folds it in).
 
+The seventeenth slice, the map polygon-triggers payload, adds the one
+triggers-load comparison. Measured on 2026-11-07, same setup and flags
+as above. The corpus is one version-4 PolygonTriggers chunk with 1536
+triggers (a formula name, a layer, an id, the water/river bytes, a
+riverStart word and eight int-triple points each — 192,042 bytes),
+built through the same byte formulas on both sides, with the walk
+cross-checked through the final-list checksum both sides compute
+(721,561,933,735 — the Rust bench asserts it). The C++ side runs the
+`PolygonTrigger.cpp` transcription in `bench_wrap_mappolygons.cpp` (the
+constructor's single points-array allocation modelled as one reserve);
+the Rust side `rzh-formats::map_polygontriggers`.
+
+| Benchmark | Rust (criterion) | C++ baseline | Rust/C++ | Verdict |
+|---|---:|---:|---:|---|
+| `mappolygons/parse_x190k` | 378.6 µs | 351.3 µs | 1.08x | within |
+
+The flat-record workload is the purest read loop of the map family —
+no nested chunks, no dicts — and the port's first cut ran 1.38x over
+the transcription's push-grown points vectors. Three port-side changes
+bring it inside budget with the goldens unchanged (they pin behaviour,
+not allocation): the version gates hoist out of the record loop (the
+chunk's own word, loop-invariant), the point triples read as one
+zero-filled 12-byte block (the same words three `read_int`s leave —
+the fresh-buffer-per-point note in the reader — with the stream
+bookkeeping paid once per point instead of three times), and the
+records' remaining per-read bounds checks stay the honest cost the
+maplighting slice already documented. The struct layer (the two string
+`Vec`s and the points `Vec` per record — where the C++ `std::string`'s
+SSO hides the short-name allocations) is the residual gap.
+
 ## Methodology
 
 - **Same code, same corpora.** The C++ side times the *verbatim

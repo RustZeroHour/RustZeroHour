@@ -373,6 +373,20 @@ echo "compiling gen_mapworldinfo_golden.cpp ..."
 "$BUILD_DIR/gen_mapworldinfo_golden" "$REPO_ROOT/crates/rzh-formats/tests/golden/mapworldinfo.txt"
 echo "wrote crates/rzh-formats/tests/golden/mapworldinfo.txt"
 
+# --- map polygon-triggers payload golden dump: the PolygonTrigger.cpp
+# ParsePolygonTriggersDataChunk transcription (the flat version-gated
+# record loop, the fewer-than-two-point deletion, the v1 auto-added
+# water area with its duplicated id and extent-derived corners, the id
+# counter) over the version/gates/auto-area/degenerate/negative/dup/
+# extents/multi/short/under-declared/leftover/nested/scope/error/walk
+# corpora.
+echo "compiling gen_mappolygons_golden.cpp ..."
+"$CXX" -O2 -std=c++17 -Wall -Wextra -Werror -ffp-contract=off \
+    -c -o "$BUILD_DIR/gen_mappolygons_golden.o" "$SCRIPT_DIR/gen_mappolygons_golden.cpp"
+"$CXX" -o "$BUILD_DIR/gen_mappolygons_golden" "$BUILD_DIR/gen_mappolygons_golden.o"
+"$BUILD_DIR/gen_mappolygons_golden" "$REPO_ROOT/crates/rzh-formats/tests/golden/mappolygons.txt"
+echo "wrote crates/rzh-formats/tests/golden/mappolygons.txt"
+
 echo "compiling gen_dds_golden.cpp ..."
 "$CXX" -O2 -std=c++17 -Wall -Wextra -Werror -ffp-contract=off \
     -c -o "$BUILD_DIR/gen_dds_golden.o" "$SCRIPT_DIR/gen_dds_golden.cpp"

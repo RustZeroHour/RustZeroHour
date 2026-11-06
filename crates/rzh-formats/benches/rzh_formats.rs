@@ -437,7 +437,8 @@ criterion_group!(
     mapblendtile_benches::bench_parse_v6,
     maplighting_benches::bench_parse,
     mapobjects_benches::bench_parse,
-    mapworldinfo_benches::bench_parse
+    mapworldinfo_benches::bench_parse,
+    mappolygons_benches::bench_parse
 );
 criterion_main!(benches);
 
@@ -2582,6 +2583,133 @@ mod mapworldinfo_benches {
         group.throughput(Throughput::Bytes(bytes.len() as u64));
         group.bench_function("parse_x190k", |b| {
             b.iter(|| black_box(run_walk(black_box(&bytes))))
+        });
+        group.finish();
+    }
+}
+
+// ---------------------------------------------------------------------------
+// mappolygons: the map polygon-triggers payload (PolygonTrigger.cpp)
+// ---------------------------------------------------------------------------
+
+mod mappolygons_benches {
+    use super::*;
+    use rzh_formats::map_polygontriggers::{
+        K_TRIGGERS_VERSION_4, POLYGON_TRIGGERS_LABEL, PolygonTriggersData,
+    };
+
+    /// The bench corpus size: 1536 8-point triggers ≈ 190 KiB (matches
+    /// the C++ baseline).
+    const BENCH_TRIGGERS: usize = 1536;
+
+    /// The corpus checksum the C++ baseline computes over the same
+    /// fields (bench_wrap_mappolygons.cpp, verified at authoring time).
+    const CHECKSUM: u64 = 721_561_933_735;
+
+    fn put_i32(b: &mut Vec<u8>, v: i32) {
+        b.extend_from_slice(&v.to_le_bytes());
+    }
+    fn put_chunk(b: &mut Vec<u8>, id: u32, ver: u16, data: &[u8]) {
+        b.extend_from_slice(&id.to_le_bytes());
+        b.extend_from_slice(&ver.to_le_bytes());
+        b.extend_from_slice(&(data.len() as i32).to_le_bytes());
+        b.extend_from_slice(data);
+    }
+    fn toc_bytes(entries: &[(&[u8], u32)]) -> Vec<u8> {
+        let mut b = Vec::new();
+        b.extend_from_slice(b"CkMp");
+        b.extend_from_slice(&(entries.len() as i32).to_le_bytes());
+        for (name, id) in entries {
+            b.push(name.len() as u8);
+            b.extend_from_slice(name);
+            b.extend_from_slice(&id.to_le_bytes());
+        }
+        b
+    }
+
+    /// One trigger's flat record (the gen's `trigger_payload`, the
+    /// version-4 shape).
+    fn trigger_payload(i: usize) -> Vec<u8> {
+        let mut p = Vec::new();
+        let name = format!("Trig{:04}", i);
+        let layer = format!("L{:02}", i % 50);
+        p.extend_from_slice(&(name.len() as u16).to_le_bytes());
+        p.extend_from_slice(name.as_bytes());
+        p.extend_from_slice(&(layer.len() as u16).to_le_bytes());
+        p.extend_from_slice(layer.as_bytes());
+        put_i32(&mut p, i as i32 + 1); // the id
+        p.push(u8::from(i & 1 != 0)); // water
+        p.push(u8::from(i & 2 != 0)); // river
+        put_i32(&mut p, (i % 32) as i32); // riverStart
+        put_i32(&mut p, 8); // numPoints
+        for j in 0..8i32 {
+            put_i32(&mut p, (i % 512) as i32 + j);
+            put_i32(&mut p, (i % 256) as i32 - j);
+            put_i32(&mut p, (j * 7) % 100);
+        }
+        p
+    }
+
+    /// Builds the corpus: one version-4 PolygonTriggers chunk with 1536
+    /// 8-point formula triggers — keep in lockstep with
+    /// tools/differential/bench_wrap_mappolygons.cpp.
+    fn build_corpus() -> Vec<u8> {
+        let mut b = toc_bytes(&[(POLYGON_TRIGGERS_LABEL, 1)]);
+        let mut payload = Vec::new();
+        put_i32(&mut payload, BENCH_TRIGGERS as i32);
+        for i in 0..BENCH_TRIGGERS {
+            payload.extend_from_slice(&trigger_payload(i));
+        }
+        put_chunk(&mut b, 1, K_TRIGGERS_VERSION_4, &payload);
+        b
+    }
+
+    /// The final-list checksum over the kept triggers' observable
+    /// fields plus the id counter (the same fields the C++ baseline
+    /// sums).
+    fn checksum(data: &PolygonTriggersData) -> u64 {
+        let mut checksum = 0u64;
+        for t in &data.triggers {
+            checksum = checksum.wrapping_add(t.id as u32 as u64);
+            checksum = checksum.wrapping_add(u64::from(t.is_water));
+            checksum = checksum.wrapping_add(u64::from(t.is_river) * 2);
+            checksum = checksum.wrapping_add(t.river_start as u32 as u64);
+            for &c in &t.name {
+                checksum = checksum.wrapping_add(c as u64);
+            }
+            for &c in &t.layer {
+                checksum = checksum.wrapping_add(c as u64);
+            }
+            for p in &t.points {
+                checksum = checksum.wrapping_add(p.x as u32 as u64);
+                checksum = checksum.wrapping_add(p.y as u32 as u64);
+                checksum = checksum.wrapping_add(p.z as u32 as u64);
+            }
+        }
+        checksum = checksum.wrapping_add(data.next_trigger_id as u32 as u64);
+        checksum
+    }
+
+    /// The triggers load: the logical walk over the 1536-trigger corpus.
+    pub fn bench_parse(c: &mut Criterion) {
+        let bytes = build_corpus();
+        let data = PolygonTriggersData::from_map(&bytes)
+            .expect("loads")
+            .expect("fired");
+        let got = checksum(&data);
+        assert_eq!(
+            got, CHECKSUM,
+            "the polygons corpus drifted from the C++ baseline"
+        );
+        let mut group = c.benchmark_group("mappolygons");
+        group.throughput(Throughput::Bytes(bytes.len() as u64));
+        group.bench_function("parse_x190k", |b| {
+            b.iter(|| {
+                let data = PolygonTriggersData::from_map(black_box(&bytes))
+                    .expect("loads")
+                    .expect("fired");
+                black_box(checksum(&data))
+            })
         });
         group.finish();
     }

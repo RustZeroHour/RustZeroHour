@@ -115,10 +115,18 @@
 //!   weather word its exact-type `INT` query re-derives (the raw word,
 //!   never range-checked, sticky across chunks without the pair) —
 //!   over the same container.
+//! - [`map_polygontriggers`]: the map polygon-triggers payload — the
+//!   `PolygonTriggers` chunk reader of `PolygonTrigger.cpp`
+//!   (`ParsePolygonTriggersDataChunk`, the logical load's named areas):
+//!   the flat version-gated record loop, the fewer-than-two-point
+//!   deletion, the version-1 auto-added water area whose id duplicates
+//!   the maximum, and the id counter the load leaves behind — over the
+//!   same container.
 //!
 //! Deferred to later Phase 2 slices, in plan order: the remaining W3D
-//! modules (…), the remaining map payload parsers on top of
-//! [`map_chunk`] (the polygon triggers and sides lists),
+//! modules (…), the remaining map payload parser on top of
+//! [`map_chunk`] (the sides lists — the last of the family, whose
+//! nested `PlayerScriptsList` belongs to the script-engine slice),
 //! WND layouts, fonts
 //! and audio containers (the DDS textures are done). Consumer-side
 //! normalizations the original performs on top
@@ -141,6 +149,7 @@ pub mod map_chunk;
 pub mod map_heightmap;
 pub mod map_lighting;
 pub mod map_objects;
+pub mod map_polygontriggers;
 pub mod map_worldinfo;
 pub mod tga;
 pub mod w3d_hanim;
