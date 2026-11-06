@@ -336,6 +336,17 @@ echo "compiling gen_mapblendtile_golden.cpp ..."
 "$BUILD_DIR/gen_mapblendtile_golden" "$REPO_ROOT/crates/rzh-formats/tests/golden/mapblendtile.txt"
 echo "wrote crates/rzh-formats/tests/golden/mapblendtile.txt"
 
+# --- map global-lighting payload golden dump: the WorldHeightMap.cpp
+# ParseLightingDataChunk transcription (the time-of-day word, the init
+# pass, the interleaved per-time-of-day light blocks, the bytes-left-
+# gated shadow colour) over the version/edge/walk corpora.
+echo "compiling gen_maplighting_golden.cpp ..."
+"$CXX" -O2 -std=c++17 -Wall -Wextra -Werror -ffp-contract=off \
+    -c -o "$BUILD_DIR/gen_maplighting_golden.o" "$SCRIPT_DIR/gen_maplighting_golden.cpp"
+"$CXX" -o "$BUILD_DIR/gen_maplighting_golden" "$BUILD_DIR/gen_maplighting_golden.o"
+"$BUILD_DIR/gen_maplighting_golden" "$REPO_ROOT/crates/rzh-formats/tests/golden/maplighting.txt"
+echo "wrote crates/rzh-formats/tests/golden/maplighting.txt"
+
 echo "compiling gen_dds_golden.cpp ..."
 "$CXX" -O2 -std=c++17 -Wall -Wextra -Werror -ffp-contract=off \
     -c -o "$BUILD_DIR/gen_dds_golden.o" "$SCRIPT_DIR/gen_dds_golden.cpp"

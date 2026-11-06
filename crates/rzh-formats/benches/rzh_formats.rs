@@ -434,7 +434,8 @@ criterion_group!(
     mapheightmap_benches::bench_parse,
     mapheightmap_benches::bench_parse_v1,
     mapblendtile_benches::bench_parse,
-    mapblendtile_benches::bench_parse_v6
+    mapblendtile_benches::bench_parse_v6,
+    maplighting_benches::bench_parse
 );
 criterion_main!(benches);
 
@@ -2079,6 +2080,163 @@ mod mapblendtile_benches {
                 let load = TerrainLoad::from_map(black_box(&bytes), true).expect("loads");
                 black_box(checksum(&load))
             })
+        });
+        group.finish();
+    }
+}
+
+// ---------------------------------------------------------------------------
+// maplighting: the map global-lighting payload (WorldHeightMap.cpp)
+// ---------------------------------------------------------------------------
+
+mod maplighting_benches {
+    use super::*;
+    use rzh_formats::map_chunk::{DataChunkInfo, DataChunkInput, ParserTable};
+    use rzh_formats::map_lighting::{
+        GLOBAL_LIGHTING_LABEL, GlobalLighting, K_LIGHTING_VERSION_3, LIGHTING_TIME_OF_DAY_COUNT,
+        MAX_GLOBAL_LIGHTS, parse_lighting_data_chunk,
+    };
+
+    /// The bench corpus repetition: the lighting chunk is fixed-size
+    /// (872 bytes), so the workload scales by repeating it (matches the
+    /// C++ baseline).
+    const BENCH_CHUNKS: usize = 256;
+
+    /// The corpus checksum the C++ baseline computes over the same
+    /// fields (bench_wrap_maplighting.cpp, verified at authoring time).
+    const CHECKSUM: u64 = 61_160_372_863_360;
+
+    fn put_i32(b: &mut Vec<u8>, v: i32) {
+        b.extend_from_slice(&v.to_le_bytes());
+    }
+    fn put_f32(b: &mut Vec<u8>, v: f32) {
+        b.extend_from_slice(&v.to_le_bytes());
+    }
+    fn put_chunk(b: &mut Vec<u8>, id: u32, ver: u16, data: &[u8]) {
+        b.extend_from_slice(&id.to_le_bytes());
+        b.extend_from_slice(&ver.to_le_bytes());
+        b.extend_from_slice(&(data.len() as i32).to_le_bytes());
+        b.extend_from_slice(data);
+    }
+    fn toc_bytes(entries: &[(&[u8], u32)]) -> Vec<u8> {
+        let mut b = Vec::new();
+        b.extend_from_slice(b"CkMp");
+        b.extend_from_slice(&(entries.len() as i32).to_le_bytes());
+        for (name, id) in entries {
+            b.push(name.len() as u8);
+            b.extend_from_slice(name);
+            b.extend_from_slice(&id.to_le_bytes());
+        }
+        b
+    }
+
+    /// One light's 9 reals (the gen's `put_light` formula).
+    fn put_light(b: &mut Vec<u8>, base: f32) {
+        for k in 0..9u32 {
+            put_f32(b, base + k as f32 * 0.25);
+        }
+    }
+
+    /// A full version-3 payload (the gen's `lighting_payload`).
+    fn lighting_payload(tod: i32, base: f32, shadow: u32) -> Vec<u8> {
+        let mut p = Vec::new();
+        put_i32(&mut p, tod);
+        for i in 0..4u32 {
+            put_light(&mut p, base + i as f32);
+            put_light(&mut p, base + 10.0 + i as f32);
+            for j in 1..3u32 {
+                put_light(&mut p, base + 20.0 + (j * 4 + i) as f32);
+            }
+            for j in 1..3u32 {
+                put_light(&mut p, base + 40.0 + (j * 4 + i) as f32);
+            }
+        }
+        put_i32(&mut p, shadow as i32);
+        p
+    }
+
+    /// Builds the corpus: 256 version-3 GlobalLighting chunks, formula
+    /// values — keep in lockstep with
+    /// tools/differential/bench_wrap_maplighting.cpp.
+    fn build_corpus() -> Vec<u8> {
+        let mut b = toc_bytes(&[(GLOBAL_LIGHTING_LABEL, 1)]);
+        for c in 0..BENCH_CHUNKS {
+            let p = lighting_payload(2, (c % 64) as f32 * 0.25, 0x0100_0000 | c as u32);
+            put_chunk(&mut b, 1, K_LIGHTING_VERSION_3, &p);
+        }
+        b
+    }
+
+    /// The walk's user state: the accumulated per-chunk checksum (the
+    /// same fields the C++ baseline sums).
+    struct BenchGl {
+        checksum: u64,
+    }
+
+    fn add_checksum(gl: &GlobalLighting, checksum: &mut u64) {
+        *checksum = checksum.wrapping_add(gl.time_of_day as u32 as u64);
+        if let Some(c) = gl.shadow_color {
+            *checksum = checksum.wrapping_add(c as u64);
+        }
+        for i in 0..LIGHTING_TIME_OF_DAY_COUNT {
+            for j in 0..MAX_GLOBAL_LIGHTS {
+                for light in [
+                    &gl.terrain_lighting[i][j],
+                    &gl.terrain_objects_lighting[i][j],
+                ] {
+                    for w in [
+                        light.ambient.red,
+                        light.ambient.green,
+                        light.ambient.blue,
+                        light.diffuse.red,
+                        light.diffuse.green,
+                        light.diffuse.blue,
+                        light.light_pos.x,
+                        light.light_pos.y,
+                        light.light_pos.z,
+                    ] {
+                        *checksum = checksum.wrapping_add(w.to_bits() as u64);
+                    }
+                }
+            }
+        }
+    }
+
+    fn bench_gl_parser(
+        file: &mut DataChunkInput<'_>,
+        info: &DataChunkInfo,
+        _table: &mut ParserTable<'_, BenchGl>,
+        st: &mut BenchGl,
+    ) -> bool {
+        let gl = parse_lighting_data_chunk(file, info);
+        add_checksum(&gl, &mut st.checksum);
+        true
+    }
+
+    fn run_walk(bytes: &[u8]) -> u64 {
+        let mut input = DataChunkInput::new(bytes);
+        let mut table: ParserTable<'_, BenchGl> = ParserTable::new();
+        table.register(GLOBAL_LIGHTING_LABEL, b"", bench_gl_parser);
+        let mut st = BenchGl { checksum: 0 };
+        if !input.parse(&mut table, &mut st) {
+            return 0xdead_beef_u64;
+        }
+        st.checksum
+    }
+
+    /// The lighting load: the full walk over the repeated-chunk corpus
+    /// (every chunk parses; the last one wins).
+    pub fn bench_parse(c: &mut Criterion) {
+        let bytes = build_corpus();
+        let got = run_walk(&bytes);
+        assert_eq!(
+            got, CHECKSUM,
+            "the lighting corpus drifted from the C++ baseline"
+        );
+        let mut group = c.benchmark_group("maplighting");
+        group.throughput(Throughput::Bytes(bytes.len() as u64));
+        group.bench_function("parse_x220k", |b| {
+            b.iter(|| black_box(run_walk(black_box(&bytes))))
         });
         group.finish();
     }

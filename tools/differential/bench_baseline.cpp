@@ -136,6 +136,8 @@ long bench_mapblendtile_materialize(uint8_t *out, size_t cap);
 long bench_mapblendtile_materialize_v6(uint8_t *out, size_t cap);
 std::uint64_t bench_mapblendtile_parse(const uint8_t *data, size_t len);
 std::uint64_t bench_mapblendtile_parse_v6(const uint8_t *data, size_t len);
+long bench_maplighting_materialize(uint8_t *out, size_t cap);
+std::uint64_t bench_maplighting_parse(const uint8_t *data, size_t len);
 unsigned bench_dds_parse(const uint8_t *data, size_t len);
 long bench_dds_convert_materialize(uint8_t *out, size_t cap);
 unsigned bench_dds_convert(const uint8_t *data, size_t len, uint8_t *dest, size_t dest_cap);
@@ -739,6 +741,22 @@ int main(int argc, char **argv)
                 report("mapblendtile/parse_v6_x64k", measure_ns([] {}, [&] {
                         return bench_mapblendtile_parse_v6(bytes_v6.data(), bytes_v6.size());
                 }), (double)total_v6);
+        }
+
+        // --- map global-lighting payload ----------------------------------------------
+        {
+                std::vector<uint8_t> scratch(4 * 1024 * 1024);
+                long total = bench_maplighting_materialize(scratch.data(), scratch.size());
+                if (total <= 0)
+                {
+                        fprintf(stderr, "error: maplighting corpus write failed\n");
+                        exit(1);
+                }
+                std::vector<uint8_t> bytes(scratch.begin(), scratch.begin() + total);
+
+                report("maplighting/parse_x220k", measure_ns([] {}, [&] {
+                        return bench_maplighting_parse(bytes.data(), bytes.size());
+                }), (double)total);
         }
 
         // --- dds textures ---------------------------------------------------------------

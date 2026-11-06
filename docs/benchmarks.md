@@ -378,6 +378,36 @@ is compute-bound, not memory-bound, and the same `MAP_HEIGHT_SCALE`
 constants keep it bit-identical (the goldens pin the derived bitmap
 byte-for-byte).
 
+The fourteenth slice, the map global-lighting payload, adds the one
+lighting-load comparison. Measured on 2026-11-06, same setup and flags
+as above. The lighting chunk is fixed-size (one time-of-day word, four
+interleaved per-time-of-day blocks of six nine-word lights, the shadow
+word — 872 bytes), so the corpus scales the workload by repetition:
+256 version-3 GlobalLighting chunks, every one of which the walk parses
+(the last one wins — the repeated-chunk shape the golden corpus set
+pins). The corpus is byte-identical across the two builders (225,819
+bytes; the same formula payloads), with the parsed state cross-checked
+through the per-chunk walk checksum both sides accumulate
+(61,160,372,863,360 — the Rust bench asserts it). The C++ side runs the
+`WorldHeightMap.cpp` transcription in `bench_wrap_maplighting.cpp`; the
+Rust side `rzh-formats::map_lighting`.
+
+| Benchmark | Rust (criterion) | C++ baseline | Rust/C++ | Verdict |
+|---|---:|---:|---:|---|
+| `maplighting/parse_x220k` | 260.6 µs | 227.3 µs | 1.15x | within |
+
+The first read-dominated map bench exposed a cross-module inlining gap
+in the container's word readers: the lighting parser's 217
+`readReal`-shaped calls per chunk left `map_chunk`'s `read_real` in
+another codegen unit, and every read paid a full call (1.86x over
+baseline). `#[inline]` hints on the container's hot readers
+(`read_real`/`read_int`/`read_byte`, the stream `read` and the
+`data_left` decrement) bring the walk to 1.15x — the per-read cost
+matches the transcription's (4.6 vs 4.1 ns over 55,552 reads), with
+the remaining gap the walk's chunk bookkeeping. The same hints also
+speed up every other map payload bench (their goldens and checksums
+are unchanged — the hints touch no semantics).
+
 ## Methodology
 
 - **Same code, same corpora.** The C++ side times the *verbatim

@@ -467,6 +467,7 @@ impl<'a> Stream<'a> {
 
     /// `read`: clamp the request to the available bytes (zero when the
     /// buffer is empty), copy what is there, and advance.
+    #[inline]
     fn read(&mut self, out: &mut [u8]) -> usize {
         let available = self.bytes.len().saturating_sub(self.pos);
         let n = out.len().min(available);
@@ -962,6 +963,7 @@ impl<'a> DataChunkInput<'a> {
     }
 
     /// `readReal`.
+    #[inline]
     pub fn read_real(&mut self) -> f32 {
         let mut buf = [0u8; 4];
         self.stream.read(&mut buf);
@@ -970,6 +972,7 @@ impl<'a> DataChunkInput<'a> {
     }
 
     /// `readInt`.
+    #[inline]
     pub fn read_int(&mut self) -> i32 {
         let mut buf = [0u8; 4];
         self.stream.read(&mut buf);
@@ -978,6 +981,7 @@ impl<'a> DataChunkInput<'a> {
     }
 
     /// `readByte`.
+    #[inline]
     pub fn read_byte(&mut self) -> u8 {
         let mut buf = [0u8; 1];
         self.stream.read(&mut buf);
@@ -1084,6 +1088,7 @@ impl<'a> DataChunkInput<'a> {
     /// `decrementDataLeft`: every open chunk, wrapping like the
     /// original's unsigned arithmetic (its signed underflow is UB; the
     /// port defines it).
+    #[inline]
     fn decrement_data_left(&mut self, size: i32) {
         for chunk in &mut self.stack {
             chunk.data_left = chunk.data_left.wrapping_sub(size);

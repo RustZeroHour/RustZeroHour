@@ -90,11 +90,19 @@
 //!   blend gate, and the constructor's post-walk patch loop — over
 //!   the same container, on top of [`map_heightmap`]'s half of the
 //!   shared walk state.
+//! - [`map_lighting`]: the map global-lighting payload — the
+//!   `GlobalLighting` chunk reader of `WorldHeightMap.cpp`
+//!   (`ParseLightingDataChunk`, the full load's other payload): the
+//!   raw time-of-day word, the init pass that fills both light tables
+//!   with the not-totally-invalid defaults, the four interleaved
+//!   per-time-of-day blocks of terrain and object lights with their
+//!   version gates, and the bytes-left-gated shadow colour — a reader
+//!   with no failure mode at all, over the same container.
 //!
 //! Deferred to later Phase 2 slices, in plan order: the remaining W3D
 //! modules (…), the remaining map payload parsers on top of
-//! [`map_chunk`] (the global lighting, world info, object
-//! lists, polygon triggers and sides lists), WND layouts, fonts
+//! [`map_chunk`] (the world info, object lists, polygon triggers and
+//! sides lists), WND layouts, fonts
 //! and audio containers (the DDS textures are done). Consumer-side
 //! normalizations the original performs on top
 //! of a format (space stripping, first-string selection, the texture
@@ -114,6 +122,7 @@ pub mod dds;
 pub mod map_blendtile;
 pub mod map_chunk;
 pub mod map_heightmap;
+pub mod map_lighting;
 pub mod tga;
 pub mod w3d_hanim;
 pub mod w3d_hcanim;
