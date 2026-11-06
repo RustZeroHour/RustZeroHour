@@ -138,6 +138,11 @@ EAC_DIR="$REPO_ROOT/Core/Libraries/Source/Compression/EAC"
 "$CXX" -O2 -std=c++17 -Wall -Wextra -Werror -ffp-contract=off \
     -Wno-stringop-overflow -Wno-array-bounds -Wno-restrict \
     -c -o "$BUILD_DIR/bench_wrap_maplighting.o" "$SCRIPT_DIR/bench_wrap_maplighting.cpp"
+# the objects wrapper stays warning-free without the suppressions (its
+# fixed-shape reads and per-object parses keep the inlining ranges
+# tractable).
+"$CXX" -O2 -std=c++17 -Wall -Wextra -Werror -ffp-contract=off \
+    -c -o "$BUILD_DIR/bench_wrap_mapobjects.o" "$SCRIPT_DIR/bench_wrap_mapobjects.cpp"
 "$CXX" -O2 -std=c++17 -Wall -Wextra -Werror -ffp-contract=off \
     -c -o "$BUILD_DIR/bench_baseline.o" "$SCRIPT_DIR/bench_baseline.cpp"
 
@@ -159,6 +164,7 @@ EAC_DIR="$REPO_ROOT/Core/Libraries/Source/Compression/EAC"
     "$BUILD_DIR/bench_wrap_mapheightmap.o" \
     "$BUILD_DIR/bench_wrap_mapblendtile.o" \
     "$BUILD_DIR/bench_wrap_maplighting.o" \
+    "$BUILD_DIR/bench_wrap_mapobjects.o" \
     "$BUILD_DIR/refdecode.o" \
     "$BUILD_DIR/refencode.o" \
     "$BUILD_DIR"/*.c.o -lm

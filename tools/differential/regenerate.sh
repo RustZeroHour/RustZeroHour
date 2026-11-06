@@ -347,6 +347,19 @@ echo "compiling gen_maplighting_golden.cpp ..."
 "$BUILD_DIR/gen_maplighting_golden" "$REPO_ROOT/crates/rzh-formats/tests/golden/maplighting.txt"
 echo "wrote crates/rzh-formats/tests/golden/maplighting.txt"
 
+# --- map objects-list payload golden dump: the WorldHeightMap.cpp
+# ParseObjectsDataChunk/ParseObjectData transcription (the location,
+# the version-gated z zeroing, the angle wrap, the property dict with
+# the well-known derivations, the z-range drops, the head-overwrite
+# list semantics) over the version/derivation/drop/angle/dict/linkage/
+# scope/error/walk corpora.
+echo "compiling gen_mapobjects_golden.cpp ..."
+"$CXX" -O2 -std=c++17 -Wall -Wextra -Werror -ffp-contract=off \
+    -c -o "$BUILD_DIR/gen_mapobjects_golden.o" "$SCRIPT_DIR/gen_mapobjects_golden.cpp"
+"$CXX" -o "$BUILD_DIR/gen_mapobjects_golden" "$BUILD_DIR/gen_mapobjects_golden.o"
+"$BUILD_DIR/gen_mapobjects_golden" "$REPO_ROOT/crates/rzh-formats/tests/golden/mapobjects.txt"
+echo "wrote crates/rzh-formats/tests/golden/mapobjects.txt"
+
 echo "compiling gen_dds_golden.cpp ..."
 "$CXX" -O2 -std=c++17 -Wall -Wextra -Werror -ffp-contract=off \
     -c -o "$BUILD_DIR/gen_dds_golden.o" "$SCRIPT_DIR/gen_dds_golden.cpp"

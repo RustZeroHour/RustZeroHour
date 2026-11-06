@@ -98,11 +98,21 @@
 //!   per-time-of-day blocks of terrain and object lights with their
 //!   version gates, and the bytes-left-gated shadow colour — a reader
 //!   with no failure mode at all, over the same container.
+//! - [`map_objects`]: the map objects-list payload — the
+//!   `ObjectsList`/`Object` chunk readers of `WorldHeightMap.cpp`
+//!   (`ParseObjectsDataChunk` and `ParseObjectData`, the logical
+//!   load's other payload): the location triple with the
+//!   version-gated z zeroing, the `normalizeAngle` wrap in its mixed
+//!   precision, the editor flags, the type name, the property dict
+//!   with the well-known-key derivations (waypoint, light, scorch),
+//!   the z-range drops, and the head-overwrite list semantics — the
+//!   first payload with a nested parser registration, over the same
+//!   container.
 //!
 //! Deferred to later Phase 2 slices, in plan order: the remaining W3D
 //! modules (…), the remaining map payload parsers on top of
-//! [`map_chunk`] (the world info, object lists, polygon triggers and
-//! sides lists), WND layouts, fonts
+//! [`map_chunk`] (the world info, polygon triggers and sides lists),
+//! WND layouts, fonts
 //! and audio containers (the DDS textures are done). Consumer-side
 //! normalizations the original performs on top
 //! of a format (space stripping, first-string selection, the texture
@@ -123,6 +133,7 @@ pub mod map_blendtile;
 pub mod map_chunk;
 pub mod map_heightmap;
 pub mod map_lighting;
+pub mod map_objects;
 pub mod tga;
 pub mod w3d_hanim;
 pub mod w3d_hcanim;

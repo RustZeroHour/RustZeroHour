@@ -408,6 +408,32 @@ the remaining gap the walk's chunk bookkeeping. The same hints also
 speed up every other map payload bench (their goldens and checksums
 are unchanged — the hints touch no semantics).
 
+The fifteenth slice, the map objects-list payload, adds the one
+objects-load comparison. Measured on 2026-11-06, same setup and flags
+as above. The corpus is a version-3 ObjectsList chunk with 4096 Object
+children — a location, an angle, flags, a formula name and a two-pair
+property dict each (every 16th object a waypoint) — built through the
+same byte formulas on both sides (190,542 bytes,
+byte-identical), with the loaded state cross-checked through the
+final-list walk checksum both sides compute (22,214,270,726,635 — the
+Rust bench asserts it). The C++ side runs the `WorldHeightMap.cpp`
+transcription in `bench_wrap_mapobjects.cpp`; the Rust side
+`rzh-formats::map_objects`.
+
+| Benchmark | Rust (criterion) | C++ baseline | Rust/C++ | Verdict |
+|---|---:|---:|---:|---|
+| `mapobjects/parse_x180k` | 967.1 µs | 1.23 ms | 0.78x | within |
+
+The port runs ahead of the transcription: the per-object cost is
+dominated by the allocations both sides pay (the property dict's pair
+vector, the name, the object itself), and the port's `Vec` pushes and
+`read_dict`'s sorted inserts (a linear `set` over two pairs) edge out
+the transcription's `std::vector` copies of the whole `MapObjectLoad`
+(`m_objects.push_back(*pThisOne)` copies the dict and the name a second
+time) plus its `AsciiString` comparisons in the name-key scans. The
+`normalizeAngle` wrap is bit-identical on both sides (the goldens pin
+the wrapped angles' words).
+
 ## Methodology
 
 - **Same code, same corpora.** The C++ side times the *verbatim

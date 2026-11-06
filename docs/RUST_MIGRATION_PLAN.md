@@ -555,9 +555,9 @@ is now specified in [`docs/TRACE_FORMAT_V1.md`](TRACE_FORMAT_V1.md).
   format-agnostic so the data format can change later (ADR-003).
 - `rzh-formats`: map files (the DataChunk framing container **done**,
   the height-map payload **done**, the blend-tile payload **done**, the
-  global-lighting payload **done**; the remaining payload parsers — the
-  world info, object lists, polygon triggers and sides lists — follow),
-  W3D (meshes **done**, skeletons **done**,
+  global-lighting payload **done**, the objects-list payload **done**;
+  the remaining payload parsers — the world info, polygon triggers and
+  sides lists — follow), W3D (meshes **done**, skeletons **done**,
   raw animations **done**, compressed animations **done**, HLOD
   **done**) **on top of the ported chunk container**, TGA/DDS
   (**both done**), CSF string tables (**done**), WND layouts, fonts,

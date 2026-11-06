@@ -138,6 +138,8 @@ std::uint64_t bench_mapblendtile_parse(const uint8_t *data, size_t len);
 std::uint64_t bench_mapblendtile_parse_v6(const uint8_t *data, size_t len);
 long bench_maplighting_materialize(uint8_t *out, size_t cap);
 std::uint64_t bench_maplighting_parse(const uint8_t *data, size_t len);
+long bench_mapobjects_materialize(uint8_t *out, size_t cap);
+std::uint64_t bench_mapobjects_parse(const uint8_t *data, size_t len);
 unsigned bench_dds_parse(const uint8_t *data, size_t len);
 long bench_dds_convert_materialize(uint8_t *out, size_t cap);
 unsigned bench_dds_convert(const uint8_t *data, size_t len, uint8_t *dest, size_t dest_cap);
@@ -756,6 +758,22 @@ int main(int argc, char **argv)
 
                 report("maplighting/parse_x220k", measure_ns([] {}, [&] {
                         return bench_maplighting_parse(bytes.data(), bytes.size());
+                }), (double)total);
+        }
+
+        // --- map objects-list payload -----------------------------------------------------
+        {
+                std::vector<uint8_t> scratch(4 * 1024 * 1024);
+                long total = bench_mapobjects_materialize(scratch.data(), scratch.size());
+                if (total <= 0)
+                {
+                        fprintf(stderr, "error: mapobjects corpus write failed\n");
+                        exit(1);
+                }
+                std::vector<uint8_t> bytes(scratch.begin(), scratch.begin() + total);
+
+                report("mapobjects/parse_x180k", measure_ns([] {}, [&] {
+                        return bench_mapobjects_parse(bytes.data(), bytes.size());
                 }), (double)total);
         }
 

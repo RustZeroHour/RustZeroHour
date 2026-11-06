@@ -303,6 +303,13 @@ impl NameKeys {
         }
         &[]
     }
+
+    /// The interned names with their ordinals, in first-seen order (a
+    /// port addition for the golden replay — the same role the
+    /// table-of-contents views play).
+    pub fn names(&self) -> impl ExactSizeIterator<Item = (u32, &[u8])> {
+        self.names.iter().map(|(n, k)| (k.0, n.as_slice()))
+    }
 }
 
 // ---------------------------------------------------------------------------

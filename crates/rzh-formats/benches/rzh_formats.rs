@@ -435,7 +435,8 @@ criterion_group!(
     mapheightmap_benches::bench_parse_v1,
     mapblendtile_benches::bench_parse,
     mapblendtile_benches::bench_parse_v6,
-    maplighting_benches::bench_parse
+    maplighting_benches::bench_parse,
+    mapobjects_benches::bench_parse
 );
 criterion_main!(benches);
 
@@ -2237,6 +2238,128 @@ mod maplighting_benches {
         group.throughput(Throughput::Bytes(bytes.len() as u64));
         group.bench_function("parse_x220k", |b| {
             b.iter(|| black_box(run_walk(black_box(&bytes))))
+        });
+        group.finish();
+    }
+}
+
+// ---------------------------------------------------------------------------
+// mapobjects: the map objects-list payload (WorldHeightMap.cpp)
+// ---------------------------------------------------------------------------
+
+mod mapobjects_benches {
+    use super::*;
+    use rzh_formats::map_objects::{K_OBJECTS_VERSION_3, MapObjectData, ObjectsListData};
+
+    /// The bench corpus size: 4096 objects ≈ 180 KiB (matches the C++
+    /// baseline).
+    const BENCH_OBJECTS: usize = 4096;
+
+    /// The corpus checksum the C++ baseline computes over the same
+    /// fields (bench_wrap_mapobjects.cpp, verified at authoring time).
+    const CHECKSUM: u64 = 22_214_270_726_635;
+
+    fn put_i32(b: &mut Vec<u8>, v: i32) {
+        b.extend_from_slice(&v.to_le_bytes());
+    }
+    fn put_f32(b: &mut Vec<u8>, v: f32) {
+        b.extend_from_slice(&v.to_le_bytes());
+    }
+    fn put_chunk(b: &mut Vec<u8>, id: u32, ver: u16, data: &[u8]) {
+        b.extend_from_slice(&id.to_le_bytes());
+        b.extend_from_slice(&ver.to_le_bytes());
+        b.extend_from_slice(&(data.len() as i32).to_le_bytes());
+        b.extend_from_slice(data);
+    }
+    fn toc_bytes(entries: &[(&[u8], u32)]) -> Vec<u8> {
+        let mut b = Vec::new();
+        b.extend_from_slice(b"CkMp");
+        b.extend_from_slice(&(entries.len() as i32).to_le_bytes());
+        for (name, id) in entries {
+            b.push(name.len() as u8);
+            b.extend_from_slice(name);
+            b.extend_from_slice(&id.to_le_bytes());
+        }
+        b
+    }
+
+    /// Builds the corpus: one ObjectsList chunk with 4096 version-3
+    /// Object children (formula locations, angles, flags, names and
+    /// two-pair dicts) — keep in lockstep with
+    /// tools/differential/bench_wrap_mapobjects.cpp.
+    fn build_corpus() -> Vec<u8> {
+        let mut b = toc_bytes(&[
+            (b"ObjectsList", 1),
+            (b"Object", 2),
+            (b"objectEnabled", 3),
+            (b"waypointID", 4),
+        ]);
+        let mut inner = Vec::new();
+        for i in 0..BENCH_OBJECTS {
+            let name = format!("Obj{i:04}");
+            let mut p = Vec::new();
+            put_f32(&mut p, (i % 256) as f32 * 0.5);
+            put_f32(&mut p, (i % 128) as f32 * 1.25);
+            put_f32(&mut p, (i % 32) as f32 * 12.5);
+            put_f32(&mut p, (i % 97) as f32 * 0.25 - 12.0);
+            put_i32(&mut p, (i % 0x101) as i32);
+            p.extend_from_slice(&(name.len() as u16).to_le_bytes());
+            p.extend_from_slice(name.as_bytes());
+            // the dict: objectEnabled BOOL + (every 16th) waypointID INT
+            let waypoint = i % 16 == 0;
+            let pairs = if waypoint { 2usize } else { 1 };
+            p.extend_from_slice(&(pairs as u16).to_le_bytes());
+            put_i32(
+                &mut p,
+                ((3u32 << 8) | u32::from(rzh_formats::map_chunk::dict_type::DICT_BOOL)) as i32,
+            );
+            p.push(u8::from(i & 1 != 0));
+            if waypoint {
+                put_i32(&mut p, ((4u32 << 8) | 1) as i32);
+                put_i32(&mut p, i as i32);
+            }
+            put_chunk(&mut inner, 2, K_OBJECTS_VERSION_3, &p);
+        }
+        put_chunk(&mut b, 1, K_OBJECTS_VERSION_3, &inner);
+        b
+    }
+
+    /// The final-list checksum (the same fields the C++ baseline sums).
+    fn checksum(objects: &[MapObjectData]) -> u64 {
+        let mut checksum = 0u64;
+        for o in objects {
+            checksum = checksum.wrapping_add(o.location.x.to_bits() as u64);
+            checksum = checksum.wrapping_add(o.location.y.to_bits() as u64);
+            checksum = checksum.wrapping_add(o.location.z.to_bits() as u64);
+            checksum = checksum.wrapping_add(o.angle.to_bits() as u64);
+            checksum = checksum.wrapping_add(o.flags as u32 as u64);
+            for &c in &o.name {
+                checksum = checksum.wrapping_add(c as u64);
+            }
+            checksum = checksum.wrapping_add(o.properties.pair_count() as u64);
+            checksum = checksum.wrapping_add(u64::from(o.is_waypoint));
+            checksum = checksum.wrapping_add(u64::from(o.is_light) * 2);
+            checksum = checksum.wrapping_add(u64::from(o.is_scorch) * 4);
+        }
+        checksum
+    }
+
+    /// The objects load: the logical walk over the 4096-object corpus.
+    pub fn bench_parse(c: &mut Criterion) {
+        let bytes = build_corpus();
+        let list = ObjectsListData::from_map(&bytes).expect("loads");
+        let got = checksum(&list.objects);
+        assert_eq!(
+            got, CHECKSUM,
+            "the objects corpus drifted from the C++ baseline"
+        );
+        let mut group = c.benchmark_group("mapobjects");
+        group.throughput(Throughput::Bytes(bytes.len() as u64));
+        group.bench_function("parse_x180k", |b| {
+            b.iter(|| {
+                let list = ObjectsListData::from_map(black_box(&bytes)).expect("loads");
+                black_box(checksum(&list.objects))
+            })
         });
         group.finish();
     }
