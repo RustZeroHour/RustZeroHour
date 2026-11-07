@@ -634,18 +634,27 @@ is now specified in [`docs/TRACE_FORMAT_V1.md`](TRACE_FORMAT_V1.md).
 - `rzh-ini`: lexer/parser (includes, `#define` macros, inheritance/reskin, load order) and a
   **derive-based schema layer** replacing the 195 hand-written `FieldParse` tables. Keep it
   format-agnostic so the data format can change later (ADR-003).
-- `rzh-formats`: map files (the DataChunk framing container **done**;
-  the payload family **complete** — the height-map, blend-tile,
-  global-lighting, objects-list, world-info, polygon-triggers and
-  sides-list payloads all **done**, the nested `PlayerScriptsList`
-  being the script-engine slice's), W3D (meshes **done**, skeletons **done**,
-  raw animations **done**, compressed animations **done**, HLOD
-  **done**) **on top of the ported chunk container**, TGA/DDS
-  (**both done**), CSF string tables (**done**), WND layouts
-  (**done**), fonts (**done** — the `font3d.cpp` strike/grid loader
-  over the surface stack, the D3DX load model and the instance/cache
-  layers, quirks pinned by 28 golden corpora); only the audio
-  containers remain.
+- `rzh-formats`: **the Phase 2 module list is complete** — map files
+  (the DataChunk framing container **done**; the payload family
+  **complete** — the height-map, blend-tile, global-lighting,
+  objects-list, world-info, polygon-triggers and sides-list payloads
+  all **done**, the nested `PlayerScriptsList` being the script-engine
+  slice's), W3D (meshes **done**, skeletons **done**, raw animations
+  **done**, compressed animations **done**, HLOD **done**) **on top of
+  the ported chunk container**, TGA/DDS (**both done**), CSF string
+  tables (**done**), WND layouts (**done**), fonts (**done** — the
+  `font3d.cpp` strike/grid loader over the surface stack, the D3DX
+  load model and the instance/cache layers, quirks pinned by 28 golden
+  corpora). The **audio containers** item resolves to nothing
+  transcribable: the original has no audio-container parsing of its
+  own (every consumer — the game, `WWAudio`'s `SoundBuffer`, the
+  Babylon verifier — delegates to the proprietary Miles Sound System's
+  `AIL_open_stream`/`AIL_WAV_info`/`AIL_quick_load`, and Miles is a
+  dropped non-goal, re-implemented in Phase 5). The containers the
+  game's audio data ships in (the RIFF/WAV files, the PCM and IMA
+  ADPCM shapes `SoundBuffer`'s `WAVE_FORMAT_IMA_ADPCM` hints at)
+  become a spec-based module when the Phase 5 audio engine needs
+  them, not a Phase 2 slice — there is no C++ oracle to pin against.
 - `rzh-data`: typed templates (objects, weapons, armor, locomotors, upgrades, sciences, ranks,
   special powers, FX/particles, audio events, command sets, ...).
 - **Module census:** count how often each module type appears in the data → port order for Phase 3.

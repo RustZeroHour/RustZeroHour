@@ -156,10 +156,12 @@
 //!   and the D3DX load model, with the missing-texture placeholder and
 //!   the null-surface crash stated as verdicts.
 //!
-//! Deferred to later Phase 2 slices, in plan order: the remaining W3D
-//! modules (…), the map payloads' nested `PlayerScriptsList` (the
-//! script-engine slice, plan §3.4 WP7) and audio containers (the
-//! fonts are done). Consumer-side normalizations the original performs on top
+//! Deferred to later phases: the map payloads' nested
+//! `PlayerScriptsList` (the script-engine slice, plan §3.4 WP7) and the
+//! audio containers (a Phase 5 spec-based module — the original's
+//! parsing lives in the proprietary, dropped Miles Sound System, so
+//! there is no C++ oracle to pin against; see the plan's Phase 2
+//! notes). Consumer-side normalizations the original performs on top
 //! of a format (space stripping, first-string selection, the texture
 //! loader's descriptor XOR, …) live in the format modules as explicit
 //! helpers or parameters so the parser stays byte-faithful and the
