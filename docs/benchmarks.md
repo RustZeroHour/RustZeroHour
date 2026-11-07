@@ -516,6 +516,35 @@ height map 0.53–0.77x, blend tiles 0.79–0.81x, lighting 1.15x,
 objects 0.78x, world info 1.08x, polygons 1.08x, sides 0.98x — all
 within the §6 threshold.
 
+#### The script-engine load path (`mapscripts/parse_x190k`)
+
+The nested `PlayerScriptsList` walk — the first script-engine slice.
+The corpus is a 70-chunk formula-generated script set (each chunk three
+script lists: four flat scripts whose two or-clauses carry three
+conditions apiece — a straight name-key match, a rematch by name and a
+count mismatch — with three THEN actions (a matching `SET_FLAG`, a
+rematch that lands on a `NO_OP` count mismatch, and a five-parameter
+`SET_TREE_SWAY` exercising the kindof and object-status rewrites) and
+one ELSE action; two scripts plus a two-script group; one
+special-power script whose one-parm condition heals), 189,962 bytes,
+built through the same formulas on both sides, with the walk
+cross-checked through the final-state checksum both sides compute
+(1,950 — the Rust bench asserts it; the corpora are verified
+byte-identical). The C++ side runs the `Scripts.cpp` transcription in
+`bench_wrap_mapscripts.cpp`; the Rust side `rzh_formats::map_scripts`.
+
+| Benchmark | Rust (criterion) | C++ baseline | Rust/C++ | Verdict |
+|---|---:|---:|---:|---|
+| `mapscripts/parse_x190k` | 80.0 µs | 97.5 µs | 0.82x | within |
+
+The registry-consulting workload: every condition and action walks the
+template table (the clamp, the key compare, the rescan on mismatch)
+and the kindof/object-status rewrites run their name tables per
+parameter. The port's flat-match iterator over the parser table and
+the `Vec`-backed parameter lists run away from the transcription's
+per-chunk heap `newInstance`/`deleteInstance` churn — the same shape
+the wnd slice's single-index loop showed.
+
 #### The WND window layouts (`wnd/parse_x187k`)
 
 The first Phase 2 slice past the map payload family: the GUI layout

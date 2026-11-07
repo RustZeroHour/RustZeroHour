@@ -1,0 +1,2730 @@
+# Grammar: file/valid/walk/perr/pnone/pn/plist/pscr/pgrp/pcond/pact/pparm/ptpl/pkey/pkeyn/pstate.
+file pscr_registry 436b4d700300000006536372697074010000000a5363726970744c6973740200000011506c61796572536372697074734c69737403000000030000000500360000000200000001002c0000000100000002002200000007004d696e696d616c09006120636f6d6d656e740000000001010101010007000000
+valid pscr_registry t
+walk pscr_registry t
+pn pscr_registry 1
+plist pscr_registry 0 1 0
+pscr pscr_registry L0.s0 Minimal <6120636f6d6d656e74> - - t t t t t f 7
+ptpl c pscr_registry 0 CONDITION_FALSE 0
+ptpl c pscr_registry 1 COUNTER 3
+ptpl c pscr_registry 2 FLAG 2
+ptpl c pscr_registry 3 CONDITION_TRUE 0
+ptpl c pscr_registry 4 TIMER_EXPIRED 1
+ptpl c pscr_registry 5 PLAYER_ALL_DESTROYED 1
+ptpl c pscr_registry 6 PLAYER_ALL_BUILDFACILITIES_DESTROYED 1
+ptpl c pscr_registry 7 TEAM_INSIDE_AREA_PARTIALLY 3
+ptpl c pscr_registry 8 TEAM_DESTROYED 1
+ptpl c pscr_registry 9 CAMERA_MOVEMENT_FINISHED 0
+ptpl c pscr_registry 10 TEAM_HAS_UNITS 1
+ptpl c pscr_registry 11 TEAM_STATE_IS 2
+ptpl c pscr_registry 12 TEAM_STATE_IS_NOT 2
+ptpl c pscr_registry 13 NAMED_INSIDE_AREA 2
+ptpl c pscr_registry 14 NAMED_OUTSIDE_AREA 2
+ptpl c pscr_registry 15 NAMED_DESTROYED 1
+ptpl c pscr_registry 16 NAMED_NOT_DESTROYED 1
+ptpl c pscr_registry 17 TEAM_INSIDE_AREA_ENTIRELY 3
+ptpl c pscr_registry 18 TEAM_OUTSIDE_AREA_ENTIRELY 3
+ptpl c pscr_registry 19 NAMED_ATTACKED_BY_OBJECTTYPE 2
+ptpl c pscr_registry 20 TEAM_ATTACKED_BY_OBJECTTYPE 2
+ptpl c pscr_registry 21 NAMED_ATTACKED_BY_PLAYER 2
+ptpl c pscr_registry 22 TEAM_ATTACKED_BY_PLAYER 2
+ptpl c pscr_registry 23 BUILT_BY_PLAYER 2
+ptpl c pscr_registry 24 NAMED_CREATED 1
+ptpl c pscr_registry 25 TEAM_CREATED 1
+ptpl c pscr_registry 26 PLAYER_HAS_CREDITS 3
+ptpl c pscr_registry 27 NAMED_DISCOVERED 2
+ptpl c pscr_registry 28 TEAM_DISCOVERED 2
+ptpl c pscr_registry 29 MISSION_ATTEMPTS 3
+ptpl c pscr_registry 30 NAMED_OWNED_BY_PLAYER 2
+ptpl c pscr_registry 31 TEAM_OWNED_BY_PLAYER 2
+ptpl c pscr_registry 32 PLAYER_HAS_N_OR_FEWER_BUILDINGS 2
+ptpl c pscr_registry 33 PLAYER_HAS_POWER 1
+ptpl c pscr_registry 34 NAMED_REACHED_WAYPOINTS_END 2
+ptpl c pscr_registry 35 TEAM_REACHED_WAYPOINTS_END 2
+ptpl c pscr_registry 36 NAMED_SELECTED 1
+ptpl c pscr_registry 37 NAMED_ENTERED_AREA 2
+ptpl c pscr_registry 38 NAMED_EXITED_AREA 2
+ptpl c pscr_registry 39 TEAM_ENTERED_AREA_ENTIRELY 3
+ptpl c pscr_registry 40 TEAM_ENTERED_AREA_PARTIALLY 3
+ptpl c pscr_registry 41 TEAM_EXITED_AREA_ENTIRELY 3
+ptpl c pscr_registry 42 TEAM_EXITED_AREA_PARTIALLY 3
+ptpl c pscr_registry 43 MULTIPLAYER_ALLIED_VICTORY 0
+ptpl c pscr_registry 44 MULTIPLAYER_ALLIED_DEFEAT 0
+ptpl c pscr_registry 45 MULTIPLAYER_PLAYER_DEFEAT 0
+ptpl c pscr_registry 46 PLAYER_HAS_NO_POWER 1
+ptpl c pscr_registry 47 HAS_FINISHED_VIDEO 1
+ptpl c pscr_registry 48 HAS_FINISHED_SPEECH 1
+ptpl c pscr_registry 49 HAS_FINISHED_AUDIO 1
+ptpl c pscr_registry 50 BUILDING_ENTERED_BY_PLAYER 2
+ptpl c pscr_registry 51 ENEMY_SIGHTED 3
+ptpl c pscr_registry 52 UNIT_HEALTH 3
+ptpl c pscr_registry 53 BRIDGE_REPAIRED 1
+ptpl c pscr_registry 54 BRIDGE_BROKEN 1
+ptpl c pscr_registry 55 NAMED_DYING 1
+ptpl c pscr_registry 56 NAMED_TOTALLY_DEAD 1
+ptpl c pscr_registry 57 PLAYER_HAS_OBJECT_COMPARISON 4
+ptpl c pscr_registry 58 - 0
+ptpl c pscr_registry 59 - 0
+ptpl c pscr_registry 60 PLAYER_TRIGGERED_SPECIAL_POWER 2
+ptpl c pscr_registry 61 PLAYER_COMPLETED_SPECIAL_POWER 2
+ptpl c pscr_registry 62 PLAYER_MIDWAY_SPECIAL_POWER 2
+ptpl c pscr_registry 63 PLAYER_TRIGGERED_SPECIAL_POWER_FROM_NAMED 3
+ptpl c pscr_registry 64 PLAYER_COMPLETED_SPECIAL_POWER_FROM_NAMED 3
+ptpl c pscr_registry 65 PLAYER_MIDWAY_SPECIAL_POWER_FROM_NAMED 3
+ptpl c pscr_registry 66 - 0
+ptpl c pscr_registry 67 - 0
+ptpl c pscr_registry 68 PLAYER_BUILT_UPGRADE 2
+ptpl c pscr_registry 69 PLAYER_BUILT_UPGRADE_FROM_NAMED 3
+ptpl c pscr_registry 70 PLAYER_DESTROYED_N_BUILDINGS_PLAYER 3
+ptpl c pscr_registry 71 - 0
+ptpl c pscr_registry 72 - 0
+ptpl c pscr_registry 73 PLAYER_HAS_COMPARISON_UNIT_TYPE_IN_TRIGGER_AREA 5
+ptpl c pscr_registry 74 PLAYER_HAS_COMPARISON_UNIT_KIND_IN_TRIGGER_AREA 5
+ptpl c pscr_registry 75 UNIT_EMPTIED 1
+ptpl c pscr_registry 76 TYPE_SIGHTED 3
+ptpl c pscr_registry 77 NAMED_BUILDING_IS_EMPTY 1
+ptpl c pscr_registry 78 PLAYER_HAS_N_OR_FEWER_FACTION_BUILDINGS 2
+ptpl c pscr_registry 79 UNIT_HAS_OBJECT_STATUS 2
+ptpl c pscr_registry 80 TEAM_ALL_HAS_OBJECT_STATUS 2
+ptpl c pscr_registry 81 TEAM_SOME_HAVE_OBJECT_STATUS 2
+ptpl c pscr_registry 82 PLAYER_POWER_COMPARE_PERCENT 3
+ptpl c pscr_registry 83 PLAYER_EXCESS_POWER_COMPARE_VALUE 3
+ptpl c pscr_registry 84 SKIRMISH_SPECIAL_POWER_READY 2
+ptpl c pscr_registry 85 SKIRMISH_VALUE_IN_AREA 4
+ptpl c pscr_registry 86 SKIRMISH_PLAYER_FACTION 2
+ptpl c pscr_registry 87 SKIRMISH_SUPPLIES_VALUE_WITHIN_DISTANCE 4
+ptpl c pscr_registry 88 SKIRMISH_TECH_BUILDING_WITHIN_DISTANCE 3
+ptpl c pscr_registry 89 SKIRMISH_COMMAND_BUTTON_READY_ALL 3
+ptpl c pscr_registry 90 SKIRMISH_COMMAND_BUTTON_READY_PARTIAL 3
+ptpl c pscr_registry 91 SKIRMISH_UNOWNED_FACTION_UNIT_EXISTS 3
+ptpl c pscr_registry 92 SKIRMISH_PLAYER_HAS_PREREQUISITE_TO_BUILD 2
+ptpl c pscr_registry 93 SKIRMISH_PLAYER_HAS_COMPARISON_GARRISONED 3
+ptpl c pscr_registry 94 SKIRMISH_PLAYER_HAS_COMPARISON_CAPTURED_UNITS 3
+ptpl c pscr_registry 95 SKIRMISH_NAMED_AREA_EXIST 2
+ptpl c pscr_registry 96 SKIRMISH_PLAYER_HAS_UNITS_IN_AREA 2
+ptpl c pscr_registry 97 SKIRMISH_PLAYER_HAS_BEEN_ATTACKED_BY_PLAYER 2
+ptpl c pscr_registry 98 SKIRMISH_PLAYER_IS_OUTSIDE_AREA 2
+ptpl c pscr_registry 99 SKIRMISH_PLAYER_HAS_DISCOVERED_PLAYER 2
+ptpl c pscr_registry 100 PLAYER_ACQUIRED_SCIENCE 2
+ptpl c pscr_registry 101 PLAYER_HAS_SCIENCEPURCHASEPOINTS 2
+ptpl c pscr_registry 102 PLAYER_CAN_PURCHASE_SCIENCE 2
+ptpl c pscr_registry 103 MUSIC_TRACK_HAS_COMPLETED 2
+ptpl c pscr_registry 104 PLAYER_LOST_OBJECT_TYPE 2
+ptpl c pscr_registry 105 SUPPLY_SOURCE_SAFE 2
+ptpl c pscr_registry 106 SUPPLY_SOURCE_ATTACKED 1
+ptpl c pscr_registry 107 START_POSITION_IS 2
+ptpl c pscr_registry 108 NAMED_HAS_FREE_CONTAINER_SLOTS 1
+ptpl a pscr_registry 0 DEBUG_MESSAGE_BOX 1
+ptpl a pscr_registry 1 SET_FLAG 2
+ptpl a pscr_registry 2 SET_COUNTER 2
+ptpl a pscr_registry 3 VICTORY 0
+ptpl a pscr_registry 4 DEFEAT 0
+ptpl a pscr_registry 5 NO_OP 0
+ptpl a pscr_registry 6 SET_TIMER 2
+ptpl a pscr_registry 7 PLAY_SOUND_EFFECT 1
+ptpl a pscr_registry 8 ENABLE_SCRIPT 1
+ptpl a pscr_registry 9 DISABLE_SCRIPT 1
+ptpl a pscr_registry 10 CALL_SUBROUTINE 1
+ptpl a pscr_registry 11 PLAY_SOUND_EFFECT_AT 2
+ptpl a pscr_registry 12 DAMAGE_MEMBERS_OF_TEAM 2
+ptpl a pscr_registry 13 MOVE_TEAM_TO 2
+ptpl a pscr_registry 14 MOVE_CAMERA_TO 5
+ptpl a pscr_registry 15 INCREMENT_COUNTER 2
+ptpl a pscr_registry 16 DECREMENT_COUNTER 2
+ptpl a pscr_registry 17 MOVE_CAMERA_ALONG_WAYPOINT_PATH 5
+ptpl a pscr_registry 18 ROTATE_CAMERA 4
+ptpl a pscr_registry 19 RESET_CAMERA 4
+ptpl a pscr_registry 20 SET_MILLISECOND_TIMER 2
+ptpl a pscr_registry 21 CAMERA_MOD_FREEZE_TIME 0
+ptpl a pscr_registry 22 SET_VISUAL_SPEED_MULTIPLIER 1
+ptpl a pscr_registry 23 CREATE_OBJECT 4
+ptpl a pscr_registry 24 SUSPEND_BACKGROUND_SOUNDS 0
+ptpl a pscr_registry 25 RESUME_BACKGROUND_SOUNDS 0
+ptpl a pscr_registry 26 CAMERA_MOD_SET_FINAL_ZOOM 3
+ptpl a pscr_registry 27 CAMERA_MOD_SET_FINAL_PITCH 3
+ptpl a pscr_registry 28 CAMERA_MOD_FREEZE_ANGLE 0
+ptpl a pscr_registry 29 CAMERA_MOD_SET_FINAL_SPEED_MULTIPLIER 1
+ptpl a pscr_registry 30 CAMERA_MOD_SET_ROLLING_AVERAGE 1
+ptpl a pscr_registry 31 CAMERA_MOD_FINAL_LOOK_TOWARD 1
+ptpl a pscr_registry 32 CAMERA_MOD_LOOK_TOWARD 1
+ptpl a pscr_registry 33 TEAM_ATTACK_TEAM 2
+ptpl a pscr_registry 34 CREATE_REINFORCEMENT_TEAM 2
+ptpl a pscr_registry 35 MOVE_CAMERA_TO_SELECTION 0
+ptpl a pscr_registry 36 TEAM_FOLLOW_WAYPOINTS 3
+ptpl a pscr_registry 37 TEAM_SET_STATE 2
+ptpl a pscr_registry 38 MOVE_NAMED_UNIT_TO 2
+ptpl a pscr_registry 39 NAMED_ATTACK_NAMED 2
+ptpl a pscr_registry 40 CREATE_NAMED_ON_TEAM_AT_WAYPOINT 4
+ptpl a pscr_registry 41 CREATE_UNNAMED_ON_TEAM_AT_WAYPOINT 3
+ptpl a pscr_registry 42 NAMED_APPLY_ATTACK_PRIORITY_SET 2
+ptpl a pscr_registry 43 TEAM_APPLY_ATTACK_PRIORITY_SET 2
+ptpl a pscr_registry 44 SET_BASE_CONSTRUCTION_SPEED 2
+ptpl a pscr_registry 45 NAMED_SET_ATTITUDE 2
+ptpl a pscr_registry 46 TEAM_SET_ATTITUDE 2
+ptpl a pscr_registry 47 NAMED_ATTACK_AREA 2
+ptpl a pscr_registry 48 NAMED_ATTACK_TEAM 2
+ptpl a pscr_registry 49 TEAM_ATTACK_AREA 2
+ptpl a pscr_registry 50 TEAM_ATTACK_NAMED 2
+ptpl a pscr_registry 51 TEAM_LOAD_TRANSPORTS 1
+ptpl a pscr_registry 52 NAMED_ENTER_NAMED 2
+ptpl a pscr_registry 53 TEAM_ENTER_NAMED 2
+ptpl a pscr_registry 54 NAMED_EXIT_ALL 1
+ptpl a pscr_registry 55 TEAM_EXIT_ALL 1
+ptpl a pscr_registry 56 NAMED_FOLLOW_WAYPOINTS 2
+ptpl a pscr_registry 57 NAMED_GUARD 1
+ptpl a pscr_registry 58 TEAM_GUARD 1
+ptpl a pscr_registry 59 NAMED_HUNT 1
+ptpl a pscr_registry 60 TEAM_HUNT 1
+ptpl a pscr_registry 61 PLAYER_SELL_EVERYTHING 1
+ptpl a pscr_registry 62 PLAYER_DISABLE_BASE_CONSTRUCTION 1
+ptpl a pscr_registry 63 PLAYER_DISABLE_FACTORIES 2
+ptpl a pscr_registry 64 PLAYER_DISABLE_UNIT_CONSTRUCTION 1
+ptpl a pscr_registry 65 PLAYER_ENABLE_BASE_CONSTRUCTION 1
+ptpl a pscr_registry 66 PLAYER_ENABLE_FACTORIES 2
+ptpl a pscr_registry 67 PLAYER_ENABLE_UNIT_CONSTRUCTION 1
+ptpl a pscr_registry 68 CAMERA_MOVE_HOME 0
+ptpl a pscr_registry 69 BUILD_TEAM 1
+ptpl a pscr_registry 70 NAMED_DAMAGE 2
+ptpl a pscr_registry 71 NAMED_DELETE 1
+ptpl a pscr_registry 72 TEAM_DELETE 1
+ptpl a pscr_registry 73 NAMED_KILL 1
+ptpl a pscr_registry 74 TEAM_KILL 1
+ptpl a pscr_registry 75 PLAYER_KILL 1
+ptpl a pscr_registry 76 DISPLAY_TEXT 1
+ptpl a pscr_registry 77 CAMEO_FLASH 2
+ptpl a pscr_registry 78 NAMED_FLASH 2
+ptpl a pscr_registry 79 TEAM_FLASH 2
+ptpl a pscr_registry 80 MOVIE_PLAY_FULLSCREEN 1
+ptpl a pscr_registry 81 MOVIE_PLAY_RADAR 1
+ptpl a pscr_registry 82 SOUND_PLAY_NAMED 2
+ptpl a pscr_registry 83 SPEECH_PLAY 2
+ptpl a pscr_registry 84 PLAYER_TRANSFER_OWNERSHIP_PLAYER 2
+ptpl a pscr_registry 85 NAMED_TRANSFER_OWNERSHIP_PLAYER 2
+ptpl a pscr_registry 86 PLAYER_RELATES_PLAYER 3
+ptpl a pscr_registry 87 RADAR_CREATE_EVENT 2
+ptpl a pscr_registry 88 RADAR_DISABLE 0
+ptpl a pscr_registry 89 RADAR_ENABLE 0
+ptpl a pscr_registry 90 MAP_REVEAL_AT_WAYPOINT 3
+ptpl a pscr_registry 91 TEAM_AVAILABLE_FOR_RECRUITMENT 2
+ptpl a pscr_registry 92 TEAM_COLLECT_NEARBY_FOR_TEAM 1
+ptpl a pscr_registry 93 TEAM_MERGE_INTO_TEAM 2
+ptpl a pscr_registry 94 DISABLE_INPUT 0
+ptpl a pscr_registry 95 ENABLE_INPUT 0
+ptpl a pscr_registry 96 PLAYER_HUNT 1
+ptpl a pscr_registry 97 SOUND_AMBIENT_PAUSE 0
+ptpl a pscr_registry 98 SOUND_AMBIENT_RESUME 0
+ptpl a pscr_registry 99 MUSIC_SET_TRACK 3
+ptpl a pscr_registry 100 SET_TREE_SWAY 5
+ptpl a pscr_registry 101 DEBUG_STRING 1
+ptpl a pscr_registry 102 MAP_REVEAL_ALL 1
+ptpl a pscr_registry 103 TEAM_GARRISON_SPECIFIC_BUILDING 2
+ptpl a pscr_registry 104 EXIT_SPECIFIC_BUILDING 1
+ptpl a pscr_registry 105 TEAM_GARRISON_NEAREST_BUILDING 1
+ptpl a pscr_registry 106 TEAM_EXIT_ALL_BUILDINGS 1
+ptpl a pscr_registry 107 NAMED_GARRISON_SPECIFIC_BUILDING 2
+ptpl a pscr_registry 108 NAMED_GARRISON_NEAREST_BUILDING 1
+ptpl a pscr_registry 109 NAMED_EXIT_BUILDING 1
+ptpl a pscr_registry 110 PLAYER_GARRISON_ALL_BUILDINGS 1
+ptpl a pscr_registry 111 PLAYER_EXIT_ALL_BUILDINGS 1
+ptpl a pscr_registry 112 TEAM_WANDER 2
+ptpl a pscr_registry 113 TEAM_PANIC 2
+ptpl a pscr_registry 114 SETUP_CAMERA 4
+ptpl a pscr_registry 115 CAMERA_LETTERBOX_BEGIN 0
+ptpl a pscr_registry 116 CAMERA_LETTERBOX_END 0
+ptpl a pscr_registry 117 ZOOM_CAMERA 4
+ptpl a pscr_registry 118 PITCH_CAMERA 4
+ptpl a pscr_registry 119 CAMERA_FOLLOW_NAMED 2
+ptpl a pscr_registry 120 OVERSIZE_TERRAIN 1
+ptpl a pscr_registry 121 CAMERA_FADE_ADD 5
+ptpl a pscr_registry 122 CAMERA_FADE_SUBTRACT 5
+ptpl a pscr_registry 123 CAMERA_FADE_SATURATE 5
+ptpl a pscr_registry 124 CAMERA_FADE_MULTIPLY 0
+ptpl a pscr_registry 125 CAMERA_BW_MODE_BEGIN 1
+ptpl a pscr_registry 126 CAMERA_BW_MODE_END 1
+ptpl a pscr_registry 127 DRAW_SKYBOX_BEGIN 0
+ptpl a pscr_registry 128 DRAW_SKYBOX_END 0
+ptpl a pscr_registry 129 SET_ATTACK_PRIORITY_THING 3
+ptpl a pscr_registry 130 SET_ATTACK_PRIORITY_KIND_OF 3
+ptpl a pscr_registry 131 SET_DEFAULT_ATTACK_PRIORITY 2
+ptpl a pscr_registry 132 CAMERA_STOP_FOLLOW 0
+ptpl a pscr_registry 133 CAMERA_MOTION_BLUR 2
+ptpl a pscr_registry 134 CAMERA_MOTION_BLUR_JUMP 2
+ptpl a pscr_registry 135 CAMERA_MOTION_BLUR_FOLLOW 1
+ptpl a pscr_registry 136 CAMERA_MOTION_BLUR_END_FOLLOW 0
+ptpl a pscr_registry 137 FREEZE_TIME 0
+ptpl a pscr_registry 138 UNFREEZE_TIME 0
+ptpl a pscr_registry 139 SHOW_MILITARY_CAPTION 2
+ptpl a pscr_registry 140 CAMERA_SET_AUDIBLE_DISTANCE 1
+ptpl a pscr_registry 141 SET_STOPPING_DISTANCE 2
+ptpl a pscr_registry 142 NAMED_SET_STOPPING_DISTANCE 2
+ptpl a pscr_registry 143 SET_FPS_LIMIT 1
+ptpl a pscr_registry 144 MUSIC_SET_VOLUME 1
+ptpl a pscr_registry 145 MAP_SHROUD_AT_WAYPOINT 3
+ptpl a pscr_registry 146 MAP_SHROUD_ALL 1
+ptpl a pscr_registry 147 SET_RANDOM_TIMER 3
+ptpl a pscr_registry 148 SET_RANDOM_MSEC_TIMER 3
+ptpl a pscr_registry 149 STOP_TIMER 1
+ptpl a pscr_registry 150 RESTART_TIMER 1
+ptpl a pscr_registry 151 ADD_TO_MSEC_TIMER 2
+ptpl a pscr_registry 152 SUB_FROM_MSEC_TIMER 2
+ptpl a pscr_registry 153 TEAM_TRANSFER_TO_PLAYER 2
+ptpl a pscr_registry 154 PLAYER_SET_MONEY 2
+ptpl a pscr_registry 155 PLAYER_GIVE_MONEY 2
+ptpl a pscr_registry 156 DISABLE_SPECIAL_POWER_DISPLAY 0
+ptpl a pscr_registry 157 ENABLE_SPECIAL_POWER_DISPLAY 0
+ptpl a pscr_registry 158 NAMED_HIDE_SPECIAL_POWER_DISPLAY 1
+ptpl a pscr_registry 159 NAMED_SHOW_SPECIAL_POWER_DISPLAY 1
+ptpl a pscr_registry 160 DISPLAY_COUNTDOWN_TIMER 2
+ptpl a pscr_registry 161 HIDE_COUNTDOWN_TIMER 1
+ptpl a pscr_registry 162 ENABLE_COUNTDOWN_TIMER_DISPLAY 0
+ptpl a pscr_registry 163 DISABLE_COUNTDOWN_TIMER_DISPLAY 0
+ptpl a pscr_registry 164 NAMED_STOP_SPECIAL_POWER_COUNTDOWN 2
+ptpl a pscr_registry 165 NAMED_START_SPECIAL_POWER_COUNTDOWN 2
+ptpl a pscr_registry 166 NAMED_SET_SPECIAL_POWER_COUNTDOWN 3
+ptpl a pscr_registry 167 NAMED_ADD_SPECIAL_POWER_COUNTDOWN 3
+ptpl a pscr_registry 168 NAMED_FIRE_SPECIAL_POWER_AT_WAYPOINT 3
+ptpl a pscr_registry 169 NAMED_FIRE_SPECIAL_POWER_AT_NAMED 3
+ptpl a pscr_registry 170 REFRESH_RADAR 0
+ptpl a pscr_registry 171 CAMERA_TETHER_NAMED 3
+ptpl a pscr_registry 172 CAMERA_STOP_TETHER_NAMED 0
+ptpl a pscr_registry 173 CAMERA_SET_DEFAULT 3
+ptpl a pscr_registry 174 NAMED_STOP 1
+ptpl a pscr_registry 175 TEAM_STOP 1
+ptpl a pscr_registry 176 TEAM_STOP_AND_DISBAND 1
+ptpl a pscr_registry 177 RECRUIT_TEAM 2
+ptpl a pscr_registry 178 TEAM_SET_OVERRIDE_RELATION_TO_TEAM 3
+ptpl a pscr_registry 179 TEAM_REMOVE_OVERRIDE_RELATION_TO_TEAM 2
+ptpl a pscr_registry 180 TEAM_REMOVE_ALL_OVERRIDE_RELATIONS 1
+ptpl a pscr_registry 181 CAMERA_LOOK_TOWARD_OBJECT 5
+ptpl a pscr_registry 182 NAMED_FIRE_WEAPON_FOLLOWING_WAYPOINT_PATH 2
+ptpl a pscr_registry 183 TEAM_SET_OVERRIDE_RELATION_TO_PLAYER 3
+ptpl a pscr_registry 184 TEAM_REMOVE_OVERRIDE_RELATION_TO_PLAYER 2
+ptpl a pscr_registry 185 PLAYER_SET_OVERRIDE_RELATION_TO_TEAM 3
+ptpl a pscr_registry 186 PLAYER_REMOVE_OVERRIDE_RELATION_TO_TEAM 2
+ptpl a pscr_registry 187 UNIT_EXECUTE_SEQUENTIAL_SCRIPT 2
+ptpl a pscr_registry 188 UNIT_EXECUTE_SEQUENTIAL_SCRIPT_LOOPING 3
+ptpl a pscr_registry 189 UNIT_STOP_SEQUENTIAL_SCRIPT 1
+ptpl a pscr_registry 190 TEAM_EXECUTE_SEQUENTIAL_SCRIPT 2
+ptpl a pscr_registry 191 TEAM_EXECUTE_SEQUENTIAL_SCRIPT_LOOPING 3
+ptpl a pscr_registry 192 TEAM_STOP_SEQUENTIAL_SCRIPT 1
+ptpl a pscr_registry 193 UNIT_GUARD_FOR_FRAMECOUNT 2
+ptpl a pscr_registry 194 UNIT_IDLE_FOR_FRAMECOUNT 2
+ptpl a pscr_registry 195 TEAM_GUARD_FOR_FRAMECOUNT 2
+ptpl a pscr_registry 196 TEAM_IDLE_FOR_FRAMECOUNT 2
+ptpl a pscr_registry 197 WATER_CHANGE_HEIGHT 2
+ptpl a pscr_registry 198 NAMED_USE_COMMANDBUTTON_ABILITY_ON_NAMED 3
+ptpl a pscr_registry 199 NAMED_USE_COMMANDBUTTON_ABILITY_AT_WAYPOINT 3
+ptpl a pscr_registry 200 WATER_CHANGE_HEIGHT_OVER_TIME 4
+ptpl a pscr_registry 201 MAP_SWITCH_BORDER 1
+ptpl a pscr_registry 202 TEAM_GUARD_POSITION 2
+ptpl a pscr_registry 203 TEAM_GUARD_OBJECT 2
+ptpl a pscr_registry 204 TEAM_GUARD_AREA 2
+ptpl a pscr_registry 205 OBJECT_FORCE_SELECT 4
+ptpl a pscr_registry 206 CAMERA_LOOK_TOWARD_WAYPOINT 5
+ptpl a pscr_registry 207 UNIT_DESTROY_ALL_CONTAINED 1
+ptpl a pscr_registry 208 RADAR_FORCE_ENABLE 0
+ptpl a pscr_registry 209 RADAR_REVERT_TO_NORMAL 0
+ptpl a pscr_registry 210 SCREEN_SHAKE 1
+ptpl a pscr_registry 211 TECHTREE_MODIFY_BUILDABILITY_OBJECT 2
+ptpl a pscr_registry 212 WAREHOUSE_SET_VALUE 2
+ptpl a pscr_registry 213 OBJECT_CREATE_RADAR_EVENT 2
+ptpl a pscr_registry 214 TEAM_CREATE_RADAR_EVENT 2
+ptpl a pscr_registry 215 DISPLAY_CINEMATIC_TEXT 3
+ptpl a pscr_registry 216 DEBUG_CRASH_BOX 1
+ptpl a pscr_registry 217 SOUND_DISABLE_TYPE 1
+ptpl a pscr_registry 218 SOUND_ENABLE_TYPE 1
+ptpl a pscr_registry 219 SOUND_ENABLE_ALL 0
+ptpl a pscr_registry 220 AUDIO_OVERRIDE_VOLUME_TYPE 2
+ptpl a pscr_registry 221 AUDIO_RESTORE_VOLUME_TYPE 1
+ptpl a pscr_registry 222 AUDIO_RESTORE_VOLUME_ALL_TYPE 0
+ptpl a pscr_registry 223 INGAME_POPUP_MESSAGE 5
+ptpl a pscr_registry 224 SET_CAVE_INDEX 2
+ptpl a pscr_registry 225 NAMED_SET_HELD 2
+ptpl a pscr_registry 226 NAMED_SET_TOPPLE_DIRECTION 2
+ptpl a pscr_registry 227 UNIT_MOVE_TOWARDS_NEAREST_OBJECT_TYPE 3
+ptpl a pscr_registry 228 TEAM_MOVE_TOWARDS_NEAREST_OBJECT_TYPE 3
+ptpl a pscr_registry 229 MAP_REVEAL_ALL_PERM 1
+ptpl a pscr_registry 230 MAP_REVEAL_ALL_UNDO_PERM 1
+ptpl a pscr_registry 231 NAMED_SET_REPULSOR 2
+ptpl a pscr_registry 232 TEAM_SET_REPULSOR 2
+ptpl a pscr_registry 233 TEAM_WANDER_IN_PLACE 1
+ptpl a pscr_registry 234 TEAM_INCREASE_PRIORITY 1
+ptpl a pscr_registry 235 TEAM_DECREASE_PRIORITY 1
+ptpl a pscr_registry 236 DISPLAY_COUNTER 2
+ptpl a pscr_registry 237 HIDE_COUNTER 1
+ptpl a pscr_registry 238 TEAM_USE_COMMANDBUTTON_ABILITY_ON_NAMED 3
+ptpl a pscr_registry 239 TEAM_USE_COMMANDBUTTON_ABILITY_AT_WAYPOINT 3
+ptpl a pscr_registry 240 NAMED_USE_COMMANDBUTTON_ABILITY 2
+ptpl a pscr_registry 241 TEAM_USE_COMMANDBUTTON_ABILITY 2
+ptpl a pscr_registry 242 NAMED_FLASH_WHITE 2
+ptpl a pscr_registry 243 TEAM_FLASH_WHITE 2
+ptpl a pscr_registry 244 SKIRMISH_BUILD_BUILDING 1
+ptpl a pscr_registry 245 SKIRMISH_FOLLOW_APPROACH_PATH 3
+ptpl a pscr_registry 246 IDLE_ALL_UNITS 0
+ptpl a pscr_registry 247 RESUME_SUPPLY_TRUCKING 0
+ptpl a pscr_registry 248 NAMED_CUSTOM_COLOR 2
+ptpl a pscr_registry 249 SKIRMISH_MOVE_TO_APPROACH_PATH 2
+ptpl a pscr_registry 250 SKIRMISH_BUILD_BASE_DEFENSE_FRONT 0
+ptpl a pscr_registry 251 SKIRMISH_FIRE_SPECIAL_POWER_AT_MOST_COST 2
+ptpl a pscr_registry 252 - 0
+ptpl a pscr_registry 253 PLAYER_REPAIR_NAMED_STRUCTURE 2
+ptpl a pscr_registry 254 SKIRMISH_BUILD_BASE_DEFENSE_FLANK 0
+ptpl a pscr_registry 255 SKIRMISH_BUILD_STRUCTURE_FRONT 1
+ptpl a pscr_registry 256 SKIRMISH_BUILD_STRUCTURE_FLANK 1
+ptpl a pscr_registry 257 SKIRMISH_ATTACK_NEAREST_GROUP_WITH_VALUE 3
+ptpl a pscr_registry 258 SKIRMISH_PERFORM_COMMANDBUTTON_ON_MOST_VALUABLE_OBJECT 4
+ptpl a pscr_registry 259 SKIRMISH_WAIT_FOR_COMMANDBUTTON_AVAILABLE_ALL 3
+ptpl a pscr_registry 260 SKIRMISH_WAIT_FOR_COMMANDBUTTON_AVAILABLE_PARTIAL 3
+ptpl a pscr_registry 261 TEAM_SPIN_FOR_FRAMECOUNT 2
+ptpl a pscr_registry 262 TEAM_ALL_USE_COMMANDBUTTON_ON_NAMED 2
+ptpl a pscr_registry 263 TEAM_ALL_USE_COMMANDBUTTON_ON_NEAREST_ENEMY_UNIT 2
+ptpl a pscr_registry 264 TEAM_ALL_USE_COMMANDBUTTON_ON_NEAREST_GARRISONED_BUILDING 2
+ptpl a pscr_registry 265 TEAM_ALL_USE_COMMANDBUTTON_ON_NEAREST_KINDOF 3
+ptpl a pscr_registry 266 TEAM_ALL_USE_COMMANDBUTTON_ON_NEAREST_ENEMY_BUILDING 2
+ptpl a pscr_registry 267 TEAM_ALL_USE_COMMANDBUTTON_ON_NEAREST_ENEMY_BUILDING_CLASS 3
+ptpl a pscr_registry 268 TEAM_ALL_USE_COMMANDBUTTON_ON_NEAREST_OBJECTTYPE 3
+ptpl a pscr_registry 269 TEAM_PARTIAL_USE_COMMANDBUTTON 3
+ptpl a pscr_registry 270 TEAM_CAPTURE_NEAREST_UNOWNED_FACTION_UNIT 1
+ptpl a pscr_registry 271 PLAYER_CREATE_TEAM_FROM_CAPTURED_UNITS 2
+ptpl a pscr_registry 272 PLAYER_ADD_SKILLPOINTS 2
+ptpl a pscr_registry 273 PLAYER_ADD_RANKLEVEL 2
+ptpl a pscr_registry 274 PLAYER_SET_RANKLEVEL 2
+ptpl a pscr_registry 275 PLAYER_SET_RANKLEVELLIMIT 1
+ptpl a pscr_registry 276 PLAYER_GRANT_SCIENCE 2
+ptpl a pscr_registry 277 PLAYER_PURCHASE_SCIENCE 2
+ptpl a pscr_registry 278 TEAM_HUNT_WITH_COMMAND_BUTTON 2
+ptpl a pscr_registry 279 TEAM_WAIT_FOR_NOT_CONTAINED_ALL 1
+ptpl a pscr_registry 280 TEAM_WAIT_FOR_NOT_CONTAINED_PARTIAL 1
+ptpl a pscr_registry 281 TEAM_FOLLOW_WAYPOINTS_EXACT 3
+ptpl a pscr_registry 282 NAMED_FOLLOW_WAYPOINTS_EXACT 2
+ptpl a pscr_registry 283 TEAM_SET_EMOTICON 3
+ptpl a pscr_registry 284 NAMED_SET_EMOTICON 3
+ptpl a pscr_registry 285 AI_PLAYER_BUILD_SUPPLY_CENTER 3
+ptpl a pscr_registry 286 AI_PLAYER_BUILD_UPGRADE 2
+ptpl a pscr_registry 287 OBJECTLIST_ADDOBJECTTYPE 2
+ptpl a pscr_registry 288 OBJECTLIST_REMOVEOBJECTTYPE 2
+ptpl a pscr_registry 289 MAP_REVEAL_PERMANENTLY_AT_WAYPOINT 4
+ptpl a pscr_registry 290 MAP_UNDO_REVEAL_PERMANENTLY_AT_WAYPOINT 1
+ptpl a pscr_registry 291 NAMED_SET_STEALTH_ENABLED 2
+ptpl a pscr_registry 292 TEAM_SET_STEALTH_ENABLED 2
+ptpl a pscr_registry 293 EVA_SET_ENABLED_DISABLED 1
+ptpl a pscr_registry 294 OPTIONS_SET_OCCLUSION_MODE 1
+ptpl a pscr_registry 295 LOCALDEFEAT 0
+ptpl a pscr_registry 296 OPTIONS_SET_DRAWICON_UI_MODE 1
+ptpl a pscr_registry 297 OPTIONS_SET_PARTICLE_CAP_MODE 1
+ptpl a pscr_registry 298 PLAYER_SCIENCE_AVAILABILITY 3
+ptpl a pscr_registry 299 UNIT_AFFECT_OBJECT_PANEL_FLAGS 3
+ptpl a pscr_registry 300 TEAM_AFFECT_OBJECT_PANEL_FLAGS 3
+ptpl a pscr_registry 301 PLAYER_SELECT_SKILLSET 2
+ptpl a pscr_registry 302 SCRIPTING_OVERRIDE_HULK_LIFETIME 1
+ptpl a pscr_registry 303 NAMED_FACE_NAMED 2
+ptpl a pscr_registry 304 NAMED_FACE_WAYPOINT 2
+ptpl a pscr_registry 305 TEAM_FACE_NAMED 2
+ptpl a pscr_registry 306 TEAM_FACE_WAYPOINT 2
+ptpl a pscr_registry 307 COMMANDBAR_REMOVE_BUTTON_OBJECTTYPE 2
+ptpl a pscr_registry 308 COMMANDBAR_ADD_BUTTON_OBJECTTYPE_SLOT 3
+ptpl a pscr_registry 309 UNIT_SPAWN_NAMED_LOCATION_ORIENTATION 5
+ptpl a pscr_registry 310 PLAYER_AFFECT_RECEIVING_EXPERIENCE 2
+ptpl a pscr_registry 311 PLAYER_EXCLUDE_FROM_SCORE_SCREEN 1
+ptpl a pscr_registry 312 TEAM_GUARD_SUPPLY_CENTER 2
+ptpl a pscr_registry 313 ENABLE_SCORING 0
+ptpl a pscr_registry 314 DISABLE_SCORING 0
+ptpl a pscr_registry 315 SOUND_SET_VOLUME 1
+ptpl a pscr_registry 316 SPEECH_SET_VOLUME 1
+ptpl a pscr_registry 317 DISABLE_BORDER_SHROUD 0
+ptpl a pscr_registry 318 ENABLE_BORDER_SHROUD 0
+ptpl a pscr_registry 319 OBJECT_ALLOW_BONUSES 1
+ptpl a pscr_registry 320 SOUND_REMOVE_ALL_DISABLED 0
+ptpl a pscr_registry 321 SOUND_REMOVE_TYPE 1
+ptpl a pscr_registry 322 TEAM_GUARD_IN_TUNNEL_NETWORK 1
+ptpl a pscr_registry 323 QUICKVICTORY 0
+ptpl a pscr_registry 324 SET_INFANTRY_LIGHTING_OVERRIDE 1
+ptpl a pscr_registry 325 RESET_INFANTRY_LIGHTING_OVERRIDE 0
+ptpl a pscr_registry 326 TEAM_DELETE_LIVING 1
+ptpl a pscr_registry 327 RESIZE_VIEW_GUARDBAND 2
+ptpl a pscr_registry 328 DELETE_ALL_UNMANNED 0
+ptpl a pscr_registry 329 CHOOSE_VICTIM_ALWAYS_USES_NORMAL 1
+ptpl a pscr_registry 330 CAMERA_ENABLE_SLAVE_MODE 2
+ptpl a pscr_registry 331 CAMERA_DISABLE_SLAVE_MODE 0
+ptpl a pscr_registry 332 CAMERA_ADD_SHAKER_AT 4
+ptpl a pscr_registry 333 SET_TRAIN_HELD 2
+ptpl a pscr_registry 334 NAMED_SET_EVAC_LEFT_OR_RIGHT 2
+ptpl a pscr_registry 335 ENABLE_OBJECT_SOUND 1
+ptpl a pscr_registry 336 DISABLE_OBJECT_SOUND 1
+ptpl a pscr_registry 337 NAMED_USE_COMMANDBUTTON_ABILITY_USING_WAYPOINT_PATH 3
+ptpl a pscr_registry 338 NAMED_SET_UNMANNED_STATUS 1
+ptpl a pscr_registry 339 TEAM_SET_UNMANNED_STATUS 1
+ptpl a pscr_registry 340 NAMED_SET_BOOBYTRAPPED 2
+ptpl a pscr_registry 341 TEAM_SET_BOOBYTRAPPED 2
+ptpl a pscr_registry 342 SHOW_WEATHER 1
+ptpl a pscr_registry 343 AI_PLAYER_BUILD_TYPE_NEAREST_TEAM 3
+pkeyn pscr_registry 447
+pkey pscr_registry 1 CONDITION_FALSE
+pkey pscr_registry 2 COUNTER
+pkey pscr_registry 3 FLAG
+pkey pscr_registry 4 CONDITION_TRUE
+pkey pscr_registry 5 TIMER_EXPIRED
+pkey pscr_registry 6 PLAYER_ALL_DESTROYED
+pkey pscr_registry 7 PLAYER_ALL_BUILDFACILITIES_DESTROYED
+pkey pscr_registry 8 TEAM_INSIDE_AREA_PARTIALLY
+pkey pscr_registry 9 TEAM_DESTROYED
+pkey pscr_registry 10 CAMERA_MOVEMENT_FINISHED
+pkey pscr_registry 11 TEAM_HAS_UNITS
+pkey pscr_registry 12 TEAM_STATE_IS
+pkey pscr_registry 13 TEAM_STATE_IS_NOT
+pkey pscr_registry 14 NAMED_INSIDE_AREA
+pkey pscr_registry 15 NAMED_OUTSIDE_AREA
+pkey pscr_registry 16 NAMED_DESTROYED
+pkey pscr_registry 17 NAMED_NOT_DESTROYED
+pkey pscr_registry 18 TEAM_INSIDE_AREA_ENTIRELY
+pkey pscr_registry 19 TEAM_OUTSIDE_AREA_ENTIRELY
+pkey pscr_registry 20 NAMED_ATTACKED_BY_OBJECTTYPE
+pkey pscr_registry 21 TEAM_ATTACKED_BY_OBJECTTYPE
+pkey pscr_registry 22 NAMED_ATTACKED_BY_PLAYER
+pkey pscr_registry 23 TEAM_ATTACKED_BY_PLAYER
+pkey pscr_registry 24 BUILT_BY_PLAYER
+pkey pscr_registry 25 NAMED_CREATED
+pkey pscr_registry 26 TEAM_CREATED
+pkey pscr_registry 27 PLAYER_HAS_CREDITS
+pkey pscr_registry 28 NAMED_DISCOVERED
+pkey pscr_registry 29 TEAM_DISCOVERED
+pkey pscr_registry 30 MISSION_ATTEMPTS
+pkey pscr_registry 31 NAMED_OWNED_BY_PLAYER
+pkey pscr_registry 32 TEAM_OWNED_BY_PLAYER
+pkey pscr_registry 33 PLAYER_HAS_N_OR_FEWER_BUILDINGS
+pkey pscr_registry 34 PLAYER_HAS_POWER
+pkey pscr_registry 35 NAMED_REACHED_WAYPOINTS_END
+pkey pscr_registry 36 TEAM_REACHED_WAYPOINTS_END
+pkey pscr_registry 37 NAMED_SELECTED
+pkey pscr_registry 38 NAMED_ENTERED_AREA
+pkey pscr_registry 39 NAMED_EXITED_AREA
+pkey pscr_registry 40 TEAM_ENTERED_AREA_ENTIRELY
+pkey pscr_registry 41 TEAM_ENTERED_AREA_PARTIALLY
+pkey pscr_registry 42 TEAM_EXITED_AREA_ENTIRELY
+pkey pscr_registry 43 TEAM_EXITED_AREA_PARTIALLY
+pkey pscr_registry 44 MULTIPLAYER_ALLIED_VICTORY
+pkey pscr_registry 45 MULTIPLAYER_ALLIED_DEFEAT
+pkey pscr_registry 46 MULTIPLAYER_PLAYER_DEFEAT
+pkey pscr_registry 47 PLAYER_HAS_NO_POWER
+pkey pscr_registry 48 HAS_FINISHED_VIDEO
+pkey pscr_registry 49 HAS_FINISHED_SPEECH
+pkey pscr_registry 50 HAS_FINISHED_AUDIO
+pkey pscr_registry 51 BUILDING_ENTERED_BY_PLAYER
+pkey pscr_registry 52 ENEMY_SIGHTED
+pkey pscr_registry 53 UNIT_HEALTH
+pkey pscr_registry 54 BRIDGE_REPAIRED
+pkey pscr_registry 55 BRIDGE_BROKEN
+pkey pscr_registry 56 NAMED_DYING
+pkey pscr_registry 57 NAMED_TOTALLY_DEAD
+pkey pscr_registry 58 PLAYER_HAS_OBJECT_COMPARISON
+pkey pscr_registry 59 -
+pkey pscr_registry 60 PLAYER_TRIGGERED_SPECIAL_POWER
+pkey pscr_registry 61 PLAYER_COMPLETED_SPECIAL_POWER
+pkey pscr_registry 62 PLAYER_MIDWAY_SPECIAL_POWER
+pkey pscr_registry 63 PLAYER_TRIGGERED_SPECIAL_POWER_FROM_NAMED
+pkey pscr_registry 64 PLAYER_COMPLETED_SPECIAL_POWER_FROM_NAMED
+pkey pscr_registry 65 PLAYER_MIDWAY_SPECIAL_POWER_FROM_NAMED
+pkey pscr_registry 66 PLAYER_BUILT_UPGRADE
+pkey pscr_registry 67 PLAYER_BUILT_UPGRADE_FROM_NAMED
+pkey pscr_registry 68 PLAYER_DESTROYED_N_BUILDINGS_PLAYER
+pkey pscr_registry 69 PLAYER_HAS_COMPARISON_UNIT_TYPE_IN_TRIGGER_AREA
+pkey pscr_registry 70 PLAYER_HAS_COMPARISON_UNIT_KIND_IN_TRIGGER_AREA
+pkey pscr_registry 71 UNIT_EMPTIED
+pkey pscr_registry 72 TYPE_SIGHTED
+pkey pscr_registry 73 NAMED_BUILDING_IS_EMPTY
+pkey pscr_registry 74 PLAYER_HAS_N_OR_FEWER_FACTION_BUILDINGS
+pkey pscr_registry 75 UNIT_HAS_OBJECT_STATUS
+pkey pscr_registry 76 TEAM_ALL_HAS_OBJECT_STATUS
+pkey pscr_registry 77 TEAM_SOME_HAVE_OBJECT_STATUS
+pkey pscr_registry 78 PLAYER_POWER_COMPARE_PERCENT
+pkey pscr_registry 79 PLAYER_EXCESS_POWER_COMPARE_VALUE
+pkey pscr_registry 80 SKIRMISH_SPECIAL_POWER_READY
+pkey pscr_registry 81 SKIRMISH_VALUE_IN_AREA
+pkey pscr_registry 82 SKIRMISH_PLAYER_FACTION
+pkey pscr_registry 83 SKIRMISH_SUPPLIES_VALUE_WITHIN_DISTANCE
+pkey pscr_registry 84 SKIRMISH_TECH_BUILDING_WITHIN_DISTANCE
+pkey pscr_registry 85 SKIRMISH_COMMAND_BUTTON_READY_ALL
+pkey pscr_registry 86 SKIRMISH_COMMAND_BUTTON_READY_PARTIAL
+pkey pscr_registry 87 SKIRMISH_UNOWNED_FACTION_UNIT_EXISTS
+pkey pscr_registry 88 SKIRMISH_PLAYER_HAS_PREREQUISITE_TO_BUILD
+pkey pscr_registry 89 SKIRMISH_PLAYER_HAS_COMPARISON_GARRISONED
+pkey pscr_registry 90 SKIRMISH_PLAYER_HAS_COMPARISON_CAPTURED_UNITS
+pkey pscr_registry 91 SKIRMISH_NAMED_AREA_EXIST
+pkey pscr_registry 92 SKIRMISH_PLAYER_HAS_UNITS_IN_AREA
+pkey pscr_registry 93 SKIRMISH_PLAYER_HAS_BEEN_ATTACKED_BY_PLAYER
+pkey pscr_registry 94 SKIRMISH_PLAYER_IS_OUTSIDE_AREA
+pkey pscr_registry 95 SKIRMISH_PLAYER_HAS_DISCOVERED_PLAYER
+pkey pscr_registry 96 PLAYER_ACQUIRED_SCIENCE
+pkey pscr_registry 97 PLAYER_HAS_SCIENCEPURCHASEPOINTS
+pkey pscr_registry 98 PLAYER_CAN_PURCHASE_SCIENCE
+pkey pscr_registry 99 MUSIC_TRACK_HAS_COMPLETED
+pkey pscr_registry 100 PLAYER_LOST_OBJECT_TYPE
+pkey pscr_registry 101 SUPPLY_SOURCE_SAFE
+pkey pscr_registry 102 SUPPLY_SOURCE_ATTACKED
+pkey pscr_registry 103 START_POSITION_IS
+pkey pscr_registry 104 NAMED_HAS_FREE_CONTAINER_SLOTS
+pkey pscr_registry 105 DEBUG_MESSAGE_BOX
+pkey pscr_registry 106 SET_FLAG
+pkey pscr_registry 107 SET_COUNTER
+pkey pscr_registry 108 VICTORY
+pkey pscr_registry 109 DEFEAT
+pkey pscr_registry 110 NO_OP
+pkey pscr_registry 111 SET_TIMER
+pkey pscr_registry 112 PLAY_SOUND_EFFECT
+pkey pscr_registry 113 ENABLE_SCRIPT
+pkey pscr_registry 114 DISABLE_SCRIPT
+pkey pscr_registry 115 CALL_SUBROUTINE
+pkey pscr_registry 116 PLAY_SOUND_EFFECT_AT
+pkey pscr_registry 117 DAMAGE_MEMBERS_OF_TEAM
+pkey pscr_registry 118 MOVE_TEAM_TO
+pkey pscr_registry 119 MOVE_CAMERA_TO
+pkey pscr_registry 120 INCREMENT_COUNTER
+pkey pscr_registry 121 DECREMENT_COUNTER
+pkey pscr_registry 122 MOVE_CAMERA_ALONG_WAYPOINT_PATH
+pkey pscr_registry 123 ROTATE_CAMERA
+pkey pscr_registry 124 RESET_CAMERA
+pkey pscr_registry 125 SET_MILLISECOND_TIMER
+pkey pscr_registry 126 CAMERA_MOD_FREEZE_TIME
+pkey pscr_registry 127 SET_VISUAL_SPEED_MULTIPLIER
+pkey pscr_registry 128 CREATE_OBJECT
+pkey pscr_registry 129 SUSPEND_BACKGROUND_SOUNDS
+pkey pscr_registry 130 RESUME_BACKGROUND_SOUNDS
+pkey pscr_registry 131 CAMERA_MOD_SET_FINAL_ZOOM
+pkey pscr_registry 132 CAMERA_MOD_SET_FINAL_PITCH
+pkey pscr_registry 133 CAMERA_MOD_FREEZE_ANGLE
+pkey pscr_registry 134 CAMERA_MOD_SET_FINAL_SPEED_MULTIPLIER
+pkey pscr_registry 135 CAMERA_MOD_SET_ROLLING_AVERAGE
+pkey pscr_registry 136 CAMERA_MOD_FINAL_LOOK_TOWARD
+pkey pscr_registry 137 CAMERA_MOD_LOOK_TOWARD
+pkey pscr_registry 138 TEAM_ATTACK_TEAM
+pkey pscr_registry 139 CREATE_REINFORCEMENT_TEAM
+pkey pscr_registry 140 MOVE_CAMERA_TO_SELECTION
+pkey pscr_registry 141 TEAM_FOLLOW_WAYPOINTS
+pkey pscr_registry 142 TEAM_SET_STATE
+pkey pscr_registry 143 MOVE_NAMED_UNIT_TO
+pkey pscr_registry 144 NAMED_ATTACK_NAMED
+pkey pscr_registry 145 CREATE_NAMED_ON_TEAM_AT_WAYPOINT
+pkey pscr_registry 146 CREATE_UNNAMED_ON_TEAM_AT_WAYPOINT
+pkey pscr_registry 147 NAMED_APPLY_ATTACK_PRIORITY_SET
+pkey pscr_registry 148 TEAM_APPLY_ATTACK_PRIORITY_SET
+pkey pscr_registry 149 SET_BASE_CONSTRUCTION_SPEED
+pkey pscr_registry 150 NAMED_SET_ATTITUDE
+pkey pscr_registry 151 TEAM_SET_ATTITUDE
+pkey pscr_registry 152 NAMED_ATTACK_AREA
+pkey pscr_registry 153 NAMED_ATTACK_TEAM
+pkey pscr_registry 154 TEAM_ATTACK_AREA
+pkey pscr_registry 155 TEAM_ATTACK_NAMED
+pkey pscr_registry 156 TEAM_LOAD_TRANSPORTS
+pkey pscr_registry 157 NAMED_ENTER_NAMED
+pkey pscr_registry 158 TEAM_ENTER_NAMED
+pkey pscr_registry 159 NAMED_EXIT_ALL
+pkey pscr_registry 160 TEAM_EXIT_ALL
+pkey pscr_registry 161 NAMED_FOLLOW_WAYPOINTS
+pkey pscr_registry 162 NAMED_GUARD
+pkey pscr_registry 163 TEAM_GUARD
+pkey pscr_registry 164 NAMED_HUNT
+pkey pscr_registry 165 TEAM_HUNT
+pkey pscr_registry 166 PLAYER_SELL_EVERYTHING
+pkey pscr_registry 167 PLAYER_DISABLE_BASE_CONSTRUCTION
+pkey pscr_registry 168 PLAYER_DISABLE_FACTORIES
+pkey pscr_registry 169 PLAYER_DISABLE_UNIT_CONSTRUCTION
+pkey pscr_registry 170 PLAYER_ENABLE_BASE_CONSTRUCTION
+pkey pscr_registry 171 PLAYER_ENABLE_FACTORIES
+pkey pscr_registry 172 PLAYER_ENABLE_UNIT_CONSTRUCTION
+pkey pscr_registry 173 CAMERA_MOVE_HOME
+pkey pscr_registry 174 BUILD_TEAM
+pkey pscr_registry 175 NAMED_DAMAGE
+pkey pscr_registry 176 NAMED_DELETE
+pkey pscr_registry 177 TEAM_DELETE
+pkey pscr_registry 178 NAMED_KILL
+pkey pscr_registry 179 TEAM_KILL
+pkey pscr_registry 180 PLAYER_KILL
+pkey pscr_registry 181 DISPLAY_TEXT
+pkey pscr_registry 182 CAMEO_FLASH
+pkey pscr_registry 183 NAMED_FLASH
+pkey pscr_registry 184 TEAM_FLASH
+pkey pscr_registry 185 MOVIE_PLAY_FULLSCREEN
+pkey pscr_registry 186 MOVIE_PLAY_RADAR
+pkey pscr_registry 187 SOUND_PLAY_NAMED
+pkey pscr_registry 188 SPEECH_PLAY
+pkey pscr_registry 189 PLAYER_TRANSFER_OWNERSHIP_PLAYER
+pkey pscr_registry 190 NAMED_TRANSFER_OWNERSHIP_PLAYER
+pkey pscr_registry 191 PLAYER_RELATES_PLAYER
+pkey pscr_registry 192 RADAR_CREATE_EVENT
+pkey pscr_registry 193 RADAR_DISABLE
+pkey pscr_registry 194 RADAR_ENABLE
+pkey pscr_registry 195 MAP_REVEAL_AT_WAYPOINT
+pkey pscr_registry 196 TEAM_AVAILABLE_FOR_RECRUITMENT
+pkey pscr_registry 197 TEAM_COLLECT_NEARBY_FOR_TEAM
+pkey pscr_registry 198 TEAM_MERGE_INTO_TEAM
+pkey pscr_registry 199 DISABLE_INPUT
+pkey pscr_registry 200 ENABLE_INPUT
+pkey pscr_registry 201 PLAYER_HUNT
+pkey pscr_registry 202 SOUND_AMBIENT_PAUSE
+pkey pscr_registry 203 SOUND_AMBIENT_RESUME
+pkey pscr_registry 204 MUSIC_SET_TRACK
+pkey pscr_registry 205 SET_TREE_SWAY
+pkey pscr_registry 206 DEBUG_STRING
+pkey pscr_registry 207 MAP_REVEAL_ALL
+pkey pscr_registry 208 TEAM_GARRISON_SPECIFIC_BUILDING
+pkey pscr_registry 209 EXIT_SPECIFIC_BUILDING
+pkey pscr_registry 210 TEAM_GARRISON_NEAREST_BUILDING
+pkey pscr_registry 211 TEAM_EXIT_ALL_BUILDINGS
+pkey pscr_registry 212 NAMED_GARRISON_SPECIFIC_BUILDING
+pkey pscr_registry 213 NAMED_GARRISON_NEAREST_BUILDING
+pkey pscr_registry 214 NAMED_EXIT_BUILDING
+pkey pscr_registry 215 PLAYER_GARRISON_ALL_BUILDINGS
+pkey pscr_registry 216 PLAYER_EXIT_ALL_BUILDINGS
+pkey pscr_registry 217 TEAM_WANDER
+pkey pscr_registry 218 TEAM_PANIC
+pkey pscr_registry 219 SETUP_CAMERA
+pkey pscr_registry 220 CAMERA_LETTERBOX_BEGIN
+pkey pscr_registry 221 CAMERA_LETTERBOX_END
+pkey pscr_registry 222 ZOOM_CAMERA
+pkey pscr_registry 223 PITCH_CAMERA
+pkey pscr_registry 224 CAMERA_FOLLOW_NAMED
+pkey pscr_registry 225 OVERSIZE_TERRAIN
+pkey pscr_registry 226 CAMERA_FADE_ADD
+pkey pscr_registry 227 CAMERA_FADE_SUBTRACT
+pkey pscr_registry 228 CAMERA_FADE_SATURATE
+pkey pscr_registry 229 CAMERA_FADE_MULTIPLY
+pkey pscr_registry 230 CAMERA_BW_MODE_BEGIN
+pkey pscr_registry 231 CAMERA_BW_MODE_END
+pkey pscr_registry 232 DRAW_SKYBOX_BEGIN
+pkey pscr_registry 233 DRAW_SKYBOX_END
+pkey pscr_registry 234 SET_ATTACK_PRIORITY_THING
+pkey pscr_registry 235 SET_ATTACK_PRIORITY_KIND_OF
+pkey pscr_registry 236 SET_DEFAULT_ATTACK_PRIORITY
+pkey pscr_registry 237 CAMERA_STOP_FOLLOW
+pkey pscr_registry 238 CAMERA_MOTION_BLUR
+pkey pscr_registry 239 CAMERA_MOTION_BLUR_JUMP
+pkey pscr_registry 240 CAMERA_MOTION_BLUR_FOLLOW
+pkey pscr_registry 241 CAMERA_MOTION_BLUR_END_FOLLOW
+pkey pscr_registry 242 FREEZE_TIME
+pkey pscr_registry 243 UNFREEZE_TIME
+pkey pscr_registry 244 SHOW_MILITARY_CAPTION
+pkey pscr_registry 245 CAMERA_SET_AUDIBLE_DISTANCE
+pkey pscr_registry 246 SET_STOPPING_DISTANCE
+pkey pscr_registry 247 NAMED_SET_STOPPING_DISTANCE
+pkey pscr_registry 248 SET_FPS_LIMIT
+pkey pscr_registry 249 MUSIC_SET_VOLUME
+pkey pscr_registry 250 MAP_SHROUD_AT_WAYPOINT
+pkey pscr_registry 251 MAP_SHROUD_ALL
+pkey pscr_registry 252 SET_RANDOM_TIMER
+pkey pscr_registry 253 SET_RANDOM_MSEC_TIMER
+pkey pscr_registry 254 STOP_TIMER
+pkey pscr_registry 255 RESTART_TIMER
+pkey pscr_registry 256 ADD_TO_MSEC_TIMER
+pkey pscr_registry 257 SUB_FROM_MSEC_TIMER
+pkey pscr_registry 258 TEAM_TRANSFER_TO_PLAYER
+pkey pscr_registry 259 PLAYER_SET_MONEY
+pkey pscr_registry 260 PLAYER_GIVE_MONEY
+pkey pscr_registry 261 DISABLE_SPECIAL_POWER_DISPLAY
+pkey pscr_registry 262 ENABLE_SPECIAL_POWER_DISPLAY
+pkey pscr_registry 263 NAMED_HIDE_SPECIAL_POWER_DISPLAY
+pkey pscr_registry 264 NAMED_SHOW_SPECIAL_POWER_DISPLAY
+pkey pscr_registry 265 DISPLAY_COUNTDOWN_TIMER
+pkey pscr_registry 266 HIDE_COUNTDOWN_TIMER
+pkey pscr_registry 267 ENABLE_COUNTDOWN_TIMER_DISPLAY
+pkey pscr_registry 268 DISABLE_COUNTDOWN_TIMER_DISPLAY
+pkey pscr_registry 269 NAMED_STOP_SPECIAL_POWER_COUNTDOWN
+pkey pscr_registry 270 NAMED_START_SPECIAL_POWER_COUNTDOWN
+pkey pscr_registry 271 NAMED_SET_SPECIAL_POWER_COUNTDOWN
+pkey pscr_registry 272 NAMED_ADD_SPECIAL_POWER_COUNTDOWN
+pkey pscr_registry 273 NAMED_FIRE_SPECIAL_POWER_AT_WAYPOINT
+pkey pscr_registry 274 NAMED_FIRE_SPECIAL_POWER_AT_NAMED
+pkey pscr_registry 275 REFRESH_RADAR
+pkey pscr_registry 276 CAMERA_TETHER_NAMED
+pkey pscr_registry 277 CAMERA_STOP_TETHER_NAMED
+pkey pscr_registry 278 CAMERA_SET_DEFAULT
+pkey pscr_registry 279 NAMED_STOP
+pkey pscr_registry 280 TEAM_STOP
+pkey pscr_registry 281 TEAM_STOP_AND_DISBAND
+pkey pscr_registry 282 RECRUIT_TEAM
+pkey pscr_registry 283 TEAM_SET_OVERRIDE_RELATION_TO_TEAM
+pkey pscr_registry 284 TEAM_REMOVE_OVERRIDE_RELATION_TO_TEAM
+pkey pscr_registry 285 TEAM_REMOVE_ALL_OVERRIDE_RELATIONS
+pkey pscr_registry 286 CAMERA_LOOK_TOWARD_OBJECT
+pkey pscr_registry 287 NAMED_FIRE_WEAPON_FOLLOWING_WAYPOINT_PATH
+pkey pscr_registry 288 TEAM_SET_OVERRIDE_RELATION_TO_PLAYER
+pkey pscr_registry 289 TEAM_REMOVE_OVERRIDE_RELATION_TO_PLAYER
+pkey pscr_registry 290 PLAYER_SET_OVERRIDE_RELATION_TO_TEAM
+pkey pscr_registry 291 PLAYER_REMOVE_OVERRIDE_RELATION_TO_TEAM
+pkey pscr_registry 292 UNIT_EXECUTE_SEQUENTIAL_SCRIPT
+pkey pscr_registry 293 UNIT_EXECUTE_SEQUENTIAL_SCRIPT_LOOPING
+pkey pscr_registry 294 UNIT_STOP_SEQUENTIAL_SCRIPT
+pkey pscr_registry 295 TEAM_EXECUTE_SEQUENTIAL_SCRIPT
+pkey pscr_registry 296 TEAM_EXECUTE_SEQUENTIAL_SCRIPT_LOOPING
+pkey pscr_registry 297 TEAM_STOP_SEQUENTIAL_SCRIPT
+pkey pscr_registry 298 UNIT_GUARD_FOR_FRAMECOUNT
+pkey pscr_registry 299 UNIT_IDLE_FOR_FRAMECOUNT
+pkey pscr_registry 300 TEAM_GUARD_FOR_FRAMECOUNT
+pkey pscr_registry 301 TEAM_IDLE_FOR_FRAMECOUNT
+pkey pscr_registry 302 WATER_CHANGE_HEIGHT
+pkey pscr_registry 303 NAMED_USE_COMMANDBUTTON_ABILITY_ON_NAMED
+pkey pscr_registry 304 NAMED_USE_COMMANDBUTTON_ABILITY_AT_WAYPOINT
+pkey pscr_registry 305 WATER_CHANGE_HEIGHT_OVER_TIME
+pkey pscr_registry 306 MAP_SWITCH_BORDER
+pkey pscr_registry 307 TEAM_GUARD_POSITION
+pkey pscr_registry 308 TEAM_GUARD_OBJECT
+pkey pscr_registry 309 TEAM_GUARD_AREA
+pkey pscr_registry 310 OBJECT_FORCE_SELECT
+pkey pscr_registry 311 CAMERA_LOOK_TOWARD_WAYPOINT
+pkey pscr_registry 312 UNIT_DESTROY_ALL_CONTAINED
+pkey pscr_registry 313 RADAR_FORCE_ENABLE
+pkey pscr_registry 314 RADAR_REVERT_TO_NORMAL
+pkey pscr_registry 315 SCREEN_SHAKE
+pkey pscr_registry 316 TECHTREE_MODIFY_BUILDABILITY_OBJECT
+pkey pscr_registry 317 WAREHOUSE_SET_VALUE
+pkey pscr_registry 318 OBJECT_CREATE_RADAR_EVENT
+pkey pscr_registry 319 TEAM_CREATE_RADAR_EVENT
+pkey pscr_registry 320 DISPLAY_CINEMATIC_TEXT
+pkey pscr_registry 321 DEBUG_CRASH_BOX
+pkey pscr_registry 322 SOUND_DISABLE_TYPE
+pkey pscr_registry 323 SOUND_ENABLE_TYPE
+pkey pscr_registry 324 SOUND_ENABLE_ALL
+pkey pscr_registry 325 AUDIO_OVERRIDE_VOLUME_TYPE
+pkey pscr_registry 326 AUDIO_RESTORE_VOLUME_TYPE
+pkey pscr_registry 327 AUDIO_RESTORE_VOLUME_ALL_TYPE
+pkey pscr_registry 328 INGAME_POPUP_MESSAGE
+pkey pscr_registry 329 SET_CAVE_INDEX
+pkey pscr_registry 330 NAMED_SET_HELD
+pkey pscr_registry 331 NAMED_SET_TOPPLE_DIRECTION
+pkey pscr_registry 332 UNIT_MOVE_TOWARDS_NEAREST_OBJECT_TYPE
+pkey pscr_registry 333 TEAM_MOVE_TOWARDS_NEAREST_OBJECT_TYPE
+pkey pscr_registry 334 MAP_REVEAL_ALL_PERM
+pkey pscr_registry 335 MAP_REVEAL_ALL_UNDO_PERM
+pkey pscr_registry 336 NAMED_SET_REPULSOR
+pkey pscr_registry 337 TEAM_SET_REPULSOR
+pkey pscr_registry 338 TEAM_WANDER_IN_PLACE
+pkey pscr_registry 339 TEAM_INCREASE_PRIORITY
+pkey pscr_registry 340 TEAM_DECREASE_PRIORITY
+pkey pscr_registry 341 DISPLAY_COUNTER
+pkey pscr_registry 342 HIDE_COUNTER
+pkey pscr_registry 343 TEAM_USE_COMMANDBUTTON_ABILITY_ON_NAMED
+pkey pscr_registry 344 TEAM_USE_COMMANDBUTTON_ABILITY_AT_WAYPOINT
+pkey pscr_registry 345 NAMED_USE_COMMANDBUTTON_ABILITY
+pkey pscr_registry 346 TEAM_USE_COMMANDBUTTON_ABILITY
+pkey pscr_registry 347 NAMED_FLASH_WHITE
+pkey pscr_registry 348 TEAM_FLASH_WHITE
+pkey pscr_registry 349 SKIRMISH_BUILD_BUILDING
+pkey pscr_registry 350 SKIRMISH_FOLLOW_APPROACH_PATH
+pkey pscr_registry 351 IDLE_ALL_UNITS
+pkey pscr_registry 352 RESUME_SUPPLY_TRUCKING
+pkey pscr_registry 353 NAMED_CUSTOM_COLOR
+pkey pscr_registry 354 SKIRMISH_MOVE_TO_APPROACH_PATH
+pkey pscr_registry 355 SKIRMISH_BUILD_BASE_DEFENSE_FRONT
+pkey pscr_registry 356 SKIRMISH_FIRE_SPECIAL_POWER_AT_MOST_COST
+pkey pscr_registry 357 PLAYER_REPAIR_NAMED_STRUCTURE
+pkey pscr_registry 358 SKIRMISH_BUILD_BASE_DEFENSE_FLANK
+pkey pscr_registry 359 SKIRMISH_BUILD_STRUCTURE_FRONT
+pkey pscr_registry 360 SKIRMISH_BUILD_STRUCTURE_FLANK
+pkey pscr_registry 361 SKIRMISH_ATTACK_NEAREST_GROUP_WITH_VALUE
+pkey pscr_registry 362 SKIRMISH_PERFORM_COMMANDBUTTON_ON_MOST_VALUABLE_OBJECT
+pkey pscr_registry 363 SKIRMISH_WAIT_FOR_COMMANDBUTTON_AVAILABLE_ALL
+pkey pscr_registry 364 SKIRMISH_WAIT_FOR_COMMANDBUTTON_AVAILABLE_PARTIAL
+pkey pscr_registry 365 TEAM_SPIN_FOR_FRAMECOUNT
+pkey pscr_registry 366 TEAM_ALL_USE_COMMANDBUTTON_ON_NAMED
+pkey pscr_registry 367 TEAM_ALL_USE_COMMANDBUTTON_ON_NEAREST_ENEMY_UNIT
+pkey pscr_registry 368 TEAM_ALL_USE_COMMANDBUTTON_ON_NEAREST_GARRISONED_BUILDING
+pkey pscr_registry 369 TEAM_ALL_USE_COMMANDBUTTON_ON_NEAREST_KINDOF
+pkey pscr_registry 370 TEAM_ALL_USE_COMMANDBUTTON_ON_NEAREST_ENEMY_BUILDING
+pkey pscr_registry 371 TEAM_ALL_USE_COMMANDBUTTON_ON_NEAREST_ENEMY_BUILDING_CLASS
+pkey pscr_registry 372 TEAM_ALL_USE_COMMANDBUTTON_ON_NEAREST_OBJECTTYPE
+pkey pscr_registry 373 TEAM_PARTIAL_USE_COMMANDBUTTON
+pkey pscr_registry 374 TEAM_CAPTURE_NEAREST_UNOWNED_FACTION_UNIT
+pkey pscr_registry 375 PLAYER_CREATE_TEAM_FROM_CAPTURED_UNITS
+pkey pscr_registry 376 PLAYER_ADD_SKILLPOINTS
+pkey pscr_registry 377 PLAYER_ADD_RANKLEVEL
+pkey pscr_registry 378 PLAYER_SET_RANKLEVEL
+pkey pscr_registry 379 PLAYER_SET_RANKLEVELLIMIT
+pkey pscr_registry 380 PLAYER_GRANT_SCIENCE
+pkey pscr_registry 381 PLAYER_PURCHASE_SCIENCE
+pkey pscr_registry 382 TEAM_HUNT_WITH_COMMAND_BUTTON
+pkey pscr_registry 383 TEAM_WAIT_FOR_NOT_CONTAINED_ALL
+pkey pscr_registry 384 TEAM_WAIT_FOR_NOT_CONTAINED_PARTIAL
+pkey pscr_registry 385 TEAM_FOLLOW_WAYPOINTS_EXACT
+pkey pscr_registry 386 NAMED_FOLLOW_WAYPOINTS_EXACT
+pkey pscr_registry 387 TEAM_SET_EMOTICON
+pkey pscr_registry 388 NAMED_SET_EMOTICON
+pkey pscr_registry 389 AI_PLAYER_BUILD_SUPPLY_CENTER
+pkey pscr_registry 390 AI_PLAYER_BUILD_UPGRADE
+pkey pscr_registry 391 OBJECTLIST_ADDOBJECTTYPE
+pkey pscr_registry 392 OBJECTLIST_REMOVEOBJECTTYPE
+pkey pscr_registry 393 MAP_REVEAL_PERMANENTLY_AT_WAYPOINT
+pkey pscr_registry 394 MAP_UNDO_REVEAL_PERMANENTLY_AT_WAYPOINT
+pkey pscr_registry 395 NAMED_SET_STEALTH_ENABLED
+pkey pscr_registry 396 TEAM_SET_STEALTH_ENABLED
+pkey pscr_registry 397 EVA_SET_ENABLED_DISABLED
+pkey pscr_registry 398 OPTIONS_SET_OCCLUSION_MODE
+pkey pscr_registry 399 LOCALDEFEAT
+pkey pscr_registry 400 OPTIONS_SET_DRAWICON_UI_MODE
+pkey pscr_registry 401 OPTIONS_SET_PARTICLE_CAP_MODE
+pkey pscr_registry 402 PLAYER_SCIENCE_AVAILABILITY
+pkey pscr_registry 403 UNIT_AFFECT_OBJECT_PANEL_FLAGS
+pkey pscr_registry 404 TEAM_AFFECT_OBJECT_PANEL_FLAGS
+pkey pscr_registry 405 PLAYER_SELECT_SKILLSET
+pkey pscr_registry 406 SCRIPTING_OVERRIDE_HULK_LIFETIME
+pkey pscr_registry 407 NAMED_FACE_NAMED
+pkey pscr_registry 408 NAMED_FACE_WAYPOINT
+pkey pscr_registry 409 TEAM_FACE_NAMED
+pkey pscr_registry 410 TEAM_FACE_WAYPOINT
+pkey pscr_registry 411 COMMANDBAR_REMOVE_BUTTON_OBJECTTYPE
+pkey pscr_registry 412 COMMANDBAR_ADD_BUTTON_OBJECTTYPE_SLOT
+pkey pscr_registry 413 UNIT_SPAWN_NAMED_LOCATION_ORIENTATION
+pkey pscr_registry 414 PLAYER_AFFECT_RECEIVING_EXPERIENCE
+pkey pscr_registry 415 PLAYER_EXCLUDE_FROM_SCORE_SCREEN
+pkey pscr_registry 416 TEAM_GUARD_SUPPLY_CENTER
+pkey pscr_registry 417 ENABLE_SCORING
+pkey pscr_registry 418 DISABLE_SCORING
+pkey pscr_registry 419 SOUND_SET_VOLUME
+pkey pscr_registry 420 SPEECH_SET_VOLUME
+pkey pscr_registry 421 DISABLE_BORDER_SHROUD
+pkey pscr_registry 422 ENABLE_BORDER_SHROUD
+pkey pscr_registry 423 OBJECT_ALLOW_BONUSES
+pkey pscr_registry 424 SOUND_REMOVE_ALL_DISABLED
+pkey pscr_registry 425 SOUND_REMOVE_TYPE
+pkey pscr_registry 426 TEAM_GUARD_IN_TUNNEL_NETWORK
+pkey pscr_registry 427 QUICKVICTORY
+pkey pscr_registry 428 SET_INFANTRY_LIGHTING_OVERRIDE
+pkey pscr_registry 429 RESET_INFANTRY_LIGHTING_OVERRIDE
+pkey pscr_registry 430 TEAM_DELETE_LIVING
+pkey pscr_registry 431 RESIZE_VIEW_GUARDBAND
+pkey pscr_registry 432 DELETE_ALL_UNMANNED
+pkey pscr_registry 433 CHOOSE_VICTIM_ALWAYS_USES_NORMAL
+pkey pscr_registry 434 CAMERA_ENABLE_SLAVE_MODE
+pkey pscr_registry 435 CAMERA_DISABLE_SLAVE_MODE
+pkey pscr_registry 436 CAMERA_ADD_SHAKER_AT
+pkey pscr_registry 437 SET_TRAIN_HELD
+pkey pscr_registry 438 NAMED_SET_EVAC_LEFT_OR_RIGHT
+pkey pscr_registry 439 ENABLE_OBJECT_SOUND
+pkey pscr_registry 440 DISABLE_OBJECT_SOUND
+pkey pscr_registry 441 NAMED_USE_COMMANDBUTTON_ABILITY_USING_WAYPOINT_PATH
+pkey pscr_registry 442 NAMED_SET_UNMANNED_STATUS
+pkey pscr_registry 443 TEAM_SET_UNMANNED_STATUS
+pkey pscr_registry 444 NAMED_SET_BOOBYTRAPPED
+pkey pscr_registry 445 TEAM_SET_BOOBYTRAPPED
+pkey pscr_registry 446 SHOW_WEATHER
+pkey pscr_registry 447 AI_PLAYER_BUILD_TYPE_NEAREST_TEAM
+pstate pscr_registry 120 0 t
+file pscr_empty 436b4d700100000011506c61796572536372697074734c6973740100000001000000050000000000
+valid pscr_empty t
+walk pscr_empty t
+pnone pscr_empty
+pkeyn pscr_empty 447
+pstate pscr_empty 40 1 t
+file pscr_full 436b4d70100000000d54494d45525f455850495245440100000009436f6e646974696f6e020000000b554e49545f4845414c5448030000000b4f72436f6e646974696f6e0400000004464c4147050000000f434f4e444954494f4e5f46414c534506000000085345545f464c4147070000000c536372697074416374696f6e080000000e4d4f56455f43414d4552415f544f090000000c44454255475f535452494e470a00000011536372697074416374696f6e46616c73650b000000065363726970740c0000000b53637269707447726f75700d0000000a5363726970744c6973740e0000000e434f4e444954494f4e5f545255450f00000011506c61796572536372697074734c69737410000000100000000500780200000e0000000100160200000c00000002008d0100000a00536372697074204f6e650b00636f6d6d656e74206f6e650c00636f6e6420636f6d6d656e740b0061637420636f6d6d656e740101010101001e000000040000000100240000000200000004001a00000004000000030100000100000000000000050000000000c03f00000400000001004f0000000200000004002f0000000200000003050000020000000500000000000000000000000700466c61674f6e6508000000010000000000000000000200000004000c0000000000000003060000000000000800000002002f0000000100000003070000020000000500000000000000000000000700466c61674f6e650800000000000000000000000000080000000200540000000e0000000309000005000000100000000000c84200004ac20000000001000000000000000000004000000800000001000000000000000000010000000000000000006040000001000000000000000000904000000b00000002002700000065000000030a0000010000000a00000000000000000000000d00656c73652068617070656e65640c0000000200150000000300537562000000000000000000010101000000000d00000002005600000008004d792047726f757000010c00000002001b000000090047726f757065642041000000000000010101010100000000000c00000002001b000000090047726f757065642042000000000000010101010100000000000e00000001004e0000000c00000002004400000012005365636f6e64206c6973742073637269707400000000000001010101010000000000040000000100160000000200000004000c00000003000000030f000000000000
+valid pscr_full t
+walk pscr_full t
+pn pscr_full 2
+plist pscr_full 0 2 1
+pscr pscr_full L0.s0 <536372697074204f6e65> <636f6d6d656e74206f6e65> <636f6e6420636f6d6d656e74> <61637420636f6d6d656e74> t t t t t f 30
+pcond pscr_full L0.s0.o0.c0 4 1
+pparm pscr_full L0.s0.o0.c0.p0 0 0 5 3fc00000 -
+pcond pscr_full L0.s0.o1.c0 2 2
+pparm pscr_full L0.s0.o1.c0.p0 0 5 0 00000000 FlagOne
+pparm pscr_full L0.s0.o1.c0.p1 1 8 1 00000000 -
+pcond pscr_full L0.s0.o1.c1 0 0
+pact pscr_full L0.s0.a0 t 1 2
+pparm pscr_full L0.s0.a0.p0 0 5 0 00000000 FlagOne
+pparm pscr_full L0.s0.a0.p1 1 8 0 00000000 -
+pact pscr_full L0.s0.a1 t 14 5
+pparm pscr_full L0.s0.a1.p0 0 16 0 00000000 - 42c80000 c24a0000 00000000
+pparm pscr_full L0.s0.a1.p1 1 1 0 40000000 -
+pparm pscr_full L0.s0.a1.p2 2 8 1 00000000 -
+pparm pscr_full L0.s0.a1.p3 3 1 0 40600000 -
+pparm pscr_full L0.s0.a1.p4 4 1 0 40900000 -
+pact pscr_full L0.s0.f0 f 101 1
+pparm pscr_full L0.s0.f0.p0 0 10 0 00000000 <656c73652068617070656e6564>
+pscr pscr_full L0.s1 Sub - - - f f f t t t 0
+pgrp pscr_full 0 0 <4d792047726f7570> f t 2
+pscr pscr_full L0.g0.s0 <47726f757065642041> - - - t t t t t f 0
+pscr pscr_full L0.g0.s1 <47726f757065642042> - - - t t t t t f 0
+plist pscr_full 1 1 0
+pscr pscr_full L1.s0 <5365636f6e64206c69737420736372697074> - - - t t t t t f 0
+pcond pscr_full L1.s0.o0.c0 3 0
+pkeyn pscr_full 447
+pkey pscr_full 1 CONDITION_FALSE
+pkey pscr_full 2 COUNTER
+pkey pscr_full 3 FLAG
+pkey pscr_full 4 CONDITION_TRUE
+pkey pscr_full 5 TIMER_EXPIRED
+pkey pscr_full 6 PLAYER_ALL_DESTROYED
+pkey pscr_full 7 PLAYER_ALL_BUILDFACILITIES_DESTROYED
+pkey pscr_full 8 TEAM_INSIDE_AREA_PARTIALLY
+pkey pscr_full 9 TEAM_DESTROYED
+pkey pscr_full 10 CAMERA_MOVEMENT_FINISHED
+pkey pscr_full 11 TEAM_HAS_UNITS
+pkey pscr_full 12 TEAM_STATE_IS
+pkey pscr_full 13 TEAM_STATE_IS_NOT
+pkey pscr_full 14 NAMED_INSIDE_AREA
+pkey pscr_full 15 NAMED_OUTSIDE_AREA
+pkey pscr_full 16 NAMED_DESTROYED
+pkey pscr_full 17 NAMED_NOT_DESTROYED
+pkey pscr_full 18 TEAM_INSIDE_AREA_ENTIRELY
+pkey pscr_full 19 TEAM_OUTSIDE_AREA_ENTIRELY
+pkey pscr_full 20 NAMED_ATTACKED_BY_OBJECTTYPE
+pkey pscr_full 21 TEAM_ATTACKED_BY_OBJECTTYPE
+pkey pscr_full 22 NAMED_ATTACKED_BY_PLAYER
+pkey pscr_full 23 TEAM_ATTACKED_BY_PLAYER
+pkey pscr_full 24 BUILT_BY_PLAYER
+pkey pscr_full 25 NAMED_CREATED
+pkey pscr_full 26 TEAM_CREATED
+pkey pscr_full 27 PLAYER_HAS_CREDITS
+pkey pscr_full 28 NAMED_DISCOVERED
+pkey pscr_full 29 TEAM_DISCOVERED
+pkey pscr_full 30 MISSION_ATTEMPTS
+pkey pscr_full 31 NAMED_OWNED_BY_PLAYER
+pkey pscr_full 32 TEAM_OWNED_BY_PLAYER
+pkey pscr_full 33 PLAYER_HAS_N_OR_FEWER_BUILDINGS
+pkey pscr_full 34 PLAYER_HAS_POWER
+pkey pscr_full 35 NAMED_REACHED_WAYPOINTS_END
+pkey pscr_full 36 TEAM_REACHED_WAYPOINTS_END
+pkey pscr_full 37 NAMED_SELECTED
+pkey pscr_full 38 NAMED_ENTERED_AREA
+pkey pscr_full 39 NAMED_EXITED_AREA
+pkey pscr_full 40 TEAM_ENTERED_AREA_ENTIRELY
+pkey pscr_full 41 TEAM_ENTERED_AREA_PARTIALLY
+pkey pscr_full 42 TEAM_EXITED_AREA_ENTIRELY
+pkey pscr_full 43 TEAM_EXITED_AREA_PARTIALLY
+pkey pscr_full 44 MULTIPLAYER_ALLIED_VICTORY
+pkey pscr_full 45 MULTIPLAYER_ALLIED_DEFEAT
+pkey pscr_full 46 MULTIPLAYER_PLAYER_DEFEAT
+pkey pscr_full 47 PLAYER_HAS_NO_POWER
+pkey pscr_full 48 HAS_FINISHED_VIDEO
+pkey pscr_full 49 HAS_FINISHED_SPEECH
+pkey pscr_full 50 HAS_FINISHED_AUDIO
+pkey pscr_full 51 BUILDING_ENTERED_BY_PLAYER
+pkey pscr_full 52 ENEMY_SIGHTED
+pkey pscr_full 53 UNIT_HEALTH
+pkey pscr_full 54 BRIDGE_REPAIRED
+pkey pscr_full 55 BRIDGE_BROKEN
+pkey pscr_full 56 NAMED_DYING
+pkey pscr_full 57 NAMED_TOTALLY_DEAD
+pkey pscr_full 58 PLAYER_HAS_OBJECT_COMPARISON
+pkey pscr_full 59 -
+pkey pscr_full 60 PLAYER_TRIGGERED_SPECIAL_POWER
+pkey pscr_full 61 PLAYER_COMPLETED_SPECIAL_POWER
+pkey pscr_full 62 PLAYER_MIDWAY_SPECIAL_POWER
+pkey pscr_full 63 PLAYER_TRIGGERED_SPECIAL_POWER_FROM_NAMED
+pkey pscr_full 64 PLAYER_COMPLETED_SPECIAL_POWER_FROM_NAMED
+pkey pscr_full 65 PLAYER_MIDWAY_SPECIAL_POWER_FROM_NAMED
+pkey pscr_full 66 PLAYER_BUILT_UPGRADE
+pkey pscr_full 67 PLAYER_BUILT_UPGRADE_FROM_NAMED
+pkey pscr_full 68 PLAYER_DESTROYED_N_BUILDINGS_PLAYER
+pkey pscr_full 69 PLAYER_HAS_COMPARISON_UNIT_TYPE_IN_TRIGGER_AREA
+pkey pscr_full 70 PLAYER_HAS_COMPARISON_UNIT_KIND_IN_TRIGGER_AREA
+pkey pscr_full 71 UNIT_EMPTIED
+pkey pscr_full 72 TYPE_SIGHTED
+pkey pscr_full 73 NAMED_BUILDING_IS_EMPTY
+pkey pscr_full 74 PLAYER_HAS_N_OR_FEWER_FACTION_BUILDINGS
+pkey pscr_full 75 UNIT_HAS_OBJECT_STATUS
+pkey pscr_full 76 TEAM_ALL_HAS_OBJECT_STATUS
+pkey pscr_full 77 TEAM_SOME_HAVE_OBJECT_STATUS
+pkey pscr_full 78 PLAYER_POWER_COMPARE_PERCENT
+pkey pscr_full 79 PLAYER_EXCESS_POWER_COMPARE_VALUE
+pkey pscr_full 80 SKIRMISH_SPECIAL_POWER_READY
+pkey pscr_full 81 SKIRMISH_VALUE_IN_AREA
+pkey pscr_full 82 SKIRMISH_PLAYER_FACTION
+pkey pscr_full 83 SKIRMISH_SUPPLIES_VALUE_WITHIN_DISTANCE
+pkey pscr_full 84 SKIRMISH_TECH_BUILDING_WITHIN_DISTANCE
+pkey pscr_full 85 SKIRMISH_COMMAND_BUTTON_READY_ALL
+pkey pscr_full 86 SKIRMISH_COMMAND_BUTTON_READY_PARTIAL
+pkey pscr_full 87 SKIRMISH_UNOWNED_FACTION_UNIT_EXISTS
+pkey pscr_full 88 SKIRMISH_PLAYER_HAS_PREREQUISITE_TO_BUILD
+pkey pscr_full 89 SKIRMISH_PLAYER_HAS_COMPARISON_GARRISONED
+pkey pscr_full 90 SKIRMISH_PLAYER_HAS_COMPARISON_CAPTURED_UNITS
+pkey pscr_full 91 SKIRMISH_NAMED_AREA_EXIST
+pkey pscr_full 92 SKIRMISH_PLAYER_HAS_UNITS_IN_AREA
+pkey pscr_full 93 SKIRMISH_PLAYER_HAS_BEEN_ATTACKED_BY_PLAYER
+pkey pscr_full 94 SKIRMISH_PLAYER_IS_OUTSIDE_AREA
+pkey pscr_full 95 SKIRMISH_PLAYER_HAS_DISCOVERED_PLAYER
+pkey pscr_full 96 PLAYER_ACQUIRED_SCIENCE
+pkey pscr_full 97 PLAYER_HAS_SCIENCEPURCHASEPOINTS
+pkey pscr_full 98 PLAYER_CAN_PURCHASE_SCIENCE
+pkey pscr_full 99 MUSIC_TRACK_HAS_COMPLETED
+pkey pscr_full 100 PLAYER_LOST_OBJECT_TYPE
+pkey pscr_full 101 SUPPLY_SOURCE_SAFE
+pkey pscr_full 102 SUPPLY_SOURCE_ATTACKED
+pkey pscr_full 103 START_POSITION_IS
+pkey pscr_full 104 NAMED_HAS_FREE_CONTAINER_SLOTS
+pkey pscr_full 105 DEBUG_MESSAGE_BOX
+pkey pscr_full 106 SET_FLAG
+pkey pscr_full 107 SET_COUNTER
+pkey pscr_full 108 VICTORY
+pkey pscr_full 109 DEFEAT
+pkey pscr_full 110 NO_OP
+pkey pscr_full 111 SET_TIMER
+pkey pscr_full 112 PLAY_SOUND_EFFECT
+pkey pscr_full 113 ENABLE_SCRIPT
+pkey pscr_full 114 DISABLE_SCRIPT
+pkey pscr_full 115 CALL_SUBROUTINE
+pkey pscr_full 116 PLAY_SOUND_EFFECT_AT
+pkey pscr_full 117 DAMAGE_MEMBERS_OF_TEAM
+pkey pscr_full 118 MOVE_TEAM_TO
+pkey pscr_full 119 MOVE_CAMERA_TO
+pkey pscr_full 120 INCREMENT_COUNTER
+pkey pscr_full 121 DECREMENT_COUNTER
+pkey pscr_full 122 MOVE_CAMERA_ALONG_WAYPOINT_PATH
+pkey pscr_full 123 ROTATE_CAMERA
+pkey pscr_full 124 RESET_CAMERA
+pkey pscr_full 125 SET_MILLISECOND_TIMER
+pkey pscr_full 126 CAMERA_MOD_FREEZE_TIME
+pkey pscr_full 127 SET_VISUAL_SPEED_MULTIPLIER
+pkey pscr_full 128 CREATE_OBJECT
+pkey pscr_full 129 SUSPEND_BACKGROUND_SOUNDS
+pkey pscr_full 130 RESUME_BACKGROUND_SOUNDS
+pkey pscr_full 131 CAMERA_MOD_SET_FINAL_ZOOM
+pkey pscr_full 132 CAMERA_MOD_SET_FINAL_PITCH
+pkey pscr_full 133 CAMERA_MOD_FREEZE_ANGLE
+pkey pscr_full 134 CAMERA_MOD_SET_FINAL_SPEED_MULTIPLIER
+pkey pscr_full 135 CAMERA_MOD_SET_ROLLING_AVERAGE
+pkey pscr_full 136 CAMERA_MOD_FINAL_LOOK_TOWARD
+pkey pscr_full 137 CAMERA_MOD_LOOK_TOWARD
+pkey pscr_full 138 TEAM_ATTACK_TEAM
+pkey pscr_full 139 CREATE_REINFORCEMENT_TEAM
+pkey pscr_full 140 MOVE_CAMERA_TO_SELECTION
+pkey pscr_full 141 TEAM_FOLLOW_WAYPOINTS
+pkey pscr_full 142 TEAM_SET_STATE
+pkey pscr_full 143 MOVE_NAMED_UNIT_TO
+pkey pscr_full 144 NAMED_ATTACK_NAMED
+pkey pscr_full 145 CREATE_NAMED_ON_TEAM_AT_WAYPOINT
+pkey pscr_full 146 CREATE_UNNAMED_ON_TEAM_AT_WAYPOINT
+pkey pscr_full 147 NAMED_APPLY_ATTACK_PRIORITY_SET
+pkey pscr_full 148 TEAM_APPLY_ATTACK_PRIORITY_SET
+pkey pscr_full 149 SET_BASE_CONSTRUCTION_SPEED
+pkey pscr_full 150 NAMED_SET_ATTITUDE
+pkey pscr_full 151 TEAM_SET_ATTITUDE
+pkey pscr_full 152 NAMED_ATTACK_AREA
+pkey pscr_full 153 NAMED_ATTACK_TEAM
+pkey pscr_full 154 TEAM_ATTACK_AREA
+pkey pscr_full 155 TEAM_ATTACK_NAMED
+pkey pscr_full 156 TEAM_LOAD_TRANSPORTS
+pkey pscr_full 157 NAMED_ENTER_NAMED
+pkey pscr_full 158 TEAM_ENTER_NAMED
+pkey pscr_full 159 NAMED_EXIT_ALL
+pkey pscr_full 160 TEAM_EXIT_ALL
+pkey pscr_full 161 NAMED_FOLLOW_WAYPOINTS
+pkey pscr_full 162 NAMED_GUARD
+pkey pscr_full 163 TEAM_GUARD
+pkey pscr_full 164 NAMED_HUNT
+pkey pscr_full 165 TEAM_HUNT
+pkey pscr_full 166 PLAYER_SELL_EVERYTHING
+pkey pscr_full 167 PLAYER_DISABLE_BASE_CONSTRUCTION
+pkey pscr_full 168 PLAYER_DISABLE_FACTORIES
+pkey pscr_full 169 PLAYER_DISABLE_UNIT_CONSTRUCTION
+pkey pscr_full 170 PLAYER_ENABLE_BASE_CONSTRUCTION
+pkey pscr_full 171 PLAYER_ENABLE_FACTORIES
+pkey pscr_full 172 PLAYER_ENABLE_UNIT_CONSTRUCTION
+pkey pscr_full 173 CAMERA_MOVE_HOME
+pkey pscr_full 174 BUILD_TEAM
+pkey pscr_full 175 NAMED_DAMAGE
+pkey pscr_full 176 NAMED_DELETE
+pkey pscr_full 177 TEAM_DELETE
+pkey pscr_full 178 NAMED_KILL
+pkey pscr_full 179 TEAM_KILL
+pkey pscr_full 180 PLAYER_KILL
+pkey pscr_full 181 DISPLAY_TEXT
+pkey pscr_full 182 CAMEO_FLASH
+pkey pscr_full 183 NAMED_FLASH
+pkey pscr_full 184 TEAM_FLASH
+pkey pscr_full 185 MOVIE_PLAY_FULLSCREEN
+pkey pscr_full 186 MOVIE_PLAY_RADAR
+pkey pscr_full 187 SOUND_PLAY_NAMED
+pkey pscr_full 188 SPEECH_PLAY
+pkey pscr_full 189 PLAYER_TRANSFER_OWNERSHIP_PLAYER
+pkey pscr_full 190 NAMED_TRANSFER_OWNERSHIP_PLAYER
+pkey pscr_full 191 PLAYER_RELATES_PLAYER
+pkey pscr_full 192 RADAR_CREATE_EVENT
+pkey pscr_full 193 RADAR_DISABLE
+pkey pscr_full 194 RADAR_ENABLE
+pkey pscr_full 195 MAP_REVEAL_AT_WAYPOINT
+pkey pscr_full 196 TEAM_AVAILABLE_FOR_RECRUITMENT
+pkey pscr_full 197 TEAM_COLLECT_NEARBY_FOR_TEAM
+pkey pscr_full 198 TEAM_MERGE_INTO_TEAM
+pkey pscr_full 199 DISABLE_INPUT
+pkey pscr_full 200 ENABLE_INPUT
+pkey pscr_full 201 PLAYER_HUNT
+pkey pscr_full 202 SOUND_AMBIENT_PAUSE
+pkey pscr_full 203 SOUND_AMBIENT_RESUME
+pkey pscr_full 204 MUSIC_SET_TRACK
+pkey pscr_full 205 SET_TREE_SWAY
+pkey pscr_full 206 DEBUG_STRING
+pkey pscr_full 207 MAP_REVEAL_ALL
+pkey pscr_full 208 TEAM_GARRISON_SPECIFIC_BUILDING
+pkey pscr_full 209 EXIT_SPECIFIC_BUILDING
+pkey pscr_full 210 TEAM_GARRISON_NEAREST_BUILDING
+pkey pscr_full 211 TEAM_EXIT_ALL_BUILDINGS
+pkey pscr_full 212 NAMED_GARRISON_SPECIFIC_BUILDING
+pkey pscr_full 213 NAMED_GARRISON_NEAREST_BUILDING
+pkey pscr_full 214 NAMED_EXIT_BUILDING
+pkey pscr_full 215 PLAYER_GARRISON_ALL_BUILDINGS
+pkey pscr_full 216 PLAYER_EXIT_ALL_BUILDINGS
+pkey pscr_full 217 TEAM_WANDER
+pkey pscr_full 218 TEAM_PANIC
+pkey pscr_full 219 SETUP_CAMERA
+pkey pscr_full 220 CAMERA_LETTERBOX_BEGIN
+pkey pscr_full 221 CAMERA_LETTERBOX_END
+pkey pscr_full 222 ZOOM_CAMERA
+pkey pscr_full 223 PITCH_CAMERA
+pkey pscr_full 224 CAMERA_FOLLOW_NAMED
+pkey pscr_full 225 OVERSIZE_TERRAIN
+pkey pscr_full 226 CAMERA_FADE_ADD
+pkey pscr_full 227 CAMERA_FADE_SUBTRACT
+pkey pscr_full 228 CAMERA_FADE_SATURATE
+pkey pscr_full 229 CAMERA_FADE_MULTIPLY
+pkey pscr_full 230 CAMERA_BW_MODE_BEGIN
+pkey pscr_full 231 CAMERA_BW_MODE_END
+pkey pscr_full 232 DRAW_SKYBOX_BEGIN
+pkey pscr_full 233 DRAW_SKYBOX_END
+pkey pscr_full 234 SET_ATTACK_PRIORITY_THING
+pkey pscr_full 235 SET_ATTACK_PRIORITY_KIND_OF
+pkey pscr_full 236 SET_DEFAULT_ATTACK_PRIORITY
+pkey pscr_full 237 CAMERA_STOP_FOLLOW
+pkey pscr_full 238 CAMERA_MOTION_BLUR
+pkey pscr_full 239 CAMERA_MOTION_BLUR_JUMP
+pkey pscr_full 240 CAMERA_MOTION_BLUR_FOLLOW
+pkey pscr_full 241 CAMERA_MOTION_BLUR_END_FOLLOW
+pkey pscr_full 242 FREEZE_TIME
+pkey pscr_full 243 UNFREEZE_TIME
+pkey pscr_full 244 SHOW_MILITARY_CAPTION
+pkey pscr_full 245 CAMERA_SET_AUDIBLE_DISTANCE
+pkey pscr_full 246 SET_STOPPING_DISTANCE
+pkey pscr_full 247 NAMED_SET_STOPPING_DISTANCE
+pkey pscr_full 248 SET_FPS_LIMIT
+pkey pscr_full 249 MUSIC_SET_VOLUME
+pkey pscr_full 250 MAP_SHROUD_AT_WAYPOINT
+pkey pscr_full 251 MAP_SHROUD_ALL
+pkey pscr_full 252 SET_RANDOM_TIMER
+pkey pscr_full 253 SET_RANDOM_MSEC_TIMER
+pkey pscr_full 254 STOP_TIMER
+pkey pscr_full 255 RESTART_TIMER
+pkey pscr_full 256 ADD_TO_MSEC_TIMER
+pkey pscr_full 257 SUB_FROM_MSEC_TIMER
+pkey pscr_full 258 TEAM_TRANSFER_TO_PLAYER
+pkey pscr_full 259 PLAYER_SET_MONEY
+pkey pscr_full 260 PLAYER_GIVE_MONEY
+pkey pscr_full 261 DISABLE_SPECIAL_POWER_DISPLAY
+pkey pscr_full 262 ENABLE_SPECIAL_POWER_DISPLAY
+pkey pscr_full 263 NAMED_HIDE_SPECIAL_POWER_DISPLAY
+pkey pscr_full 264 NAMED_SHOW_SPECIAL_POWER_DISPLAY
+pkey pscr_full 265 DISPLAY_COUNTDOWN_TIMER
+pkey pscr_full 266 HIDE_COUNTDOWN_TIMER
+pkey pscr_full 267 ENABLE_COUNTDOWN_TIMER_DISPLAY
+pkey pscr_full 268 DISABLE_COUNTDOWN_TIMER_DISPLAY
+pkey pscr_full 269 NAMED_STOP_SPECIAL_POWER_COUNTDOWN
+pkey pscr_full 270 NAMED_START_SPECIAL_POWER_COUNTDOWN
+pkey pscr_full 271 NAMED_SET_SPECIAL_POWER_COUNTDOWN
+pkey pscr_full 272 NAMED_ADD_SPECIAL_POWER_COUNTDOWN
+pkey pscr_full 273 NAMED_FIRE_SPECIAL_POWER_AT_WAYPOINT
+pkey pscr_full 274 NAMED_FIRE_SPECIAL_POWER_AT_NAMED
+pkey pscr_full 275 REFRESH_RADAR
+pkey pscr_full 276 CAMERA_TETHER_NAMED
+pkey pscr_full 277 CAMERA_STOP_TETHER_NAMED
+pkey pscr_full 278 CAMERA_SET_DEFAULT
+pkey pscr_full 279 NAMED_STOP
+pkey pscr_full 280 TEAM_STOP
+pkey pscr_full 281 TEAM_STOP_AND_DISBAND
+pkey pscr_full 282 RECRUIT_TEAM
+pkey pscr_full 283 TEAM_SET_OVERRIDE_RELATION_TO_TEAM
+pkey pscr_full 284 TEAM_REMOVE_OVERRIDE_RELATION_TO_TEAM
+pkey pscr_full 285 TEAM_REMOVE_ALL_OVERRIDE_RELATIONS
+pkey pscr_full 286 CAMERA_LOOK_TOWARD_OBJECT
+pkey pscr_full 287 NAMED_FIRE_WEAPON_FOLLOWING_WAYPOINT_PATH
+pkey pscr_full 288 TEAM_SET_OVERRIDE_RELATION_TO_PLAYER
+pkey pscr_full 289 TEAM_REMOVE_OVERRIDE_RELATION_TO_PLAYER
+pkey pscr_full 290 PLAYER_SET_OVERRIDE_RELATION_TO_TEAM
+pkey pscr_full 291 PLAYER_REMOVE_OVERRIDE_RELATION_TO_TEAM
+pkey pscr_full 292 UNIT_EXECUTE_SEQUENTIAL_SCRIPT
+pkey pscr_full 293 UNIT_EXECUTE_SEQUENTIAL_SCRIPT_LOOPING
+pkey pscr_full 294 UNIT_STOP_SEQUENTIAL_SCRIPT
+pkey pscr_full 295 TEAM_EXECUTE_SEQUENTIAL_SCRIPT
+pkey pscr_full 296 TEAM_EXECUTE_SEQUENTIAL_SCRIPT_LOOPING
+pkey pscr_full 297 TEAM_STOP_SEQUENTIAL_SCRIPT
+pkey pscr_full 298 UNIT_GUARD_FOR_FRAMECOUNT
+pkey pscr_full 299 UNIT_IDLE_FOR_FRAMECOUNT
+pkey pscr_full 300 TEAM_GUARD_FOR_FRAMECOUNT
+pkey pscr_full 301 TEAM_IDLE_FOR_FRAMECOUNT
+pkey pscr_full 302 WATER_CHANGE_HEIGHT
+pkey pscr_full 303 NAMED_USE_COMMANDBUTTON_ABILITY_ON_NAMED
+pkey pscr_full 304 NAMED_USE_COMMANDBUTTON_ABILITY_AT_WAYPOINT
+pkey pscr_full 305 WATER_CHANGE_HEIGHT_OVER_TIME
+pkey pscr_full 306 MAP_SWITCH_BORDER
+pkey pscr_full 307 TEAM_GUARD_POSITION
+pkey pscr_full 308 TEAM_GUARD_OBJECT
+pkey pscr_full 309 TEAM_GUARD_AREA
+pkey pscr_full 310 OBJECT_FORCE_SELECT
+pkey pscr_full 311 CAMERA_LOOK_TOWARD_WAYPOINT
+pkey pscr_full 312 UNIT_DESTROY_ALL_CONTAINED
+pkey pscr_full 313 RADAR_FORCE_ENABLE
+pkey pscr_full 314 RADAR_REVERT_TO_NORMAL
+pkey pscr_full 315 SCREEN_SHAKE
+pkey pscr_full 316 TECHTREE_MODIFY_BUILDABILITY_OBJECT
+pkey pscr_full 317 WAREHOUSE_SET_VALUE
+pkey pscr_full 318 OBJECT_CREATE_RADAR_EVENT
+pkey pscr_full 319 TEAM_CREATE_RADAR_EVENT
+pkey pscr_full 320 DISPLAY_CINEMATIC_TEXT
+pkey pscr_full 321 DEBUG_CRASH_BOX
+pkey pscr_full 322 SOUND_DISABLE_TYPE
+pkey pscr_full 323 SOUND_ENABLE_TYPE
+pkey pscr_full 324 SOUND_ENABLE_ALL
+pkey pscr_full 325 AUDIO_OVERRIDE_VOLUME_TYPE
+pkey pscr_full 326 AUDIO_RESTORE_VOLUME_TYPE
+pkey pscr_full 327 AUDIO_RESTORE_VOLUME_ALL_TYPE
+pkey pscr_full 328 INGAME_POPUP_MESSAGE
+pkey pscr_full 329 SET_CAVE_INDEX
+pkey pscr_full 330 NAMED_SET_HELD
+pkey pscr_full 331 NAMED_SET_TOPPLE_DIRECTION
+pkey pscr_full 332 UNIT_MOVE_TOWARDS_NEAREST_OBJECT_TYPE
+pkey pscr_full 333 TEAM_MOVE_TOWARDS_NEAREST_OBJECT_TYPE
+pkey pscr_full 334 MAP_REVEAL_ALL_PERM
+pkey pscr_full 335 MAP_REVEAL_ALL_UNDO_PERM
+pkey pscr_full 336 NAMED_SET_REPULSOR
+pkey pscr_full 337 TEAM_SET_REPULSOR
+pkey pscr_full 338 TEAM_WANDER_IN_PLACE
+pkey pscr_full 339 TEAM_INCREASE_PRIORITY
+pkey pscr_full 340 TEAM_DECREASE_PRIORITY
+pkey pscr_full 341 DISPLAY_COUNTER
+pkey pscr_full 342 HIDE_COUNTER
+pkey pscr_full 343 TEAM_USE_COMMANDBUTTON_ABILITY_ON_NAMED
+pkey pscr_full 344 TEAM_USE_COMMANDBUTTON_ABILITY_AT_WAYPOINT
+pkey pscr_full 345 NAMED_USE_COMMANDBUTTON_ABILITY
+pkey pscr_full 346 TEAM_USE_COMMANDBUTTON_ABILITY
+pkey pscr_full 347 NAMED_FLASH_WHITE
+pkey pscr_full 348 TEAM_FLASH_WHITE
+pkey pscr_full 349 SKIRMISH_BUILD_BUILDING
+pkey pscr_full 350 SKIRMISH_FOLLOW_APPROACH_PATH
+pkey pscr_full 351 IDLE_ALL_UNITS
+pkey pscr_full 352 RESUME_SUPPLY_TRUCKING
+pkey pscr_full 353 NAMED_CUSTOM_COLOR
+pkey pscr_full 354 SKIRMISH_MOVE_TO_APPROACH_PATH
+pkey pscr_full 355 SKIRMISH_BUILD_BASE_DEFENSE_FRONT
+pkey pscr_full 356 SKIRMISH_FIRE_SPECIAL_POWER_AT_MOST_COST
+pkey pscr_full 357 PLAYER_REPAIR_NAMED_STRUCTURE
+pkey pscr_full 358 SKIRMISH_BUILD_BASE_DEFENSE_FLANK
+pkey pscr_full 359 SKIRMISH_BUILD_STRUCTURE_FRONT
+pkey pscr_full 360 SKIRMISH_BUILD_STRUCTURE_FLANK
+pkey pscr_full 361 SKIRMISH_ATTACK_NEAREST_GROUP_WITH_VALUE
+pkey pscr_full 362 SKIRMISH_PERFORM_COMMANDBUTTON_ON_MOST_VALUABLE_OBJECT
+pkey pscr_full 363 SKIRMISH_WAIT_FOR_COMMANDBUTTON_AVAILABLE_ALL
+pkey pscr_full 364 SKIRMISH_WAIT_FOR_COMMANDBUTTON_AVAILABLE_PARTIAL
+pkey pscr_full 365 TEAM_SPIN_FOR_FRAMECOUNT
+pkey pscr_full 366 TEAM_ALL_USE_COMMANDBUTTON_ON_NAMED
+pkey pscr_full 367 TEAM_ALL_USE_COMMANDBUTTON_ON_NEAREST_ENEMY_UNIT
+pkey pscr_full 368 TEAM_ALL_USE_COMMANDBUTTON_ON_NEAREST_GARRISONED_BUILDING
+pkey pscr_full 369 TEAM_ALL_USE_COMMANDBUTTON_ON_NEAREST_KINDOF
+pkey pscr_full 370 TEAM_ALL_USE_COMMANDBUTTON_ON_NEAREST_ENEMY_BUILDING
+pkey pscr_full 371 TEAM_ALL_USE_COMMANDBUTTON_ON_NEAREST_ENEMY_BUILDING_CLASS
+pkey pscr_full 372 TEAM_ALL_USE_COMMANDBUTTON_ON_NEAREST_OBJECTTYPE
+pkey pscr_full 373 TEAM_PARTIAL_USE_COMMANDBUTTON
+pkey pscr_full 374 TEAM_CAPTURE_NEAREST_UNOWNED_FACTION_UNIT
+pkey pscr_full 375 PLAYER_CREATE_TEAM_FROM_CAPTURED_UNITS
+pkey pscr_full 376 PLAYER_ADD_SKILLPOINTS
+pkey pscr_full 377 PLAYER_ADD_RANKLEVEL
+pkey pscr_full 378 PLAYER_SET_RANKLEVEL
+pkey pscr_full 379 PLAYER_SET_RANKLEVELLIMIT
+pkey pscr_full 380 PLAYER_GRANT_SCIENCE
+pkey pscr_full 381 PLAYER_PURCHASE_SCIENCE
+pkey pscr_full 382 TEAM_HUNT_WITH_COMMAND_BUTTON
+pkey pscr_full 383 TEAM_WAIT_FOR_NOT_CONTAINED_ALL
+pkey pscr_full 384 TEAM_WAIT_FOR_NOT_CONTAINED_PARTIAL
+pkey pscr_full 385 TEAM_FOLLOW_WAYPOINTS_EXACT
+pkey pscr_full 386 NAMED_FOLLOW_WAYPOINTS_EXACT
+pkey pscr_full 387 TEAM_SET_EMOTICON
+pkey pscr_full 388 NAMED_SET_EMOTICON
+pkey pscr_full 389 AI_PLAYER_BUILD_SUPPLY_CENTER
+pkey pscr_full 390 AI_PLAYER_BUILD_UPGRADE
+pkey pscr_full 391 OBJECTLIST_ADDOBJECTTYPE
+pkey pscr_full 392 OBJECTLIST_REMOVEOBJECTTYPE
+pkey pscr_full 393 MAP_REVEAL_PERMANENTLY_AT_WAYPOINT
+pkey pscr_full 394 MAP_UNDO_REVEAL_PERMANENTLY_AT_WAYPOINT
+pkey pscr_full 395 NAMED_SET_STEALTH_ENABLED
+pkey pscr_full 396 TEAM_SET_STEALTH_ENABLED
+pkey pscr_full 397 EVA_SET_ENABLED_DISABLED
+pkey pscr_full 398 OPTIONS_SET_OCCLUSION_MODE
+pkey pscr_full 399 LOCALDEFEAT
+pkey pscr_full 400 OPTIONS_SET_DRAWICON_UI_MODE
+pkey pscr_full 401 OPTIONS_SET_PARTICLE_CAP_MODE
+pkey pscr_full 402 PLAYER_SCIENCE_AVAILABILITY
+pkey pscr_full 403 UNIT_AFFECT_OBJECT_PANEL_FLAGS
+pkey pscr_full 404 TEAM_AFFECT_OBJECT_PANEL_FLAGS
+pkey pscr_full 405 PLAYER_SELECT_SKILLSET
+pkey pscr_full 406 SCRIPTING_OVERRIDE_HULK_LIFETIME
+pkey pscr_full 407 NAMED_FACE_NAMED
+pkey pscr_full 408 NAMED_FACE_WAYPOINT
+pkey pscr_full 409 TEAM_FACE_NAMED
+pkey pscr_full 410 TEAM_FACE_WAYPOINT
+pkey pscr_full 411 COMMANDBAR_REMOVE_BUTTON_OBJECTTYPE
+pkey pscr_full 412 COMMANDBAR_ADD_BUTTON_OBJECTTYPE_SLOT
+pkey pscr_full 413 UNIT_SPAWN_NAMED_LOCATION_ORIENTATION
+pkey pscr_full 414 PLAYER_AFFECT_RECEIVING_EXPERIENCE
+pkey pscr_full 415 PLAYER_EXCLUDE_FROM_SCORE_SCREEN
+pkey pscr_full 416 TEAM_GUARD_SUPPLY_CENTER
+pkey pscr_full 417 ENABLE_SCORING
+pkey pscr_full 418 DISABLE_SCORING
+pkey pscr_full 419 SOUND_SET_VOLUME
+pkey pscr_full 420 SPEECH_SET_VOLUME
+pkey pscr_full 421 DISABLE_BORDER_SHROUD
+pkey pscr_full 422 ENABLE_BORDER_SHROUD
+pkey pscr_full 423 OBJECT_ALLOW_BONUSES
+pkey pscr_full 424 SOUND_REMOVE_ALL_DISABLED
+pkey pscr_full 425 SOUND_REMOVE_TYPE
+pkey pscr_full 426 TEAM_GUARD_IN_TUNNEL_NETWORK
+pkey pscr_full 427 QUICKVICTORY
+pkey pscr_full 428 SET_INFANTRY_LIGHTING_OVERRIDE
+pkey pscr_full 429 RESET_INFANTRY_LIGHTING_OVERRIDE
+pkey pscr_full 430 TEAM_DELETE_LIVING
+pkey pscr_full 431 RESIZE_VIEW_GUARDBAND
+pkey pscr_full 432 DELETE_ALL_UNMANNED
+pkey pscr_full 433 CHOOSE_VICTIM_ALWAYS_USES_NORMAL
+pkey pscr_full 434 CAMERA_ENABLE_SLAVE_MODE
+pkey pscr_full 435 CAMERA_DISABLE_SLAVE_MODE
+pkey pscr_full 436 CAMERA_ADD_SHAKER_AT
+pkey pscr_full 437 SET_TRAIN_HELD
+pkey pscr_full 438 NAMED_SET_EVAC_LEFT_OR_RIGHT
+pkey pscr_full 439 ENABLE_OBJECT_SOUND
+pkey pscr_full 440 DISABLE_OBJECT_SOUND
+pkey pscr_full 441 NAMED_USE_COMMANDBUTTON_ABILITY_USING_WAYPOINT_PATH
+pkey pscr_full 442 NAMED_SET_UNMANNED_STATUS
+pkey pscr_full 443 TEAM_SET_UNMANNED_STATUS
+pkey pscr_full 444 NAMED_SET_BOOBYTRAPPED
+pkey pscr_full 445 TEAM_SET_BOOBYTRAPPED
+pkey pscr_full 446 SHOW_WEATHER
+pkey pscr_full 447 AI_PLAYER_BUILD_TYPE_NEAREST_TEAM
+pstate pscr_full 914 0 t
+file pscr_group_vers 436b4d70030000000b53637269707447726f7570010000000a5363726970744c6973740200000011506c61796572536372697074734c697374030000000300000005005f000000020000000100550000000100000001000b000000080056312047726f7570010100000002000c000000080056322047726f757000010100000003000b000000080056332047726f7570000100000000000b000000080056302047726f757000
+valid pscr_group_vers t
+walk pscr_group_vers t
+pn pscr_group_vers 1
+plist pscr_group_vers 0 0 4
+pgrp pscr_group_vers 0 0 <56312047726f7570> t f 0
+pgrp pscr_group_vers 0 1 <56322047726f7570> f t 0
+pgrp pscr_group_vers 0 2 <56332047726f7570> f f 0
+pgrp pscr_group_vers 0 3 <56302047726f7570> f f 0
+pkeyn pscr_group_vers 447
+pstate pscr_group_vers 166 0 t
+file pscr_script_vers 436b4d700300000006536372697074010000000a5363726970744c6973740200000011506c61796572536372697074734c697374030000000300000009007200000002000000090068000000010000000100180000000a004f6c64205363726970740000000000000101010101000100000000001700000009005630205363726970740000000000000101010101000100000009001b000000090056392053637269707400000000000001010101010000000000
+valid pscr_script_vers t
+walk pscr_script_vers t
+pn pscr_script_vers 1
+plist pscr_script_vers 0 3 0
+pscr pscr_script_vers L0.s0 <4f6c6420536372697074> - - - t t t t t f 0
+pscr pscr_script_vers L0.s1 <563020536372697074> - - - t t t t t f 0
+pscr pscr_script_vers L0.s2 <563920536372697074> - - - t t t t t f 0
+pkeyn pscr_script_vers 447
+pstate pscr_script_vers 180 0 t
+file pscr_cond_vers 436b4d700600000009436f6e646974696f6e010000000d54494d45525f45585049524544020000000b4f72436f6e646974696f6e0300000006536372697074040000000a5363726970744c6973740500000011506c61796572536372697074734c697374060000000600000005007d01000005000000010073010000040000000100690100000800436f6e6456657273000000000000010101010100030000000100490100000100000001002e000000070000000200000003000000000000000000000005005465616d4109000000000000000000000005004172656141010000000100080000002a000000000000000100000001001b000000280000000100000003000000000000000000000005005465616d420100000002002e000000070000000200000003000000000000000000000005005465616d41090000000000000000000000050041726561410100000003003c000000070000000300000003000000000000000000000005005465616d410900000000000000000000000500417265614124000000030000000000000000000100000004001a00000004000000030200000100000000000000640000000000000000000100000000002e000000120000000200000003000000000000000000000005005465616d4309000000000000000000000005004172656143
+valid pscr_cond_vers t
+walk pscr_cond_vers t
+pn pscr_cond_vers 1
+plist pscr_cond_vers 0 1 0
+pscr pscr_cond_vers L0.s0 CondVers - - - t t t t t f 0
+pcond pscr_cond_vers L0.s0.o0.c0 7 3
+pparm pscr_cond_vers L0.s0.o0.c0.p0 0 3 0 00000000 TeamA
+pparm pscr_cond_vers L0.s0.o0.c0.p1 1 9 0 00000000 AreaA
+pparm pscr_cond_vers L0.s0.o0.c0.p2 2 36 3 00000000 -
+pcond pscr_cond_vers L0.s0.o0.c1 42 3
+pparm pscr_cond_vers L0.s0.o0.c1.p0 0 36 3 00000000 -
+pparm pscr_cond_vers L0.s0.o0.c1.p1 1 null
+pparm pscr_cond_vers L0.s0.o0.c1.p2 2 null
+pcond pscr_cond_vers L0.s0.o0.c2 40 3
+pparm pscr_cond_vers L0.s0.o0.c2.p0 0 3 0 00000000 TeamB
+pparm pscr_cond_vers L0.s0.o0.c2.p1 1 36 3 00000000 -
+pparm pscr_cond_vers L0.s0.o0.c2.p2 2 null
+pcond pscr_cond_vers L0.s0.o0.c3 0 0
+pcond pscr_cond_vers L0.s0.o0.c4 7 3
+pparm pscr_cond_vers L0.s0.o0.c4.p0 0 3 0 00000000 TeamA
+pparm pscr_cond_vers L0.s0.o0.c4.p1 1 9 0 00000000 AreaA
+pparm pscr_cond_vers L0.s0.o0.c4.p2 2 36 3 00000000 -
+pcond pscr_cond_vers L0.s0.o0.c5 4 1
+pparm pscr_cond_vers L0.s0.o0.c5.p0 0 0 100 00000000 -
+pcond pscr_cond_vers L0.s0.o0.c6 18 3
+pparm pscr_cond_vers L0.s0.o0.c6.p0 0 3 0 00000000 TeamC
+pparm pscr_cond_vers L0.s0.o0.c6.p1 1 9 0 00000000 AreaC
+pparm pscr_cond_vers L0.s0.o0.c6.p2 2 36 3 00000000 -
+pkeyn pscr_cond_vers 447
+pstate pscr_cond_vers 495 0 t
+file pscr_action_vers 436b4d70050000000c536372697074416374696f6e010000000b5345545f434f554e5445520200000006536372697074030000000a5363726970744c6973740400000011506c61796572536372697074734c69737405000000050000000500bb000000040000000100b1000000030000000100a70000000700416374566572730000000000000101010101000100000001002900000001000000020000000500000000000000000000000500466c6167410800000001000000000000000000010000000200300000000200000003020000020000000400000000000000000000000800436f756e74657241000000002a0000000000000000000100000000001b00000065000000010000000a0000000000000000000000050068656c6c6f
+valid pscr_action_vers t
+walk pscr_action_vers t
+pn pscr_action_vers 1
+plist pscr_action_vers 0 1 0
+pscr pscr_action_vers L0.s0 ActVers - - - t t t t t f 0
+pact pscr_action_vers L0.s0.a0 t 1 2
+pparm pscr_action_vers L0.s0.a0.p0 0 5 0 00000000 FlagA
+pparm pscr_action_vers L0.s0.a0.p1 1 8 1 00000000 -
+pact pscr_action_vers L0.s0.a1 t 2 2
+pparm pscr_action_vers L0.s0.a1.p0 0 4 0 00000000 CounterA
+pparm pscr_action_vers L0.s0.a1.p1 1 0 42 00000000 -
+pact pscr_action_vers L0.s0.a2 t 101 1
+pparm pscr_action_vers L0.s0.a2.p0 0 10 0 00000000 hello
+pkeyn pscr_action_vers 447
+pstate pscr_action_vers 286 0 t
+file pscr_parm_raw 436b4d700600000009436f6e646974696f6e010000000b4f72436f6e646974696f6e020000000c536372697074416374696f6e0300000006536372697074040000000a5363726970744c6973740500000011506c61796572536372697074734c69737406000000060000000500650100000500000001005b0100000400000001005101000007005061726d526177000000000000010101010100020000000100d90000000100000002003f000000010000000300000000000000ffffffff00000000000001000000000000000000a03f00000b00000000000000000000000d003c5468697320506c617965723e0100000002003300000001000000030000000f270000070000000000003f010078f9ffffff00000000000000000000340000000100000000000000000001000000020008000000fbffffff0000000001000000020037000000010000000300000000000000000000000000000000000a00000000000000000000000300610062100000000000803f0000004000004040030000000100270000000f270000010000000a0000000000000000000000110072617720747970652073757276697665730300000001001e00000000000000010000000a000000000000000000000008007061757365206d65
+valid pscr_parm_raw t
+walk pscr_parm_raw t
+pn pscr_parm_raw 1
+plist pscr_parm_raw 0 1 0
+pscr pscr_parm_raw L0.s0 ParmRaw - - - t t t t t f 0
+pcond pscr_parm_raw L0.s0.o0.c0 1 3
+pparm pscr_parm_raw L0.s0.o0.c0.p0 0 0 -1 00000000 -
+pparm pscr_parm_raw L0.s0.o0.c0.p1 1 1 0 3fa00000 -
+pparm pscr_parm_raw L0.s0.o0.c0.p2 2 11 0 00000000 <3c5468697320506c617965723e>
+pcond pscr_parm_raw L0.s0.o0.c1 1 3
+pparm pscr_parm_raw L0.s0.o0.c1.p0 0 9999 7 3f000000 x
+pparm pscr_parm_raw L0.s0.o0.c1.p1 1 -7 0 00000000 -
+pparm pscr_parm_raw L0.s0.o0.c1.p2 2 52 1 00000000 -
+pcond pscr_parm_raw L0.s0.o0.c2 -5 0
+pcond pscr_parm_raw L0.s0.o0.c3 1 3
+pparm pscr_parm_raw L0.s0.o0.c3.p0 0 0 0 00000000 -
+pparm pscr_parm_raw L0.s0.o0.c3.p1 1 10 0 00000000 a
+pparm pscr_parm_raw L0.s0.o0.c3.p2 2 16 0 00000000 - 3f800000 40000000 40400000
+pact pscr_parm_raw L0.s0.a0 t 9999 1
+pparm pscr_parm_raw L0.s0.a0.p0 0 10 0 00000000 <7261772074797065207375727669766573>
+pact pscr_parm_raw L0.s0.a1 t 0 1
+pparm pscr_parm_raw L0.s0.a1.p0 0 10 0 00000000 <7061757365206d65>
+pkeyn pscr_parm_raw 447
+pstate pscr_parm_raw 470 0 t
+file pscr_heals_cond 436b4d700500000009436f6e646974696f6e010000000b4f72436f6e646974696f6e0200000006536372697074030000000a5363726970744c6973740400000011506c61796572536372697074734c69737405000000050000000500190100000400000001000f010000030000000100050100000900436f6e644865616c73000000000000010101010100020000000100e40000000100000002002500000054000000010000001e00000000000000000000000f005375706572576561706f6e4e756b650100000002003800000054000000020000000b00000000000000000000000500506c7972311e00000000000000000000000f005375706572576561706f6e4e756b650100000002002500000001000000020000000400000000000000000000000100430600000000000000000000000000010000000200080000000400000000000000010000000200160000003a000000010000000000000001000000000000000000010000000200080000003a00000000000000
+valid pscr_heals_cond t
+walk pscr_heals_cond t
+pn pscr_heals_cond 1
+plist pscr_heals_cond 0 1 0
+pscr pscr_heals_cond L0.s0 CondHeals - - - t t t t t f 0
+pcond pscr_heals_cond L0.s0.o0.c0 84 2
+pparm pscr_heals_cond L0.s0.o0.c0.p0 0 11 0 00000000 <3c5468697320506c617965723e>
+pparm pscr_heals_cond L0.s0.o0.c0.p1 1 30 0 00000000 SuperWeaponNuke
+pcond pscr_heals_cond L0.s0.o0.c1 84 2
+pparm pscr_heals_cond L0.s0.o0.c1.p0 0 11 0 00000000 Plyr1
+pparm pscr_heals_cond L0.s0.o0.c1.p1 1 30 0 00000000 SuperWeaponNuke
+pcond pscr_heals_cond L0.s0.o0.c2 0 0
+pcond pscr_heals_cond L0.s0.o0.c3 0 0
+pcond pscr_heals_cond L0.s0.o0.c4 0 0
+pcond pscr_heals_cond L0.s0.o0.c5 58 0
+pkeyn pscr_heals_cond 447
+pstate pscr_heals_cond 377 0 t
+file pscr_heals_act 436b4d70040000000c536372697074416374696f6e0100000006536372697074020000000a5363726970744c6973740300000011506c61796572536372697074734c6973740400000004000000050041030000030000000100370300000200000001002d03000008004163744865616c7300000000000001010101010001000000010035000000fb000000010000001e00000000000000000000001f005375706572576561706f6e5061727469636c6555706c696e6b43616e6e6f6e0100000001002e000000240000000200000003000000000000000000000005005465616d41180000000000000000000000050050617468410100000001003c000000240000000300000003000000000000000000000005005465616d4118000000000000000000000005005061746841080000000000000000000000000001000000010016000000fa00000001000000080000000000000000000000000001000000010016000000fa000000010000000800000001000000000000000000010000000100290000002d000000020000000e00000000000000000000000500556e6974410000000002000000000000000000010000000100290000002e0000000200000003000000000000000000000005005465616d4201000000000000000000c03f0000010000000100280000005a0000000200000007000000000000000000000004005761794101000000000000000000484200000100000001000800000066000000000000000100000001001d0000005300000001000000150000000000000000000000070053706565636841010000000100160000001a000000010000003300000037000000000000000000010000000100340000000e0000000300000010000000000020410000a0410000f04101000000000000000000803f000008000000010000000000000000000100000001002400000075000000020000000100000000000000000020420000010000000000000000000040000001000000010028000000ce00000002000000070000000000000000000000040057617942010000000000000000004040000001000000010044000000ce000000040000000700000000000000000000000400576179430100000000000000000040400000010000000000000000008040000001000000000000000000a040000001000000010033000000010000000300000005000000000000000000000001004608000000010000000000000000000000000009000000000000000000
+valid pscr_heals_act t
+walk pscr_heals_act t
+pn pscr_heals_act 1
+plist pscr_heals_act 0 1 0
+pscr pscr_heals_act L0.s0 ActHeals - - - t t t t t f 0
+pact pscr_heals_act L0.s0.a0 t 251 2
+pparm pscr_heals_act L0.s0.a0.p0 0 11 0 00000000 <3c5468697320506c617965723e>
+pparm pscr_heals_act L0.s0.a0.p1 1 30 0 00000000 SuperWeaponParticleUplinkCannon
+pact pscr_heals_act L0.s0.a1 t 36 3
+pparm pscr_heals_act L0.s0.a1.p0 0 3 0 00000000 TeamA
+pparm pscr_heals_act L0.s0.a1.p1 1 24 0 00000000 PathA
+pparm pscr_heals_act L0.s0.a1.p2 2 8 1 00000000 -
+pact pscr_heals_act L0.s0.a2 t 36 3
+pparm pscr_heals_act L0.s0.a2.p0 0 3 0 00000000 TeamA
+pparm pscr_heals_act L0.s0.a2.p1 1 24 0 00000000 PathA
+pparm pscr_heals_act L0.s0.a2.p2 2 8 0 00000000 -
+pact pscr_heals_act L0.s0.a3 t 250 0
+pact pscr_heals_act L0.s0.a4 t 254 0
+pact pscr_heals_act L0.s0.a5 t 45 2
+pparm pscr_heals_act L0.s0.a5.p0 0 14 0 00000000 UnitA
+pparm pscr_heals_act L0.s0.a5.p1 1 20 2 00000000 -
+pact pscr_heals_act L0.s0.a6 t 46 2
+pparm pscr_heals_act L0.s0.a6.p0 0 3 0 00000000 TeamB
+pparm pscr_heals_act L0.s0.a6.p1 1 1 0 3fc00000 -
+pact pscr_heals_act L0.s0.a7 t 90 3
+pparm pscr_heals_act L0.s0.a7.p0 0 7 0 00000000 WayA
+pparm pscr_heals_act L0.s0.a7.p1 1 1 0 42480000 -
+pparm pscr_heals_act L0.s0.a7.p2 2 11 0 00000000 -
+pact pscr_heals_act L0.s0.a8 t 102 1
+pparm pscr_heals_act L0.s0.a8.p0 0 11 0 00000000 -
+pact pscr_heals_act L0.s0.a9 t 83 2
+pparm pscr_heals_act L0.s0.a9.p0 0 21 0 00000000 SpeechA
+pparm pscr_heals_act L0.s0.a9.p1 1 8 1 00000000 -
+pact pscr_heals_act L0.s0.a10 t 26 3
+pparm pscr_heals_act L0.s0.a10.p0 0 51 55 00000000 -
+pparm pscr_heals_act L0.s0.a10.p1 1 51 0 00000000 -
+pparm pscr_heals_act L0.s0.a10.p2 2 51 0 00000000 -
+pact pscr_heals_act L0.s0.a11 t 14 5
+pparm pscr_heals_act L0.s0.a11.p0 0 16 0 00000000 - 41200000 41a00000 41f00000
+pparm pscr_heals_act L0.s0.a11.p1 1 1 0 3f800000 -
+pparm pscr_heals_act L0.s0.a11.p2 2 8 1 00000000 -
+pparm pscr_heals_act L0.s0.a11.p3 3 1 0 00000000 -
+pparm pscr_heals_act L0.s0.a11.p4 4 1 0 00000000 -
+pact pscr_heals_act L0.s0.a12 t 117 4
+pparm pscr_heals_act L0.s0.a12.p0 0 1 0 42200000 -
+pparm pscr_heals_act L0.s0.a12.p1 1 1 0 40000000 -
+pparm pscr_heals_act L0.s0.a12.p2 2 1 0 00000000 -
+pparm pscr_heals_act L0.s0.a12.p3 3 1 0 00000000 -
+pact pscr_heals_act L0.s0.a13 t 206 5
+pparm pscr_heals_act L0.s0.a13.p0 0 7 0 00000000 WayB
+pparm pscr_heals_act L0.s0.a13.p1 1 1 0 40400000 -
+pparm pscr_heals_act L0.s0.a13.p2 2 1 0 00000000 -
+pparm pscr_heals_act L0.s0.a13.p3 3 1 0 00000000 -
+pparm pscr_heals_act L0.s0.a13.p4 4 8 0 00000000 -
+pact pscr_heals_act L0.s0.a14 t 206 5
+pparm pscr_heals_act L0.s0.a14.p0 0 7 0 00000000 WayC
+pparm pscr_heals_act L0.s0.a14.p1 1 1 0 40400000 -
+pparm pscr_heals_act L0.s0.a14.p2 2 1 0 40800000 -
+pparm pscr_heals_act L0.s0.a14.p3 3 1 0 40a00000 -
+pparm pscr_heals_act L0.s0.a14.p4 4 8 0 00000000 -
+pact pscr_heals_act L0.s0.a15 t 5 0
+pkeyn pscr_heals_act 447
+pstate pscr_heals_act 916 0 t
+file pscr_rematch 436b4d700d00000004464c41470100000009436f6e646974696f6e02000000134e6f53756368436f6e646974696f6e4e616d65030000000f434f4e444954494f4e5f46414c53450400000007434f554e544552050000000b4f72436f6e646974696f6e060000000b5345545f434f554e544552070000000c536372697074416374696f6e08000000104e6f53756368416374696f6e4e616d65090000001144454255475f4d4553534147455f424f580a000000065363726970740b0000000a5363726970744c6973740c00000011506c61796572536372697074734c6973740d0000000d0000000500cb0100000c0000000100c10100000b0000000200b7010000070052656d6174636800000000000001010101010000000000060000000100df0000000200000004002d0000000100000003010000020000000500000000000000000000000500466c61675808000000010000000000000000000200000004001a00000004000000030300000100000000000000030000000000000000000200000004000c000000e703000003040000000000000200000004000c00000004000000037f0000000000000200000004000c00000004000000ffffffff000000000200000004003800000003000000030500000300000004000000000000000000000002004343060000000100000000000000000000000000050000000000000000000800000002002b0000000100000003070000020000000400000000000000000000000300436e7400000000040000000000000000000800000002002900000001000000030900000200000005000000000000000000000001004608000000000000000000000000000800000002002d000000fdffffff030a0000010000000a0000000000000000000000130072617720616374696f6e2073757276697665730800000002000c00000001000000037f000000000000
+valid pscr_rematch t
+walk pscr_rematch t
+pn pscr_rematch 1
+plist pscr_rematch 0 1 0
+pscr pscr_rematch L0.s0 Rematch - - - t t t t t f 0
+pcond pscr_rematch L0.s0.o0.c0 2 2
+pparm pscr_rematch L0.s0.o0.c0.p0 0 5 0 00000000 FlagX
+pparm pscr_rematch L0.s0.o0.c0.p1 1 8 1 00000000 -
+pcond pscr_rematch L0.s0.o0.c1 0 1
+pparm pscr_rematch L0.s0.o0.c1.p0 0 0 3 00000000 -
+pcond pscr_rematch L0.s0.o0.c2 999 0
+pcond pscr_rematch L0.s0.o0.c3 58 0
+pcond pscr_rematch L0.s0.o0.c4 58 0
+pcond pscr_rematch L0.s0.o0.c5 1 3
+pparm pscr_rematch L0.s0.o0.c5.p0 0 4 0 00000000 CC
+pparm pscr_rematch L0.s0.o0.c5.p1 1 6 1 00000000 -
+pparm pscr_rematch L0.s0.o0.c5.p2 2 0 5 00000000 -
+pact pscr_rematch L0.s0.a0 t 2 2
+pparm pscr_rematch L0.s0.a0.p0 0 4 0 00000000 Cnt
+pparm pscr_rematch L0.s0.a0.p1 1 0 4 00000000 -
+pact pscr_rematch L0.s0.a1 t 5 0
+pact pscr_rematch L0.s0.a2 t -3 1
+pparm pscr_rematch L0.s0.a2.p0 0 10 0 00000000 <72617720616374696f6e207375727669766573>
+pact pscr_rematch L0.s0.a3 t 252 0
+pkeyn pscr_rematch 449
+pkey pscr_rematch 1 CONDITION_FALSE
+pkey pscr_rematch 2 COUNTER
+pkey pscr_rematch 3 FLAG
+pkey pscr_rematch 4 CONDITION_TRUE
+pkey pscr_rematch 5 TIMER_EXPIRED
+pkey pscr_rematch 6 PLAYER_ALL_DESTROYED
+pkey pscr_rematch 7 PLAYER_ALL_BUILDFACILITIES_DESTROYED
+pkey pscr_rematch 8 TEAM_INSIDE_AREA_PARTIALLY
+pkey pscr_rematch 9 TEAM_DESTROYED
+pkey pscr_rematch 10 CAMERA_MOVEMENT_FINISHED
+pkey pscr_rematch 11 TEAM_HAS_UNITS
+pkey pscr_rematch 12 TEAM_STATE_IS
+pkey pscr_rematch 13 TEAM_STATE_IS_NOT
+pkey pscr_rematch 14 NAMED_INSIDE_AREA
+pkey pscr_rematch 15 NAMED_OUTSIDE_AREA
+pkey pscr_rematch 16 NAMED_DESTROYED
+pkey pscr_rematch 17 NAMED_NOT_DESTROYED
+pkey pscr_rematch 18 TEAM_INSIDE_AREA_ENTIRELY
+pkey pscr_rematch 19 TEAM_OUTSIDE_AREA_ENTIRELY
+pkey pscr_rematch 20 NAMED_ATTACKED_BY_OBJECTTYPE
+pkey pscr_rematch 21 TEAM_ATTACKED_BY_OBJECTTYPE
+pkey pscr_rematch 22 NAMED_ATTACKED_BY_PLAYER
+pkey pscr_rematch 23 TEAM_ATTACKED_BY_PLAYER
+pkey pscr_rematch 24 BUILT_BY_PLAYER
+pkey pscr_rematch 25 NAMED_CREATED
+pkey pscr_rematch 26 TEAM_CREATED
+pkey pscr_rematch 27 PLAYER_HAS_CREDITS
+pkey pscr_rematch 28 NAMED_DISCOVERED
+pkey pscr_rematch 29 TEAM_DISCOVERED
+pkey pscr_rematch 30 MISSION_ATTEMPTS
+pkey pscr_rematch 31 NAMED_OWNED_BY_PLAYER
+pkey pscr_rematch 32 TEAM_OWNED_BY_PLAYER
+pkey pscr_rematch 33 PLAYER_HAS_N_OR_FEWER_BUILDINGS
+pkey pscr_rematch 34 PLAYER_HAS_POWER
+pkey pscr_rematch 35 NAMED_REACHED_WAYPOINTS_END
+pkey pscr_rematch 36 TEAM_REACHED_WAYPOINTS_END
+pkey pscr_rematch 37 NAMED_SELECTED
+pkey pscr_rematch 38 NAMED_ENTERED_AREA
+pkey pscr_rematch 39 NAMED_EXITED_AREA
+pkey pscr_rematch 40 TEAM_ENTERED_AREA_ENTIRELY
+pkey pscr_rematch 41 TEAM_ENTERED_AREA_PARTIALLY
+pkey pscr_rematch 42 TEAM_EXITED_AREA_ENTIRELY
+pkey pscr_rematch 43 TEAM_EXITED_AREA_PARTIALLY
+pkey pscr_rematch 44 MULTIPLAYER_ALLIED_VICTORY
+pkey pscr_rematch 45 MULTIPLAYER_ALLIED_DEFEAT
+pkey pscr_rematch 46 MULTIPLAYER_PLAYER_DEFEAT
+pkey pscr_rematch 47 PLAYER_HAS_NO_POWER
+pkey pscr_rematch 48 HAS_FINISHED_VIDEO
+pkey pscr_rematch 49 HAS_FINISHED_SPEECH
+pkey pscr_rematch 50 HAS_FINISHED_AUDIO
+pkey pscr_rematch 51 BUILDING_ENTERED_BY_PLAYER
+pkey pscr_rematch 52 ENEMY_SIGHTED
+pkey pscr_rematch 53 UNIT_HEALTH
+pkey pscr_rematch 54 BRIDGE_REPAIRED
+pkey pscr_rematch 55 BRIDGE_BROKEN
+pkey pscr_rematch 56 NAMED_DYING
+pkey pscr_rematch 57 NAMED_TOTALLY_DEAD
+pkey pscr_rematch 58 PLAYER_HAS_OBJECT_COMPARISON
+pkey pscr_rematch 59 -
+pkey pscr_rematch 60 PLAYER_TRIGGERED_SPECIAL_POWER
+pkey pscr_rematch 61 PLAYER_COMPLETED_SPECIAL_POWER
+pkey pscr_rematch 62 PLAYER_MIDWAY_SPECIAL_POWER
+pkey pscr_rematch 63 PLAYER_TRIGGERED_SPECIAL_POWER_FROM_NAMED
+pkey pscr_rematch 64 PLAYER_COMPLETED_SPECIAL_POWER_FROM_NAMED
+pkey pscr_rematch 65 PLAYER_MIDWAY_SPECIAL_POWER_FROM_NAMED
+pkey pscr_rematch 66 PLAYER_BUILT_UPGRADE
+pkey pscr_rematch 67 PLAYER_BUILT_UPGRADE_FROM_NAMED
+pkey pscr_rematch 68 PLAYER_DESTROYED_N_BUILDINGS_PLAYER
+pkey pscr_rematch 69 PLAYER_HAS_COMPARISON_UNIT_TYPE_IN_TRIGGER_AREA
+pkey pscr_rematch 70 PLAYER_HAS_COMPARISON_UNIT_KIND_IN_TRIGGER_AREA
+pkey pscr_rematch 71 UNIT_EMPTIED
+pkey pscr_rematch 72 TYPE_SIGHTED
+pkey pscr_rematch 73 NAMED_BUILDING_IS_EMPTY
+pkey pscr_rematch 74 PLAYER_HAS_N_OR_FEWER_FACTION_BUILDINGS
+pkey pscr_rematch 75 UNIT_HAS_OBJECT_STATUS
+pkey pscr_rematch 76 TEAM_ALL_HAS_OBJECT_STATUS
+pkey pscr_rematch 77 TEAM_SOME_HAVE_OBJECT_STATUS
+pkey pscr_rematch 78 PLAYER_POWER_COMPARE_PERCENT
+pkey pscr_rematch 79 PLAYER_EXCESS_POWER_COMPARE_VALUE
+pkey pscr_rematch 80 SKIRMISH_SPECIAL_POWER_READY
+pkey pscr_rematch 81 SKIRMISH_VALUE_IN_AREA
+pkey pscr_rematch 82 SKIRMISH_PLAYER_FACTION
+pkey pscr_rematch 83 SKIRMISH_SUPPLIES_VALUE_WITHIN_DISTANCE
+pkey pscr_rematch 84 SKIRMISH_TECH_BUILDING_WITHIN_DISTANCE
+pkey pscr_rematch 85 SKIRMISH_COMMAND_BUTTON_READY_ALL
+pkey pscr_rematch 86 SKIRMISH_COMMAND_BUTTON_READY_PARTIAL
+pkey pscr_rematch 87 SKIRMISH_UNOWNED_FACTION_UNIT_EXISTS
+pkey pscr_rematch 88 SKIRMISH_PLAYER_HAS_PREREQUISITE_TO_BUILD
+pkey pscr_rematch 89 SKIRMISH_PLAYER_HAS_COMPARISON_GARRISONED
+pkey pscr_rematch 90 SKIRMISH_PLAYER_HAS_COMPARISON_CAPTURED_UNITS
+pkey pscr_rematch 91 SKIRMISH_NAMED_AREA_EXIST
+pkey pscr_rematch 92 SKIRMISH_PLAYER_HAS_UNITS_IN_AREA
+pkey pscr_rematch 93 SKIRMISH_PLAYER_HAS_BEEN_ATTACKED_BY_PLAYER
+pkey pscr_rematch 94 SKIRMISH_PLAYER_IS_OUTSIDE_AREA
+pkey pscr_rematch 95 SKIRMISH_PLAYER_HAS_DISCOVERED_PLAYER
+pkey pscr_rematch 96 PLAYER_ACQUIRED_SCIENCE
+pkey pscr_rematch 97 PLAYER_HAS_SCIENCEPURCHASEPOINTS
+pkey pscr_rematch 98 PLAYER_CAN_PURCHASE_SCIENCE
+pkey pscr_rematch 99 MUSIC_TRACK_HAS_COMPLETED
+pkey pscr_rematch 100 PLAYER_LOST_OBJECT_TYPE
+pkey pscr_rematch 101 SUPPLY_SOURCE_SAFE
+pkey pscr_rematch 102 SUPPLY_SOURCE_ATTACKED
+pkey pscr_rematch 103 START_POSITION_IS
+pkey pscr_rematch 104 NAMED_HAS_FREE_CONTAINER_SLOTS
+pkey pscr_rematch 105 DEBUG_MESSAGE_BOX
+pkey pscr_rematch 106 SET_FLAG
+pkey pscr_rematch 107 SET_COUNTER
+pkey pscr_rematch 108 VICTORY
+pkey pscr_rematch 109 DEFEAT
+pkey pscr_rematch 110 NO_OP
+pkey pscr_rematch 111 SET_TIMER
+pkey pscr_rematch 112 PLAY_SOUND_EFFECT
+pkey pscr_rematch 113 ENABLE_SCRIPT
+pkey pscr_rematch 114 DISABLE_SCRIPT
+pkey pscr_rematch 115 CALL_SUBROUTINE
+pkey pscr_rematch 116 PLAY_SOUND_EFFECT_AT
+pkey pscr_rematch 117 DAMAGE_MEMBERS_OF_TEAM
+pkey pscr_rematch 118 MOVE_TEAM_TO
+pkey pscr_rematch 119 MOVE_CAMERA_TO
+pkey pscr_rematch 120 INCREMENT_COUNTER
+pkey pscr_rematch 121 DECREMENT_COUNTER
+pkey pscr_rematch 122 MOVE_CAMERA_ALONG_WAYPOINT_PATH
+pkey pscr_rematch 123 ROTATE_CAMERA
+pkey pscr_rematch 124 RESET_CAMERA
+pkey pscr_rematch 125 SET_MILLISECOND_TIMER
+pkey pscr_rematch 126 CAMERA_MOD_FREEZE_TIME
+pkey pscr_rematch 127 SET_VISUAL_SPEED_MULTIPLIER
+pkey pscr_rematch 128 CREATE_OBJECT
+pkey pscr_rematch 129 SUSPEND_BACKGROUND_SOUNDS
+pkey pscr_rematch 130 RESUME_BACKGROUND_SOUNDS
+pkey pscr_rematch 131 CAMERA_MOD_SET_FINAL_ZOOM
+pkey pscr_rematch 132 CAMERA_MOD_SET_FINAL_PITCH
+pkey pscr_rematch 133 CAMERA_MOD_FREEZE_ANGLE
+pkey pscr_rematch 134 CAMERA_MOD_SET_FINAL_SPEED_MULTIPLIER
+pkey pscr_rematch 135 CAMERA_MOD_SET_ROLLING_AVERAGE
+pkey pscr_rematch 136 CAMERA_MOD_FINAL_LOOK_TOWARD
+pkey pscr_rematch 137 CAMERA_MOD_LOOK_TOWARD
+pkey pscr_rematch 138 TEAM_ATTACK_TEAM
+pkey pscr_rematch 139 CREATE_REINFORCEMENT_TEAM
+pkey pscr_rematch 140 MOVE_CAMERA_TO_SELECTION
+pkey pscr_rematch 141 TEAM_FOLLOW_WAYPOINTS
+pkey pscr_rematch 142 TEAM_SET_STATE
+pkey pscr_rematch 143 MOVE_NAMED_UNIT_TO
+pkey pscr_rematch 144 NAMED_ATTACK_NAMED
+pkey pscr_rematch 145 CREATE_NAMED_ON_TEAM_AT_WAYPOINT
+pkey pscr_rematch 146 CREATE_UNNAMED_ON_TEAM_AT_WAYPOINT
+pkey pscr_rematch 147 NAMED_APPLY_ATTACK_PRIORITY_SET
+pkey pscr_rematch 148 TEAM_APPLY_ATTACK_PRIORITY_SET
+pkey pscr_rematch 149 SET_BASE_CONSTRUCTION_SPEED
+pkey pscr_rematch 150 NAMED_SET_ATTITUDE
+pkey pscr_rematch 151 TEAM_SET_ATTITUDE
+pkey pscr_rematch 152 NAMED_ATTACK_AREA
+pkey pscr_rematch 153 NAMED_ATTACK_TEAM
+pkey pscr_rematch 154 TEAM_ATTACK_AREA
+pkey pscr_rematch 155 TEAM_ATTACK_NAMED
+pkey pscr_rematch 156 TEAM_LOAD_TRANSPORTS
+pkey pscr_rematch 157 NAMED_ENTER_NAMED
+pkey pscr_rematch 158 TEAM_ENTER_NAMED
+pkey pscr_rematch 159 NAMED_EXIT_ALL
+pkey pscr_rematch 160 TEAM_EXIT_ALL
+pkey pscr_rematch 161 NAMED_FOLLOW_WAYPOINTS
+pkey pscr_rematch 162 NAMED_GUARD
+pkey pscr_rematch 163 TEAM_GUARD
+pkey pscr_rematch 164 NAMED_HUNT
+pkey pscr_rematch 165 TEAM_HUNT
+pkey pscr_rematch 166 PLAYER_SELL_EVERYTHING
+pkey pscr_rematch 167 PLAYER_DISABLE_BASE_CONSTRUCTION
+pkey pscr_rematch 168 PLAYER_DISABLE_FACTORIES
+pkey pscr_rematch 169 PLAYER_DISABLE_UNIT_CONSTRUCTION
+pkey pscr_rematch 170 PLAYER_ENABLE_BASE_CONSTRUCTION
+pkey pscr_rematch 171 PLAYER_ENABLE_FACTORIES
+pkey pscr_rematch 172 PLAYER_ENABLE_UNIT_CONSTRUCTION
+pkey pscr_rematch 173 CAMERA_MOVE_HOME
+pkey pscr_rematch 174 BUILD_TEAM
+pkey pscr_rematch 175 NAMED_DAMAGE
+pkey pscr_rematch 176 NAMED_DELETE
+pkey pscr_rematch 177 TEAM_DELETE
+pkey pscr_rematch 178 NAMED_KILL
+pkey pscr_rematch 179 TEAM_KILL
+pkey pscr_rematch 180 PLAYER_KILL
+pkey pscr_rematch 181 DISPLAY_TEXT
+pkey pscr_rematch 182 CAMEO_FLASH
+pkey pscr_rematch 183 NAMED_FLASH
+pkey pscr_rematch 184 TEAM_FLASH
+pkey pscr_rematch 185 MOVIE_PLAY_FULLSCREEN
+pkey pscr_rematch 186 MOVIE_PLAY_RADAR
+pkey pscr_rematch 187 SOUND_PLAY_NAMED
+pkey pscr_rematch 188 SPEECH_PLAY
+pkey pscr_rematch 189 PLAYER_TRANSFER_OWNERSHIP_PLAYER
+pkey pscr_rematch 190 NAMED_TRANSFER_OWNERSHIP_PLAYER
+pkey pscr_rematch 191 PLAYER_RELATES_PLAYER
+pkey pscr_rematch 192 RADAR_CREATE_EVENT
+pkey pscr_rematch 193 RADAR_DISABLE
+pkey pscr_rematch 194 RADAR_ENABLE
+pkey pscr_rematch 195 MAP_REVEAL_AT_WAYPOINT
+pkey pscr_rematch 196 TEAM_AVAILABLE_FOR_RECRUITMENT
+pkey pscr_rematch 197 TEAM_COLLECT_NEARBY_FOR_TEAM
+pkey pscr_rematch 198 TEAM_MERGE_INTO_TEAM
+pkey pscr_rematch 199 DISABLE_INPUT
+pkey pscr_rematch 200 ENABLE_INPUT
+pkey pscr_rematch 201 PLAYER_HUNT
+pkey pscr_rematch 202 SOUND_AMBIENT_PAUSE
+pkey pscr_rematch 203 SOUND_AMBIENT_RESUME
+pkey pscr_rematch 204 MUSIC_SET_TRACK
+pkey pscr_rematch 205 SET_TREE_SWAY
+pkey pscr_rematch 206 DEBUG_STRING
+pkey pscr_rematch 207 MAP_REVEAL_ALL
+pkey pscr_rematch 208 TEAM_GARRISON_SPECIFIC_BUILDING
+pkey pscr_rematch 209 EXIT_SPECIFIC_BUILDING
+pkey pscr_rematch 210 TEAM_GARRISON_NEAREST_BUILDING
+pkey pscr_rematch 211 TEAM_EXIT_ALL_BUILDINGS
+pkey pscr_rematch 212 NAMED_GARRISON_SPECIFIC_BUILDING
+pkey pscr_rematch 213 NAMED_GARRISON_NEAREST_BUILDING
+pkey pscr_rematch 214 NAMED_EXIT_BUILDING
+pkey pscr_rematch 215 PLAYER_GARRISON_ALL_BUILDINGS
+pkey pscr_rematch 216 PLAYER_EXIT_ALL_BUILDINGS
+pkey pscr_rematch 217 TEAM_WANDER
+pkey pscr_rematch 218 TEAM_PANIC
+pkey pscr_rematch 219 SETUP_CAMERA
+pkey pscr_rematch 220 CAMERA_LETTERBOX_BEGIN
+pkey pscr_rematch 221 CAMERA_LETTERBOX_END
+pkey pscr_rematch 222 ZOOM_CAMERA
+pkey pscr_rematch 223 PITCH_CAMERA
+pkey pscr_rematch 224 CAMERA_FOLLOW_NAMED
+pkey pscr_rematch 225 OVERSIZE_TERRAIN
+pkey pscr_rematch 226 CAMERA_FADE_ADD
+pkey pscr_rematch 227 CAMERA_FADE_SUBTRACT
+pkey pscr_rematch 228 CAMERA_FADE_SATURATE
+pkey pscr_rematch 229 CAMERA_FADE_MULTIPLY
+pkey pscr_rematch 230 CAMERA_BW_MODE_BEGIN
+pkey pscr_rematch 231 CAMERA_BW_MODE_END
+pkey pscr_rematch 232 DRAW_SKYBOX_BEGIN
+pkey pscr_rematch 233 DRAW_SKYBOX_END
+pkey pscr_rematch 234 SET_ATTACK_PRIORITY_THING
+pkey pscr_rematch 235 SET_ATTACK_PRIORITY_KIND_OF
+pkey pscr_rematch 236 SET_DEFAULT_ATTACK_PRIORITY
+pkey pscr_rematch 237 CAMERA_STOP_FOLLOW
+pkey pscr_rematch 238 CAMERA_MOTION_BLUR
+pkey pscr_rematch 239 CAMERA_MOTION_BLUR_JUMP
+pkey pscr_rematch 240 CAMERA_MOTION_BLUR_FOLLOW
+pkey pscr_rematch 241 CAMERA_MOTION_BLUR_END_FOLLOW
+pkey pscr_rematch 242 FREEZE_TIME
+pkey pscr_rematch 243 UNFREEZE_TIME
+pkey pscr_rematch 244 SHOW_MILITARY_CAPTION
+pkey pscr_rematch 245 CAMERA_SET_AUDIBLE_DISTANCE
+pkey pscr_rematch 246 SET_STOPPING_DISTANCE
+pkey pscr_rematch 247 NAMED_SET_STOPPING_DISTANCE
+pkey pscr_rematch 248 SET_FPS_LIMIT
+pkey pscr_rematch 249 MUSIC_SET_VOLUME
+pkey pscr_rematch 250 MAP_SHROUD_AT_WAYPOINT
+pkey pscr_rematch 251 MAP_SHROUD_ALL
+pkey pscr_rematch 252 SET_RANDOM_TIMER
+pkey pscr_rematch 253 SET_RANDOM_MSEC_TIMER
+pkey pscr_rematch 254 STOP_TIMER
+pkey pscr_rematch 255 RESTART_TIMER
+pkey pscr_rematch 256 ADD_TO_MSEC_TIMER
+pkey pscr_rematch 257 SUB_FROM_MSEC_TIMER
+pkey pscr_rematch 258 TEAM_TRANSFER_TO_PLAYER
+pkey pscr_rematch 259 PLAYER_SET_MONEY
+pkey pscr_rematch 260 PLAYER_GIVE_MONEY
+pkey pscr_rematch 261 DISABLE_SPECIAL_POWER_DISPLAY
+pkey pscr_rematch 262 ENABLE_SPECIAL_POWER_DISPLAY
+pkey pscr_rematch 263 NAMED_HIDE_SPECIAL_POWER_DISPLAY
+pkey pscr_rematch 264 NAMED_SHOW_SPECIAL_POWER_DISPLAY
+pkey pscr_rematch 265 DISPLAY_COUNTDOWN_TIMER
+pkey pscr_rematch 266 HIDE_COUNTDOWN_TIMER
+pkey pscr_rematch 267 ENABLE_COUNTDOWN_TIMER_DISPLAY
+pkey pscr_rematch 268 DISABLE_COUNTDOWN_TIMER_DISPLAY
+pkey pscr_rematch 269 NAMED_STOP_SPECIAL_POWER_COUNTDOWN
+pkey pscr_rematch 270 NAMED_START_SPECIAL_POWER_COUNTDOWN
+pkey pscr_rematch 271 NAMED_SET_SPECIAL_POWER_COUNTDOWN
+pkey pscr_rematch 272 NAMED_ADD_SPECIAL_POWER_COUNTDOWN
+pkey pscr_rematch 273 NAMED_FIRE_SPECIAL_POWER_AT_WAYPOINT
+pkey pscr_rematch 274 NAMED_FIRE_SPECIAL_POWER_AT_NAMED
+pkey pscr_rematch 275 REFRESH_RADAR
+pkey pscr_rematch 276 CAMERA_TETHER_NAMED
+pkey pscr_rematch 277 CAMERA_STOP_TETHER_NAMED
+pkey pscr_rematch 278 CAMERA_SET_DEFAULT
+pkey pscr_rematch 279 NAMED_STOP
+pkey pscr_rematch 280 TEAM_STOP
+pkey pscr_rematch 281 TEAM_STOP_AND_DISBAND
+pkey pscr_rematch 282 RECRUIT_TEAM
+pkey pscr_rematch 283 TEAM_SET_OVERRIDE_RELATION_TO_TEAM
+pkey pscr_rematch 284 TEAM_REMOVE_OVERRIDE_RELATION_TO_TEAM
+pkey pscr_rematch 285 TEAM_REMOVE_ALL_OVERRIDE_RELATIONS
+pkey pscr_rematch 286 CAMERA_LOOK_TOWARD_OBJECT
+pkey pscr_rematch 287 NAMED_FIRE_WEAPON_FOLLOWING_WAYPOINT_PATH
+pkey pscr_rematch 288 TEAM_SET_OVERRIDE_RELATION_TO_PLAYER
+pkey pscr_rematch 289 TEAM_REMOVE_OVERRIDE_RELATION_TO_PLAYER
+pkey pscr_rematch 290 PLAYER_SET_OVERRIDE_RELATION_TO_TEAM
+pkey pscr_rematch 291 PLAYER_REMOVE_OVERRIDE_RELATION_TO_TEAM
+pkey pscr_rematch 292 UNIT_EXECUTE_SEQUENTIAL_SCRIPT
+pkey pscr_rematch 293 UNIT_EXECUTE_SEQUENTIAL_SCRIPT_LOOPING
+pkey pscr_rematch 294 UNIT_STOP_SEQUENTIAL_SCRIPT
+pkey pscr_rematch 295 TEAM_EXECUTE_SEQUENTIAL_SCRIPT
+pkey pscr_rematch 296 TEAM_EXECUTE_SEQUENTIAL_SCRIPT_LOOPING
+pkey pscr_rematch 297 TEAM_STOP_SEQUENTIAL_SCRIPT
+pkey pscr_rematch 298 UNIT_GUARD_FOR_FRAMECOUNT
+pkey pscr_rematch 299 UNIT_IDLE_FOR_FRAMECOUNT
+pkey pscr_rematch 300 TEAM_GUARD_FOR_FRAMECOUNT
+pkey pscr_rematch 301 TEAM_IDLE_FOR_FRAMECOUNT
+pkey pscr_rematch 302 WATER_CHANGE_HEIGHT
+pkey pscr_rematch 303 NAMED_USE_COMMANDBUTTON_ABILITY_ON_NAMED
+pkey pscr_rematch 304 NAMED_USE_COMMANDBUTTON_ABILITY_AT_WAYPOINT
+pkey pscr_rematch 305 WATER_CHANGE_HEIGHT_OVER_TIME
+pkey pscr_rematch 306 MAP_SWITCH_BORDER
+pkey pscr_rematch 307 TEAM_GUARD_POSITION
+pkey pscr_rematch 308 TEAM_GUARD_OBJECT
+pkey pscr_rematch 309 TEAM_GUARD_AREA
+pkey pscr_rematch 310 OBJECT_FORCE_SELECT
+pkey pscr_rematch 311 CAMERA_LOOK_TOWARD_WAYPOINT
+pkey pscr_rematch 312 UNIT_DESTROY_ALL_CONTAINED
+pkey pscr_rematch 313 RADAR_FORCE_ENABLE
+pkey pscr_rematch 314 RADAR_REVERT_TO_NORMAL
+pkey pscr_rematch 315 SCREEN_SHAKE
+pkey pscr_rematch 316 TECHTREE_MODIFY_BUILDABILITY_OBJECT
+pkey pscr_rematch 317 WAREHOUSE_SET_VALUE
+pkey pscr_rematch 318 OBJECT_CREATE_RADAR_EVENT
+pkey pscr_rematch 319 TEAM_CREATE_RADAR_EVENT
+pkey pscr_rematch 320 DISPLAY_CINEMATIC_TEXT
+pkey pscr_rematch 321 DEBUG_CRASH_BOX
+pkey pscr_rematch 322 SOUND_DISABLE_TYPE
+pkey pscr_rematch 323 SOUND_ENABLE_TYPE
+pkey pscr_rematch 324 SOUND_ENABLE_ALL
+pkey pscr_rematch 325 AUDIO_OVERRIDE_VOLUME_TYPE
+pkey pscr_rematch 326 AUDIO_RESTORE_VOLUME_TYPE
+pkey pscr_rematch 327 AUDIO_RESTORE_VOLUME_ALL_TYPE
+pkey pscr_rematch 328 INGAME_POPUP_MESSAGE
+pkey pscr_rematch 329 SET_CAVE_INDEX
+pkey pscr_rematch 330 NAMED_SET_HELD
+pkey pscr_rematch 331 NAMED_SET_TOPPLE_DIRECTION
+pkey pscr_rematch 332 UNIT_MOVE_TOWARDS_NEAREST_OBJECT_TYPE
+pkey pscr_rematch 333 TEAM_MOVE_TOWARDS_NEAREST_OBJECT_TYPE
+pkey pscr_rematch 334 MAP_REVEAL_ALL_PERM
+pkey pscr_rematch 335 MAP_REVEAL_ALL_UNDO_PERM
+pkey pscr_rematch 336 NAMED_SET_REPULSOR
+pkey pscr_rematch 337 TEAM_SET_REPULSOR
+pkey pscr_rematch 338 TEAM_WANDER_IN_PLACE
+pkey pscr_rematch 339 TEAM_INCREASE_PRIORITY
+pkey pscr_rematch 340 TEAM_DECREASE_PRIORITY
+pkey pscr_rematch 341 DISPLAY_COUNTER
+pkey pscr_rematch 342 HIDE_COUNTER
+pkey pscr_rematch 343 TEAM_USE_COMMANDBUTTON_ABILITY_ON_NAMED
+pkey pscr_rematch 344 TEAM_USE_COMMANDBUTTON_ABILITY_AT_WAYPOINT
+pkey pscr_rematch 345 NAMED_USE_COMMANDBUTTON_ABILITY
+pkey pscr_rematch 346 TEAM_USE_COMMANDBUTTON_ABILITY
+pkey pscr_rematch 347 NAMED_FLASH_WHITE
+pkey pscr_rematch 348 TEAM_FLASH_WHITE
+pkey pscr_rematch 349 SKIRMISH_BUILD_BUILDING
+pkey pscr_rematch 350 SKIRMISH_FOLLOW_APPROACH_PATH
+pkey pscr_rematch 351 IDLE_ALL_UNITS
+pkey pscr_rematch 352 RESUME_SUPPLY_TRUCKING
+pkey pscr_rematch 353 NAMED_CUSTOM_COLOR
+pkey pscr_rematch 354 SKIRMISH_MOVE_TO_APPROACH_PATH
+pkey pscr_rematch 355 SKIRMISH_BUILD_BASE_DEFENSE_FRONT
+pkey pscr_rematch 356 SKIRMISH_FIRE_SPECIAL_POWER_AT_MOST_COST
+pkey pscr_rematch 357 PLAYER_REPAIR_NAMED_STRUCTURE
+pkey pscr_rematch 358 SKIRMISH_BUILD_BASE_DEFENSE_FLANK
+pkey pscr_rematch 359 SKIRMISH_BUILD_STRUCTURE_FRONT
+pkey pscr_rematch 360 SKIRMISH_BUILD_STRUCTURE_FLANK
+pkey pscr_rematch 361 SKIRMISH_ATTACK_NEAREST_GROUP_WITH_VALUE
+pkey pscr_rematch 362 SKIRMISH_PERFORM_COMMANDBUTTON_ON_MOST_VALUABLE_OBJECT
+pkey pscr_rematch 363 SKIRMISH_WAIT_FOR_COMMANDBUTTON_AVAILABLE_ALL
+pkey pscr_rematch 364 SKIRMISH_WAIT_FOR_COMMANDBUTTON_AVAILABLE_PARTIAL
+pkey pscr_rematch 365 TEAM_SPIN_FOR_FRAMECOUNT
+pkey pscr_rematch 366 TEAM_ALL_USE_COMMANDBUTTON_ON_NAMED
+pkey pscr_rematch 367 TEAM_ALL_USE_COMMANDBUTTON_ON_NEAREST_ENEMY_UNIT
+pkey pscr_rematch 368 TEAM_ALL_USE_COMMANDBUTTON_ON_NEAREST_GARRISONED_BUILDING
+pkey pscr_rematch 369 TEAM_ALL_USE_COMMANDBUTTON_ON_NEAREST_KINDOF
+pkey pscr_rematch 370 TEAM_ALL_USE_COMMANDBUTTON_ON_NEAREST_ENEMY_BUILDING
+pkey pscr_rematch 371 TEAM_ALL_USE_COMMANDBUTTON_ON_NEAREST_ENEMY_BUILDING_CLASS
+pkey pscr_rematch 372 TEAM_ALL_USE_COMMANDBUTTON_ON_NEAREST_OBJECTTYPE
+pkey pscr_rematch 373 TEAM_PARTIAL_USE_COMMANDBUTTON
+pkey pscr_rematch 374 TEAM_CAPTURE_NEAREST_UNOWNED_FACTION_UNIT
+pkey pscr_rematch 375 PLAYER_CREATE_TEAM_FROM_CAPTURED_UNITS
+pkey pscr_rematch 376 PLAYER_ADD_SKILLPOINTS
+pkey pscr_rematch 377 PLAYER_ADD_RANKLEVEL
+pkey pscr_rematch 378 PLAYER_SET_RANKLEVEL
+pkey pscr_rematch 379 PLAYER_SET_RANKLEVELLIMIT
+pkey pscr_rematch 380 PLAYER_GRANT_SCIENCE
+pkey pscr_rematch 381 PLAYER_PURCHASE_SCIENCE
+pkey pscr_rematch 382 TEAM_HUNT_WITH_COMMAND_BUTTON
+pkey pscr_rematch 383 TEAM_WAIT_FOR_NOT_CONTAINED_ALL
+pkey pscr_rematch 384 TEAM_WAIT_FOR_NOT_CONTAINED_PARTIAL
+pkey pscr_rematch 385 TEAM_FOLLOW_WAYPOINTS_EXACT
+pkey pscr_rematch 386 NAMED_FOLLOW_WAYPOINTS_EXACT
+pkey pscr_rematch 387 TEAM_SET_EMOTICON
+pkey pscr_rematch 388 NAMED_SET_EMOTICON
+pkey pscr_rematch 389 AI_PLAYER_BUILD_SUPPLY_CENTER
+pkey pscr_rematch 390 AI_PLAYER_BUILD_UPGRADE
+pkey pscr_rematch 391 OBJECTLIST_ADDOBJECTTYPE
+pkey pscr_rematch 392 OBJECTLIST_REMOVEOBJECTTYPE
+pkey pscr_rematch 393 MAP_REVEAL_PERMANENTLY_AT_WAYPOINT
+pkey pscr_rematch 394 MAP_UNDO_REVEAL_PERMANENTLY_AT_WAYPOINT
+pkey pscr_rematch 395 NAMED_SET_STEALTH_ENABLED
+pkey pscr_rematch 396 TEAM_SET_STEALTH_ENABLED
+pkey pscr_rematch 397 EVA_SET_ENABLED_DISABLED
+pkey pscr_rematch 398 OPTIONS_SET_OCCLUSION_MODE
+pkey pscr_rematch 399 LOCALDEFEAT
+pkey pscr_rematch 400 OPTIONS_SET_DRAWICON_UI_MODE
+pkey pscr_rematch 401 OPTIONS_SET_PARTICLE_CAP_MODE
+pkey pscr_rematch 402 PLAYER_SCIENCE_AVAILABILITY
+pkey pscr_rematch 403 UNIT_AFFECT_OBJECT_PANEL_FLAGS
+pkey pscr_rematch 404 TEAM_AFFECT_OBJECT_PANEL_FLAGS
+pkey pscr_rematch 405 PLAYER_SELECT_SKILLSET
+pkey pscr_rematch 406 SCRIPTING_OVERRIDE_HULK_LIFETIME
+pkey pscr_rematch 407 NAMED_FACE_NAMED
+pkey pscr_rematch 408 NAMED_FACE_WAYPOINT
+pkey pscr_rematch 409 TEAM_FACE_NAMED
+pkey pscr_rematch 410 TEAM_FACE_WAYPOINT
+pkey pscr_rematch 411 COMMANDBAR_REMOVE_BUTTON_OBJECTTYPE
+pkey pscr_rematch 412 COMMANDBAR_ADD_BUTTON_OBJECTTYPE_SLOT
+pkey pscr_rematch 413 UNIT_SPAWN_NAMED_LOCATION_ORIENTATION
+pkey pscr_rematch 414 PLAYER_AFFECT_RECEIVING_EXPERIENCE
+pkey pscr_rematch 415 PLAYER_EXCLUDE_FROM_SCORE_SCREEN
+pkey pscr_rematch 416 TEAM_GUARD_SUPPLY_CENTER
+pkey pscr_rematch 417 ENABLE_SCORING
+pkey pscr_rematch 418 DISABLE_SCORING
+pkey pscr_rematch 419 SOUND_SET_VOLUME
+pkey pscr_rematch 420 SPEECH_SET_VOLUME
+pkey pscr_rematch 421 DISABLE_BORDER_SHROUD
+pkey pscr_rematch 422 ENABLE_BORDER_SHROUD
+pkey pscr_rematch 423 OBJECT_ALLOW_BONUSES
+pkey pscr_rematch 424 SOUND_REMOVE_ALL_DISABLED
+pkey pscr_rematch 425 SOUND_REMOVE_TYPE
+pkey pscr_rematch 426 TEAM_GUARD_IN_TUNNEL_NETWORK
+pkey pscr_rematch 427 QUICKVICTORY
+pkey pscr_rematch 428 SET_INFANTRY_LIGHTING_OVERRIDE
+pkey pscr_rematch 429 RESET_INFANTRY_LIGHTING_OVERRIDE
+pkey pscr_rematch 430 TEAM_DELETE_LIVING
+pkey pscr_rematch 431 RESIZE_VIEW_GUARDBAND
+pkey pscr_rematch 432 DELETE_ALL_UNMANNED
+pkey pscr_rematch 433 CHOOSE_VICTIM_ALWAYS_USES_NORMAL
+pkey pscr_rematch 434 CAMERA_ENABLE_SLAVE_MODE
+pkey pscr_rematch 435 CAMERA_DISABLE_SLAVE_MODE
+pkey pscr_rematch 436 CAMERA_ADD_SHAKER_AT
+pkey pscr_rematch 437 SET_TRAIN_HELD
+pkey pscr_rematch 438 NAMED_SET_EVAC_LEFT_OR_RIGHT
+pkey pscr_rematch 439 ENABLE_OBJECT_SOUND
+pkey pscr_rematch 440 DISABLE_OBJECT_SOUND
+pkey pscr_rematch 441 NAMED_USE_COMMANDBUTTON_ABILITY_USING_WAYPOINT_PATH
+pkey pscr_rematch 442 NAMED_SET_UNMANNED_STATUS
+pkey pscr_rematch 443 TEAM_SET_UNMANNED_STATUS
+pkey pscr_rematch 444 NAMED_SET_BOOBYTRAPPED
+pkey pscr_rematch 445 TEAM_SET_BOOBYTRAPPED
+pkey pscr_rematch 446 SHOW_WEATHER
+pkey pscr_rematch 447 AI_PLAYER_BUILD_TYPE_NEAREST_TEAM
+pkey pscr_rematch 448 NoSuchConditionName
+pkey pscr_rematch 449 NoSuchActionName
+pstate pscr_rematch 696 0 t
+file pscr_kindof 436b4d700500000009436f6e646974696f6e010000000b4f72436f6e646974696f6e0200000006536372697074030000000a5363726970744c6973740400000011506c61796572536372697074734c69737405000000050000000500b1010000040000000100a70100000300000001009d01000006004b696e644f660000000000000101010101000200000001007f0100000100000002004b00000001000000030000001b000000000000000000000008004f42535441434c451b000000000000000000000008006f62737461636c651b000000000000000000000009005041524143485554450100000002004e00000001000000030000001b00000000000000000000000700435255534845521b00000000000000000000000900435255534841424c451b00000000000000000000000c004f5645524c41505041424c450100000002004000000001000000030000001b000000000000000000000007004d495353494c451b000000000000000000000007006d697373696c651b000000370000000000000000000100000002003200000001000000030000001b000000000000000000000000001b000000740000000000000000001b0000002f0000000000000000000100000002004200000001000000030000001b0000000000000000000000080046735f506f7765721b00000000000000000000000400424f41541b0000000000000000000000040048554c4b
+valid pscr_kindof t
+walk pscr_kindof t
+pn pscr_kindof 1
+plist pscr_kindof 0 1 0
+pscr pscr_kindof L0.s0 KindOf - - - t t t t t f 0
+pcond pscr_kindof L0.s0.o0.c0 1 3
+pparm pscr_kindof L0.s0.o0.c0.p0 0 27 0 00000000 OBSTACLE
+pparm pscr_kindof L0.s0.o0.c0.p1 1 27 0 00000000 obstacle
+pparm pscr_kindof L0.s0.o0.c0.p2 2 27 73 00000000 PARACHUTE
+pcond pscr_kindof L0.s0.o0.c1 1 3
+pparm pscr_kindof L0.s0.o0.c1.p0 0 27 0 00000000 CRUSHER
+pparm pscr_kindof L0.s0.o0.c1.p1 1 27 0 00000000 CRUSHABLE
+pparm pscr_kindof L0.s0.o0.c1.p2 2 27 0 00000000 OVERLAPPABLE
+pcond pscr_kindof L0.s0.o0.c2 1 3
+pparm pscr_kindof L0.s0.o0.c2.p0 0 27 47 00000000 SMALL_MISSILE
+pparm pscr_kindof L0.s0.o0.c2.p1 1 27 47 00000000 SMALL_MISSILE
+pparm pscr_kindof L0.s0.o0.c2.p2 2 27 55 00000000 WALK_ON_TOP_OF_WALL
+pcond pscr_kindof L0.s0.o0.c3 1 3
+pparm pscr_kindof L0.s0.o0.c3.p0 0 27 0 00000000 OBSTACLE
+pparm pscr_kindof L0.s0.o0.c3.p1 1 27 116 00000000 NO_ATTACK_WARNING
+pparm pscr_kindof L0.s0.o0.c3.p2 2 27 47 00000000 SMALL_MISSILE
+pcond pscr_kindof L0.s0.o0.c4 1 3
+pparm pscr_kindof L0.s0.o0.c4.p0 0 27 57 00000000 Fs_Power
+pparm pscr_kindof L0.s0.o0.c4.p1 1 27 75 00000000 BOAT
+pparm pscr_kindof L0.s0.o0.c4.p2 2 27 77 00000000 HULK
+pkeyn pscr_kindof 447
+pstate pscr_kindof 529 0 t
+file pscr_kindof_throw 436b4d700500000009436f6e646974696f6e010000000b4f72436f6e646974696f6e0200000006536372697074030000000a5363726970744c6973740400000011506c61796572536372697074734c697374050000000500000005008f000000040000000100850000000300000001007b0000000b004b696e644f665468726f77000000000000010101010100020000000100580000000100000002004e00000001000000030000001b000000000000000000000008004f42535441434c451b00000000000000000000000c004e4f545f415f4b494e444f461b000000000000000000000008004f42535441434c45
+valid pscr_kindof_throw t
+walk pscr_kindof_throw f
+perr pscr_kindof_throw kindof
+pkeyn pscr_kindof_throw 447
+pstate pscr_kindof_throw 217 5 f
+file pscr_objstatus 436b4d700500000009436f6e646974696f6e010000000b4f72436f6e646974696f6e0200000006536372697074030000000a5363726970744c6973740400000011506c61796572536372697074734c69737405000000050000000500d7000000040000000100cd000000030000000100c300000009004f626a537461747573000000000000010101010100020000000100a2000000010000000200480000000100000003000000280000000000000000000000090044455354524f594544280000000000000000000000090064657374726f79656428000000000000000000000004004e4f4e450100000002004600000001000000030000002800000000000000000000000c00424f4755535f535441545553280000000000000000000000000028000000000000000000000008004445504c4f594544
+valid pscr_objstatus t
+walk pscr_objstatus t
+pn pscr_objstatus 1
+plist pscr_objstatus 0 1 0
+pscr pscr_objstatus L0.s0 ObjStatus - - - t t t t t f 0
+pcond pscr_objstatus L0.s0.o0.c0 1 3
+pparm pscr_objstatus L0.s0.o0.c0.p0 0 40 0 00000000 DESTROYED 0000000000000002
+pparm pscr_objstatus L0.s0.o0.c0.p1 1 40 0 00000000 destroyed 0000000000000002
+pparm pscr_objstatus L0.s0.o0.c0.p2 2 40 0 00000000 NONE 0000000000000001
+pcond pscr_objstatus L0.s0.o0.c1 1 3
+pparm pscr_objstatus L0.s0.o0.c1.p0 0 40 0 00000000 BOGUS_STATUS 0000000000000000
+pparm pscr_objstatus L0.s0.o0.c1.p1 1 40 0 00000000 - 0000000000000000
+pparm pscr_objstatus L0.s0.o0.c1.p2 2 40 0 00000000 DEPLOYED 0000100000000000
+pkeyn pscr_objstatus 447
+pstate pscr_objstatus 311 0 t
+file pscr_rename 436b4d700500000009436f6e646974696f6e010000000b4f72436f6e646974696f6e0200000006536372697074030000000a5363726970744c6973740400000011506c61796572536372697074734c69737405000000050000000500540300000400000001004a03000003000000010040030000060052656e616d65000000000000010101010100020000000100220300000100000002005e00000001000000030000000f0000000000000000000000130046756e64616d656e74616c697374547275636b0f00000000000000000000000e0046756e64616d656e74616c6973740f00000000000000000000000b00416d657269636154616e6b0100000002009201000001000000030000000f00000000000000000000003a0146756e64616d656e74616c6973747878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878780e0000000000000000000000130046756e64616d656e74616c697374547275636b0f0000000000000000000000130066756e64616d656e74616c697374547275636b0100000002009900000001000000030000002000000000000000000000002400557067726164655f416d657269636152616e676572436170747572654275696c64696e672000000000000000000000001f00557067726164655f474c41526562656c436170747572654275696c64696e672000000000000000000000002400557067726164655f4368696e615265646775617264436170747572654275696c64696e670100000002007100000001000000030000002000000000000000000000001f00557067726164655f496e66616e747279436170747572654275696c64696e672000000000000000000000000d00557067726164655f4f746865720f0000000000000000000000130046756e64616d656e74616c6973745468696e67
+valid pscr_rename t
+walk pscr_rename t
+pn pscr_rename 1
+plist pscr_rename 0 1 0
+pscr pscr_rename L0.s0 Rename - - - t t t t t f 0
+pcond pscr_rename L0.s0.o0.c0 1 3
+pparm pscr_rename L0.s0.o0.c0.p0 0 15 0 00000000 GLATruck
+pparm pscr_rename L0.s0.o0.c0.p1 1 15 0 00000000 GLA
+pparm pscr_rename L0.s0.o0.c0.p2 2 15 0 00000000 AmericaTank
+pcond pscr_rename L0.s0.o0.c1 1 3
+pparm pscr_rename L0.s0.o0.c1.p0 0 15 0 00000000 GLAxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
+pparm pscr_rename L0.s0.o0.c1.p1 1 14 0 00000000 FundamentalistTruck
+pparm pscr_rename L0.s0.o0.c1.p2 2 15 0 00000000 fundamentalistTruck
+pcond pscr_rename L0.s0.o0.c2 1 3
+pparm pscr_rename L0.s0.o0.c2.p0 0 32 0 00000000 Upgrade_InfantryCaptureBuilding
+pparm pscr_rename L0.s0.o0.c2.p1 1 32 0 00000000 Upgrade_InfantryCaptureBuilding
+pparm pscr_rename L0.s0.o0.c2.p2 2 32 0 00000000 Upgrade_InfantryCaptureBuilding
+pcond pscr_rename L0.s0.o0.c3 1 3
+pparm pscr_rename L0.s0.o0.c3.p0 0 32 0 00000000 Upgrade_InfantryCaptureBuilding
+pparm pscr_rename L0.s0.o0.c3.p1 1 32 0 00000000 Upgrade_Other
+pparm pscr_rename L0.s0.o0.c3.p2 2 15 0 00000000 GLAThing
+pkeyn pscr_rename 447
+pstate pscr_rename 948 0 t
+file pscr_oob_parms 436b4d700500000009436f6e646974696f6e010000000b4f72436f6e646974696f6e0200000006536372697074030000000a5363726970744c6973740400000011506c61796572536372697074734c69737405000000050000000500fc000000040000000100f2000000030000000100e800000008004f6f625061726d73000000000000010101010100020000000100c8000000010000000200be000000010000000d0000000000000000000000000000000000000000000100000000000000000000000000020000000000000000000000000003000000000000000000000000000400000000000000000000000000050000000000000000000000000006000000000000000000000000000700000000000000000000000000080000000000000000000000000009000000000000000000000000000a000000000000000000000000000b000000000000000000000000000c000000000000000000
+valid pscr_oob_parms t
+walk pscr_oob_parms f
+perr pscr_oob_parms oob-parms
+pkeyn pscr_oob_parms 447
+pstate pscr_oob_parms 348 5 t
+file pscr_oob_actparms 436b4d700600000009436f6e646974696f6e010000000b4f72436f6e646974696f6e0200000006536372697074030000000a5363726970744c6973740400000011506c61796572536372697074734c697374050000000c536372697074416374696f6e06000000050000000500f5000000040000000100eb000000030000000100e10000000b004f6f624163745061726d73000000000000010101010100060000000100be000000640000000d0000000000000000000000000000000000000000000100000000000000000000000000020000000000000000000000000003000000000000000000000000000400000000000000000000000000050000000000000000000000000006000000000000000000000000000700000000000000000000000000080000000000000000000000000009000000000000000000000000000a000000000000000000000000000b000000000000000000000000000c000000000000000000
+valid pscr_oob_actparms t
+walk pscr_oob_actparms f
+perr pscr_oob_actparms oob-parms
+pkeyn pscr_oob_actparms 447
+pstate pscr_oob_actparms 358 4 t
+file pscr_oob_heal12 436b4d700600000009436f6e646974696f6e010000000b4f72436f6e646974696f6e0200000006536372697074030000000a5363726970744c6973740400000011506c61796572536372697074734c697374050000000c536372697074416374696f6e06000000050000000500ef000000040000000100e5000000030000000100db00000009004f6f624865616c3132000000000000010101010100020000000100ba000000010000000100b0000000070000000c0000000000000000000000000000000000000000000100000000000000000000000000020000000000000000000000000003000000000000000000000000000400000000000000000000000000050000000000000000000000000006000000000000000000000000000700000000000000000000000000080000000000000000000000000009000000000000000000000000000a000000000000000000000000000b000000000000000000
+valid pscr_oob_heal12 t
+walk pscr_oob_heal12 f
+perr pscr_oob_heal12 oob-heal
+pkeyn pscr_oob_heal12 447
+pstate pscr_oob_heal12 352 5 t
+file pscr_oob_healneg 436b4d700600000009436f6e646974696f6e010000000b4f72436f6e646974696f6e0200000006536372697074030000000a5363726970744c6973740400000011506c61796572536372697074734c697374050000000c536372697074416374696f6e06000000050000000500480000000400000001003e000000030000000100340000000a004f6f624865616c4e6567000000000000010101010100020000000100120000000100000001000800000007000000ffffffff
+valid pscr_oob_healneg t
+walk pscr_oob_healneg f
+perr pscr_oob_healneg oob-heal
+pkeyn pscr_oob_healneg 447
+pstate pscr_oob_healneg 185 5 t
+file pscr_oob_kindof117 436b4d700600000009436f6e646974696f6e010000000b4f72436f6e646974696f6e0200000006536372697074030000000a5363726970744c6973740400000011506c61796572536372697074734c697374050000000c536372697074416374696f6e06000000050000000500740000000400000001006a000000030000000100600000000c004f6f624b696e646f663131370000000000000101010101000200000001003c0000000100000002003200000001000000030000001b0000007500000000000000000000000000000000000000000000000000000000000000000000000000
+valid pscr_oob_kindof117 t
+walk pscr_oob_kindof117 f
+perr pscr_oob_kindof117 oob-kindof
+pkeyn pscr_oob_kindof117 447
+pstate pscr_oob_kindof117 201 5 f
+file pscr_oob_kindof118 436b4d700600000009436f6e646974696f6e010000000b4f72436f6e646974696f6e0200000006536372697074030000000a5363726970744c6973740400000011506c61796572536372697074734c697374050000000c536372697074416374696f6e06000000050000000500740000000400000001006a000000030000000100600000000c004f6f624b696e646f663131380000000000000101010101000200000001003c0000000100000002003200000001000000030000001b0000007600000000000000000000000000000000000000000000000000000000000000000000000000
+valid pscr_oob_kindof118 t
+walk pscr_oob_kindof118 f
+perr pscr_oob_kindof118 oob-kindof
+pkeyn pscr_oob_kindof118 447
+pstate pscr_oob_kindof118 201 5 f
+file pscr_oob_kindofneg 436b4d700600000009436f6e646974696f6e010000000b4f72436f6e646974696f6e0200000006536372697074030000000a5363726970744c6973740400000011506c61796572536372697074734c697374050000000c536372697074416374696f6e06000000050000000500740000000400000001006a000000030000000100600000000c004f6f624b696e646f664e65670000000000000101010101000200000001003c0000000100000002003200000001000000030000001b000000ffffffff00000000000000000000000000000000000000000000000000000000000000000000
+valid pscr_oob_kindofneg t
+walk pscr_oob_kindofneg f
+perr pscr_oob_kindofneg oob-kindof
+pkeyn pscr_oob_kindofneg 447
+pstate pscr_oob_kindofneg 201 5 f
+file pscr_sixteen 436b4d700300000006536372697074010000000a5363726970744c6973740200000011506c61796572536372697074734c69737403000000030000000500460200000200000001001a00000001000000010010000000020053300000000000000101010101000200000001001a00000001000000010010000000020053310000000000000101010101000200000001001a00000001000000010010000000020053320000000000000101010101000200000001001a00000001000000010010000000020053330000000000000101010101000200000001001a00000001000000010010000000020053340000000000000101010101000200000001001a00000001000000010010000000020053350000000000000101010101000200000001001a00000001000000010010000000020053360000000000000101010101000200000001001a00000001000000010010000000020053370000000000000101010101000200000001001a00000001000000010010000000020053380000000000000101010101000200000001001a00000001000000010010000000020053390000000000000101010101000200000001001b0000000100000001001100000003005331300000000000000101010101000200000001001b0000000100000001001100000003005331310000000000000101010101000200000001001b0000000100000001001100000003005331320000000000000101010101000200000001001b0000000100000001001100000003005331330000000000000101010101000200000001001b0000000100000001001100000003005331340000000000000101010101000200000001001b000000010000000100110000000300533135000000000000010101010100
+valid pscr_sixteen t
+walk pscr_sixteen t
+pn pscr_sixteen 16
+plist pscr_sixteen 0 1 0
+pscr pscr_sixteen L0.s0 S0 - - - t t t t t f 0
+plist pscr_sixteen 1 1 0
+pscr pscr_sixteen L1.s0 S1 - - - t t t t t f 0
+plist pscr_sixteen 2 1 0
+pscr pscr_sixteen L2.s0 S2 - - - t t t t t f 0
+plist pscr_sixteen 3 1 0
+pscr pscr_sixteen L3.s0 S3 - - - t t t t t f 0
+plist pscr_sixteen 4 1 0
+pscr pscr_sixteen L4.s0 S4 - - - t t t t t f 0
+plist pscr_sixteen 5 1 0
+pscr pscr_sixteen L5.s0 S5 - - - t t t t t f 0
+plist pscr_sixteen 6 1 0
+pscr pscr_sixteen L6.s0 S6 - - - t t t t t f 0
+plist pscr_sixteen 7 1 0
+pscr pscr_sixteen L7.s0 S7 - - - t t t t t f 0
+plist pscr_sixteen 8 1 0
+pscr pscr_sixteen L8.s0 S8 - - - t t t t t f 0
+plist pscr_sixteen 9 1 0
+pscr pscr_sixteen L9.s0 S9 - - - t t t t t f 0
+plist pscr_sixteen 10 1 0
+pscr pscr_sixteen L10.s0 S10 - - - t t t t t f 0
+plist pscr_sixteen 11 1 0
+pscr pscr_sixteen L11.s0 S11 - - - t t t t t f 0
+plist pscr_sixteen 12 1 0
+pscr pscr_sixteen L12.s0 S12 - - - t t t t t f 0
+plist pscr_sixteen 13 1 0
+pscr pscr_sixteen L13.s0 S13 - - - t t t t t f 0
+plist pscr_sixteen 14 1 0
+pscr pscr_sixteen L14.s0 S14 - - - t t t t t f 0
+plist pscr_sixteen 15 1 0
+pscr pscr_sixteen L15.s0 S15 - - - t t t t t f 0
+pkeyn pscr_sixteen 447
+pstate pscr_sixteen 648 0 t
+file pscr_seventeen 436b4d700300000006536372697074010000000a5363726970744c6973740200000011506c61796572536372697074734c697374030000000300000005006b0200000200000001001a00000001000000010010000000020053300000000000000101010101000200000001001a00000001000000010010000000020053310000000000000101010101000200000001001a00000001000000010010000000020053320000000000000101010101000200000001001a00000001000000010010000000020053330000000000000101010101000200000001001a00000001000000010010000000020053340000000000000101010101000200000001001a00000001000000010010000000020053350000000000000101010101000200000001001a00000001000000010010000000020053360000000000000101010101000200000001001a00000001000000010010000000020053370000000000000101010101000200000001001a00000001000000010010000000020053380000000000000101010101000200000001001a00000001000000010010000000020053390000000000000101010101000200000001001b0000000100000001001100000003005331300000000000000101010101000200000001001b0000000100000001001100000003005331310000000000000101010101000200000001001b0000000100000001001100000003005331320000000000000101010101000200000001001b0000000100000001001100000003005331330000000000000101010101000200000001001b0000000100000001001100000003005331340000000000000101010101000200000001001b0000000100000001001100000003005331350000000000000101010101000200000001001b000000010000000100110000000300533136000000000000010101010100
+valid pscr_seventeen t
+walk pscr_seventeen f
+perr pscr_seventeen listbound
+pkeyn pscr_seventeen 447
+pstate pscr_seventeen 658 2 f
+file pscr_repeat 436b4d700300000006536372697074010000000a5363726970744c6973740200000011506c61796572536372697074734c69737403000000030000000500260000000200000001001c000000010000000100120000000400523053300000000000000101010101000300000005004c0000000200000001001c000000010000000100120000000400523153300000000000000101010101000200000001001c00000001000000010012000000040052315331000000000000010101010100
+valid pscr_repeat t
+walk pscr_repeat t
+pn pscr_repeat 2
+plist pscr_repeat 0 1 0
+pscr pscr_repeat L0.s0 R1S0 - - - t t t t t f 0
+plist pscr_repeat 1 1 0
+pscr pscr_repeat L1.s0 R1S1 - - - t t t t t f 0
+pkeyn pscr_repeat 447
+pstate pscr_repeat 190 0 t
+file pscr_nested 436b4d700400000006536372697074010000000a5363726970744c6973740200000011506c61796572536372697074734c697374030000000953696465734c69737404000000040000000300380000000300000005002e000000020000000100240000000100000001001a0000000c004e65737465645363726970740000000000000101010101000300000005002e000000020000000100240000000100000001001a0000000c004e6573746564536372697074000000000000010101010100
+valid pscr_nested t
+walk pscr_nested t
+pn pscr_nested 1
+plist pscr_nested 0 1 0
+pscr pscr_nested L0.s0 NestedScript - - - t t t t t f 0
+pkeyn pscr_nested 447
+pkey pscr_nested 1 CONDITION_FALSE
+pkey pscr_nested 2 COUNTER
+pkey pscr_nested 3 FLAG
+pkey pscr_nested 4 CONDITION_TRUE
+pkey pscr_nested 5 TIMER_EXPIRED
+pkey pscr_nested 6 PLAYER_ALL_DESTROYED
+pkey pscr_nested 7 PLAYER_ALL_BUILDFACILITIES_DESTROYED
+pkey pscr_nested 8 TEAM_INSIDE_AREA_PARTIALLY
+pkey pscr_nested 9 TEAM_DESTROYED
+pkey pscr_nested 10 CAMERA_MOVEMENT_FINISHED
+pkey pscr_nested 11 TEAM_HAS_UNITS
+pkey pscr_nested 12 TEAM_STATE_IS
+pkey pscr_nested 13 TEAM_STATE_IS_NOT
+pkey pscr_nested 14 NAMED_INSIDE_AREA
+pkey pscr_nested 15 NAMED_OUTSIDE_AREA
+pkey pscr_nested 16 NAMED_DESTROYED
+pkey pscr_nested 17 NAMED_NOT_DESTROYED
+pkey pscr_nested 18 TEAM_INSIDE_AREA_ENTIRELY
+pkey pscr_nested 19 TEAM_OUTSIDE_AREA_ENTIRELY
+pkey pscr_nested 20 NAMED_ATTACKED_BY_OBJECTTYPE
+pkey pscr_nested 21 TEAM_ATTACKED_BY_OBJECTTYPE
+pkey pscr_nested 22 NAMED_ATTACKED_BY_PLAYER
+pkey pscr_nested 23 TEAM_ATTACKED_BY_PLAYER
+pkey pscr_nested 24 BUILT_BY_PLAYER
+pkey pscr_nested 25 NAMED_CREATED
+pkey pscr_nested 26 TEAM_CREATED
+pkey pscr_nested 27 PLAYER_HAS_CREDITS
+pkey pscr_nested 28 NAMED_DISCOVERED
+pkey pscr_nested 29 TEAM_DISCOVERED
+pkey pscr_nested 30 MISSION_ATTEMPTS
+pkey pscr_nested 31 NAMED_OWNED_BY_PLAYER
+pkey pscr_nested 32 TEAM_OWNED_BY_PLAYER
+pkey pscr_nested 33 PLAYER_HAS_N_OR_FEWER_BUILDINGS
+pkey pscr_nested 34 PLAYER_HAS_POWER
+pkey pscr_nested 35 NAMED_REACHED_WAYPOINTS_END
+pkey pscr_nested 36 TEAM_REACHED_WAYPOINTS_END
+pkey pscr_nested 37 NAMED_SELECTED
+pkey pscr_nested 38 NAMED_ENTERED_AREA
+pkey pscr_nested 39 NAMED_EXITED_AREA
+pkey pscr_nested 40 TEAM_ENTERED_AREA_ENTIRELY
+pkey pscr_nested 41 TEAM_ENTERED_AREA_PARTIALLY
+pkey pscr_nested 42 TEAM_EXITED_AREA_ENTIRELY
+pkey pscr_nested 43 TEAM_EXITED_AREA_PARTIALLY
+pkey pscr_nested 44 MULTIPLAYER_ALLIED_VICTORY
+pkey pscr_nested 45 MULTIPLAYER_ALLIED_DEFEAT
+pkey pscr_nested 46 MULTIPLAYER_PLAYER_DEFEAT
+pkey pscr_nested 47 PLAYER_HAS_NO_POWER
+pkey pscr_nested 48 HAS_FINISHED_VIDEO
+pkey pscr_nested 49 HAS_FINISHED_SPEECH
+pkey pscr_nested 50 HAS_FINISHED_AUDIO
+pkey pscr_nested 51 BUILDING_ENTERED_BY_PLAYER
+pkey pscr_nested 52 ENEMY_SIGHTED
+pkey pscr_nested 53 UNIT_HEALTH
+pkey pscr_nested 54 BRIDGE_REPAIRED
+pkey pscr_nested 55 BRIDGE_BROKEN
+pkey pscr_nested 56 NAMED_DYING
+pkey pscr_nested 57 NAMED_TOTALLY_DEAD
+pkey pscr_nested 58 PLAYER_HAS_OBJECT_COMPARISON
+pkey pscr_nested 59 -
+pkey pscr_nested 60 PLAYER_TRIGGERED_SPECIAL_POWER
+pkey pscr_nested 61 PLAYER_COMPLETED_SPECIAL_POWER
+pkey pscr_nested 62 PLAYER_MIDWAY_SPECIAL_POWER
+pkey pscr_nested 63 PLAYER_TRIGGERED_SPECIAL_POWER_FROM_NAMED
+pkey pscr_nested 64 PLAYER_COMPLETED_SPECIAL_POWER_FROM_NAMED
+pkey pscr_nested 65 PLAYER_MIDWAY_SPECIAL_POWER_FROM_NAMED
+pkey pscr_nested 66 PLAYER_BUILT_UPGRADE
+pkey pscr_nested 67 PLAYER_BUILT_UPGRADE_FROM_NAMED
+pkey pscr_nested 68 PLAYER_DESTROYED_N_BUILDINGS_PLAYER
+pkey pscr_nested 69 PLAYER_HAS_COMPARISON_UNIT_TYPE_IN_TRIGGER_AREA
+pkey pscr_nested 70 PLAYER_HAS_COMPARISON_UNIT_KIND_IN_TRIGGER_AREA
+pkey pscr_nested 71 UNIT_EMPTIED
+pkey pscr_nested 72 TYPE_SIGHTED
+pkey pscr_nested 73 NAMED_BUILDING_IS_EMPTY
+pkey pscr_nested 74 PLAYER_HAS_N_OR_FEWER_FACTION_BUILDINGS
+pkey pscr_nested 75 UNIT_HAS_OBJECT_STATUS
+pkey pscr_nested 76 TEAM_ALL_HAS_OBJECT_STATUS
+pkey pscr_nested 77 TEAM_SOME_HAVE_OBJECT_STATUS
+pkey pscr_nested 78 PLAYER_POWER_COMPARE_PERCENT
+pkey pscr_nested 79 PLAYER_EXCESS_POWER_COMPARE_VALUE
+pkey pscr_nested 80 SKIRMISH_SPECIAL_POWER_READY
+pkey pscr_nested 81 SKIRMISH_VALUE_IN_AREA
+pkey pscr_nested 82 SKIRMISH_PLAYER_FACTION
+pkey pscr_nested 83 SKIRMISH_SUPPLIES_VALUE_WITHIN_DISTANCE
+pkey pscr_nested 84 SKIRMISH_TECH_BUILDING_WITHIN_DISTANCE
+pkey pscr_nested 85 SKIRMISH_COMMAND_BUTTON_READY_ALL
+pkey pscr_nested 86 SKIRMISH_COMMAND_BUTTON_READY_PARTIAL
+pkey pscr_nested 87 SKIRMISH_UNOWNED_FACTION_UNIT_EXISTS
+pkey pscr_nested 88 SKIRMISH_PLAYER_HAS_PREREQUISITE_TO_BUILD
+pkey pscr_nested 89 SKIRMISH_PLAYER_HAS_COMPARISON_GARRISONED
+pkey pscr_nested 90 SKIRMISH_PLAYER_HAS_COMPARISON_CAPTURED_UNITS
+pkey pscr_nested 91 SKIRMISH_NAMED_AREA_EXIST
+pkey pscr_nested 92 SKIRMISH_PLAYER_HAS_UNITS_IN_AREA
+pkey pscr_nested 93 SKIRMISH_PLAYER_HAS_BEEN_ATTACKED_BY_PLAYER
+pkey pscr_nested 94 SKIRMISH_PLAYER_IS_OUTSIDE_AREA
+pkey pscr_nested 95 SKIRMISH_PLAYER_HAS_DISCOVERED_PLAYER
+pkey pscr_nested 96 PLAYER_ACQUIRED_SCIENCE
+pkey pscr_nested 97 PLAYER_HAS_SCIENCEPURCHASEPOINTS
+pkey pscr_nested 98 PLAYER_CAN_PURCHASE_SCIENCE
+pkey pscr_nested 99 MUSIC_TRACK_HAS_COMPLETED
+pkey pscr_nested 100 PLAYER_LOST_OBJECT_TYPE
+pkey pscr_nested 101 SUPPLY_SOURCE_SAFE
+pkey pscr_nested 102 SUPPLY_SOURCE_ATTACKED
+pkey pscr_nested 103 START_POSITION_IS
+pkey pscr_nested 104 NAMED_HAS_FREE_CONTAINER_SLOTS
+pkey pscr_nested 105 DEBUG_MESSAGE_BOX
+pkey pscr_nested 106 SET_FLAG
+pkey pscr_nested 107 SET_COUNTER
+pkey pscr_nested 108 VICTORY
+pkey pscr_nested 109 DEFEAT
+pkey pscr_nested 110 NO_OP
+pkey pscr_nested 111 SET_TIMER
+pkey pscr_nested 112 PLAY_SOUND_EFFECT
+pkey pscr_nested 113 ENABLE_SCRIPT
+pkey pscr_nested 114 DISABLE_SCRIPT
+pkey pscr_nested 115 CALL_SUBROUTINE
+pkey pscr_nested 116 PLAY_SOUND_EFFECT_AT
+pkey pscr_nested 117 DAMAGE_MEMBERS_OF_TEAM
+pkey pscr_nested 118 MOVE_TEAM_TO
+pkey pscr_nested 119 MOVE_CAMERA_TO
+pkey pscr_nested 120 INCREMENT_COUNTER
+pkey pscr_nested 121 DECREMENT_COUNTER
+pkey pscr_nested 122 MOVE_CAMERA_ALONG_WAYPOINT_PATH
+pkey pscr_nested 123 ROTATE_CAMERA
+pkey pscr_nested 124 RESET_CAMERA
+pkey pscr_nested 125 SET_MILLISECOND_TIMER
+pkey pscr_nested 126 CAMERA_MOD_FREEZE_TIME
+pkey pscr_nested 127 SET_VISUAL_SPEED_MULTIPLIER
+pkey pscr_nested 128 CREATE_OBJECT
+pkey pscr_nested 129 SUSPEND_BACKGROUND_SOUNDS
+pkey pscr_nested 130 RESUME_BACKGROUND_SOUNDS
+pkey pscr_nested 131 CAMERA_MOD_SET_FINAL_ZOOM
+pkey pscr_nested 132 CAMERA_MOD_SET_FINAL_PITCH
+pkey pscr_nested 133 CAMERA_MOD_FREEZE_ANGLE
+pkey pscr_nested 134 CAMERA_MOD_SET_FINAL_SPEED_MULTIPLIER
+pkey pscr_nested 135 CAMERA_MOD_SET_ROLLING_AVERAGE
+pkey pscr_nested 136 CAMERA_MOD_FINAL_LOOK_TOWARD
+pkey pscr_nested 137 CAMERA_MOD_LOOK_TOWARD
+pkey pscr_nested 138 TEAM_ATTACK_TEAM
+pkey pscr_nested 139 CREATE_REINFORCEMENT_TEAM
+pkey pscr_nested 140 MOVE_CAMERA_TO_SELECTION
+pkey pscr_nested 141 TEAM_FOLLOW_WAYPOINTS
+pkey pscr_nested 142 TEAM_SET_STATE
+pkey pscr_nested 143 MOVE_NAMED_UNIT_TO
+pkey pscr_nested 144 NAMED_ATTACK_NAMED
+pkey pscr_nested 145 CREATE_NAMED_ON_TEAM_AT_WAYPOINT
+pkey pscr_nested 146 CREATE_UNNAMED_ON_TEAM_AT_WAYPOINT
+pkey pscr_nested 147 NAMED_APPLY_ATTACK_PRIORITY_SET
+pkey pscr_nested 148 TEAM_APPLY_ATTACK_PRIORITY_SET
+pkey pscr_nested 149 SET_BASE_CONSTRUCTION_SPEED
+pkey pscr_nested 150 NAMED_SET_ATTITUDE
+pkey pscr_nested 151 TEAM_SET_ATTITUDE
+pkey pscr_nested 152 NAMED_ATTACK_AREA
+pkey pscr_nested 153 NAMED_ATTACK_TEAM
+pkey pscr_nested 154 TEAM_ATTACK_AREA
+pkey pscr_nested 155 TEAM_ATTACK_NAMED
+pkey pscr_nested 156 TEAM_LOAD_TRANSPORTS
+pkey pscr_nested 157 NAMED_ENTER_NAMED
+pkey pscr_nested 158 TEAM_ENTER_NAMED
+pkey pscr_nested 159 NAMED_EXIT_ALL
+pkey pscr_nested 160 TEAM_EXIT_ALL
+pkey pscr_nested 161 NAMED_FOLLOW_WAYPOINTS
+pkey pscr_nested 162 NAMED_GUARD
+pkey pscr_nested 163 TEAM_GUARD
+pkey pscr_nested 164 NAMED_HUNT
+pkey pscr_nested 165 TEAM_HUNT
+pkey pscr_nested 166 PLAYER_SELL_EVERYTHING
+pkey pscr_nested 167 PLAYER_DISABLE_BASE_CONSTRUCTION
+pkey pscr_nested 168 PLAYER_DISABLE_FACTORIES
+pkey pscr_nested 169 PLAYER_DISABLE_UNIT_CONSTRUCTION
+pkey pscr_nested 170 PLAYER_ENABLE_BASE_CONSTRUCTION
+pkey pscr_nested 171 PLAYER_ENABLE_FACTORIES
+pkey pscr_nested 172 PLAYER_ENABLE_UNIT_CONSTRUCTION
+pkey pscr_nested 173 CAMERA_MOVE_HOME
+pkey pscr_nested 174 BUILD_TEAM
+pkey pscr_nested 175 NAMED_DAMAGE
+pkey pscr_nested 176 NAMED_DELETE
+pkey pscr_nested 177 TEAM_DELETE
+pkey pscr_nested 178 NAMED_KILL
+pkey pscr_nested 179 TEAM_KILL
+pkey pscr_nested 180 PLAYER_KILL
+pkey pscr_nested 181 DISPLAY_TEXT
+pkey pscr_nested 182 CAMEO_FLASH
+pkey pscr_nested 183 NAMED_FLASH
+pkey pscr_nested 184 TEAM_FLASH
+pkey pscr_nested 185 MOVIE_PLAY_FULLSCREEN
+pkey pscr_nested 186 MOVIE_PLAY_RADAR
+pkey pscr_nested 187 SOUND_PLAY_NAMED
+pkey pscr_nested 188 SPEECH_PLAY
+pkey pscr_nested 189 PLAYER_TRANSFER_OWNERSHIP_PLAYER
+pkey pscr_nested 190 NAMED_TRANSFER_OWNERSHIP_PLAYER
+pkey pscr_nested 191 PLAYER_RELATES_PLAYER
+pkey pscr_nested 192 RADAR_CREATE_EVENT
+pkey pscr_nested 193 RADAR_DISABLE
+pkey pscr_nested 194 RADAR_ENABLE
+pkey pscr_nested 195 MAP_REVEAL_AT_WAYPOINT
+pkey pscr_nested 196 TEAM_AVAILABLE_FOR_RECRUITMENT
+pkey pscr_nested 197 TEAM_COLLECT_NEARBY_FOR_TEAM
+pkey pscr_nested 198 TEAM_MERGE_INTO_TEAM
+pkey pscr_nested 199 DISABLE_INPUT
+pkey pscr_nested 200 ENABLE_INPUT
+pkey pscr_nested 201 PLAYER_HUNT
+pkey pscr_nested 202 SOUND_AMBIENT_PAUSE
+pkey pscr_nested 203 SOUND_AMBIENT_RESUME
+pkey pscr_nested 204 MUSIC_SET_TRACK
+pkey pscr_nested 205 SET_TREE_SWAY
+pkey pscr_nested 206 DEBUG_STRING
+pkey pscr_nested 207 MAP_REVEAL_ALL
+pkey pscr_nested 208 TEAM_GARRISON_SPECIFIC_BUILDING
+pkey pscr_nested 209 EXIT_SPECIFIC_BUILDING
+pkey pscr_nested 210 TEAM_GARRISON_NEAREST_BUILDING
+pkey pscr_nested 211 TEAM_EXIT_ALL_BUILDINGS
+pkey pscr_nested 212 NAMED_GARRISON_SPECIFIC_BUILDING
+pkey pscr_nested 213 NAMED_GARRISON_NEAREST_BUILDING
+pkey pscr_nested 214 NAMED_EXIT_BUILDING
+pkey pscr_nested 215 PLAYER_GARRISON_ALL_BUILDINGS
+pkey pscr_nested 216 PLAYER_EXIT_ALL_BUILDINGS
+pkey pscr_nested 217 TEAM_WANDER
+pkey pscr_nested 218 TEAM_PANIC
+pkey pscr_nested 219 SETUP_CAMERA
+pkey pscr_nested 220 CAMERA_LETTERBOX_BEGIN
+pkey pscr_nested 221 CAMERA_LETTERBOX_END
+pkey pscr_nested 222 ZOOM_CAMERA
+pkey pscr_nested 223 PITCH_CAMERA
+pkey pscr_nested 224 CAMERA_FOLLOW_NAMED
+pkey pscr_nested 225 OVERSIZE_TERRAIN
+pkey pscr_nested 226 CAMERA_FADE_ADD
+pkey pscr_nested 227 CAMERA_FADE_SUBTRACT
+pkey pscr_nested 228 CAMERA_FADE_SATURATE
+pkey pscr_nested 229 CAMERA_FADE_MULTIPLY
+pkey pscr_nested 230 CAMERA_BW_MODE_BEGIN
+pkey pscr_nested 231 CAMERA_BW_MODE_END
+pkey pscr_nested 232 DRAW_SKYBOX_BEGIN
+pkey pscr_nested 233 DRAW_SKYBOX_END
+pkey pscr_nested 234 SET_ATTACK_PRIORITY_THING
+pkey pscr_nested 235 SET_ATTACK_PRIORITY_KIND_OF
+pkey pscr_nested 236 SET_DEFAULT_ATTACK_PRIORITY
+pkey pscr_nested 237 CAMERA_STOP_FOLLOW
+pkey pscr_nested 238 CAMERA_MOTION_BLUR
+pkey pscr_nested 239 CAMERA_MOTION_BLUR_JUMP
+pkey pscr_nested 240 CAMERA_MOTION_BLUR_FOLLOW
+pkey pscr_nested 241 CAMERA_MOTION_BLUR_END_FOLLOW
+pkey pscr_nested 242 FREEZE_TIME
+pkey pscr_nested 243 UNFREEZE_TIME
+pkey pscr_nested 244 SHOW_MILITARY_CAPTION
+pkey pscr_nested 245 CAMERA_SET_AUDIBLE_DISTANCE
+pkey pscr_nested 246 SET_STOPPING_DISTANCE
+pkey pscr_nested 247 NAMED_SET_STOPPING_DISTANCE
+pkey pscr_nested 248 SET_FPS_LIMIT
+pkey pscr_nested 249 MUSIC_SET_VOLUME
+pkey pscr_nested 250 MAP_SHROUD_AT_WAYPOINT
+pkey pscr_nested 251 MAP_SHROUD_ALL
+pkey pscr_nested 252 SET_RANDOM_TIMER
+pkey pscr_nested 253 SET_RANDOM_MSEC_TIMER
+pkey pscr_nested 254 STOP_TIMER
+pkey pscr_nested 255 RESTART_TIMER
+pkey pscr_nested 256 ADD_TO_MSEC_TIMER
+pkey pscr_nested 257 SUB_FROM_MSEC_TIMER
+pkey pscr_nested 258 TEAM_TRANSFER_TO_PLAYER
+pkey pscr_nested 259 PLAYER_SET_MONEY
+pkey pscr_nested 260 PLAYER_GIVE_MONEY
+pkey pscr_nested 261 DISABLE_SPECIAL_POWER_DISPLAY
+pkey pscr_nested 262 ENABLE_SPECIAL_POWER_DISPLAY
+pkey pscr_nested 263 NAMED_HIDE_SPECIAL_POWER_DISPLAY
+pkey pscr_nested 264 NAMED_SHOW_SPECIAL_POWER_DISPLAY
+pkey pscr_nested 265 DISPLAY_COUNTDOWN_TIMER
+pkey pscr_nested 266 HIDE_COUNTDOWN_TIMER
+pkey pscr_nested 267 ENABLE_COUNTDOWN_TIMER_DISPLAY
+pkey pscr_nested 268 DISABLE_COUNTDOWN_TIMER_DISPLAY
+pkey pscr_nested 269 NAMED_STOP_SPECIAL_POWER_COUNTDOWN
+pkey pscr_nested 270 NAMED_START_SPECIAL_POWER_COUNTDOWN
+pkey pscr_nested 271 NAMED_SET_SPECIAL_POWER_COUNTDOWN
+pkey pscr_nested 272 NAMED_ADD_SPECIAL_POWER_COUNTDOWN
+pkey pscr_nested 273 NAMED_FIRE_SPECIAL_POWER_AT_WAYPOINT
+pkey pscr_nested 274 NAMED_FIRE_SPECIAL_POWER_AT_NAMED
+pkey pscr_nested 275 REFRESH_RADAR
+pkey pscr_nested 276 CAMERA_TETHER_NAMED
+pkey pscr_nested 277 CAMERA_STOP_TETHER_NAMED
+pkey pscr_nested 278 CAMERA_SET_DEFAULT
+pkey pscr_nested 279 NAMED_STOP
+pkey pscr_nested 280 TEAM_STOP
+pkey pscr_nested 281 TEAM_STOP_AND_DISBAND
+pkey pscr_nested 282 RECRUIT_TEAM
+pkey pscr_nested 283 TEAM_SET_OVERRIDE_RELATION_TO_TEAM
+pkey pscr_nested 284 TEAM_REMOVE_OVERRIDE_RELATION_TO_TEAM
+pkey pscr_nested 285 TEAM_REMOVE_ALL_OVERRIDE_RELATIONS
+pkey pscr_nested 286 CAMERA_LOOK_TOWARD_OBJECT
+pkey pscr_nested 287 NAMED_FIRE_WEAPON_FOLLOWING_WAYPOINT_PATH
+pkey pscr_nested 288 TEAM_SET_OVERRIDE_RELATION_TO_PLAYER
+pkey pscr_nested 289 TEAM_REMOVE_OVERRIDE_RELATION_TO_PLAYER
+pkey pscr_nested 290 PLAYER_SET_OVERRIDE_RELATION_TO_TEAM
+pkey pscr_nested 291 PLAYER_REMOVE_OVERRIDE_RELATION_TO_TEAM
+pkey pscr_nested 292 UNIT_EXECUTE_SEQUENTIAL_SCRIPT
+pkey pscr_nested 293 UNIT_EXECUTE_SEQUENTIAL_SCRIPT_LOOPING
+pkey pscr_nested 294 UNIT_STOP_SEQUENTIAL_SCRIPT
+pkey pscr_nested 295 TEAM_EXECUTE_SEQUENTIAL_SCRIPT
+pkey pscr_nested 296 TEAM_EXECUTE_SEQUENTIAL_SCRIPT_LOOPING
+pkey pscr_nested 297 TEAM_STOP_SEQUENTIAL_SCRIPT
+pkey pscr_nested 298 UNIT_GUARD_FOR_FRAMECOUNT
+pkey pscr_nested 299 UNIT_IDLE_FOR_FRAMECOUNT
+pkey pscr_nested 300 TEAM_GUARD_FOR_FRAMECOUNT
+pkey pscr_nested 301 TEAM_IDLE_FOR_FRAMECOUNT
+pkey pscr_nested 302 WATER_CHANGE_HEIGHT
+pkey pscr_nested 303 NAMED_USE_COMMANDBUTTON_ABILITY_ON_NAMED
+pkey pscr_nested 304 NAMED_USE_COMMANDBUTTON_ABILITY_AT_WAYPOINT
+pkey pscr_nested 305 WATER_CHANGE_HEIGHT_OVER_TIME
+pkey pscr_nested 306 MAP_SWITCH_BORDER
+pkey pscr_nested 307 TEAM_GUARD_POSITION
+pkey pscr_nested 308 TEAM_GUARD_OBJECT
+pkey pscr_nested 309 TEAM_GUARD_AREA
+pkey pscr_nested 310 OBJECT_FORCE_SELECT
+pkey pscr_nested 311 CAMERA_LOOK_TOWARD_WAYPOINT
+pkey pscr_nested 312 UNIT_DESTROY_ALL_CONTAINED
+pkey pscr_nested 313 RADAR_FORCE_ENABLE
+pkey pscr_nested 314 RADAR_REVERT_TO_NORMAL
+pkey pscr_nested 315 SCREEN_SHAKE
+pkey pscr_nested 316 TECHTREE_MODIFY_BUILDABILITY_OBJECT
+pkey pscr_nested 317 WAREHOUSE_SET_VALUE
+pkey pscr_nested 318 OBJECT_CREATE_RADAR_EVENT
+pkey pscr_nested 319 TEAM_CREATE_RADAR_EVENT
+pkey pscr_nested 320 DISPLAY_CINEMATIC_TEXT
+pkey pscr_nested 321 DEBUG_CRASH_BOX
+pkey pscr_nested 322 SOUND_DISABLE_TYPE
+pkey pscr_nested 323 SOUND_ENABLE_TYPE
+pkey pscr_nested 324 SOUND_ENABLE_ALL
+pkey pscr_nested 325 AUDIO_OVERRIDE_VOLUME_TYPE
+pkey pscr_nested 326 AUDIO_RESTORE_VOLUME_TYPE
+pkey pscr_nested 327 AUDIO_RESTORE_VOLUME_ALL_TYPE
+pkey pscr_nested 328 INGAME_POPUP_MESSAGE
+pkey pscr_nested 329 SET_CAVE_INDEX
+pkey pscr_nested 330 NAMED_SET_HELD
+pkey pscr_nested 331 NAMED_SET_TOPPLE_DIRECTION
+pkey pscr_nested 332 UNIT_MOVE_TOWARDS_NEAREST_OBJECT_TYPE
+pkey pscr_nested 333 TEAM_MOVE_TOWARDS_NEAREST_OBJECT_TYPE
+pkey pscr_nested 334 MAP_REVEAL_ALL_PERM
+pkey pscr_nested 335 MAP_REVEAL_ALL_UNDO_PERM
+pkey pscr_nested 336 NAMED_SET_REPULSOR
+pkey pscr_nested 337 TEAM_SET_REPULSOR
+pkey pscr_nested 338 TEAM_WANDER_IN_PLACE
+pkey pscr_nested 339 TEAM_INCREASE_PRIORITY
+pkey pscr_nested 340 TEAM_DECREASE_PRIORITY
+pkey pscr_nested 341 DISPLAY_COUNTER
+pkey pscr_nested 342 HIDE_COUNTER
+pkey pscr_nested 343 TEAM_USE_COMMANDBUTTON_ABILITY_ON_NAMED
+pkey pscr_nested 344 TEAM_USE_COMMANDBUTTON_ABILITY_AT_WAYPOINT
+pkey pscr_nested 345 NAMED_USE_COMMANDBUTTON_ABILITY
+pkey pscr_nested 346 TEAM_USE_COMMANDBUTTON_ABILITY
+pkey pscr_nested 347 NAMED_FLASH_WHITE
+pkey pscr_nested 348 TEAM_FLASH_WHITE
+pkey pscr_nested 349 SKIRMISH_BUILD_BUILDING
+pkey pscr_nested 350 SKIRMISH_FOLLOW_APPROACH_PATH
+pkey pscr_nested 351 IDLE_ALL_UNITS
+pkey pscr_nested 352 RESUME_SUPPLY_TRUCKING
+pkey pscr_nested 353 NAMED_CUSTOM_COLOR
+pkey pscr_nested 354 SKIRMISH_MOVE_TO_APPROACH_PATH
+pkey pscr_nested 355 SKIRMISH_BUILD_BASE_DEFENSE_FRONT
+pkey pscr_nested 356 SKIRMISH_FIRE_SPECIAL_POWER_AT_MOST_COST
+pkey pscr_nested 357 PLAYER_REPAIR_NAMED_STRUCTURE
+pkey pscr_nested 358 SKIRMISH_BUILD_BASE_DEFENSE_FLANK
+pkey pscr_nested 359 SKIRMISH_BUILD_STRUCTURE_FRONT
+pkey pscr_nested 360 SKIRMISH_BUILD_STRUCTURE_FLANK
+pkey pscr_nested 361 SKIRMISH_ATTACK_NEAREST_GROUP_WITH_VALUE
+pkey pscr_nested 362 SKIRMISH_PERFORM_COMMANDBUTTON_ON_MOST_VALUABLE_OBJECT
+pkey pscr_nested 363 SKIRMISH_WAIT_FOR_COMMANDBUTTON_AVAILABLE_ALL
+pkey pscr_nested 364 SKIRMISH_WAIT_FOR_COMMANDBUTTON_AVAILABLE_PARTIAL
+pkey pscr_nested 365 TEAM_SPIN_FOR_FRAMECOUNT
+pkey pscr_nested 366 TEAM_ALL_USE_COMMANDBUTTON_ON_NAMED
+pkey pscr_nested 367 TEAM_ALL_USE_COMMANDBUTTON_ON_NEAREST_ENEMY_UNIT
+pkey pscr_nested 368 TEAM_ALL_USE_COMMANDBUTTON_ON_NEAREST_GARRISONED_BUILDING
+pkey pscr_nested 369 TEAM_ALL_USE_COMMANDBUTTON_ON_NEAREST_KINDOF
+pkey pscr_nested 370 TEAM_ALL_USE_COMMANDBUTTON_ON_NEAREST_ENEMY_BUILDING
+pkey pscr_nested 371 TEAM_ALL_USE_COMMANDBUTTON_ON_NEAREST_ENEMY_BUILDING_CLASS
+pkey pscr_nested 372 TEAM_ALL_USE_COMMANDBUTTON_ON_NEAREST_OBJECTTYPE
+pkey pscr_nested 373 TEAM_PARTIAL_USE_COMMANDBUTTON
+pkey pscr_nested 374 TEAM_CAPTURE_NEAREST_UNOWNED_FACTION_UNIT
+pkey pscr_nested 375 PLAYER_CREATE_TEAM_FROM_CAPTURED_UNITS
+pkey pscr_nested 376 PLAYER_ADD_SKILLPOINTS
+pkey pscr_nested 377 PLAYER_ADD_RANKLEVEL
+pkey pscr_nested 378 PLAYER_SET_RANKLEVEL
+pkey pscr_nested 379 PLAYER_SET_RANKLEVELLIMIT
+pkey pscr_nested 380 PLAYER_GRANT_SCIENCE
+pkey pscr_nested 381 PLAYER_PURCHASE_SCIENCE
+pkey pscr_nested 382 TEAM_HUNT_WITH_COMMAND_BUTTON
+pkey pscr_nested 383 TEAM_WAIT_FOR_NOT_CONTAINED_ALL
+pkey pscr_nested 384 TEAM_WAIT_FOR_NOT_CONTAINED_PARTIAL
+pkey pscr_nested 385 TEAM_FOLLOW_WAYPOINTS_EXACT
+pkey pscr_nested 386 NAMED_FOLLOW_WAYPOINTS_EXACT
+pkey pscr_nested 387 TEAM_SET_EMOTICON
+pkey pscr_nested 388 NAMED_SET_EMOTICON
+pkey pscr_nested 389 AI_PLAYER_BUILD_SUPPLY_CENTER
+pkey pscr_nested 390 AI_PLAYER_BUILD_UPGRADE
+pkey pscr_nested 391 OBJECTLIST_ADDOBJECTTYPE
+pkey pscr_nested 392 OBJECTLIST_REMOVEOBJECTTYPE
+pkey pscr_nested 393 MAP_REVEAL_PERMANENTLY_AT_WAYPOINT
+pkey pscr_nested 394 MAP_UNDO_REVEAL_PERMANENTLY_AT_WAYPOINT
+pkey pscr_nested 395 NAMED_SET_STEALTH_ENABLED
+pkey pscr_nested 396 TEAM_SET_STEALTH_ENABLED
+pkey pscr_nested 397 EVA_SET_ENABLED_DISABLED
+pkey pscr_nested 398 OPTIONS_SET_OCCLUSION_MODE
+pkey pscr_nested 399 LOCALDEFEAT
+pkey pscr_nested 400 OPTIONS_SET_DRAWICON_UI_MODE
+pkey pscr_nested 401 OPTIONS_SET_PARTICLE_CAP_MODE
+pkey pscr_nested 402 PLAYER_SCIENCE_AVAILABILITY
+pkey pscr_nested 403 UNIT_AFFECT_OBJECT_PANEL_FLAGS
+pkey pscr_nested 404 TEAM_AFFECT_OBJECT_PANEL_FLAGS
+pkey pscr_nested 405 PLAYER_SELECT_SKILLSET
+pkey pscr_nested 406 SCRIPTING_OVERRIDE_HULK_LIFETIME
+pkey pscr_nested 407 NAMED_FACE_NAMED
+pkey pscr_nested 408 NAMED_FACE_WAYPOINT
+pkey pscr_nested 409 TEAM_FACE_NAMED
+pkey pscr_nested 410 TEAM_FACE_WAYPOINT
+pkey pscr_nested 411 COMMANDBAR_REMOVE_BUTTON_OBJECTTYPE
+pkey pscr_nested 412 COMMANDBAR_ADD_BUTTON_OBJECTTYPE_SLOT
+pkey pscr_nested 413 UNIT_SPAWN_NAMED_LOCATION_ORIENTATION
+pkey pscr_nested 414 PLAYER_AFFECT_RECEIVING_EXPERIENCE
+pkey pscr_nested 415 PLAYER_EXCLUDE_FROM_SCORE_SCREEN
+pkey pscr_nested 416 TEAM_GUARD_SUPPLY_CENTER
+pkey pscr_nested 417 ENABLE_SCORING
+pkey pscr_nested 418 DISABLE_SCORING
+pkey pscr_nested 419 SOUND_SET_VOLUME
+pkey pscr_nested 420 SPEECH_SET_VOLUME
+pkey pscr_nested 421 DISABLE_BORDER_SHROUD
+pkey pscr_nested 422 ENABLE_BORDER_SHROUD
+pkey pscr_nested 423 OBJECT_ALLOW_BONUSES
+pkey pscr_nested 424 SOUND_REMOVE_ALL_DISABLED
+pkey pscr_nested 425 SOUND_REMOVE_TYPE
+pkey pscr_nested 426 TEAM_GUARD_IN_TUNNEL_NETWORK
+pkey pscr_nested 427 QUICKVICTORY
+pkey pscr_nested 428 SET_INFANTRY_LIGHTING_OVERRIDE
+pkey pscr_nested 429 RESET_INFANTRY_LIGHTING_OVERRIDE
+pkey pscr_nested 430 TEAM_DELETE_LIVING
+pkey pscr_nested 431 RESIZE_VIEW_GUARDBAND
+pkey pscr_nested 432 DELETE_ALL_UNMANNED
+pkey pscr_nested 433 CHOOSE_VICTIM_ALWAYS_USES_NORMAL
+pkey pscr_nested 434 CAMERA_ENABLE_SLAVE_MODE
+pkey pscr_nested 435 CAMERA_DISABLE_SLAVE_MODE
+pkey pscr_nested 436 CAMERA_ADD_SHAKER_AT
+pkey pscr_nested 437 SET_TRAIN_HELD
+pkey pscr_nested 438 NAMED_SET_EVAC_LEFT_OR_RIGHT
+pkey pscr_nested 439 ENABLE_OBJECT_SOUND
+pkey pscr_nested 440 DISABLE_OBJECT_SOUND
+pkey pscr_nested 441 NAMED_USE_COMMANDBUTTON_ABILITY_USING_WAYPOINT_PATH
+pkey pscr_nested 442 NAMED_SET_UNMANNED_STATUS
+pkey pscr_nested 443 TEAM_SET_UNMANNED_STATUS
+pkey pscr_nested 444 NAMED_SET_BOOBYTRAPPED
+pkey pscr_nested 445 TEAM_SET_BOOBYTRAPPED
+pkey pscr_nested 446 SHOW_WEATHER
+pkey pscr_nested 447 AI_PLAYER_BUILD_TYPE_NEAREST_TEAM
+pstate pscr_nested 192 0 t
+file pscr_scope 436b4d700600000006536372697074010000000a5363726970744c697374020000000b4f72436f6e646974696f6e030000000b53637269707447726f7570040000000c4d7973746572794368756e6b0500000011506c61796572536372697074734c697374060000000600000005009100000001000000010013000000050053747261790000000000000101010101000200000001004600000001000000010014000000060053636f7065640000000000000101010101000200000001001e00000001000000010014000000060053636f7065640000000000000101010101000400000002001a00000005004f7574657201040000000200080000000500496e6e6572010300000001000000000005000000010009000000070067617262616765
+valid pscr_scope t
+walk pscr_scope t
+pn pscr_scope 1
+plist pscr_scope 0 1 0
+pscr pscr_scope L0.s0 Scoped - - - t t t t t f 0
+pkeyn pscr_scope 447
+pstate pscr_scope 289 0 t
+file pscr_leftovers 436b4d7005000000065363726970740100000009436f6e646974696f6e020000000b4f72436f6e646974696f6e030000000a5363726970744c6973740400000011506c61796572536372697074734c6973740500000005000000050080000000040000000100760000000100000002001e00000008004c6566746f76657200000000000001010101010003000000efbeadde01000000010044000000080057697468436f6e64000000000000010101010100030000000100240000000200000002001a00000004000000010000000000000005000000000000000000bebafeca
+valid pscr_leftovers t
+walk pscr_leftovers t
+pn pscr_leftovers 1
+plist pscr_leftovers 0 1 0
+pscr pscr_leftovers L0.s0 Leftover - - - t t t t t f 3
+pkeyn pscr_leftovers 447
+pstate pscr_leftovers 224 0 t
+file pscr_short 436b4d7005000000065363726970740100000009436f6e646974696f6e020000000b4f72436f6e646974696f6e030000000a5363726970744c6973740400000011506c61796572536372697074734c697374050000000500000005007a000000040000000100700000000100000002000e000000090053686f7274526561640100630000000001010101010001000000010044000000090053686f7274436f6e640000000000000101010101000300000001002300000002000000020011000000040000000100000000000000050000000000803f0300637574
+valid pscr_short t
+walk pscr_short t
+pn pscr_short 1
+plist pscr_short 0 1 0
+pscr pscr_short L0.s0 ShortRead c - - t t t t t f 1
+pkeyn pscr_short 447
+pstate pscr_short 218 0 t
+file pscr_none 436b4d70010000000a5363726970744c6973740100000001000000010000000000
+valid pscr_none t
+walk pscr_none t
+pnone pscr_none
+pkeyn pscr_none 447
+pstate pscr_none 33 1 t
+file pscr_unregistered 436b4d700300000006536372697074010000000a5363726970744c6973740200000011506c61796572536372697074734c69737403000000030000000500290000000200000001001f0000000100000001001500000007004e6f7468696e67000000000000010101010100
+valid pscr_unregistered t
+walk pscr_unregistered t
+pnone pscr_unregistered
+pkeyn pscr_unregistered 447
+pstate pscr_unregistered 107 0 t
+file pscr_badmagic 0c004a554e4b4a554e4b4a554e4b01000000
+valid pscr_badmagic f
+walk pscr_badmagic f
+perr pscr_badmagic corrupt
+pkeyn pscr_badmagic 447
+pstate pscr_badmagic 4 0 f
+file pscr_truncfile 436b4d700300000006536372697074010000000a5363726970744c6973740200000011506c61796572536372697074734c6973740300000003000000050041000000020000000100370000000100000002002d00000005005472756e631600626f647920746861742077696c6c206e6f7420666974
+valid pscr_truncfile t
+walk pscr_truncfile t
+pn pscr_truncfile 1
+plist pscr_truncfile 0 1 0
+pscr pscr_truncfile L0.s0 Trunc <626f647920746861742077696c6c206e6f7420666974> - - f f f f f f 0
+pkeyn pscr_truncfile 447
+pstate pscr_truncfile 117 0 t
+file pscr_negcount 436b4d700600000009436f6e646974696f6e010000000b4f72436f6e646974696f6e020000000c536372697074416374696f6e0300000006536372697074040000000a5363726970744c6973740500000011506c61796572536372697074734c69737406000000060000000500580000000500000001004e0000000400000001004400000008004e6567436f756e74000000000000010101010100020000000100120000000100000002000800000001000000fdffffff0300000001000800000001000000ffffffff
+valid pscr_negcount t
+walk pscr_negcount t
+pn pscr_negcount 1
+plist pscr_negcount 0 1 0
+pscr pscr_negcount L0.s0 NegCount - - - t t t t t f 0
+pcond pscr_negcount L0.s0.o0.c0 0 0
+pact pscr_negcount L0.s0.a0 t 5 0
+pkeyn pscr_negcount 447
+pstate pscr_negcount 201 0 t

@@ -442,6 +442,7 @@ criterion_group!(
     mapworldinfo_benches::bench_parse,
     mappolygons_benches::bench_parse,
     mapsides_benches::bench_parse,
+    mapscripts_benches::bench_parse,
     wnd_benches::bench_parse,
     font_benches::bench_parse
 );
@@ -3022,6 +3023,504 @@ mod mapsides_benches {
                     .expect("loads")
                     .expect("fired");
                 black_box(checksum(&data, &keys))
+            })
+        });
+        group.finish();
+    }
+}
+
+// ---------------------------------------------------------------------------
+// mapscripts: the script-engine load path (Scripts.cpp)
+// ---------------------------------------------------------------------------
+
+mod mapscripts_benches {
+    use super::*;
+    use rzh_formats::map_scripts::{
+        AT_DEBUG_STRING, AT_MOVE_CAMERA_TO, AT_SET_FLAG, AT_SET_TREE_SWAY, CT_COUNTER,
+        CT_SKIRMISH_SPECIAL_POWER_READY, CT_TIMER_EXPIRED, CT_UNIT_HEALTH,
+        K_SCRIPTS_DATA_VERSION_1, PT_COMPARISON, PT_COORD3D, PT_COUNTER, PT_FLAG, PT_INT,
+        PT_KIND_OF_PARAM, PT_OBJECT_STATUS, PT_REAL, PT_SPECIAL_POWER, PT_TEXT_STRING, PT_UNIT,
+        ParameterData, PlayerScriptsData, ScriptData,
+    };
+
+    /// The bench corpus repetition: 70 PlayerScriptsList chunks
+    /// ≈ 190 KiB (matches the C++ baseline).
+    const BENCH_PSL: usize = 70;
+
+    /// The corpus checksum the C++ baseline computes over the same
+    /// fields (bench_wrap_mapscripts.cpp, verified at authoring time).
+    const CHECKSUM: u64 = 1950;
+
+    fn put_i32(b: &mut Vec<u8>, v: i32) {
+        b.extend_from_slice(&v.to_le_bytes());
+    }
+    fn put_f32(b: &mut Vec<u8>, v: f32) {
+        b.extend_from_slice(&v.to_le_bytes());
+    }
+    fn put_str(b: &mut Vec<u8>, s: &str) {
+        b.extend_from_slice(&(s.len() as u16).to_le_bytes());
+        b.extend_from_slice(s.as_bytes());
+    }
+    fn put_chunk(b: &mut Vec<u8>, id: u32, ver: u16, data: &[u8]) {
+        b.extend_from_slice(&id.to_le_bytes());
+        b.extend_from_slice(&ver.to_le_bytes());
+        b.extend_from_slice(&(data.len() as i32).to_le_bytes());
+        b.extend_from_slice(data);
+    }
+    /// The corpus TOC: labels interned to ids in first-use order (the
+    /// generator's `TocB`).
+    struct TocB {
+        entries: Vec<(&'static [u8], u32)>,
+    }
+    impl TocB {
+        fn new() -> Self {
+            TocB {
+                entries: Vec::new(),
+            }
+        }
+        fn id(&mut self, label: &'static [u8]) -> u32 {
+            if let Some(&(_, id)) = self.entries.iter().find(|(l, _)| *l == label) {
+                return id;
+            }
+            let id = self.entries.len() as u32 + 1;
+            self.entries.push((label, id));
+            id
+        }
+        fn toc_bytes(&self) -> Vec<u8> {
+            let mut b = Vec::new();
+            b.extend_from_slice(b"CkMp");
+            b.extend_from_slice(&(self.entries.len() as i32).to_le_bytes());
+            for (name, id) in &self.entries {
+                b.push(name.len() as u8);
+                b.extend_from_slice(name);
+                b.extend_from_slice(&id.to_le_bytes());
+            }
+            b
+        }
+    }
+    fn put_parm(b: &mut Vec<u8>, ty: i32, iv: i32, rv: f32, sv: &str) {
+        put_i32(b, ty);
+        put_i32(b, iv);
+        put_f32(b, rv);
+        put_str(b, sv);
+    }
+    fn put_parm_coord(b: &mut Vec<u8>, x: f32, y: f32, z: f32) {
+        put_i32(b, PT_COORD3D);
+        put_f32(b, x);
+        put_f32(b, y);
+        put_f32(b, z);
+    }
+    fn put_cond_head(b: &mut Vec<u8>, ty: i32, key_id: u32, nparms: i32) {
+        put_i32(b, ty);
+        if key_id > 0 {
+            put_i32(b, ((key_id << 8) | 3) as i32);
+        }
+        put_i32(b, nparms);
+    }
+    fn put_key_word(b: &mut Vec<u8>, word: i32) {
+        put_i32(b, word);
+    }
+    fn put_script_head(
+        b: &mut Vec<u8>,
+        name: &str,
+        comment: &str,
+        active: u8,
+        oneshot: u8,
+        sub: u8,
+        delay: Option<i32>,
+    ) {
+        put_str(b, name);
+        put_str(b, comment);
+        put_str(b, "");
+        put_str(b, "");
+        b.push(active);
+        b.push(oneshot);
+        b.push(1);
+        b.push(1);
+        b.push(1);
+        b.push(sub);
+        if let Some(d) = delay {
+            put_i32(b, d);
+        }
+    }
+
+    /// Builds the corpus: 70 PlayerScriptsList chunks, each with three
+    /// script lists — keep in lockstep with
+    /// tools/differential/bench_wrap_mapscripts.cpp.
+    fn build_corpus() -> Vec<u8> {
+        let mut toc = TocB::new();
+        let mut chunks = Vec::new();
+
+        for c in 0..BENCH_PSL {
+            let mut psl = Vec::new();
+
+            // list A: four flat scripts
+            let mut list_a = Vec::new();
+            for k in 0..4usize {
+                let name = format!("Scr{c}_{k}");
+                let comment = format!("Comment{k}");
+                let delay = (c * 4 + k) as i32;
+
+                // two or-clauses, each with three conditions
+                let mut ors = Vec::new();
+                for o in 0..2usize {
+                    let mut conds = Vec::new();
+                    // a straight match
+                    {
+                        let mut cond = Vec::new();
+                        put_cond_head(&mut cond, CT_TIMER_EXPIRED, toc.id(b"TIMER_EXPIRED"), 1);
+                        put_parm(&mut cond, PT_INT, (c * 10 + k) as i32, 0.0, "");
+                        put_chunk(
+                            &mut conds,
+                            toc.id(b"Condition"),
+                            rzh_formats::map_scripts::K_SCRIPT_CONDITION_VERSION_4,
+                            &cond,
+                        );
+                    }
+                    // a rematch by name (UNIT_HEALTH keyed FLAG)
+                    {
+                        let mut cond = Vec::new();
+                        put_cond_head(&mut cond, CT_UNIT_HEALTH, toc.id(b"FLAG"), 2);
+                        put_parm(&mut cond, PT_UNIT, 0, 0.0, &format!("Unit{c}_{k}"));
+                        put_parm(&mut cond, PT_COMPARISON, ((k + o) % 6) as i32, 0.0, "");
+                        put_chunk(
+                            &mut conds,
+                            toc.id(b"Condition"),
+                            rzh_formats::map_scripts::K_SCRIPT_CONDITION_VERSION_4,
+                            &cond,
+                        );
+                    }
+                    // a count mismatch (COUNTER with 2 parms)
+                    {
+                        let mut cond = Vec::new();
+                        put_cond_head(&mut cond, CT_COUNTER, 0, 2);
+                        put_parm(&mut cond, PT_COUNTER, 0, 0.0, "Cnt");
+                        put_parm(&mut cond, PT_INT, 5, 0.0, "");
+                        put_chunk(
+                            &mut conds,
+                            toc.id(b"Condition"),
+                            rzh_formats::map_scripts::K_SCRIPT_CONDITION_VERSION_4,
+                            &cond,
+                        );
+                    }
+                    put_chunk(
+                        &mut ors,
+                        toc.id(b"OrCondition"),
+                        rzh_formats::map_scripts::K_SCRIPT_OR_CONDITION_DATA_VERSION_1,
+                        &conds,
+                    );
+                }
+
+                // the THEN list: three actions
+                let mut acts = Vec::new();
+                {
+                    let mut a = Vec::new();
+                    put_i32(&mut a, AT_SET_FLAG);
+                    put_key_word(&mut a, ((toc.id(b"SET_FLAG") << 8) | 3) as i32);
+                    put_i32(&mut a, 2);
+                    put_parm(&mut a, PT_FLAG, 0, 0.0, &format!("Flag{c}_{k}"));
+                    put_parm(
+                        &mut a,
+                        rzh_formats::map_scripts::PT_BOOLEAN,
+                        (k & 1) as i32,
+                        0.0,
+                        "",
+                    );
+                    put_chunk(
+                        &mut acts,
+                        toc.id(b"ScriptAction"),
+                        rzh_formats::map_scripts::K_SCRIPT_ACTION_VERSION_2,
+                        &a,
+                    );
+                }
+                {
+                    // a rematch that lands on a mismatched count → NO_OP
+                    let mut a = Vec::new();
+                    put_i32(&mut a, AT_MOVE_CAMERA_TO);
+                    put_key_word(&mut a, ((toc.id(b"SET_COUNTER") << 8) | 3) as i32);
+                    put_i32(&mut a, 2);
+                    put_parm(&mut a, PT_COUNTER, 0, 0.0, "Cnt");
+                    put_parm(&mut a, PT_INT, 9, 0.0, "");
+                    put_chunk(
+                        &mut acts,
+                        toc.id(b"ScriptAction"),
+                        rzh_formats::map_scripts::K_SCRIPT_ACTION_VERSION_2,
+                        &a,
+                    );
+                }
+                {
+                    // five parms (SET_TREE_SWAY): the kindof and
+                    // object-status rewrites exercised
+                    let mut a = Vec::new();
+                    put_i32(&mut a, AT_SET_TREE_SWAY);
+                    put_key_word(&mut a, ((toc.id(b"SET_TREE_SWAY") << 8) | 3) as i32);
+                    put_i32(&mut a, 5);
+                    put_parm_coord(&mut a, (c + k) as f32, (k * 2) as f32, 0.0);
+                    put_parm(
+                        &mut a,
+                        PT_KIND_OF_PARAM,
+                        0,
+                        0.0,
+                        if k & 1 == 1 { "OBSTACLE" } else { "PARACHUTE" },
+                    );
+                    put_parm(
+                        &mut a,
+                        PT_OBJECT_STATUS,
+                        0,
+                        0.0,
+                        if k & 1 == 1 { "DESTROYED" } else { "NONE" },
+                    );
+                    put_parm(&mut a, PT_INT, c as i32, 0.0, "");
+                    put_parm(&mut a, PT_REAL, 0, (k % 5) as f32 * 0.5, "");
+                    put_chunk(
+                        &mut acts,
+                        toc.id(b"ScriptAction"),
+                        rzh_formats::map_scripts::K_SCRIPT_ACTION_VERSION_2,
+                        &a,
+                    );
+                }
+                // the ELSE list: one action
+                let mut fact = Vec::new();
+                {
+                    let mut a = Vec::new();
+                    put_i32(&mut a, AT_DEBUG_STRING);
+                    put_key_word(&mut a, ((toc.id(b"DEBUG_STRING") << 8) | 3) as i32);
+                    put_i32(&mut a, 1);
+                    put_parm(&mut a, PT_TEXT_STRING, 0, 0.0, &format!("Else{c}_{k}"));
+                    put_chunk(
+                        &mut fact,
+                        toc.id(b"ScriptActionFalse"),
+                        rzh_formats::map_scripts::K_SCRIPT_ACTION_VERSION_2,
+                        &a,
+                    );
+                }
+
+                let mut s = Vec::new();
+                put_script_head(&mut s, &name, &comment, (k & 1) as u8, 1, 0, Some(delay));
+                chunks_extend(&mut s, &ors);
+                chunks_extend(&mut s, &acts);
+                chunks_extend(&mut s, &fact);
+                put_chunk(
+                    &mut list_a,
+                    toc.id(b"Script"),
+                    rzh_formats::map_scripts::K_SCRIPT_DATA_VERSION_2,
+                    &s,
+                );
+            }
+
+            // list B: two scripts and a two-script group
+            let mut list_b = Vec::new();
+            for k in 0..2usize {
+                let mut s = Vec::new();
+                put_script_head(&mut s, &format!("BS{c}_{k}"), "", 1, 1, k as u8, None);
+                put_chunk(
+                    &mut list_b,
+                    toc.id(b"Script"),
+                    rzh_formats::map_scripts::K_SCRIPT_DATA_VERSION_1,
+                    &s,
+                );
+            }
+            {
+                let mut grp = Vec::new();
+                put_str(&mut grp, &format!("Grp{c}"));
+                grp.push(1);
+                grp.push((c & 1) as u8);
+                for k in 0..2usize {
+                    let mut s = Vec::new();
+                    put_script_head(&mut s, &format!("GS{c}_{k}"), "", 1, 0, 0, None);
+                    put_chunk(
+                        &mut grp,
+                        toc.id(b"Script"),
+                        rzh_formats::map_scripts::K_SCRIPT_DATA_VERSION_1,
+                        &s,
+                    );
+                }
+                put_chunk(
+                    &mut list_b,
+                    toc.id(b"ScriptGroup"),
+                    rzh_formats::map_scripts::K_SCRIPT_GROUP_DATA_VERSION_2,
+                    &grp,
+                );
+            }
+
+            // list C: one special-power script whose heal fires
+            let mut list_c = Vec::new();
+            {
+                let mut cond = Vec::new();
+                put_cond_head(&mut cond, CT_SKIRMISH_SPECIAL_POWER_READY, 0, 1);
+                put_parm(&mut cond, PT_SPECIAL_POWER, 0, 0.0, "SuperWeaponNuke");
+                let mut conds = Vec::new();
+                put_chunk(
+                    &mut conds,
+                    toc.id(b"Condition"),
+                    rzh_formats::map_scripts::K_SCRIPT_CONDITION_VERSION_2,
+                    &cond,
+                );
+                let mut orc = Vec::new();
+                chunks_extend(&mut orc, &conds);
+                let mut orcch = Vec::new();
+                put_chunk(
+                    &mut orcch,
+                    toc.id(b"OrCondition"),
+                    rzh_formats::map_scripts::K_SCRIPT_OR_CONDITION_DATA_VERSION_1,
+                    &orc,
+                );
+                let mut s = Vec::new();
+                put_script_head(&mut s, "SP", "", 1, 1, 0, None);
+                chunks_extend(&mut s, &orcch);
+                put_chunk(
+                    &mut list_c,
+                    toc.id(b"Script"),
+                    rzh_formats::map_scripts::K_SCRIPT_DATA_VERSION_1,
+                    &s,
+                );
+            }
+
+            put_chunk(
+                &mut psl,
+                toc.id(b"ScriptList"),
+                rzh_formats::map_scripts::K_SCRIPT_LIST_DATA_VERSION_1,
+                &list_a,
+            );
+            put_chunk(
+                &mut psl,
+                toc.id(b"ScriptList"),
+                rzh_formats::map_scripts::K_SCRIPT_LIST_DATA_VERSION_1,
+                &list_b,
+            );
+            put_chunk(
+                &mut psl,
+                toc.id(b"ScriptList"),
+                rzh_formats::map_scripts::K_SCRIPT_LIST_DATA_VERSION_1,
+                &list_c,
+            );
+            put_chunk(
+                &mut chunks,
+                toc.id(b"PlayerScriptsList"),
+                K_SCRIPTS_DATA_VERSION_1,
+                &psl,
+            );
+        }
+
+        let mut file = toc.toc_bytes();
+        file.extend_from_slice(&chunks);
+        file
+    }
+
+    /// (a tiny helper: the C++ put_bytes)
+    fn chunks_extend(dst: &mut Vec<u8>, src: &[u8]) {
+        dst.extend_from_slice(src);
+    }
+
+    /// The final-state checksum over the payload's observable fields
+    /// (the same fields the C++ baseline sums).
+    fn parm_checksum(p: &ParameterData) -> u64 {
+        let mut sum = (p.param_type as u32 as u64)
+            .wrapping_add(p.int_value as u32 as u64)
+            .wrapping_add(p.real_value.to_bits() as u64)
+            .wrapping_add(p.string_value.len() as u64);
+        for &c in &p.string_value {
+            sum = sum.wrapping_add(c as u64);
+        }
+        sum = sum
+            .wrapping_add(p.coord.x.to_bits() as u64)
+            .wrapping_add(p.coord.y.to_bits() as u64)
+            .wrapping_add(p.coord.z.to_bits() as u64)
+            .wrapping_add(p.object_status);
+        sum
+    }
+
+    fn parm_list_checksum(params: &[Option<ParameterData>]) -> u64 {
+        let mut sum = params.len() as u64;
+        for p in params {
+            sum = sum.wrapping_add(match p {
+                Some(p) => parm_checksum(p),
+                None => 0x9999,
+            });
+        }
+        sum
+    }
+
+    fn script_checksum(s: &ScriptData) -> u64 {
+        let mut sum =
+            (s.name.len() + s.comment.len() + s.condition_comment.len() + s.action_comment.len())
+                as u64;
+        for str in [&s.name, &s.comment, &s.condition_comment, &s.action_comment] {
+            for &c in str {
+                sum = sum.wrapping_add(c as u64);
+            }
+        }
+        sum = sum
+            .wrapping_add(u64::from(s.is_active))
+            .wrapping_add(u64::from(s.is_one_shot) * 2)
+            .wrapping_add(u64::from(s.easy) * 4)
+            .wrapping_add(u64::from(s.normal) * 8)
+            .wrapping_add(u64::from(s.hard) * 16)
+            .wrapping_add(u64::from(s.is_subroutine) * 32)
+            .wrapping_add(s.delay_evaluation_seconds as u32 as u64);
+        for or in &s.or_conditions {
+            sum = sum.wrapping_add(or.and_conditions.len() as u64);
+            for cond in &or.and_conditions {
+                sum = sum.wrapping_add(cond.condition_type as u32 as u64);
+                sum = sum.wrapping_add(parm_list_checksum(&cond.params));
+            }
+        }
+        for chain in [&s.actions, &s.false_actions] {
+            for act in chain {
+                sum = sum.wrapping_add(act.action_type as u32 as u64);
+                sum = sum.wrapping_add(parm_list_checksum(&act.params));
+            }
+        }
+        sum
+    }
+
+    fn checksum(data: &PlayerScriptsData) -> u64 {
+        let mut checksum = data.lists.len() as u64;
+        for list in &data.lists {
+            checksum = checksum
+                .wrapping_add(list.scripts.len() as u64)
+                .wrapping_add(list.groups.len() as u64);
+            for script in &list.scripts {
+                checksum = checksum.wrapping_add(script_checksum(script));
+            }
+            for group in &list.groups {
+                checksum = checksum.wrapping_add(group.name.len() as u64);
+                for &c in &group.name {
+                    checksum = checksum.wrapping_add(c as u64);
+                }
+                checksum = checksum
+                    .wrapping_add(u64::from(group.is_active))
+                    .wrapping_add(u64::from(group.is_subroutine) * 2)
+                    .wrapping_add(group.scripts.len() as u64);
+                for script in &group.scripts {
+                    checksum = checksum.wrapping_add(script_checksum(script));
+                }
+            }
+        }
+        checksum
+    }
+
+    /// The scripts load: the root walk over the repeated-chunk corpus
+    /// (every chunk parses — the statics' clear makes the last one
+    /// win).
+    pub fn bench_parse(c: &mut Criterion) {
+        let bytes = build_corpus();
+        let data = PlayerScriptsData::from_map(&bytes)
+            .expect("loads")
+            .expect("fired");
+        let got = checksum(&data);
+        assert_eq!(
+            got, CHECKSUM,
+            "the scripts corpus drifted from the C++ baseline"
+        );
+        let mut group = c.benchmark_group("mapscripts");
+        group.throughput(Throughput::Bytes(bytes.len() as u64));
+        group.bench_function("parse_x190k", |b| {
+            b.iter(|| {
+                let data = PlayerScriptsData::from_map(black_box(&bytes))
+                    .expect("loads")
+                    .expect("fired");
+                black_box(checksum(&data))
             })
         });
         group.finish();

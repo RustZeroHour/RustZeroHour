@@ -146,6 +146,8 @@ long bench_mappolygons_materialize(uint8_t *out, size_t cap);
 std::uint64_t bench_mappolygons_parse(const uint8_t *data, size_t len);
 long bench_mapsides_materialize(uint8_t *out, size_t cap);
 std::uint64_t bench_mapsides_parse(const uint8_t *data, size_t len);
+long bench_mapscripts_materialize(uint8_t *out, size_t cap);
+std::uint64_t bench_mapscripts_parse(const uint8_t *data, size_t len);
 long bench_wnd_materialize(uint8_t *out, size_t cap);
 std::uint64_t bench_wnd_parse(const uint8_t *data, size_t len);
 long bench_font_materialize(uint8_t *out, size_t cap);
@@ -832,6 +834,22 @@ int main(int argc, char **argv)
 
                 report("mapsides/parse_x190k", measure_ns([] {}, [&] {
                         return bench_mapsides_parse(bytes.data(), bytes.size());
+                }), (double)total);
+        }
+
+        // --- script-engine load path ---------------------------------------------------
+        {
+                std::vector<uint8_t> scratch(4 * 1024 * 1024);
+                long total = bench_mapscripts_materialize(scratch.data(), scratch.size());
+                if (total <= 0)
+                {
+                        fprintf(stderr, "error: mapscripts corpus write failed\n");
+                        exit(1);
+                }
+                std::vector<uint8_t> bytes(scratch.begin(), scratch.begin() + total);
+
+                report("mapscripts/parse_x190k", measure_ns([] {}, [&] {
+                        return bench_mapscripts_parse(bytes.data(), bytes.size());
                 }), (double)total);
         }
 

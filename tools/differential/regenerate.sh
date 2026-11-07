@@ -402,6 +402,22 @@ echo "compiling gen_mapsides_golden.cpp ..."
 "$BUILD_DIR/gen_mapsides_golden" "$REPO_ROOT/crates/rzh-formats/tests/golden/mapsides.txt"
 echo "wrote crates/rzh-formats/tests/golden/mapsides.txt"
 
+# --- script-engine load-path golden dump: the Scripts.cpp
+# PlayerScriptsList transcription (ScriptList::ParseScriptsDataChunk,
+# the per-player lists, the groups, the scripts, the or-chains of
+# and-conditions with the version-4 name-key rematches and the v1
+# heal, the THEN/ELSE action lists with the whole heal switch, and
+# every parameter read with its rewrites — over the template registry
+# ScriptEngine::init() builds) over the version/validation/heal/
+# rematch/kindof/status/rename/oob/bound/scope/error/walk corpora.
+echo "compiling gen_mapscripts_golden.cpp ..."
+"$CXX" -O2 -std=c++17 -Wall -Wextra -Werror -ffp-contract=off \
+    -c -o "$BUILD_DIR/gen_mapscripts_golden.o" "$SCRIPT_DIR/gen_mapscripts_golden.cpp"
+"$CXX" -o "$BUILD_DIR/gen_mapscripts_golden" \
+    "$BUILD_DIR/gen_mapscripts_golden.o"
+"$BUILD_DIR/gen_mapscripts_golden" "$REPO_ROOT/crates/rzh-formats/tests/golden/mapscripts.txt"
+echo "wrote crates/rzh-formats/tests/golden/mapscripts.txt"
+
 # --- wnd golden dump: the GameWindowManagerScript.cpp window-layout
 # load-path transcription (winCreateFromScript with the layout block,
 # the default blocks, parseWindow's field walk, the child blocks, the

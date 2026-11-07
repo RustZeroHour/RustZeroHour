@@ -631,6 +631,68 @@ is now specified in [`docs/TRACE_FORMAT_V1.md`](TRACE_FORMAT_V1.md).
   pinned per corpus; the `font` bench is within budget (0.23x — the
   port's dedicated conversion loops run away from the transcription's
   per-pixel dispatch, docs/benchmarks.md).
+- the **script-engine load path** — the twenty-first slice, the
+  nested `PlayerScriptsList` the map's sides list hands off to (and
+  the standalone `.scb` root registration): the whole `Scripts.cpp`
+  reader tree — `ScriptList::ParseScriptsDataChunk` (the statics'
+  leftover clear between loads, the `TScriptListReadInfo` hand-out),
+  `ParseScriptListDataChunk` (the 16-list bound whose 17th-list
+  refusal is the only false path in the parser tree),
+  `ScriptGroup::ParseGroupDataChunk` (the exact version-2 equality
+  for the subroutine byte — a version-3 group reads like a version
+  1), `Script::ParseScript` (the four strings, six flag bytes, the
+  version-2 delay word), the or-chains of and-conditions with the
+  version-4 name-key rematch (the repair-by-name rescan, the
+  `CONDITION_FALSE` fallback, the out-of-range clamp to template 0
+  that lets a raw out-of-range type with a matching count survive),
+  the version-1 `ParameterChangesVer2` append heal (the seven area
+  conditions' forced third `SURFACES_ALLOWED` parameter, appended at
+  the loaded count so its null tails show), the
+  `SKIRMISH_SPECIAL_POWER_READY` SIDE prepend, the THEN/ELSE action
+  lists with the version-2 rematch and the whole heal switch (the
+  special-power SIDE prepends, `TEAM_FOLLOW_WAYPOINTS`' BOOLEAN
+  append, the FRONT/FLANK flank switch, the attitude re-type to
+  `AI_MOOD`, the map-reveal SIDE appends, `SPEECH_PLAY`'s BOOLEAN,
+  the camera `PERCENT`/`REAL` pads and
+  `CAMERA_LOOK_TOWARD_WAYPOINT`'s two shapes), the template count
+  checks (`CONDITION_FALSE`/`NO_OP` on mismatch), and
+  `Parameter::ReadParameter` (the `COORD3D` three-real shape, the
+  `Fundamentalist`→`GLA` rename with the `strlcat` 255-byte
+  truncation, the obsolete capture-upgrade rename trio, the
+  `OBJECT_STATUS` name-to-bit heal with the `"NONE"` bit-0 quirk
+  into the 45-bit mask, and the `KIND_OF_PARAM` table walk — the
+  `CRUSHER`/`CRUSHABLE`/`OVERLAPPABLE` legacy remaps to the OBSTACLE
+  index, and the `MISSILE` split whose re-compare tests the
+  already-rewritten string so the int lands on 0 first and the outer
+  loop's continuation overwrites it with the real `SMALL_MISSILE`
+  index) — over the template registry `ScriptEngine::init()` builds
+  (the internal names and declared parameter counts of all 109
+  conditions and 344 actions, the six defunct conditions and one
+  defunct action keeping the empty internal name — the key an
+  unknown name-key id resolves to, so such a key rematches to
+  `OBSOLETE_SCRIPT_1` — and the closing name-key interning loops),
+  with the tables generated from the C++ sources so the
+  transcription and the port cannot drift — is transcribed in
+  `tools/differential/gen_mapscripts_golden.cpp` and ported as
+  `rzh-formats::map_scripts`. The goldens pin 34 script corpora: the
+  registry dump and the 447-name interning table, the version
+  families, the raw parameter shapes (the out-of-range type words,
+  the embedded NUL), the rematch family (the repair, the fallbacks,
+  the empty-name key rematching to the defunct templates, the
+  raw-type survivors), the heal families, the kindof table walk and
+  its throw, the object-status bits, the string rewrites, the
+  out-of-bounds verdict family (the 13th parameter store, the heal
+  append at count 12 and negative, the kindof normalization index),
+  the 16-list bound and its refusal, the repeated-chunk last-wins
+  clear, the map-context nested registration with its root-scope
+  skip, the scoping skips, the leftovers, the short and truncated
+  files, the negative counts and the walk refusals; the `mapscripts`
+  bench is within budget (0.82x — the port's flat parser-table
+  match and `Vec`-backed parameter lists run away from the
+  transcription's per-chunk heap churn, docs/benchmarks.md). The
+  script engine's runtime (the conditions' and actions' execution,
+  the sequential scripts, the teams) is Phase 3 WP7's, building on
+  this load path.
 - `rzh-ini`: lexer/parser (includes, `#define` macros, inheritance/reskin, load order) and a
   **derive-based schema layer** replacing the 195 hand-written `FieldParse` tables. Keep it
   format-agnostic so the data format can change later (ADR-003).
@@ -638,14 +700,17 @@ is now specified in [`docs/TRACE_FORMAT_V1.md`](TRACE_FORMAT_V1.md).
   (the DataChunk framing container **done**; the payload family
   **complete** — the height-map, blend-tile, global-lighting,
   objects-list, world-info, polygon-triggers and sides-list payloads
-  all **done**, the nested `PlayerScriptsList` being the script-engine
-  slice's), W3D (meshes **done**, skeletons **done**, raw animations
-  **done**, compressed animations **done**, HLOD **done**) **on top of
-  the ported chunk container**, TGA/DDS (**both done**), CSF string
-  tables (**done**), WND layouts (**done**), fonts (**done** — the
-  `font3d.cpp` strike/grid loader over the surface stack, the D3DX
-  load model and the instance/cache layers, quirks pinned by 28 golden
-  corpora). The **audio containers** item resolves to nothing
+  all **done**, and the nested `PlayerScriptsList` — the script-engine
+  load path with the whole heal and rematch families over the
+  `ScriptEngine::init()` template registry — **done** as the
+  twenty-first slice, the first script-engine territory), W3D (meshes
+  **done**, skeletons **done**, raw animations **done**, compressed
+  animations **done**, HLOD **done**) **on top of the ported chunk
+  container**, TGA/DDS (**both done**), CSF string tables (**done**),
+  WND layouts (**done**), fonts (**done** — the `font3d.cpp`
+  strike/grid loader over the surface stack, the D3DX load model and
+  the instance/cache layers, quirks pinned by 28 golden corpora). The
+  **audio containers** item resolves to nothing
   transcribable: the original has no audio-container parsing of its
   own (every consumer — the game, `WWAudio`'s `SoundBuffer`, the
   Babylon verifier — delegates to the proprietary Miles Sound System's
@@ -680,6 +745,9 @@ Work packages, in order. Develop by **vertical slices**, not by subsystem:
    command sets.
 6. **AI:** state machines, AI groups, skirmish AI players and build lists.
 7. **Script engine** (~24K lines): conditions, actions, sequential scripts, teams, triggers.
+   The **load path is already ported** (`rzh-formats::map_scripts`, the twenty-first Phase 2
+   slice — the nested `PlayerScriptsList` with the template registry and every heal); this
+   package is the runtime.
 8. **Snapshots, save/load, replays:** new versioned format via `serde` (ADR-010). Snapshots double
    as desync-debugging and state-hashing tools.
 

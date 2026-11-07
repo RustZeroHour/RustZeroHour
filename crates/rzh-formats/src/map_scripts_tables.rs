@@ -1,0 +1,1700 @@
+// The script-engine template registry and the enum values, generated
+// from the Zero Hour sources (ScriptEngine::init()'s assignments,
+// Scripts.h's enums, KindOf.cpp's and ObjectStatusTypes.cpp's bit-name
+// lists — the Zero Hour build: ALLOW_SURRENDER and RTS_GENERALS both
+// off) by this slice's extraction scripts, so the port and the golden
+// generator's transcription cannot drift. The six conditions and one
+// action `init()` never assigns keep the `Template` constructor's
+// defaults — the empty internal name (all of them intern the empty
+// string once, which is also the key an unknown name-key id resolves
+// to) and zero parameters.
+
+// The template registry, generated from ScriptEngine::init()'s
+// assignments (ScriptEngine.cpp) by the slice's extraction script —
+// the same JSON feeds the golden generator's tables, so the two
+// cannot drift. Entries with the empty internal name are the enum
+// values init() never assigns (their templates keep the `Template`
+// ctor defaults: internal name `""`, zero parameters — the name-key
+// loop interns the empty string once for all of them).
+
+/// Every condition's internal name (`m_internalName`), in
+/// `ConditionType` order — the defunct entries (the six `init()` never
+/// assigns) carry the empty string.
+pub const CONDITION_TEMPLATE_NAMES: [&str; 109] = [
+    "CONDITION_FALSE",
+    "COUNTER",
+    "FLAG",
+    "CONDITION_TRUE",
+    "TIMER_EXPIRED",
+    "PLAYER_ALL_DESTROYED",
+    "PLAYER_ALL_BUILDFACILITIES_DESTROYED",
+    "TEAM_INSIDE_AREA_PARTIALLY",
+    "TEAM_DESTROYED",
+    "CAMERA_MOVEMENT_FINISHED",
+    "TEAM_HAS_UNITS",
+    "TEAM_STATE_IS",
+    "TEAM_STATE_IS_NOT",
+    "NAMED_INSIDE_AREA",
+    "NAMED_OUTSIDE_AREA",
+    "NAMED_DESTROYED",
+    "NAMED_NOT_DESTROYED",
+    "TEAM_INSIDE_AREA_ENTIRELY",
+    "TEAM_OUTSIDE_AREA_ENTIRELY",
+    "NAMED_ATTACKED_BY_OBJECTTYPE",
+    "TEAM_ATTACKED_BY_OBJECTTYPE",
+    "NAMED_ATTACKED_BY_PLAYER",
+    "TEAM_ATTACKED_BY_PLAYER",
+    "BUILT_BY_PLAYER",
+    "NAMED_CREATED",
+    "TEAM_CREATED",
+    "PLAYER_HAS_CREDITS",
+    "NAMED_DISCOVERED",
+    "TEAM_DISCOVERED",
+    "MISSION_ATTEMPTS",
+    "NAMED_OWNED_BY_PLAYER",
+    "TEAM_OWNED_BY_PLAYER",
+    "PLAYER_HAS_N_OR_FEWER_BUILDINGS",
+    "PLAYER_HAS_POWER",
+    "NAMED_REACHED_WAYPOINTS_END",
+    "TEAM_REACHED_WAYPOINTS_END",
+    "NAMED_SELECTED",
+    "NAMED_ENTERED_AREA",
+    "NAMED_EXITED_AREA",
+    "TEAM_ENTERED_AREA_ENTIRELY",
+    "TEAM_ENTERED_AREA_PARTIALLY",
+    "TEAM_EXITED_AREA_ENTIRELY",
+    "TEAM_EXITED_AREA_PARTIALLY",
+    "MULTIPLAYER_ALLIED_VICTORY",
+    "MULTIPLAYER_ALLIED_DEFEAT",
+    "MULTIPLAYER_PLAYER_DEFEAT",
+    "PLAYER_HAS_NO_POWER",
+    "HAS_FINISHED_VIDEO",
+    "HAS_FINISHED_SPEECH",
+    "HAS_FINISHED_AUDIO",
+    "BUILDING_ENTERED_BY_PLAYER",
+    "ENEMY_SIGHTED",
+    "UNIT_HEALTH",
+    "BRIDGE_REPAIRED",
+    "BRIDGE_BROKEN",
+    "NAMED_DYING",
+    "NAMED_TOTALLY_DEAD",
+    "PLAYER_HAS_OBJECT_COMPARISON",
+    "", // OBSOLETE_SCRIPT_1: no init assignment
+    "", // OBSOLETE_SCRIPT_2: no init assignment
+    "PLAYER_TRIGGERED_SPECIAL_POWER",
+    "PLAYER_COMPLETED_SPECIAL_POWER",
+    "PLAYER_MIDWAY_SPECIAL_POWER",
+    "PLAYER_TRIGGERED_SPECIAL_POWER_FROM_NAMED",
+    "PLAYER_COMPLETED_SPECIAL_POWER_FROM_NAMED",
+    "PLAYER_MIDWAY_SPECIAL_POWER_FROM_NAMED",
+    "", // DEFUNCT_PLAYER_SELECTED_GENERAL: no init assignment
+    "", // DEFUNCT_PLAYER_SELECTED_GENERAL_FROM_NAMED: no init assignment
+    "PLAYER_BUILT_UPGRADE",
+    "PLAYER_BUILT_UPGRADE_FROM_NAMED",
+    "PLAYER_DESTROYED_N_BUILDINGS_PLAYER",
+    "", // UNIT_COMPLETED_SEQUENTIAL_EXECUTION: no init assignment
+    "", // TEAM_COMPLETED_SEQUENTIAL_EXECUTION: no init assignment
+    "PLAYER_HAS_COMPARISON_UNIT_TYPE_IN_TRIGGER_AREA",
+    "PLAYER_HAS_COMPARISON_UNIT_KIND_IN_TRIGGER_AREA",
+    "UNIT_EMPTIED",
+    "TYPE_SIGHTED",
+    "NAMED_BUILDING_IS_EMPTY",
+    "PLAYER_HAS_N_OR_FEWER_FACTION_BUILDINGS",
+    "UNIT_HAS_OBJECT_STATUS",
+    "TEAM_ALL_HAS_OBJECT_STATUS",
+    "TEAM_SOME_HAVE_OBJECT_STATUS",
+    "PLAYER_POWER_COMPARE_PERCENT",
+    "PLAYER_EXCESS_POWER_COMPARE_VALUE",
+    "SKIRMISH_SPECIAL_POWER_READY",
+    "SKIRMISH_VALUE_IN_AREA",
+    "SKIRMISH_PLAYER_FACTION",
+    "SKIRMISH_SUPPLIES_VALUE_WITHIN_DISTANCE",
+    "SKIRMISH_TECH_BUILDING_WITHIN_DISTANCE",
+    "SKIRMISH_COMMAND_BUTTON_READY_ALL",
+    "SKIRMISH_COMMAND_BUTTON_READY_PARTIAL",
+    "SKIRMISH_UNOWNED_FACTION_UNIT_EXISTS",
+    "SKIRMISH_PLAYER_HAS_PREREQUISITE_TO_BUILD",
+    "SKIRMISH_PLAYER_HAS_COMPARISON_GARRISONED",
+    "SKIRMISH_PLAYER_HAS_COMPARISON_CAPTURED_UNITS",
+    "SKIRMISH_NAMED_AREA_EXIST",
+    "SKIRMISH_PLAYER_HAS_UNITS_IN_AREA",
+    "SKIRMISH_PLAYER_HAS_BEEN_ATTACKED_BY_PLAYER",
+    "SKIRMISH_PLAYER_IS_OUTSIDE_AREA",
+    "SKIRMISH_PLAYER_HAS_DISCOVERED_PLAYER",
+    "PLAYER_ACQUIRED_SCIENCE",
+    "PLAYER_HAS_SCIENCEPURCHASEPOINTS",
+    "PLAYER_CAN_PURCHASE_SCIENCE",
+    "MUSIC_TRACK_HAS_COMPLETED",
+    "PLAYER_LOST_OBJECT_TYPE",
+    "SUPPLY_SOURCE_SAFE",
+    "SUPPLY_SOURCE_ATTACKED",
+    "START_POSITION_IS",
+    "NAMED_HAS_FREE_CONTAINER_SLOTS",
+];
+
+/// Every condition's declared parameter count (`m_numParameters`),
+/// in `ConditionType` order. Three actions declare a count their
+/// `m_parameters[]` assignments do not fill; the count is the load
+/// observable (the load consults `getNumParameters` only), so it wins.
+pub const CONDITION_TEMPLATE_PARAMS: [u8; 109] = [
+    0, 3, 2, 0, 1, 1, 1, 3, 1, 0, 1, 2, 2, 2, 2, 1, 1, 3, 3, 2, 2, 2, 2, 2, 1, 1, 3, 2, 2, 3, 2, 2, 2, 1, 2, 2, 1, 2, 2, 3, 3, 3, 3, 0, 0, 0, 1, 1, 1, 1, 2, 3, 3, 1, 1, 1, 1, 4, 0, 0, 2, 2, 2, 3, 3, 3, 0, 0, 2, 3, 3, 0, 0, 5, 5, 1, 3, 1, 2, 2, 2, 2, 3, 3, 2, 4, 2, 4, 3, 3, 3, 3, 2, 3, 3, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 1, 2, 1
+];
+
+/// Every action's internal name, in `ScriptActionType` order — the
+/// one defunct action (`NAMED_RECEIVE_UPGRADE`) carries the empty
+/// string.
+pub const ACTION_TEMPLATE_NAMES: [&str; 344] = [
+    "DEBUG_MESSAGE_BOX",
+    "SET_FLAG",
+    "SET_COUNTER",
+    "VICTORY",
+    "DEFEAT",
+    "NO_OP",
+    "SET_TIMER",
+    "PLAY_SOUND_EFFECT",
+    "ENABLE_SCRIPT",
+    "DISABLE_SCRIPT",
+    "CALL_SUBROUTINE",
+    "PLAY_SOUND_EFFECT_AT",
+    "DAMAGE_MEMBERS_OF_TEAM",
+    "MOVE_TEAM_TO",
+    "MOVE_CAMERA_TO",
+    "INCREMENT_COUNTER",
+    "DECREMENT_COUNTER",
+    "MOVE_CAMERA_ALONG_WAYPOINT_PATH",
+    "ROTATE_CAMERA",
+    "RESET_CAMERA",
+    "SET_MILLISECOND_TIMER",
+    "CAMERA_MOD_FREEZE_TIME",
+    "SET_VISUAL_SPEED_MULTIPLIER",
+    "CREATE_OBJECT",
+    "SUSPEND_BACKGROUND_SOUNDS",
+    "RESUME_BACKGROUND_SOUNDS",
+    "CAMERA_MOD_SET_FINAL_ZOOM",
+    "CAMERA_MOD_SET_FINAL_PITCH",
+    "CAMERA_MOD_FREEZE_ANGLE",
+    "CAMERA_MOD_SET_FINAL_SPEED_MULTIPLIER",
+    "CAMERA_MOD_SET_ROLLING_AVERAGE",
+    "CAMERA_MOD_FINAL_LOOK_TOWARD",
+    "CAMERA_MOD_LOOK_TOWARD",
+    "TEAM_ATTACK_TEAM",
+    "CREATE_REINFORCEMENT_TEAM",
+    "MOVE_CAMERA_TO_SELECTION",
+    "TEAM_FOLLOW_WAYPOINTS",
+    "TEAM_SET_STATE",
+    "MOVE_NAMED_UNIT_TO",
+    "NAMED_ATTACK_NAMED",
+    "CREATE_NAMED_ON_TEAM_AT_WAYPOINT",
+    "CREATE_UNNAMED_ON_TEAM_AT_WAYPOINT",
+    "NAMED_APPLY_ATTACK_PRIORITY_SET",
+    "TEAM_APPLY_ATTACK_PRIORITY_SET",
+    "SET_BASE_CONSTRUCTION_SPEED",
+    "NAMED_SET_ATTITUDE",
+    "TEAM_SET_ATTITUDE",
+    "NAMED_ATTACK_AREA",
+    "NAMED_ATTACK_TEAM",
+    "TEAM_ATTACK_AREA",
+    "TEAM_ATTACK_NAMED",
+    "TEAM_LOAD_TRANSPORTS",
+    "NAMED_ENTER_NAMED",
+    "TEAM_ENTER_NAMED",
+    "NAMED_EXIT_ALL",
+    "TEAM_EXIT_ALL",
+    "NAMED_FOLLOW_WAYPOINTS",
+    "NAMED_GUARD",
+    "TEAM_GUARD",
+    "NAMED_HUNT",
+    "TEAM_HUNT",
+    "PLAYER_SELL_EVERYTHING",
+    "PLAYER_DISABLE_BASE_CONSTRUCTION",
+    "PLAYER_DISABLE_FACTORIES",
+    "PLAYER_DISABLE_UNIT_CONSTRUCTION",
+    "PLAYER_ENABLE_BASE_CONSTRUCTION",
+    "PLAYER_ENABLE_FACTORIES",
+    "PLAYER_ENABLE_UNIT_CONSTRUCTION",
+    "CAMERA_MOVE_HOME",
+    "BUILD_TEAM",
+    "NAMED_DAMAGE",
+    "NAMED_DELETE",
+    "TEAM_DELETE",
+    "NAMED_KILL",
+    "TEAM_KILL",
+    "PLAYER_KILL",
+    "DISPLAY_TEXT",
+    "CAMEO_FLASH",
+    "NAMED_FLASH",
+    "TEAM_FLASH",
+    "MOVIE_PLAY_FULLSCREEN",
+    "MOVIE_PLAY_RADAR",
+    "SOUND_PLAY_NAMED",
+    "SPEECH_PLAY",
+    "PLAYER_TRANSFER_OWNERSHIP_PLAYER",
+    "NAMED_TRANSFER_OWNERSHIP_PLAYER",
+    "PLAYER_RELATES_PLAYER",
+    "RADAR_CREATE_EVENT",
+    "RADAR_DISABLE",
+    "RADAR_ENABLE",
+    "MAP_REVEAL_AT_WAYPOINT",
+    "TEAM_AVAILABLE_FOR_RECRUITMENT",
+    "TEAM_COLLECT_NEARBY_FOR_TEAM",
+    "TEAM_MERGE_INTO_TEAM",
+    "DISABLE_INPUT",
+    "ENABLE_INPUT",
+    "PLAYER_HUNT",
+    "SOUND_AMBIENT_PAUSE",
+    "SOUND_AMBIENT_RESUME",
+    "MUSIC_SET_TRACK",
+    "SET_TREE_SWAY",
+    "DEBUG_STRING",
+    "MAP_REVEAL_ALL",
+    "TEAM_GARRISON_SPECIFIC_BUILDING",
+    "EXIT_SPECIFIC_BUILDING",
+    "TEAM_GARRISON_NEAREST_BUILDING",
+    "TEAM_EXIT_ALL_BUILDINGS",
+    "NAMED_GARRISON_SPECIFIC_BUILDING",
+    "NAMED_GARRISON_NEAREST_BUILDING",
+    "NAMED_EXIT_BUILDING",
+    "PLAYER_GARRISON_ALL_BUILDINGS",
+    "PLAYER_EXIT_ALL_BUILDINGS",
+    "TEAM_WANDER",
+    "TEAM_PANIC",
+    "SETUP_CAMERA",
+    "CAMERA_LETTERBOX_BEGIN",
+    "CAMERA_LETTERBOX_END",
+    "ZOOM_CAMERA",
+    "PITCH_CAMERA",
+    "CAMERA_FOLLOW_NAMED",
+    "OVERSIZE_TERRAIN",
+    "CAMERA_FADE_ADD",
+    "CAMERA_FADE_SUBTRACT",
+    "CAMERA_FADE_SATURATE",
+    "CAMERA_FADE_MULTIPLY",
+    "CAMERA_BW_MODE_BEGIN",
+    "CAMERA_BW_MODE_END",
+    "DRAW_SKYBOX_BEGIN",
+    "DRAW_SKYBOX_END",
+    "SET_ATTACK_PRIORITY_THING",
+    "SET_ATTACK_PRIORITY_KIND_OF",
+    "SET_DEFAULT_ATTACK_PRIORITY",
+    "CAMERA_STOP_FOLLOW",
+    "CAMERA_MOTION_BLUR",
+    "CAMERA_MOTION_BLUR_JUMP",
+    "CAMERA_MOTION_BLUR_FOLLOW",
+    "CAMERA_MOTION_BLUR_END_FOLLOW",
+    "FREEZE_TIME",
+    "UNFREEZE_TIME",
+    "SHOW_MILITARY_CAPTION",
+    "CAMERA_SET_AUDIBLE_DISTANCE",
+    "SET_STOPPING_DISTANCE",
+    "NAMED_SET_STOPPING_DISTANCE",
+    "SET_FPS_LIMIT",
+    "MUSIC_SET_VOLUME",
+    "MAP_SHROUD_AT_WAYPOINT",
+    "MAP_SHROUD_ALL",
+    "SET_RANDOM_TIMER",
+    "SET_RANDOM_MSEC_TIMER",
+    "STOP_TIMER",
+    "RESTART_TIMER",
+    "ADD_TO_MSEC_TIMER",
+    "SUB_FROM_MSEC_TIMER",
+    "TEAM_TRANSFER_TO_PLAYER",
+    "PLAYER_SET_MONEY",
+    "PLAYER_GIVE_MONEY",
+    "DISABLE_SPECIAL_POWER_DISPLAY",
+    "ENABLE_SPECIAL_POWER_DISPLAY",
+    "NAMED_HIDE_SPECIAL_POWER_DISPLAY",
+    "NAMED_SHOW_SPECIAL_POWER_DISPLAY",
+    "DISPLAY_COUNTDOWN_TIMER",
+    "HIDE_COUNTDOWN_TIMER",
+    "ENABLE_COUNTDOWN_TIMER_DISPLAY",
+    "DISABLE_COUNTDOWN_TIMER_DISPLAY",
+    "NAMED_STOP_SPECIAL_POWER_COUNTDOWN",
+    "NAMED_START_SPECIAL_POWER_COUNTDOWN",
+    "NAMED_SET_SPECIAL_POWER_COUNTDOWN",
+    "NAMED_ADD_SPECIAL_POWER_COUNTDOWN",
+    "NAMED_FIRE_SPECIAL_POWER_AT_WAYPOINT",
+    "NAMED_FIRE_SPECIAL_POWER_AT_NAMED",
+    "REFRESH_RADAR",
+    "CAMERA_TETHER_NAMED",
+    "CAMERA_STOP_TETHER_NAMED",
+    "CAMERA_SET_DEFAULT",
+    "NAMED_STOP",
+    "TEAM_STOP",
+    "TEAM_STOP_AND_DISBAND",
+    "RECRUIT_TEAM",
+    "TEAM_SET_OVERRIDE_RELATION_TO_TEAM",
+    "TEAM_REMOVE_OVERRIDE_RELATION_TO_TEAM",
+    "TEAM_REMOVE_ALL_OVERRIDE_RELATIONS",
+    "CAMERA_LOOK_TOWARD_OBJECT",
+    "NAMED_FIRE_WEAPON_FOLLOWING_WAYPOINT_PATH",
+    "TEAM_SET_OVERRIDE_RELATION_TO_PLAYER",
+    "TEAM_REMOVE_OVERRIDE_RELATION_TO_PLAYER",
+    "PLAYER_SET_OVERRIDE_RELATION_TO_TEAM",
+    "PLAYER_REMOVE_OVERRIDE_RELATION_TO_TEAM",
+    "UNIT_EXECUTE_SEQUENTIAL_SCRIPT",
+    "UNIT_EXECUTE_SEQUENTIAL_SCRIPT_LOOPING",
+    "UNIT_STOP_SEQUENTIAL_SCRIPT",
+    "TEAM_EXECUTE_SEQUENTIAL_SCRIPT",
+    "TEAM_EXECUTE_SEQUENTIAL_SCRIPT_LOOPING",
+    "TEAM_STOP_SEQUENTIAL_SCRIPT",
+    "UNIT_GUARD_FOR_FRAMECOUNT",
+    "UNIT_IDLE_FOR_FRAMECOUNT",
+    "TEAM_GUARD_FOR_FRAMECOUNT",
+    "TEAM_IDLE_FOR_FRAMECOUNT",
+    "WATER_CHANGE_HEIGHT",
+    "NAMED_USE_COMMANDBUTTON_ABILITY_ON_NAMED",
+    "NAMED_USE_COMMANDBUTTON_ABILITY_AT_WAYPOINT",
+    "WATER_CHANGE_HEIGHT_OVER_TIME",
+    "MAP_SWITCH_BORDER",
+    "TEAM_GUARD_POSITION",
+    "TEAM_GUARD_OBJECT",
+    "TEAM_GUARD_AREA",
+    "OBJECT_FORCE_SELECT",
+    "CAMERA_LOOK_TOWARD_WAYPOINT",
+    "UNIT_DESTROY_ALL_CONTAINED",
+    "RADAR_FORCE_ENABLE",
+    "RADAR_REVERT_TO_NORMAL",
+    "SCREEN_SHAKE",
+    "TECHTREE_MODIFY_BUILDABILITY_OBJECT",
+    "WAREHOUSE_SET_VALUE",
+    "OBJECT_CREATE_RADAR_EVENT",
+    "TEAM_CREATE_RADAR_EVENT",
+    "DISPLAY_CINEMATIC_TEXT",
+    "DEBUG_CRASH_BOX",
+    "SOUND_DISABLE_TYPE",
+    "SOUND_ENABLE_TYPE",
+    "SOUND_ENABLE_ALL",
+    "AUDIO_OVERRIDE_VOLUME_TYPE",
+    "AUDIO_RESTORE_VOLUME_TYPE",
+    "AUDIO_RESTORE_VOLUME_ALL_TYPE",
+    "INGAME_POPUP_MESSAGE",
+    "SET_CAVE_INDEX",
+    "NAMED_SET_HELD",
+    "NAMED_SET_TOPPLE_DIRECTION",
+    "UNIT_MOVE_TOWARDS_NEAREST_OBJECT_TYPE",
+    "TEAM_MOVE_TOWARDS_NEAREST_OBJECT_TYPE",
+    "MAP_REVEAL_ALL_PERM",
+    "MAP_REVEAL_ALL_UNDO_PERM",
+    "NAMED_SET_REPULSOR",
+    "TEAM_SET_REPULSOR",
+    "TEAM_WANDER_IN_PLACE",
+    "TEAM_INCREASE_PRIORITY",
+    "TEAM_DECREASE_PRIORITY",
+    "DISPLAY_COUNTER",
+    "HIDE_COUNTER",
+    "TEAM_USE_COMMANDBUTTON_ABILITY_ON_NAMED",
+    "TEAM_USE_COMMANDBUTTON_ABILITY_AT_WAYPOINT",
+    "NAMED_USE_COMMANDBUTTON_ABILITY",
+    "TEAM_USE_COMMANDBUTTON_ABILITY",
+    "NAMED_FLASH_WHITE",
+    "TEAM_FLASH_WHITE",
+    "SKIRMISH_BUILD_BUILDING",
+    "SKIRMISH_FOLLOW_APPROACH_PATH",
+    "IDLE_ALL_UNITS",
+    "RESUME_SUPPLY_TRUCKING",
+    "NAMED_CUSTOM_COLOR",
+    "SKIRMISH_MOVE_TO_APPROACH_PATH",
+    "SKIRMISH_BUILD_BASE_DEFENSE_FRONT",
+    "SKIRMISH_FIRE_SPECIAL_POWER_AT_MOST_COST",
+    "", // NAMED_RECEIVE_UPGRADE: no init assignment
+    "PLAYER_REPAIR_NAMED_STRUCTURE",
+    "SKIRMISH_BUILD_BASE_DEFENSE_FLANK",
+    "SKIRMISH_BUILD_STRUCTURE_FRONT",
+    "SKIRMISH_BUILD_STRUCTURE_FLANK",
+    "SKIRMISH_ATTACK_NEAREST_GROUP_WITH_VALUE",
+    "SKIRMISH_PERFORM_COMMANDBUTTON_ON_MOST_VALUABLE_OBJECT",
+    "SKIRMISH_WAIT_FOR_COMMANDBUTTON_AVAILABLE_ALL",
+    "SKIRMISH_WAIT_FOR_COMMANDBUTTON_AVAILABLE_PARTIAL",
+    "TEAM_SPIN_FOR_FRAMECOUNT",
+    "TEAM_ALL_USE_COMMANDBUTTON_ON_NAMED",
+    "TEAM_ALL_USE_COMMANDBUTTON_ON_NEAREST_ENEMY_UNIT",
+    "TEAM_ALL_USE_COMMANDBUTTON_ON_NEAREST_GARRISONED_BUILDING",
+    "TEAM_ALL_USE_COMMANDBUTTON_ON_NEAREST_KINDOF",
+    "TEAM_ALL_USE_COMMANDBUTTON_ON_NEAREST_ENEMY_BUILDING",
+    "TEAM_ALL_USE_COMMANDBUTTON_ON_NEAREST_ENEMY_BUILDING_CLASS",
+    "TEAM_ALL_USE_COMMANDBUTTON_ON_NEAREST_OBJECTTYPE",
+    "TEAM_PARTIAL_USE_COMMANDBUTTON",
+    "TEAM_CAPTURE_NEAREST_UNOWNED_FACTION_UNIT",
+    "PLAYER_CREATE_TEAM_FROM_CAPTURED_UNITS",
+    "PLAYER_ADD_SKILLPOINTS",
+    "PLAYER_ADD_RANKLEVEL",
+    "PLAYER_SET_RANKLEVEL",
+    "PLAYER_SET_RANKLEVELLIMIT",
+    "PLAYER_GRANT_SCIENCE",
+    "PLAYER_PURCHASE_SCIENCE",
+    "TEAM_HUNT_WITH_COMMAND_BUTTON",
+    "TEAM_WAIT_FOR_NOT_CONTAINED_ALL",
+    "TEAM_WAIT_FOR_NOT_CONTAINED_PARTIAL",
+    "TEAM_FOLLOW_WAYPOINTS_EXACT",
+    "NAMED_FOLLOW_WAYPOINTS_EXACT",
+    "TEAM_SET_EMOTICON",
+    "NAMED_SET_EMOTICON",
+    "AI_PLAYER_BUILD_SUPPLY_CENTER",
+    "AI_PLAYER_BUILD_UPGRADE",
+    "OBJECTLIST_ADDOBJECTTYPE",
+    "OBJECTLIST_REMOVEOBJECTTYPE",
+    "MAP_REVEAL_PERMANENTLY_AT_WAYPOINT",
+    "MAP_UNDO_REVEAL_PERMANENTLY_AT_WAYPOINT",
+    "NAMED_SET_STEALTH_ENABLED",
+    "TEAM_SET_STEALTH_ENABLED",
+    "EVA_SET_ENABLED_DISABLED",
+    "OPTIONS_SET_OCCLUSION_MODE",
+    "LOCALDEFEAT",
+    "OPTIONS_SET_DRAWICON_UI_MODE",
+    "OPTIONS_SET_PARTICLE_CAP_MODE",
+    "PLAYER_SCIENCE_AVAILABILITY",
+    "UNIT_AFFECT_OBJECT_PANEL_FLAGS",
+    "TEAM_AFFECT_OBJECT_PANEL_FLAGS",
+    "PLAYER_SELECT_SKILLSET",
+    "SCRIPTING_OVERRIDE_HULK_LIFETIME",
+    "NAMED_FACE_NAMED",
+    "NAMED_FACE_WAYPOINT",
+    "TEAM_FACE_NAMED",
+    "TEAM_FACE_WAYPOINT",
+    "COMMANDBAR_REMOVE_BUTTON_OBJECTTYPE",
+    "COMMANDBAR_ADD_BUTTON_OBJECTTYPE_SLOT",
+    "UNIT_SPAWN_NAMED_LOCATION_ORIENTATION",
+    "PLAYER_AFFECT_RECEIVING_EXPERIENCE",
+    "PLAYER_EXCLUDE_FROM_SCORE_SCREEN",
+    "TEAM_GUARD_SUPPLY_CENTER",
+    "ENABLE_SCORING",
+    "DISABLE_SCORING",
+    "SOUND_SET_VOLUME",
+    "SPEECH_SET_VOLUME",
+    "DISABLE_BORDER_SHROUD",
+    "ENABLE_BORDER_SHROUD",
+    "OBJECT_ALLOW_BONUSES",
+    "SOUND_REMOVE_ALL_DISABLED",
+    "SOUND_REMOVE_TYPE",
+    "TEAM_GUARD_IN_TUNNEL_NETWORK",
+    "QUICKVICTORY",
+    "SET_INFANTRY_LIGHTING_OVERRIDE",
+    "RESET_INFANTRY_LIGHTING_OVERRIDE",
+    "TEAM_DELETE_LIVING",
+    "RESIZE_VIEW_GUARDBAND",
+    "DELETE_ALL_UNMANNED",
+    "CHOOSE_VICTIM_ALWAYS_USES_NORMAL",
+    "CAMERA_ENABLE_SLAVE_MODE",
+    "CAMERA_DISABLE_SLAVE_MODE",
+    "CAMERA_ADD_SHAKER_AT",
+    "SET_TRAIN_HELD",
+    "NAMED_SET_EVAC_LEFT_OR_RIGHT",
+    "ENABLE_OBJECT_SOUND",
+    "DISABLE_OBJECT_SOUND",
+    "NAMED_USE_COMMANDBUTTON_ABILITY_USING_WAYPOINT_PATH",
+    "NAMED_SET_UNMANNED_STATUS",
+    "TEAM_SET_UNMANNED_STATUS",
+    "NAMED_SET_BOOBYTRAPPED",
+    "TEAM_SET_BOOBYTRAPPED",
+    "SHOW_WEATHER",
+    "AI_PLAYER_BUILD_TYPE_NEAREST_TEAM",
+];
+
+/// Every action's declared parameter count, in `ScriptActionType`
+/// order (see [`CONDITION_TEMPLATE_PARAMS`]'s note).
+pub const ACTION_TEMPLATE_PARAMS: [u8; 344] = [
+    1, 2, 2, 0, 0, 0, 2, 1, 1, 1, 1, 2, 2, 2, 5, 2, 2, 5, 4, 4, 2, 0, 1, 4, 0, 0, 3, 3, 0, 1, 1, 1, 1, 2, 2, 0, 3, 2, 2, 2, 4, 3, 2, 2, 2, 2, 2, 2, 2, 2, 2, 1, 2, 2, 1, 1, 2, 1, 1, 1, 1, 1, 1, 2, 1, 1, 2, 1, 0, 1, 2, 1, 1, 1, 1, 1, 1, 2, 2, 2, 1, 1, 2, 2, 2, 2, 3, 2, 0, 0, 3, 2, 1, 2, 0, 0, 1, 0, 0, 3, 5, 1, 1, 2, 1, 1, 1, 2, 1, 1, 1, 1, 2, 2, 4, 0, 0, 4, 4, 2, 1, 5, 5, 5, 0, 1, 1, 0, 0, 3, 3, 2, 0, 2, 2, 1, 0, 0, 0, 2, 1, 2, 2, 1, 1, 3, 1, 3, 3, 1, 1, 2, 2, 2, 2, 2, 0, 0, 1, 1, 2, 1, 0, 0, 2, 2, 3, 3, 3, 3, 0, 3, 0, 3, 1, 1, 1, 2, 3, 2, 1, 5, 2, 3, 2, 3, 2, 2, 3, 1, 2, 3, 1, 2, 2, 2, 2, 2, 3, 3, 4, 1, 2, 2, 2, 4, 5, 1, 0, 0, 1, 2, 2, 2, 2, 3, 1, 1, 1, 0, 2, 1, 0, 5, 2, 2, 2, 3, 3, 1, 1, 2, 2, 1, 1, 1, 2, 1, 3, 3, 2, 2, 2, 2, 1, 3, 0, 0, 2, 2, 0, 2, 0, 2, 0, 1, 1, 3, 4, 3, 3, 2, 2, 2, 2, 3, 2, 3, 3, 3, 1, 2, 2, 2, 2, 1, 2, 2, 2, 1, 1, 3, 2, 3, 3, 3, 2, 2, 2, 4, 1, 2, 2, 1, 1, 0, 1, 1, 3, 3, 3, 2, 1, 2, 2, 2, 2, 2, 3, 5, 2, 1, 2, 0, 0, 1, 1, 0, 0, 1, 0, 1, 1, 0, 1, 0, 1, 2, 0, 1, 2, 0, 4, 2, 2, 1, 1, 3, 1, 1, 2, 2, 1, 3
+];
+
+/// `KindOfMaskType::s_bitNameList` (KindOf.cpp, Zero Hour build:
+/// ALLOW_SURRENDER and RTS_GENERALS both off), terminated by an
+/// empty entry standing in for the original's null terminator.
+/// `KindOfMaskType::s_bitNameList` (KindOf.cpp, the Zero Hour build:
+/// `ALLOW_SURRENDER` and `RTS_GENERALS` both off), with the original's
+/// null terminator as the trailing empty entry (the 118th slot is
+/// index 117).
+pub const KINDOF_NAMES: [&str; 118] = [
+    "OBSTACLE",
+    "SELECTABLE",
+    "IMMOBILE",
+    "CAN_ATTACK",
+    "STICK_TO_TERRAIN_SLOPE",
+    "CAN_CAST_REFLECTIONS",
+    "SHRUBBERY",
+    "STRUCTURE",
+    "INFANTRY",
+    "VEHICLE",
+    "AIRCRAFT",
+    "HUGE_VEHICLE",
+    "DOZER",
+    "HARVESTER",
+    "COMMANDCENTER",
+    "LINEBUILD",
+    "SALVAGER",
+    "WEAPON_SALVAGER",
+    "TRANSPORT",
+    "BRIDGE",
+    "LANDMARK_BRIDGE",
+    "BRIDGE_TOWER",
+    "PROJECTILE",
+    "PRELOAD",
+    "NO_GARRISON",
+    "WAVEGUIDE",
+    "WAVE_EFFECT",
+    "NO_COLLIDE",
+    "REPAIR_PAD",
+    "HEAL_PAD",
+    "STEALTH_GARRISON",
+    "CASH_GENERATOR",
+    "DRAWABLE_ONLY",
+    "MP_COUNT_FOR_VICTORY",
+    "REBUILD_HOLE",
+    "SCORE",
+    "SCORE_CREATE",
+    "SCORE_DESTROY",
+    "NO_HEAL_ICON",
+    "CAN_RAPPEL",
+    "PARACHUTABLE",
+    "CAN_BE_REPULSED",
+    "MOB_NEXUS",
+    "IGNORED_IN_GUI",
+    "CRATE",
+    "CAPTURABLE",
+    "CLEARED_BY_BUILD",
+    "SMALL_MISSILE",
+    "ALWAYS_VISIBLE",
+    "UNATTACKABLE",
+    "MINE",
+    "CLEANUP_HAZARD",
+    "PORTABLE_STRUCTURE",
+    "ALWAYS_SELECTABLE",
+    "ATTACK_NEEDS_LINE_OF_SIGHT",
+    "WALK_ON_TOP_OF_WALL",
+    "DEFENSIVE_WALL",
+    "FS_POWER",
+    "FS_FACTORY",
+    "FS_BASE_DEFENSE",
+    "FS_TECHNOLOGY",
+    "AIRCRAFT_PATH_AROUND",
+    "LOW_OVERLAPPABLE",
+    "FORCEATTACKABLE",
+    "AUTO_RALLYPOINT",
+    "TECH_BUILDING",
+    "POWERED",
+    "PRODUCED_AT_HELIPAD",
+    "DRONE",
+    "CAN_SEE_THROUGH_STRUCTURE",
+    "BALLISTIC_MISSILE",
+    "CLICK_THROUGH",
+    "SUPPLY_SOURCE_ON_PREVIEW",
+    "PARACHUTE",
+    "GARRISONABLE_UNTIL_DESTROYED",
+    "BOAT",
+    "IMMUNE_TO_CAPTURE",
+    "HULK",
+    "SHOW_PORTRAIT_WHEN_CONTROLLED",
+    "SPAWNS_ARE_THE_WEAPONS",
+    "CANNOT_BUILD_NEAR_SUPPLIES",
+    "SUPPLY_SOURCE",
+    "REVEAL_TO_ALL",
+    "DISGUISER",
+    "INERT",
+    "HERO",
+    "IGNORES_SELECT_ALL",
+    "DONT_AUTO_CRUSH_INFANTRY",
+    "CLIFF_JUMPER",
+    "FS_SUPPLY_DROPZONE",
+    "FS_SUPERWEAPON",
+    "FS_BLACK_MARKET",
+    "FS_SUPPLY_CENTER",
+    "FS_STRATEGY_CENTER",
+    "MONEY_HACKER",
+    "ARMOR_SALVAGER",
+    "REVEALS_ENEMY_PATHS",
+    "BOOBY_TRAP",
+    "FS_FAKE",
+    "FS_INTERNET_CENTER",
+    "BLAST_CRATER",
+    "PROP",
+    "OPTIMIZED_TREE",
+    "FS_ADVANCED_TECH",
+    "FS_BARRACKS",
+    "FS_WARFACTORY",
+    "FS_AIRFIELD",
+    "AIRCRAFT_CARRIER",
+    "NO_SELECT",
+    "REJECT_UNMANNED",
+    "CANNOT_RETALIATE",
+    "TECH_BASE_DEFENSE",
+    "EMP_HARDENED",
+    "DEMOTRAP",
+    "CONSERVATIVE_BUILDING",
+    "IGNORE_DOCKING_BONES",
+    "NO_ATTACK_WARNING",
+    "", // the null terminator slot
+];
+
+/// `ObjectStatusMaskType::s_bitNameList` (ObjectStatusTypes.cpp).
+/// `ObjectStatusMaskType::s_bitNameList` (ObjectStatusTypes.cpp):
+/// the 45 status-bit names, `"NONE"` first (bit 0) and `"DEPLOYED"`
+/// last (bit 44).
+pub const OBJECT_STATUS_NAMES: [&str; 45] = [
+    "NONE",
+    "DESTROYED",
+    "CAN_ATTACK",
+    "UNDER_CONSTRUCTION",
+    "UNSELECTABLE",
+    "NO_COLLISIONS",
+    "NO_ATTACK",
+    "AIRBORNE_TARGET",
+    "PARACHUTING",
+    "REPULSOR",
+    "HIJACKED",
+    "AFLAME",
+    "BURNED",
+    "WET",
+    "IS_FIRING_WEAPON",
+    "IS_BRAKING",
+    "STEALTHED",
+    "DETECTED",
+    "CAN_STEALTH",
+    "SOLD",
+    "UNDERGOING_REPAIR",
+    "RECONSTRUCTING",
+    "MASKED",
+    "IS_ATTACKING",
+    "USING_ABILITY",
+    "IS_AIMING_WEAPON",
+    "NO_ATTACK_FROM_AI",
+    "IGNORING_STEALTH",
+    "IS_CARBOMB",
+    "DECK_HEIGHT_OFFSET",
+    "STATUS_RIDER1",
+    "STATUS_RIDER2",
+    "STATUS_RIDER3",
+    "STATUS_RIDER4",
+    "STATUS_RIDER5",
+    "STATUS_RIDER6",
+    "STATUS_RIDER7",
+    "STATUS_RIDER8",
+    "FAERIE_FIRE",
+    "KILLING_SELF",
+    "REASSIGN_PARKING",
+    "BOOBY_TRAPPED",
+    "IMMOBILE",
+    "DISGUISED",
+    "DEPLOYED",
+];
+
+// The enum values (Scripts.h’s ParameterType, ConditionType and
+// ScriptActionType), prefixed PT_/CT_/AT_ — generated with the tables
+// so the port and the golden generator’s transcription cannot drift.
+
+/// `ParameterType::INT` (value 0).
+pub const PT_INT: i32 = 0;
+/// `ParameterType::REAL` (value 1).
+pub const PT_REAL: i32 = 1;
+/// `ParameterType::SCRIPT` (value 2).
+pub const PT_SCRIPT: i32 = 2;
+/// `ParameterType::TEAM` (value 3).
+pub const PT_TEAM: i32 = 3;
+/// `ParameterType::COUNTER` (value 4).
+pub const PT_COUNTER: i32 = 4;
+/// `ParameterType::FLAG` (value 5).
+pub const PT_FLAG: i32 = 5;
+/// `ParameterType::COMPARISON` (value 6).
+pub const PT_COMPARISON: i32 = 6;
+/// `ParameterType::WAYPOINT` (value 7).
+pub const PT_WAYPOINT: i32 = 7;
+/// `ParameterType::BOOLEAN` (value 8).
+pub const PT_BOOLEAN: i32 = 8;
+/// `ParameterType::TRIGGER_AREA` (value 9).
+pub const PT_TRIGGER_AREA: i32 = 9;
+/// `ParameterType::TEXT_STRING` (value 10).
+pub const PT_TEXT_STRING: i32 = 10;
+/// `ParameterType::SIDE` (value 11).
+pub const PT_SIDE: i32 = 11;
+/// `ParameterType::SOUND` (value 12).
+pub const PT_SOUND: i32 = 12;
+/// `ParameterType::SCRIPT_SUBROUTINE` (value 13).
+pub const PT_SCRIPT_SUBROUTINE: i32 = 13;
+/// `ParameterType::UNIT` (value 14).
+pub const PT_UNIT: i32 = 14;
+/// `ParameterType::OBJECT_TYPE` (value 15).
+pub const PT_OBJECT_TYPE: i32 = 15;
+/// `ParameterType::COORD3D` (value 16).
+pub const PT_COORD3D: i32 = 16;
+/// `ParameterType::ANGLE` (value 17).
+pub const PT_ANGLE: i32 = 17;
+/// `ParameterType::TEAM_STATE` (value 18).
+pub const PT_TEAM_STATE: i32 = 18;
+/// `ParameterType::RELATION` (value 19).
+pub const PT_RELATION: i32 = 19;
+/// `ParameterType::AI_MOOD` (value 20).
+pub const PT_AI_MOOD: i32 = 20;
+/// `ParameterType::DIALOG` (value 21).
+pub const PT_DIALOG: i32 = 21;
+/// `ParameterType::MUSIC` (value 22).
+pub const PT_MUSIC: i32 = 22;
+/// `ParameterType::MOVIE` (value 23).
+pub const PT_MOVIE: i32 = 23;
+/// `ParameterType::WAYPOINT_PATH` (value 24).
+pub const PT_WAYPOINT_PATH: i32 = 24;
+/// `ParameterType::LOCALIZED_TEXT` (value 25).
+pub const PT_LOCALIZED_TEXT: i32 = 25;
+/// `ParameterType::BRIDGE` (value 26).
+pub const PT_BRIDGE: i32 = 26;
+/// `ParameterType::KIND_OF_PARAM` (value 27).
+pub const PT_KIND_OF_PARAM: i32 = 27;
+/// `ParameterType::ATTACK_PRIORITY_SET` (value 28).
+pub const PT_ATTACK_PRIORITY_SET: i32 = 28;
+/// `ParameterType::RADAR_EVENT_TYPE` (value 29).
+pub const PT_RADAR_EVENT_TYPE: i32 = 29;
+/// `ParameterType::SPECIAL_POWER` (value 30).
+pub const PT_SPECIAL_POWER: i32 = 30;
+/// `ParameterType::SCIENCE` (value 31).
+pub const PT_SCIENCE: i32 = 31;
+/// `ParameterType::UPGRADE` (value 32).
+pub const PT_UPGRADE: i32 = 32;
+/// `ParameterType::COMMANDBUTTON_ABILITY` (value 33).
+pub const PT_COMMANDBUTTON_ABILITY: i32 = 33;
+/// `ParameterType::BOUNDARY` (value 34).
+pub const PT_BOUNDARY: i32 = 34;
+/// `ParameterType::BUILDABLE` (value 35).
+pub const PT_BUILDABLE: i32 = 35;
+/// `ParameterType::SURFACES_ALLOWED` (value 36).
+pub const PT_SURFACES_ALLOWED: i32 = 36;
+/// `ParameterType::SHAKE_INTENSITY` (value 37).
+pub const PT_SHAKE_INTENSITY: i32 = 37;
+/// `ParameterType::COMMAND_BUTTON` (value 38).
+pub const PT_COMMAND_BUTTON: i32 = 38;
+/// `ParameterType::FONT_NAME` (value 39).
+pub const PT_FONT_NAME: i32 = 39;
+/// `ParameterType::OBJECT_STATUS` (value 40).
+pub const PT_OBJECT_STATUS: i32 = 40;
+/// `ParameterType::COMMANDBUTTON_ALL_ABILITIES` (value 41).
+pub const PT_COMMANDBUTTON_ALL_ABILITIES: i32 = 41;
+/// `ParameterType::SKIRMISH_WAYPOINT_PATH` (value 42).
+pub const PT_SKIRMISH_WAYPOINT_PATH: i32 = 42;
+/// `ParameterType::COLOR` (value 43).
+pub const PT_COLOR: i32 = 43;
+/// `ParameterType::EMOTICON` (value 44).
+pub const PT_EMOTICON: i32 = 44;
+/// `ParameterType::OBJECT_PANEL_FLAG` (value 45).
+pub const PT_OBJECT_PANEL_FLAG: i32 = 45;
+/// `ParameterType::FACTION_NAME` (value 46).
+pub const PT_FACTION_NAME: i32 = 46;
+/// `ParameterType::OBJECT_TYPE_LIST` (value 47).
+pub const PT_OBJECT_TYPE_LIST: i32 = 47;
+/// `ParameterType::REVEALNAME` (value 48).
+pub const PT_REVEALNAME: i32 = 48;
+/// `ParameterType::SCIENCE_AVAILABILITY` (value 49).
+pub const PT_SCIENCE_AVAILABILITY: i32 = 49;
+/// `ParameterType::LEFT_OR_RIGHT` (value 50).
+pub const PT_LEFT_OR_RIGHT: i32 = 50;
+/// `ParameterType::PERCENT` (value 51).
+pub const PT_PERCENT: i32 = 51;
+/// `ParameterType::NUM_ITEMS` (value 52).
+pub const PT_NUM_ITEMS: i32 = 52;
+
+/// `ConditionType::CONDITION_FALSE` (value 0).
+pub const CT_CONDITION_FALSE: i32 = 0;
+/// `ConditionType::COUNTER` (value 1).
+pub const CT_COUNTER: i32 = 1;
+/// `ConditionType::FLAG` (value 2).
+pub const CT_FLAG: i32 = 2;
+/// `ConditionType::CONDITION_TRUE` (value 3).
+pub const CT_CONDITION_TRUE: i32 = 3;
+/// `ConditionType::TIMER_EXPIRED` (value 4).
+pub const CT_TIMER_EXPIRED: i32 = 4;
+/// `ConditionType::PLAYER_ALL_DESTROYED` (value 5).
+pub const CT_PLAYER_ALL_DESTROYED: i32 = 5;
+/// `ConditionType::PLAYER_ALL_BUILDFACILITIES_DESTROYED` (value 6).
+pub const CT_PLAYER_ALL_BUILDFACILITIES_DESTROYED: i32 = 6;
+/// `ConditionType::TEAM_INSIDE_AREA_PARTIALLY` (value 7).
+pub const CT_TEAM_INSIDE_AREA_PARTIALLY: i32 = 7;
+/// `ConditionType::TEAM_DESTROYED` (value 8).
+pub const CT_TEAM_DESTROYED: i32 = 8;
+/// `ConditionType::CAMERA_MOVEMENT_FINISHED` (value 9).
+pub const CT_CAMERA_MOVEMENT_FINISHED: i32 = 9;
+/// `ConditionType::TEAM_HAS_UNITS` (value 10).
+pub const CT_TEAM_HAS_UNITS: i32 = 10;
+/// `ConditionType::TEAM_STATE_IS` (value 11).
+pub const CT_TEAM_STATE_IS: i32 = 11;
+/// `ConditionType::TEAM_STATE_IS_NOT` (value 12).
+pub const CT_TEAM_STATE_IS_NOT: i32 = 12;
+/// `ConditionType::NAMED_INSIDE_AREA` (value 13).
+pub const CT_NAMED_INSIDE_AREA: i32 = 13;
+/// `ConditionType::NAMED_OUTSIDE_AREA` (value 14).
+pub const CT_NAMED_OUTSIDE_AREA: i32 = 14;
+/// `ConditionType::NAMED_DESTROYED` (value 15).
+pub const CT_NAMED_DESTROYED: i32 = 15;
+/// `ConditionType::NAMED_NOT_DESTROYED` (value 16).
+pub const CT_NAMED_NOT_DESTROYED: i32 = 16;
+/// `ConditionType::TEAM_INSIDE_AREA_ENTIRELY` (value 17).
+pub const CT_TEAM_INSIDE_AREA_ENTIRELY: i32 = 17;
+/// `ConditionType::TEAM_OUTSIDE_AREA_ENTIRELY` (value 18).
+pub const CT_TEAM_OUTSIDE_AREA_ENTIRELY: i32 = 18;
+/// `ConditionType::NAMED_ATTACKED_BY_OBJECTTYPE` (value 19).
+pub const CT_NAMED_ATTACKED_BY_OBJECTTYPE: i32 = 19;
+/// `ConditionType::TEAM_ATTACKED_BY_OBJECTTYPE` (value 20).
+pub const CT_TEAM_ATTACKED_BY_OBJECTTYPE: i32 = 20;
+/// `ConditionType::NAMED_ATTACKED_BY_PLAYER` (value 21).
+pub const CT_NAMED_ATTACKED_BY_PLAYER: i32 = 21;
+/// `ConditionType::TEAM_ATTACKED_BY_PLAYER` (value 22).
+pub const CT_TEAM_ATTACKED_BY_PLAYER: i32 = 22;
+/// `ConditionType::BUILT_BY_PLAYER` (value 23).
+pub const CT_BUILT_BY_PLAYER: i32 = 23;
+/// `ConditionType::NAMED_CREATED` (value 24).
+pub const CT_NAMED_CREATED: i32 = 24;
+/// `ConditionType::TEAM_CREATED` (value 25).
+pub const CT_TEAM_CREATED: i32 = 25;
+/// `ConditionType::PLAYER_HAS_CREDITS` (value 26).
+pub const CT_PLAYER_HAS_CREDITS: i32 = 26;
+/// `ConditionType::NAMED_DISCOVERED` (value 27).
+pub const CT_NAMED_DISCOVERED: i32 = 27;
+/// `ConditionType::TEAM_DISCOVERED` (value 28).
+pub const CT_TEAM_DISCOVERED: i32 = 28;
+/// `ConditionType::MISSION_ATTEMPTS` (value 29).
+pub const CT_MISSION_ATTEMPTS: i32 = 29;
+/// `ConditionType::NAMED_OWNED_BY_PLAYER` (value 30).
+pub const CT_NAMED_OWNED_BY_PLAYER: i32 = 30;
+/// `ConditionType::TEAM_OWNED_BY_PLAYER` (value 31).
+pub const CT_TEAM_OWNED_BY_PLAYER: i32 = 31;
+/// `ConditionType::PLAYER_HAS_N_OR_FEWER_BUILDINGS` (value 32).
+pub const CT_PLAYER_HAS_N_OR_FEWER_BUILDINGS: i32 = 32;
+/// `ConditionType::PLAYER_HAS_POWER` (value 33).
+pub const CT_PLAYER_HAS_POWER: i32 = 33;
+/// `ConditionType::NAMED_REACHED_WAYPOINTS_END` (value 34).
+pub const CT_NAMED_REACHED_WAYPOINTS_END: i32 = 34;
+/// `ConditionType::TEAM_REACHED_WAYPOINTS_END` (value 35).
+pub const CT_TEAM_REACHED_WAYPOINTS_END: i32 = 35;
+/// `ConditionType::NAMED_SELECTED` (value 36).
+pub const CT_NAMED_SELECTED: i32 = 36;
+/// `ConditionType::NAMED_ENTERED_AREA` (value 37).
+pub const CT_NAMED_ENTERED_AREA: i32 = 37;
+/// `ConditionType::NAMED_EXITED_AREA` (value 38).
+pub const CT_NAMED_EXITED_AREA: i32 = 38;
+/// `ConditionType::TEAM_ENTERED_AREA_ENTIRELY` (value 39).
+pub const CT_TEAM_ENTERED_AREA_ENTIRELY: i32 = 39;
+/// `ConditionType::TEAM_ENTERED_AREA_PARTIALLY` (value 40).
+pub const CT_TEAM_ENTERED_AREA_PARTIALLY: i32 = 40;
+/// `ConditionType::TEAM_EXITED_AREA_ENTIRELY` (value 41).
+pub const CT_TEAM_EXITED_AREA_ENTIRELY: i32 = 41;
+/// `ConditionType::TEAM_EXITED_AREA_PARTIALLY` (value 42).
+pub const CT_TEAM_EXITED_AREA_PARTIALLY: i32 = 42;
+/// `ConditionType::MULTIPLAYER_ALLIED_VICTORY` (value 43).
+pub const CT_MULTIPLAYER_ALLIED_VICTORY: i32 = 43;
+/// `ConditionType::MULTIPLAYER_ALLIED_DEFEAT` (value 44).
+pub const CT_MULTIPLAYER_ALLIED_DEFEAT: i32 = 44;
+/// `ConditionType::MULTIPLAYER_PLAYER_DEFEAT` (value 45).
+pub const CT_MULTIPLAYER_PLAYER_DEFEAT: i32 = 45;
+/// `ConditionType::PLAYER_HAS_NO_POWER` (value 46).
+pub const CT_PLAYER_HAS_NO_POWER: i32 = 46;
+/// `ConditionType::HAS_FINISHED_VIDEO` (value 47).
+pub const CT_HAS_FINISHED_VIDEO: i32 = 47;
+/// `ConditionType::HAS_FINISHED_SPEECH` (value 48).
+pub const CT_HAS_FINISHED_SPEECH: i32 = 48;
+/// `ConditionType::HAS_FINISHED_AUDIO` (value 49).
+pub const CT_HAS_FINISHED_AUDIO: i32 = 49;
+/// `ConditionType::BUILDING_ENTERED_BY_PLAYER` (value 50).
+pub const CT_BUILDING_ENTERED_BY_PLAYER: i32 = 50;
+/// `ConditionType::ENEMY_SIGHTED` (value 51).
+pub const CT_ENEMY_SIGHTED: i32 = 51;
+/// `ConditionType::UNIT_HEALTH` (value 52).
+pub const CT_UNIT_HEALTH: i32 = 52;
+/// `ConditionType::BRIDGE_REPAIRED` (value 53).
+pub const CT_BRIDGE_REPAIRED: i32 = 53;
+/// `ConditionType::BRIDGE_BROKEN` (value 54).
+pub const CT_BRIDGE_BROKEN: i32 = 54;
+/// `ConditionType::NAMED_DYING` (value 55).
+pub const CT_NAMED_DYING: i32 = 55;
+/// `ConditionType::NAMED_TOTALLY_DEAD` (value 56).
+pub const CT_NAMED_TOTALLY_DEAD: i32 = 56;
+/// `ConditionType::PLAYER_HAS_OBJECT_COMPARISON` (value 57).
+pub const CT_PLAYER_HAS_OBJECT_COMPARISON: i32 = 57;
+/// `ConditionType::OBSOLETE_SCRIPT_1` (value 58).
+pub const CT_OBSOLETE_SCRIPT_1: i32 = 58;
+/// `ConditionType::OBSOLETE_SCRIPT_2` (value 59).
+pub const CT_OBSOLETE_SCRIPT_2: i32 = 59;
+/// `ConditionType::PLAYER_TRIGGERED_SPECIAL_POWER` (value 60).
+pub const CT_PLAYER_TRIGGERED_SPECIAL_POWER: i32 = 60;
+/// `ConditionType::PLAYER_COMPLETED_SPECIAL_POWER` (value 61).
+pub const CT_PLAYER_COMPLETED_SPECIAL_POWER: i32 = 61;
+/// `ConditionType::PLAYER_MIDWAY_SPECIAL_POWER` (value 62).
+pub const CT_PLAYER_MIDWAY_SPECIAL_POWER: i32 = 62;
+/// `ConditionType::PLAYER_TRIGGERED_SPECIAL_POWER_FROM_NAMED` (value 63).
+pub const CT_PLAYER_TRIGGERED_SPECIAL_POWER_FROM_NAMED: i32 = 63;
+/// `ConditionType::PLAYER_COMPLETED_SPECIAL_POWER_FROM_NAMED` (value 64).
+pub const CT_PLAYER_COMPLETED_SPECIAL_POWER_FROM_NAMED: i32 = 64;
+/// `ConditionType::PLAYER_MIDWAY_SPECIAL_POWER_FROM_NAMED` (value 65).
+pub const CT_PLAYER_MIDWAY_SPECIAL_POWER_FROM_NAMED: i32 = 65;
+/// `ConditionType::DEFUNCT_PLAYER_SELECTED_GENERAL` (value 66).
+pub const CT_DEFUNCT_PLAYER_SELECTED_GENERAL: i32 = 66;
+/// `ConditionType::DEFUNCT_PLAYER_SELECTED_GENERAL_FROM_NAMED` (value 67).
+pub const CT_DEFUNCT_PLAYER_SELECTED_GENERAL_FROM_NAMED: i32 = 67;
+/// `ConditionType::PLAYER_BUILT_UPGRADE` (value 68).
+pub const CT_PLAYER_BUILT_UPGRADE: i32 = 68;
+/// `ConditionType::PLAYER_BUILT_UPGRADE_FROM_NAMED` (value 69).
+pub const CT_PLAYER_BUILT_UPGRADE_FROM_NAMED: i32 = 69;
+/// `ConditionType::PLAYER_DESTROYED_N_BUILDINGS_PLAYER` (value 70).
+pub const CT_PLAYER_DESTROYED_N_BUILDINGS_PLAYER: i32 = 70;
+/// `ConditionType::UNIT_COMPLETED_SEQUENTIAL_EXECUTION` (value 71).
+pub const CT_UNIT_COMPLETED_SEQUENTIAL_EXECUTION: i32 = 71;
+/// `ConditionType::TEAM_COMPLETED_SEQUENTIAL_EXECUTION` (value 72).
+pub const CT_TEAM_COMPLETED_SEQUENTIAL_EXECUTION: i32 = 72;
+/// `ConditionType::PLAYER_HAS_COMPARISON_UNIT_TYPE_IN_TRIGGER_AREA` (value 73).
+pub const CT_PLAYER_HAS_COMPARISON_UNIT_TYPE_IN_TRIGGER_AREA: i32 = 73;
+/// `ConditionType::PLAYER_HAS_COMPARISON_UNIT_KIND_IN_TRIGGER_AREA` (value 74).
+pub const CT_PLAYER_HAS_COMPARISON_UNIT_KIND_IN_TRIGGER_AREA: i32 = 74;
+/// `ConditionType::UNIT_EMPTIED` (value 75).
+pub const CT_UNIT_EMPTIED: i32 = 75;
+/// `ConditionType::TYPE_SIGHTED` (value 76).
+pub const CT_TYPE_SIGHTED: i32 = 76;
+/// `ConditionType::NAMED_BUILDING_IS_EMPTY` (value 77).
+pub const CT_NAMED_BUILDING_IS_EMPTY: i32 = 77;
+/// `ConditionType::PLAYER_HAS_N_OR_FEWER_FACTION_BUILDINGS` (value 78).
+pub const CT_PLAYER_HAS_N_OR_FEWER_FACTION_BUILDINGS: i32 = 78;
+/// `ConditionType::UNIT_HAS_OBJECT_STATUS` (value 79).
+pub const CT_UNIT_HAS_OBJECT_STATUS: i32 = 79;
+/// `ConditionType::TEAM_ALL_HAS_OBJECT_STATUS` (value 80).
+pub const CT_TEAM_ALL_HAS_OBJECT_STATUS: i32 = 80;
+/// `ConditionType::TEAM_SOME_HAVE_OBJECT_STATUS` (value 81).
+pub const CT_TEAM_SOME_HAVE_OBJECT_STATUS: i32 = 81;
+/// `ConditionType::PLAYER_POWER_COMPARE_PERCENT` (value 82).
+pub const CT_PLAYER_POWER_COMPARE_PERCENT: i32 = 82;
+/// `ConditionType::PLAYER_EXCESS_POWER_COMPARE_VALUE` (value 83).
+pub const CT_PLAYER_EXCESS_POWER_COMPARE_VALUE: i32 = 83;
+/// `ConditionType::SKIRMISH_SPECIAL_POWER_READY` (value 84).
+pub const CT_SKIRMISH_SPECIAL_POWER_READY: i32 = 84;
+/// `ConditionType::SKIRMISH_VALUE_IN_AREA` (value 85).
+pub const CT_SKIRMISH_VALUE_IN_AREA: i32 = 85;
+/// `ConditionType::SKIRMISH_PLAYER_FACTION` (value 86).
+pub const CT_SKIRMISH_PLAYER_FACTION: i32 = 86;
+/// `ConditionType::SKIRMISH_SUPPLIES_VALUE_WITHIN_DISTANCE` (value 87).
+pub const CT_SKIRMISH_SUPPLIES_VALUE_WITHIN_DISTANCE: i32 = 87;
+/// `ConditionType::SKIRMISH_TECH_BUILDING_WITHIN_DISTANCE` (value 88).
+pub const CT_SKIRMISH_TECH_BUILDING_WITHIN_DISTANCE: i32 = 88;
+/// `ConditionType::SKIRMISH_COMMAND_BUTTON_READY_ALL` (value 89).
+pub const CT_SKIRMISH_COMMAND_BUTTON_READY_ALL: i32 = 89;
+/// `ConditionType::SKIRMISH_COMMAND_BUTTON_READY_PARTIAL` (value 90).
+pub const CT_SKIRMISH_COMMAND_BUTTON_READY_PARTIAL: i32 = 90;
+/// `ConditionType::SKIRMISH_UNOWNED_FACTION_UNIT_EXISTS` (value 91).
+pub const CT_SKIRMISH_UNOWNED_FACTION_UNIT_EXISTS: i32 = 91;
+/// `ConditionType::SKIRMISH_PLAYER_HAS_PREREQUISITE_TO_BUILD` (value 92).
+pub const CT_SKIRMISH_PLAYER_HAS_PREREQUISITE_TO_BUILD: i32 = 92;
+/// `ConditionType::SKIRMISH_PLAYER_HAS_COMPARISON_GARRISONED` (value 93).
+pub const CT_SKIRMISH_PLAYER_HAS_COMPARISON_GARRISONED: i32 = 93;
+/// `ConditionType::SKIRMISH_PLAYER_HAS_COMPARISON_CAPTURED_UNITS` (value 94).
+pub const CT_SKIRMISH_PLAYER_HAS_COMPARISON_CAPTURED_UNITS: i32 = 94;
+/// `ConditionType::SKIRMISH_NAMED_AREA_EXIST` (value 95).
+pub const CT_SKIRMISH_NAMED_AREA_EXIST: i32 = 95;
+/// `ConditionType::SKIRMISH_PLAYER_HAS_UNITS_IN_AREA` (value 96).
+pub const CT_SKIRMISH_PLAYER_HAS_UNITS_IN_AREA: i32 = 96;
+/// `ConditionType::SKIRMISH_PLAYER_HAS_BEEN_ATTACKED_BY_PLAYER` (value 97).
+pub const CT_SKIRMISH_PLAYER_HAS_BEEN_ATTACKED_BY_PLAYER: i32 = 97;
+/// `ConditionType::SKIRMISH_PLAYER_IS_OUTSIDE_AREA` (value 98).
+pub const CT_SKIRMISH_PLAYER_IS_OUTSIDE_AREA: i32 = 98;
+/// `ConditionType::SKIRMISH_PLAYER_HAS_DISCOVERED_PLAYER` (value 99).
+pub const CT_SKIRMISH_PLAYER_HAS_DISCOVERED_PLAYER: i32 = 99;
+/// `ConditionType::PLAYER_ACQUIRED_SCIENCE` (value 100).
+pub const CT_PLAYER_ACQUIRED_SCIENCE: i32 = 100;
+/// `ConditionType::PLAYER_HAS_SCIENCEPURCHASEPOINTS` (value 101).
+pub const CT_PLAYER_HAS_SCIENCEPURCHASEPOINTS: i32 = 101;
+/// `ConditionType::PLAYER_CAN_PURCHASE_SCIENCE` (value 102).
+pub const CT_PLAYER_CAN_PURCHASE_SCIENCE: i32 = 102;
+/// `ConditionType::MUSIC_TRACK_HAS_COMPLETED` (value 103).
+pub const CT_MUSIC_TRACK_HAS_COMPLETED: i32 = 103;
+/// `ConditionType::PLAYER_LOST_OBJECT_TYPE` (value 104).
+pub const CT_PLAYER_LOST_OBJECT_TYPE: i32 = 104;
+/// `ConditionType::SUPPLY_SOURCE_SAFE` (value 105).
+pub const CT_SUPPLY_SOURCE_SAFE: i32 = 105;
+/// `ConditionType::SUPPLY_SOURCE_ATTACKED` (value 106).
+pub const CT_SUPPLY_SOURCE_ATTACKED: i32 = 106;
+/// `ConditionType::START_POSITION_IS` (value 107).
+pub const CT_START_POSITION_IS: i32 = 107;
+/// `ConditionType::NAMED_HAS_FREE_CONTAINER_SLOTS` (value 108).
+pub const CT_NAMED_HAS_FREE_CONTAINER_SLOTS: i32 = 108;
+/// `ConditionType::NUM_ITEMS` (value 109).
+pub const CT_NUM_ITEMS: i32 = 109;
+
+/// `ScriptActionType::DEBUG_MESSAGE_BOX` (value 0).
+pub const AT_DEBUG_MESSAGE_BOX: i32 = 0;
+/// `ScriptActionType::SET_FLAG` (value 1).
+pub const AT_SET_FLAG: i32 = 1;
+/// `ScriptActionType::SET_COUNTER` (value 2).
+pub const AT_SET_COUNTER: i32 = 2;
+/// `ScriptActionType::VICTORY` (value 3).
+pub const AT_VICTORY: i32 = 3;
+/// `ScriptActionType::DEFEAT` (value 4).
+pub const AT_DEFEAT: i32 = 4;
+/// `ScriptActionType::NO_OP` (value 5).
+pub const AT_NO_OP: i32 = 5;
+/// `ScriptActionType::SET_TIMER` (value 6).
+pub const AT_SET_TIMER: i32 = 6;
+/// `ScriptActionType::PLAY_SOUND_EFFECT` (value 7).
+pub const AT_PLAY_SOUND_EFFECT: i32 = 7;
+/// `ScriptActionType::ENABLE_SCRIPT` (value 8).
+pub const AT_ENABLE_SCRIPT: i32 = 8;
+/// `ScriptActionType::DISABLE_SCRIPT` (value 9).
+pub const AT_DISABLE_SCRIPT: i32 = 9;
+/// `ScriptActionType::CALL_SUBROUTINE` (value 10).
+pub const AT_CALL_SUBROUTINE: i32 = 10;
+/// `ScriptActionType::PLAY_SOUND_EFFECT_AT` (value 11).
+pub const AT_PLAY_SOUND_EFFECT_AT: i32 = 11;
+/// `ScriptActionType::DAMAGE_MEMBERS_OF_TEAM` (value 12).
+pub const AT_DAMAGE_MEMBERS_OF_TEAM: i32 = 12;
+/// `ScriptActionType::MOVE_TEAM_TO` (value 13).
+pub const AT_MOVE_TEAM_TO: i32 = 13;
+/// `ScriptActionType::MOVE_CAMERA_TO` (value 14).
+pub const AT_MOVE_CAMERA_TO: i32 = 14;
+/// `ScriptActionType::INCREMENT_COUNTER` (value 15).
+pub const AT_INCREMENT_COUNTER: i32 = 15;
+/// `ScriptActionType::DECREMENT_COUNTER` (value 16).
+pub const AT_DECREMENT_COUNTER: i32 = 16;
+/// `ScriptActionType::MOVE_CAMERA_ALONG_WAYPOINT_PATH` (value 17).
+pub const AT_MOVE_CAMERA_ALONG_WAYPOINT_PATH: i32 = 17;
+/// `ScriptActionType::ROTATE_CAMERA` (value 18).
+pub const AT_ROTATE_CAMERA: i32 = 18;
+/// `ScriptActionType::RESET_CAMERA` (value 19).
+pub const AT_RESET_CAMERA: i32 = 19;
+/// `ScriptActionType::SET_MILLISECOND_TIMER` (value 20).
+pub const AT_SET_MILLISECOND_TIMER: i32 = 20;
+/// `ScriptActionType::CAMERA_MOD_FREEZE_TIME` (value 21).
+pub const AT_CAMERA_MOD_FREEZE_TIME: i32 = 21;
+/// `ScriptActionType::SET_VISUAL_SPEED_MULTIPLIER` (value 22).
+pub const AT_SET_VISUAL_SPEED_MULTIPLIER: i32 = 22;
+/// `ScriptActionType::CREATE_OBJECT` (value 23).
+pub const AT_CREATE_OBJECT: i32 = 23;
+/// `ScriptActionType::SUSPEND_BACKGROUND_SOUNDS` (value 24).
+pub const AT_SUSPEND_BACKGROUND_SOUNDS: i32 = 24;
+/// `ScriptActionType::RESUME_BACKGROUND_SOUNDS` (value 25).
+pub const AT_RESUME_BACKGROUND_SOUNDS: i32 = 25;
+/// `ScriptActionType::CAMERA_MOD_SET_FINAL_ZOOM` (value 26).
+pub const AT_CAMERA_MOD_SET_FINAL_ZOOM: i32 = 26;
+/// `ScriptActionType::CAMERA_MOD_SET_FINAL_PITCH` (value 27).
+pub const AT_CAMERA_MOD_SET_FINAL_PITCH: i32 = 27;
+/// `ScriptActionType::CAMERA_MOD_FREEZE_ANGLE` (value 28).
+pub const AT_CAMERA_MOD_FREEZE_ANGLE: i32 = 28;
+/// `ScriptActionType::CAMERA_MOD_SET_FINAL_SPEED_MULTIPLIER` (value 29).
+pub const AT_CAMERA_MOD_SET_FINAL_SPEED_MULTIPLIER: i32 = 29;
+/// `ScriptActionType::CAMERA_MOD_SET_ROLLING_AVERAGE` (value 30).
+pub const AT_CAMERA_MOD_SET_ROLLING_AVERAGE: i32 = 30;
+/// `ScriptActionType::CAMERA_MOD_FINAL_LOOK_TOWARD` (value 31).
+pub const AT_CAMERA_MOD_FINAL_LOOK_TOWARD: i32 = 31;
+/// `ScriptActionType::CAMERA_MOD_LOOK_TOWARD` (value 32).
+pub const AT_CAMERA_MOD_LOOK_TOWARD: i32 = 32;
+/// `ScriptActionType::TEAM_ATTACK_TEAM` (value 33).
+pub const AT_TEAM_ATTACK_TEAM: i32 = 33;
+/// `ScriptActionType::CREATE_REINFORCEMENT_TEAM` (value 34).
+pub const AT_CREATE_REINFORCEMENT_TEAM: i32 = 34;
+/// `ScriptActionType::MOVE_CAMERA_TO_SELECTION` (value 35).
+pub const AT_MOVE_CAMERA_TO_SELECTION: i32 = 35;
+/// `ScriptActionType::TEAM_FOLLOW_WAYPOINTS` (value 36).
+pub const AT_TEAM_FOLLOW_WAYPOINTS: i32 = 36;
+/// `ScriptActionType::TEAM_SET_STATE` (value 37).
+pub const AT_TEAM_SET_STATE: i32 = 37;
+/// `ScriptActionType::MOVE_NAMED_UNIT_TO` (value 38).
+pub const AT_MOVE_NAMED_UNIT_TO: i32 = 38;
+/// `ScriptActionType::NAMED_ATTACK_NAMED` (value 39).
+pub const AT_NAMED_ATTACK_NAMED: i32 = 39;
+/// `ScriptActionType::CREATE_NAMED_ON_TEAM_AT_WAYPOINT` (value 40).
+pub const AT_CREATE_NAMED_ON_TEAM_AT_WAYPOINT: i32 = 40;
+/// `ScriptActionType::CREATE_UNNAMED_ON_TEAM_AT_WAYPOINT` (value 41).
+pub const AT_CREATE_UNNAMED_ON_TEAM_AT_WAYPOINT: i32 = 41;
+/// `ScriptActionType::NAMED_APPLY_ATTACK_PRIORITY_SET` (value 42).
+pub const AT_NAMED_APPLY_ATTACK_PRIORITY_SET: i32 = 42;
+/// `ScriptActionType::TEAM_APPLY_ATTACK_PRIORITY_SET` (value 43).
+pub const AT_TEAM_APPLY_ATTACK_PRIORITY_SET: i32 = 43;
+/// `ScriptActionType::SET_BASE_CONSTRUCTION_SPEED` (value 44).
+pub const AT_SET_BASE_CONSTRUCTION_SPEED: i32 = 44;
+/// `ScriptActionType::NAMED_SET_ATTITUDE` (value 45).
+pub const AT_NAMED_SET_ATTITUDE: i32 = 45;
+/// `ScriptActionType::TEAM_SET_ATTITUDE` (value 46).
+pub const AT_TEAM_SET_ATTITUDE: i32 = 46;
+/// `ScriptActionType::NAMED_ATTACK_AREA` (value 47).
+pub const AT_NAMED_ATTACK_AREA: i32 = 47;
+/// `ScriptActionType::NAMED_ATTACK_TEAM` (value 48).
+pub const AT_NAMED_ATTACK_TEAM: i32 = 48;
+/// `ScriptActionType::TEAM_ATTACK_AREA` (value 49).
+pub const AT_TEAM_ATTACK_AREA: i32 = 49;
+/// `ScriptActionType::TEAM_ATTACK_NAMED` (value 50).
+pub const AT_TEAM_ATTACK_NAMED: i32 = 50;
+/// `ScriptActionType::TEAM_LOAD_TRANSPORTS` (value 51).
+pub const AT_TEAM_LOAD_TRANSPORTS: i32 = 51;
+/// `ScriptActionType::NAMED_ENTER_NAMED` (value 52).
+pub const AT_NAMED_ENTER_NAMED: i32 = 52;
+/// `ScriptActionType::TEAM_ENTER_NAMED` (value 53).
+pub const AT_TEAM_ENTER_NAMED: i32 = 53;
+/// `ScriptActionType::NAMED_EXIT_ALL` (value 54).
+pub const AT_NAMED_EXIT_ALL: i32 = 54;
+/// `ScriptActionType::TEAM_EXIT_ALL` (value 55).
+pub const AT_TEAM_EXIT_ALL: i32 = 55;
+/// `ScriptActionType::NAMED_FOLLOW_WAYPOINTS` (value 56).
+pub const AT_NAMED_FOLLOW_WAYPOINTS: i32 = 56;
+/// `ScriptActionType::NAMED_GUARD` (value 57).
+pub const AT_NAMED_GUARD: i32 = 57;
+/// `ScriptActionType::TEAM_GUARD` (value 58).
+pub const AT_TEAM_GUARD: i32 = 58;
+/// `ScriptActionType::NAMED_HUNT` (value 59).
+pub const AT_NAMED_HUNT: i32 = 59;
+/// `ScriptActionType::TEAM_HUNT` (value 60).
+pub const AT_TEAM_HUNT: i32 = 60;
+/// `ScriptActionType::PLAYER_SELL_EVERYTHING` (value 61).
+pub const AT_PLAYER_SELL_EVERYTHING: i32 = 61;
+/// `ScriptActionType::PLAYER_DISABLE_BASE_CONSTRUCTION` (value 62).
+pub const AT_PLAYER_DISABLE_BASE_CONSTRUCTION: i32 = 62;
+/// `ScriptActionType::PLAYER_DISABLE_FACTORIES` (value 63).
+pub const AT_PLAYER_DISABLE_FACTORIES: i32 = 63;
+/// `ScriptActionType::PLAYER_DISABLE_UNIT_CONSTRUCTION` (value 64).
+pub const AT_PLAYER_DISABLE_UNIT_CONSTRUCTION: i32 = 64;
+/// `ScriptActionType::PLAYER_ENABLE_BASE_CONSTRUCTION` (value 65).
+pub const AT_PLAYER_ENABLE_BASE_CONSTRUCTION: i32 = 65;
+/// `ScriptActionType::PLAYER_ENABLE_FACTORIES` (value 66).
+pub const AT_PLAYER_ENABLE_FACTORIES: i32 = 66;
+/// `ScriptActionType::PLAYER_ENABLE_UNIT_CONSTRUCTION` (value 67).
+pub const AT_PLAYER_ENABLE_UNIT_CONSTRUCTION: i32 = 67;
+/// `ScriptActionType::CAMERA_MOVE_HOME` (value 68).
+pub const AT_CAMERA_MOVE_HOME: i32 = 68;
+/// `ScriptActionType::BUILD_TEAM` (value 69).
+pub const AT_BUILD_TEAM: i32 = 69;
+/// `ScriptActionType::NAMED_DAMAGE` (value 70).
+pub const AT_NAMED_DAMAGE: i32 = 70;
+/// `ScriptActionType::NAMED_DELETE` (value 71).
+pub const AT_NAMED_DELETE: i32 = 71;
+/// `ScriptActionType::TEAM_DELETE` (value 72).
+pub const AT_TEAM_DELETE: i32 = 72;
+/// `ScriptActionType::NAMED_KILL` (value 73).
+pub const AT_NAMED_KILL: i32 = 73;
+/// `ScriptActionType::TEAM_KILL` (value 74).
+pub const AT_TEAM_KILL: i32 = 74;
+/// `ScriptActionType::PLAYER_KILL` (value 75).
+pub const AT_PLAYER_KILL: i32 = 75;
+/// `ScriptActionType::DISPLAY_TEXT` (value 76).
+pub const AT_DISPLAY_TEXT: i32 = 76;
+/// `ScriptActionType::CAMEO_FLASH` (value 77).
+pub const AT_CAMEO_FLASH: i32 = 77;
+/// `ScriptActionType::NAMED_FLASH` (value 78).
+pub const AT_NAMED_FLASH: i32 = 78;
+/// `ScriptActionType::TEAM_FLASH` (value 79).
+pub const AT_TEAM_FLASH: i32 = 79;
+/// `ScriptActionType::MOVIE_PLAY_FULLSCREEN` (value 80).
+pub const AT_MOVIE_PLAY_FULLSCREEN: i32 = 80;
+/// `ScriptActionType::MOVIE_PLAY_RADAR` (value 81).
+pub const AT_MOVIE_PLAY_RADAR: i32 = 81;
+/// `ScriptActionType::SOUND_PLAY_NAMED` (value 82).
+pub const AT_SOUND_PLAY_NAMED: i32 = 82;
+/// `ScriptActionType::SPEECH_PLAY` (value 83).
+pub const AT_SPEECH_PLAY: i32 = 83;
+/// `ScriptActionType::PLAYER_TRANSFER_OWNERSHIP_PLAYER` (value 84).
+pub const AT_PLAYER_TRANSFER_OWNERSHIP_PLAYER: i32 = 84;
+/// `ScriptActionType::NAMED_TRANSFER_OWNERSHIP_PLAYER` (value 85).
+pub const AT_NAMED_TRANSFER_OWNERSHIP_PLAYER: i32 = 85;
+/// `ScriptActionType::PLAYER_RELATES_PLAYER` (value 86).
+pub const AT_PLAYER_RELATES_PLAYER: i32 = 86;
+/// `ScriptActionType::RADAR_CREATE_EVENT` (value 87).
+pub const AT_RADAR_CREATE_EVENT: i32 = 87;
+/// `ScriptActionType::RADAR_DISABLE` (value 88).
+pub const AT_RADAR_DISABLE: i32 = 88;
+/// `ScriptActionType::RADAR_ENABLE` (value 89).
+pub const AT_RADAR_ENABLE: i32 = 89;
+/// `ScriptActionType::MAP_REVEAL_AT_WAYPOINT` (value 90).
+pub const AT_MAP_REVEAL_AT_WAYPOINT: i32 = 90;
+/// `ScriptActionType::TEAM_AVAILABLE_FOR_RECRUITMENT` (value 91).
+pub const AT_TEAM_AVAILABLE_FOR_RECRUITMENT: i32 = 91;
+/// `ScriptActionType::TEAM_COLLECT_NEARBY_FOR_TEAM` (value 92).
+pub const AT_TEAM_COLLECT_NEARBY_FOR_TEAM: i32 = 92;
+/// `ScriptActionType::TEAM_MERGE_INTO_TEAM` (value 93).
+pub const AT_TEAM_MERGE_INTO_TEAM: i32 = 93;
+/// `ScriptActionType::DISABLE_INPUT` (value 94).
+pub const AT_DISABLE_INPUT: i32 = 94;
+/// `ScriptActionType::ENABLE_INPUT` (value 95).
+pub const AT_ENABLE_INPUT: i32 = 95;
+/// `ScriptActionType::PLAYER_HUNT` (value 96).
+pub const AT_PLAYER_HUNT: i32 = 96;
+/// `ScriptActionType::SOUND_AMBIENT_PAUSE` (value 97).
+pub const AT_SOUND_AMBIENT_PAUSE: i32 = 97;
+/// `ScriptActionType::SOUND_AMBIENT_RESUME` (value 98).
+pub const AT_SOUND_AMBIENT_RESUME: i32 = 98;
+/// `ScriptActionType::MUSIC_SET_TRACK` (value 99).
+pub const AT_MUSIC_SET_TRACK: i32 = 99;
+/// `ScriptActionType::SET_TREE_SWAY` (value 100).
+pub const AT_SET_TREE_SWAY: i32 = 100;
+/// `ScriptActionType::DEBUG_STRING` (value 101).
+pub const AT_DEBUG_STRING: i32 = 101;
+/// `ScriptActionType::MAP_REVEAL_ALL` (value 102).
+pub const AT_MAP_REVEAL_ALL: i32 = 102;
+/// `ScriptActionType::TEAM_GARRISON_SPECIFIC_BUILDING` (value 103).
+pub const AT_TEAM_GARRISON_SPECIFIC_BUILDING: i32 = 103;
+/// `ScriptActionType::EXIT_SPECIFIC_BUILDING` (value 104).
+pub const AT_EXIT_SPECIFIC_BUILDING: i32 = 104;
+/// `ScriptActionType::TEAM_GARRISON_NEAREST_BUILDING` (value 105).
+pub const AT_TEAM_GARRISON_NEAREST_BUILDING: i32 = 105;
+/// `ScriptActionType::TEAM_EXIT_ALL_BUILDINGS` (value 106).
+pub const AT_TEAM_EXIT_ALL_BUILDINGS: i32 = 106;
+/// `ScriptActionType::NAMED_GARRISON_SPECIFIC_BUILDING` (value 107).
+pub const AT_NAMED_GARRISON_SPECIFIC_BUILDING: i32 = 107;
+/// `ScriptActionType::NAMED_GARRISON_NEAREST_BUILDING` (value 108).
+pub const AT_NAMED_GARRISON_NEAREST_BUILDING: i32 = 108;
+/// `ScriptActionType::NAMED_EXIT_BUILDING` (value 109).
+pub const AT_NAMED_EXIT_BUILDING: i32 = 109;
+/// `ScriptActionType::PLAYER_GARRISON_ALL_BUILDINGS` (value 110).
+pub const AT_PLAYER_GARRISON_ALL_BUILDINGS: i32 = 110;
+/// `ScriptActionType::PLAYER_EXIT_ALL_BUILDINGS` (value 111).
+pub const AT_PLAYER_EXIT_ALL_BUILDINGS: i32 = 111;
+/// `ScriptActionType::TEAM_WANDER` (value 112).
+pub const AT_TEAM_WANDER: i32 = 112;
+/// `ScriptActionType::TEAM_PANIC` (value 113).
+pub const AT_TEAM_PANIC: i32 = 113;
+/// `ScriptActionType::SETUP_CAMERA` (value 114).
+pub const AT_SETUP_CAMERA: i32 = 114;
+/// `ScriptActionType::CAMERA_LETTERBOX_BEGIN` (value 115).
+pub const AT_CAMERA_LETTERBOX_BEGIN: i32 = 115;
+/// `ScriptActionType::CAMERA_LETTERBOX_END` (value 116).
+pub const AT_CAMERA_LETTERBOX_END: i32 = 116;
+/// `ScriptActionType::ZOOM_CAMERA` (value 117).
+pub const AT_ZOOM_CAMERA: i32 = 117;
+/// `ScriptActionType::PITCH_CAMERA` (value 118).
+pub const AT_PITCH_CAMERA: i32 = 118;
+/// `ScriptActionType::CAMERA_FOLLOW_NAMED` (value 119).
+pub const AT_CAMERA_FOLLOW_NAMED: i32 = 119;
+/// `ScriptActionType::OVERSIZE_TERRAIN` (value 120).
+pub const AT_OVERSIZE_TERRAIN: i32 = 120;
+/// `ScriptActionType::CAMERA_FADE_ADD` (value 121).
+pub const AT_CAMERA_FADE_ADD: i32 = 121;
+/// `ScriptActionType::CAMERA_FADE_SUBTRACT` (value 122).
+pub const AT_CAMERA_FADE_SUBTRACT: i32 = 122;
+/// `ScriptActionType::CAMERA_FADE_SATURATE` (value 123).
+pub const AT_CAMERA_FADE_SATURATE: i32 = 123;
+/// `ScriptActionType::CAMERA_FADE_MULTIPLY` (value 124).
+pub const AT_CAMERA_FADE_MULTIPLY: i32 = 124;
+/// `ScriptActionType::CAMERA_BW_MODE_BEGIN` (value 125).
+pub const AT_CAMERA_BW_MODE_BEGIN: i32 = 125;
+/// `ScriptActionType::CAMERA_BW_MODE_END` (value 126).
+pub const AT_CAMERA_BW_MODE_END: i32 = 126;
+/// `ScriptActionType::DRAW_SKYBOX_BEGIN` (value 127).
+pub const AT_DRAW_SKYBOX_BEGIN: i32 = 127;
+/// `ScriptActionType::DRAW_SKYBOX_END` (value 128).
+pub const AT_DRAW_SKYBOX_END: i32 = 128;
+/// `ScriptActionType::SET_ATTACK_PRIORITY_THING` (value 129).
+pub const AT_SET_ATTACK_PRIORITY_THING: i32 = 129;
+/// `ScriptActionType::SET_ATTACK_PRIORITY_KIND_OF` (value 130).
+pub const AT_SET_ATTACK_PRIORITY_KIND_OF: i32 = 130;
+/// `ScriptActionType::SET_DEFAULT_ATTACK_PRIORITY` (value 131).
+pub const AT_SET_DEFAULT_ATTACK_PRIORITY: i32 = 131;
+/// `ScriptActionType::CAMERA_STOP_FOLLOW` (value 132).
+pub const AT_CAMERA_STOP_FOLLOW: i32 = 132;
+/// `ScriptActionType::CAMERA_MOTION_BLUR` (value 133).
+pub const AT_CAMERA_MOTION_BLUR: i32 = 133;
+/// `ScriptActionType::CAMERA_MOTION_BLUR_JUMP` (value 134).
+pub const AT_CAMERA_MOTION_BLUR_JUMP: i32 = 134;
+/// `ScriptActionType::CAMERA_MOTION_BLUR_FOLLOW` (value 135).
+pub const AT_CAMERA_MOTION_BLUR_FOLLOW: i32 = 135;
+/// `ScriptActionType::CAMERA_MOTION_BLUR_END_FOLLOW` (value 136).
+pub const AT_CAMERA_MOTION_BLUR_END_FOLLOW: i32 = 136;
+/// `ScriptActionType::FREEZE_TIME` (value 137).
+pub const AT_FREEZE_TIME: i32 = 137;
+/// `ScriptActionType::UNFREEZE_TIME` (value 138).
+pub const AT_UNFREEZE_TIME: i32 = 138;
+/// `ScriptActionType::SHOW_MILITARY_CAPTION` (value 139).
+pub const AT_SHOW_MILITARY_CAPTION: i32 = 139;
+/// `ScriptActionType::CAMERA_SET_AUDIBLE_DISTANCE` (value 140).
+pub const AT_CAMERA_SET_AUDIBLE_DISTANCE: i32 = 140;
+/// `ScriptActionType::SET_STOPPING_DISTANCE` (value 141).
+pub const AT_SET_STOPPING_DISTANCE: i32 = 141;
+/// `ScriptActionType::NAMED_SET_STOPPING_DISTANCE` (value 142).
+pub const AT_NAMED_SET_STOPPING_DISTANCE: i32 = 142;
+/// `ScriptActionType::SET_FPS_LIMIT` (value 143).
+pub const AT_SET_FPS_LIMIT: i32 = 143;
+/// `ScriptActionType::MUSIC_SET_VOLUME` (value 144).
+pub const AT_MUSIC_SET_VOLUME: i32 = 144;
+/// `ScriptActionType::MAP_SHROUD_AT_WAYPOINT` (value 145).
+pub const AT_MAP_SHROUD_AT_WAYPOINT: i32 = 145;
+/// `ScriptActionType::MAP_SHROUD_ALL` (value 146).
+pub const AT_MAP_SHROUD_ALL: i32 = 146;
+/// `ScriptActionType::SET_RANDOM_TIMER` (value 147).
+pub const AT_SET_RANDOM_TIMER: i32 = 147;
+/// `ScriptActionType::SET_RANDOM_MSEC_TIMER` (value 148).
+pub const AT_SET_RANDOM_MSEC_TIMER: i32 = 148;
+/// `ScriptActionType::STOP_TIMER` (value 149).
+pub const AT_STOP_TIMER: i32 = 149;
+/// `ScriptActionType::RESTART_TIMER` (value 150).
+pub const AT_RESTART_TIMER: i32 = 150;
+/// `ScriptActionType::ADD_TO_MSEC_TIMER` (value 151).
+pub const AT_ADD_TO_MSEC_TIMER: i32 = 151;
+/// `ScriptActionType::SUB_FROM_MSEC_TIMER` (value 152).
+pub const AT_SUB_FROM_MSEC_TIMER: i32 = 152;
+/// `ScriptActionType::TEAM_TRANSFER_TO_PLAYER` (value 153).
+pub const AT_TEAM_TRANSFER_TO_PLAYER: i32 = 153;
+/// `ScriptActionType::PLAYER_SET_MONEY` (value 154).
+pub const AT_PLAYER_SET_MONEY: i32 = 154;
+/// `ScriptActionType::PLAYER_GIVE_MONEY` (value 155).
+pub const AT_PLAYER_GIVE_MONEY: i32 = 155;
+/// `ScriptActionType::DISABLE_SPECIAL_POWER_DISPLAY` (value 156).
+pub const AT_DISABLE_SPECIAL_POWER_DISPLAY: i32 = 156;
+/// `ScriptActionType::ENABLE_SPECIAL_POWER_DISPLAY` (value 157).
+pub const AT_ENABLE_SPECIAL_POWER_DISPLAY: i32 = 157;
+/// `ScriptActionType::NAMED_HIDE_SPECIAL_POWER_DISPLAY` (value 158).
+pub const AT_NAMED_HIDE_SPECIAL_POWER_DISPLAY: i32 = 158;
+/// `ScriptActionType::NAMED_SHOW_SPECIAL_POWER_DISPLAY` (value 159).
+pub const AT_NAMED_SHOW_SPECIAL_POWER_DISPLAY: i32 = 159;
+/// `ScriptActionType::DISPLAY_COUNTDOWN_TIMER` (value 160).
+pub const AT_DISPLAY_COUNTDOWN_TIMER: i32 = 160;
+/// `ScriptActionType::HIDE_COUNTDOWN_TIMER` (value 161).
+pub const AT_HIDE_COUNTDOWN_TIMER: i32 = 161;
+/// `ScriptActionType::ENABLE_COUNTDOWN_TIMER_DISPLAY` (value 162).
+pub const AT_ENABLE_COUNTDOWN_TIMER_DISPLAY: i32 = 162;
+/// `ScriptActionType::DISABLE_COUNTDOWN_TIMER_DISPLAY` (value 163).
+pub const AT_DISABLE_COUNTDOWN_TIMER_DISPLAY: i32 = 163;
+/// `ScriptActionType::NAMED_STOP_SPECIAL_POWER_COUNTDOWN` (value 164).
+pub const AT_NAMED_STOP_SPECIAL_POWER_COUNTDOWN: i32 = 164;
+/// `ScriptActionType::NAMED_START_SPECIAL_POWER_COUNTDOWN` (value 165).
+pub const AT_NAMED_START_SPECIAL_POWER_COUNTDOWN: i32 = 165;
+/// `ScriptActionType::NAMED_SET_SPECIAL_POWER_COUNTDOWN` (value 166).
+pub const AT_NAMED_SET_SPECIAL_POWER_COUNTDOWN: i32 = 166;
+/// `ScriptActionType::NAMED_ADD_SPECIAL_POWER_COUNTDOWN` (value 167).
+pub const AT_NAMED_ADD_SPECIAL_POWER_COUNTDOWN: i32 = 167;
+/// `ScriptActionType::NAMED_FIRE_SPECIAL_POWER_AT_WAYPOINT` (value 168).
+pub const AT_NAMED_FIRE_SPECIAL_POWER_AT_WAYPOINT: i32 = 168;
+/// `ScriptActionType::NAMED_FIRE_SPECIAL_POWER_AT_NAMED` (value 169).
+pub const AT_NAMED_FIRE_SPECIAL_POWER_AT_NAMED: i32 = 169;
+/// `ScriptActionType::REFRESH_RADAR` (value 170).
+pub const AT_REFRESH_RADAR: i32 = 170;
+/// `ScriptActionType::CAMERA_TETHER_NAMED` (value 171).
+pub const AT_CAMERA_TETHER_NAMED: i32 = 171;
+/// `ScriptActionType::CAMERA_STOP_TETHER_NAMED` (value 172).
+pub const AT_CAMERA_STOP_TETHER_NAMED: i32 = 172;
+/// `ScriptActionType::CAMERA_SET_DEFAULT` (value 173).
+pub const AT_CAMERA_SET_DEFAULT: i32 = 173;
+/// `ScriptActionType::NAMED_STOP` (value 174).
+pub const AT_NAMED_STOP: i32 = 174;
+/// `ScriptActionType::TEAM_STOP` (value 175).
+pub const AT_TEAM_STOP: i32 = 175;
+/// `ScriptActionType::TEAM_STOP_AND_DISBAND` (value 176).
+pub const AT_TEAM_STOP_AND_DISBAND: i32 = 176;
+/// `ScriptActionType::RECRUIT_TEAM` (value 177).
+pub const AT_RECRUIT_TEAM: i32 = 177;
+/// `ScriptActionType::TEAM_SET_OVERRIDE_RELATION_TO_TEAM` (value 178).
+pub const AT_TEAM_SET_OVERRIDE_RELATION_TO_TEAM: i32 = 178;
+/// `ScriptActionType::TEAM_REMOVE_OVERRIDE_RELATION_TO_TEAM` (value 179).
+pub const AT_TEAM_REMOVE_OVERRIDE_RELATION_TO_TEAM: i32 = 179;
+/// `ScriptActionType::TEAM_REMOVE_ALL_OVERRIDE_RELATIONS` (value 180).
+pub const AT_TEAM_REMOVE_ALL_OVERRIDE_RELATIONS: i32 = 180;
+/// `ScriptActionType::CAMERA_LOOK_TOWARD_OBJECT` (value 181).
+pub const AT_CAMERA_LOOK_TOWARD_OBJECT: i32 = 181;
+/// `ScriptActionType::NAMED_FIRE_WEAPON_FOLLOWING_WAYPOINT_PATH` (value 182).
+pub const AT_NAMED_FIRE_WEAPON_FOLLOWING_WAYPOINT_PATH: i32 = 182;
+/// `ScriptActionType::TEAM_SET_OVERRIDE_RELATION_TO_PLAYER` (value 183).
+pub const AT_TEAM_SET_OVERRIDE_RELATION_TO_PLAYER: i32 = 183;
+/// `ScriptActionType::TEAM_REMOVE_OVERRIDE_RELATION_TO_PLAYER` (value 184).
+pub const AT_TEAM_REMOVE_OVERRIDE_RELATION_TO_PLAYER: i32 = 184;
+/// `ScriptActionType::PLAYER_SET_OVERRIDE_RELATION_TO_TEAM` (value 185).
+pub const AT_PLAYER_SET_OVERRIDE_RELATION_TO_TEAM: i32 = 185;
+/// `ScriptActionType::PLAYER_REMOVE_OVERRIDE_RELATION_TO_TEAM` (value 186).
+pub const AT_PLAYER_REMOVE_OVERRIDE_RELATION_TO_TEAM: i32 = 186;
+/// `ScriptActionType::UNIT_EXECUTE_SEQUENTIAL_SCRIPT` (value 187).
+pub const AT_UNIT_EXECUTE_SEQUENTIAL_SCRIPT: i32 = 187;
+/// `ScriptActionType::UNIT_EXECUTE_SEQUENTIAL_SCRIPT_LOOPING` (value 188).
+pub const AT_UNIT_EXECUTE_SEQUENTIAL_SCRIPT_LOOPING: i32 = 188;
+/// `ScriptActionType::UNIT_STOP_SEQUENTIAL_SCRIPT` (value 189).
+pub const AT_UNIT_STOP_SEQUENTIAL_SCRIPT: i32 = 189;
+/// `ScriptActionType::TEAM_EXECUTE_SEQUENTIAL_SCRIPT` (value 190).
+pub const AT_TEAM_EXECUTE_SEQUENTIAL_SCRIPT: i32 = 190;
+/// `ScriptActionType::TEAM_EXECUTE_SEQUENTIAL_SCRIPT_LOOPING` (value 191).
+pub const AT_TEAM_EXECUTE_SEQUENTIAL_SCRIPT_LOOPING: i32 = 191;
+/// `ScriptActionType::TEAM_STOP_SEQUENTIAL_SCRIPT` (value 192).
+pub const AT_TEAM_STOP_SEQUENTIAL_SCRIPT: i32 = 192;
+/// `ScriptActionType::UNIT_GUARD_FOR_FRAMECOUNT` (value 193).
+pub const AT_UNIT_GUARD_FOR_FRAMECOUNT: i32 = 193;
+/// `ScriptActionType::UNIT_IDLE_FOR_FRAMECOUNT` (value 194).
+pub const AT_UNIT_IDLE_FOR_FRAMECOUNT: i32 = 194;
+/// `ScriptActionType::TEAM_GUARD_FOR_FRAMECOUNT` (value 195).
+pub const AT_TEAM_GUARD_FOR_FRAMECOUNT: i32 = 195;
+/// `ScriptActionType::TEAM_IDLE_FOR_FRAMECOUNT` (value 196).
+pub const AT_TEAM_IDLE_FOR_FRAMECOUNT: i32 = 196;
+/// `ScriptActionType::WATER_CHANGE_HEIGHT` (value 197).
+pub const AT_WATER_CHANGE_HEIGHT: i32 = 197;
+/// `ScriptActionType::NAMED_USE_COMMANDBUTTON_ABILITY_ON_NAMED` (value 198).
+pub const AT_NAMED_USE_COMMANDBUTTON_ABILITY_ON_NAMED: i32 = 198;
+/// `ScriptActionType::NAMED_USE_COMMANDBUTTON_ABILITY_AT_WAYPOINT` (value 199).
+pub const AT_NAMED_USE_COMMANDBUTTON_ABILITY_AT_WAYPOINT: i32 = 199;
+/// `ScriptActionType::WATER_CHANGE_HEIGHT_OVER_TIME` (value 200).
+pub const AT_WATER_CHANGE_HEIGHT_OVER_TIME: i32 = 200;
+/// `ScriptActionType::MAP_SWITCH_BORDER` (value 201).
+pub const AT_MAP_SWITCH_BORDER: i32 = 201;
+/// `ScriptActionType::TEAM_GUARD_POSITION` (value 202).
+pub const AT_TEAM_GUARD_POSITION: i32 = 202;
+/// `ScriptActionType::TEAM_GUARD_OBJECT` (value 203).
+pub const AT_TEAM_GUARD_OBJECT: i32 = 203;
+/// `ScriptActionType::TEAM_GUARD_AREA` (value 204).
+pub const AT_TEAM_GUARD_AREA: i32 = 204;
+/// `ScriptActionType::OBJECT_FORCE_SELECT` (value 205).
+pub const AT_OBJECT_FORCE_SELECT: i32 = 205;
+/// `ScriptActionType::CAMERA_LOOK_TOWARD_WAYPOINT` (value 206).
+pub const AT_CAMERA_LOOK_TOWARD_WAYPOINT: i32 = 206;
+/// `ScriptActionType::UNIT_DESTROY_ALL_CONTAINED` (value 207).
+pub const AT_UNIT_DESTROY_ALL_CONTAINED: i32 = 207;
+/// `ScriptActionType::RADAR_FORCE_ENABLE` (value 208).
+pub const AT_RADAR_FORCE_ENABLE: i32 = 208;
+/// `ScriptActionType::RADAR_REVERT_TO_NORMAL` (value 209).
+pub const AT_RADAR_REVERT_TO_NORMAL: i32 = 209;
+/// `ScriptActionType::SCREEN_SHAKE` (value 210).
+pub const AT_SCREEN_SHAKE: i32 = 210;
+/// `ScriptActionType::TECHTREE_MODIFY_BUILDABILITY_OBJECT` (value 211).
+pub const AT_TECHTREE_MODIFY_BUILDABILITY_OBJECT: i32 = 211;
+/// `ScriptActionType::WAREHOUSE_SET_VALUE` (value 212).
+pub const AT_WAREHOUSE_SET_VALUE: i32 = 212;
+/// `ScriptActionType::OBJECT_CREATE_RADAR_EVENT` (value 213).
+pub const AT_OBJECT_CREATE_RADAR_EVENT: i32 = 213;
+/// `ScriptActionType::TEAM_CREATE_RADAR_EVENT` (value 214).
+pub const AT_TEAM_CREATE_RADAR_EVENT: i32 = 214;
+/// `ScriptActionType::DISPLAY_CINEMATIC_TEXT` (value 215).
+pub const AT_DISPLAY_CINEMATIC_TEXT: i32 = 215;
+/// `ScriptActionType::DEBUG_CRASH_BOX` (value 216).
+pub const AT_DEBUG_CRASH_BOX: i32 = 216;
+/// `ScriptActionType::SOUND_DISABLE_TYPE` (value 217).
+pub const AT_SOUND_DISABLE_TYPE: i32 = 217;
+/// `ScriptActionType::SOUND_ENABLE_TYPE` (value 218).
+pub const AT_SOUND_ENABLE_TYPE: i32 = 218;
+/// `ScriptActionType::SOUND_ENABLE_ALL` (value 219).
+pub const AT_SOUND_ENABLE_ALL: i32 = 219;
+/// `ScriptActionType::AUDIO_OVERRIDE_VOLUME_TYPE` (value 220).
+pub const AT_AUDIO_OVERRIDE_VOLUME_TYPE: i32 = 220;
+/// `ScriptActionType::AUDIO_RESTORE_VOLUME_TYPE` (value 221).
+pub const AT_AUDIO_RESTORE_VOLUME_TYPE: i32 = 221;
+/// `ScriptActionType::AUDIO_RESTORE_VOLUME_ALL_TYPE` (value 222).
+pub const AT_AUDIO_RESTORE_VOLUME_ALL_TYPE: i32 = 222;
+/// `ScriptActionType::INGAME_POPUP_MESSAGE` (value 223).
+pub const AT_INGAME_POPUP_MESSAGE: i32 = 223;
+/// `ScriptActionType::SET_CAVE_INDEX` (value 224).
+pub const AT_SET_CAVE_INDEX: i32 = 224;
+/// `ScriptActionType::NAMED_SET_HELD` (value 225).
+pub const AT_NAMED_SET_HELD: i32 = 225;
+/// `ScriptActionType::NAMED_SET_TOPPLE_DIRECTION` (value 226).
+pub const AT_NAMED_SET_TOPPLE_DIRECTION: i32 = 226;
+/// `ScriptActionType::UNIT_MOVE_TOWARDS_NEAREST_OBJECT_TYPE` (value 227).
+pub const AT_UNIT_MOVE_TOWARDS_NEAREST_OBJECT_TYPE: i32 = 227;
+/// `ScriptActionType::TEAM_MOVE_TOWARDS_NEAREST_OBJECT_TYPE` (value 228).
+pub const AT_TEAM_MOVE_TOWARDS_NEAREST_OBJECT_TYPE: i32 = 228;
+/// `ScriptActionType::MAP_REVEAL_ALL_PERM` (value 229).
+pub const AT_MAP_REVEAL_ALL_PERM: i32 = 229;
+/// `ScriptActionType::MAP_REVEAL_ALL_UNDO_PERM` (value 230).
+pub const AT_MAP_REVEAL_ALL_UNDO_PERM: i32 = 230;
+/// `ScriptActionType::NAMED_SET_REPULSOR` (value 231).
+pub const AT_NAMED_SET_REPULSOR: i32 = 231;
+/// `ScriptActionType::TEAM_SET_REPULSOR` (value 232).
+pub const AT_TEAM_SET_REPULSOR: i32 = 232;
+/// `ScriptActionType::TEAM_WANDER_IN_PLACE` (value 233).
+pub const AT_TEAM_WANDER_IN_PLACE: i32 = 233;
+/// `ScriptActionType::TEAM_INCREASE_PRIORITY` (value 234).
+pub const AT_TEAM_INCREASE_PRIORITY: i32 = 234;
+/// `ScriptActionType::TEAM_DECREASE_PRIORITY` (value 235).
+pub const AT_TEAM_DECREASE_PRIORITY: i32 = 235;
+/// `ScriptActionType::DISPLAY_COUNTER` (value 236).
+pub const AT_DISPLAY_COUNTER: i32 = 236;
+/// `ScriptActionType::HIDE_COUNTER` (value 237).
+pub const AT_HIDE_COUNTER: i32 = 237;
+/// `ScriptActionType::TEAM_USE_COMMANDBUTTON_ABILITY_ON_NAMED` (value 238).
+pub const AT_TEAM_USE_COMMANDBUTTON_ABILITY_ON_NAMED: i32 = 238;
+/// `ScriptActionType::TEAM_USE_COMMANDBUTTON_ABILITY_AT_WAYPOINT` (value 239).
+pub const AT_TEAM_USE_COMMANDBUTTON_ABILITY_AT_WAYPOINT: i32 = 239;
+/// `ScriptActionType::NAMED_USE_COMMANDBUTTON_ABILITY` (value 240).
+pub const AT_NAMED_USE_COMMANDBUTTON_ABILITY: i32 = 240;
+/// `ScriptActionType::TEAM_USE_COMMANDBUTTON_ABILITY` (value 241).
+pub const AT_TEAM_USE_COMMANDBUTTON_ABILITY: i32 = 241;
+/// `ScriptActionType::NAMED_FLASH_WHITE` (value 242).
+pub const AT_NAMED_FLASH_WHITE: i32 = 242;
+/// `ScriptActionType::TEAM_FLASH_WHITE` (value 243).
+pub const AT_TEAM_FLASH_WHITE: i32 = 243;
+/// `ScriptActionType::SKIRMISH_BUILD_BUILDING` (value 244).
+pub const AT_SKIRMISH_BUILD_BUILDING: i32 = 244;
+/// `ScriptActionType::SKIRMISH_FOLLOW_APPROACH_PATH` (value 245).
+pub const AT_SKIRMISH_FOLLOW_APPROACH_PATH: i32 = 245;
+/// `ScriptActionType::IDLE_ALL_UNITS` (value 246).
+pub const AT_IDLE_ALL_UNITS: i32 = 246;
+/// `ScriptActionType::RESUME_SUPPLY_TRUCKING` (value 247).
+pub const AT_RESUME_SUPPLY_TRUCKING: i32 = 247;
+/// `ScriptActionType::NAMED_CUSTOM_COLOR` (value 248).
+pub const AT_NAMED_CUSTOM_COLOR: i32 = 248;
+/// `ScriptActionType::SKIRMISH_MOVE_TO_APPROACH_PATH` (value 249).
+pub const AT_SKIRMISH_MOVE_TO_APPROACH_PATH: i32 = 249;
+/// `ScriptActionType::SKIRMISH_BUILD_BASE_DEFENSE_FRONT` (value 250).
+pub const AT_SKIRMISH_BUILD_BASE_DEFENSE_FRONT: i32 = 250;
+/// `ScriptActionType::SKIRMISH_FIRE_SPECIAL_POWER_AT_MOST_COST` (value 251).
+pub const AT_SKIRMISH_FIRE_SPECIAL_POWER_AT_MOST_COST: i32 = 251;
+/// `ScriptActionType::NAMED_RECEIVE_UPGRADE` (value 252).
+pub const AT_NAMED_RECEIVE_UPGRADE: i32 = 252;
+/// `ScriptActionType::PLAYER_REPAIR_NAMED_STRUCTURE` (value 253).
+pub const AT_PLAYER_REPAIR_NAMED_STRUCTURE: i32 = 253;
+/// `ScriptActionType::SKIRMISH_BUILD_BASE_DEFENSE_FLANK` (value 254).
+pub const AT_SKIRMISH_BUILD_BASE_DEFENSE_FLANK: i32 = 254;
+/// `ScriptActionType::SKIRMISH_BUILD_STRUCTURE_FRONT` (value 255).
+pub const AT_SKIRMISH_BUILD_STRUCTURE_FRONT: i32 = 255;
+/// `ScriptActionType::SKIRMISH_BUILD_STRUCTURE_FLANK` (value 256).
+pub const AT_SKIRMISH_BUILD_STRUCTURE_FLANK: i32 = 256;
+/// `ScriptActionType::SKIRMISH_ATTACK_NEAREST_GROUP_WITH_VALUE` (value 257).
+pub const AT_SKIRMISH_ATTACK_NEAREST_GROUP_WITH_VALUE: i32 = 257;
+/// `ScriptActionType::SKIRMISH_PERFORM_COMMANDBUTTON_ON_MOST_VALUABLE_OBJECT` (value 258).
+pub const AT_SKIRMISH_PERFORM_COMMANDBUTTON_ON_MOST_VALUABLE_OBJECT: i32 = 258;
+/// `ScriptActionType::SKIRMISH_WAIT_FOR_COMMANDBUTTON_AVAILABLE_ALL` (value 259).
+pub const AT_SKIRMISH_WAIT_FOR_COMMANDBUTTON_AVAILABLE_ALL: i32 = 259;
+/// `ScriptActionType::SKIRMISH_WAIT_FOR_COMMANDBUTTON_AVAILABLE_PARTIAL` (value 260).
+pub const AT_SKIRMISH_WAIT_FOR_COMMANDBUTTON_AVAILABLE_PARTIAL: i32 = 260;
+/// `ScriptActionType::TEAM_SPIN_FOR_FRAMECOUNT` (value 261).
+pub const AT_TEAM_SPIN_FOR_FRAMECOUNT: i32 = 261;
+/// `ScriptActionType::TEAM_ALL_USE_COMMANDBUTTON_ON_NAMED` (value 262).
+pub const AT_TEAM_ALL_USE_COMMANDBUTTON_ON_NAMED: i32 = 262;
+/// `ScriptActionType::TEAM_ALL_USE_COMMANDBUTTON_ON_NEAREST_ENEMY_UNIT` (value 263).
+pub const AT_TEAM_ALL_USE_COMMANDBUTTON_ON_NEAREST_ENEMY_UNIT: i32 = 263;
+/// `ScriptActionType::TEAM_ALL_USE_COMMANDBUTTON_ON_NEAREST_GARRISONED_BUILDING` (value 264).
+pub const AT_TEAM_ALL_USE_COMMANDBUTTON_ON_NEAREST_GARRISONED_BUILDING: i32 = 264;
+/// `ScriptActionType::TEAM_ALL_USE_COMMANDBUTTON_ON_NEAREST_KINDOF` (value 265).
+pub const AT_TEAM_ALL_USE_COMMANDBUTTON_ON_NEAREST_KINDOF: i32 = 265;
+/// `ScriptActionType::TEAM_ALL_USE_COMMANDBUTTON_ON_NEAREST_ENEMY_BUILDING` (value 266).
+pub const AT_TEAM_ALL_USE_COMMANDBUTTON_ON_NEAREST_ENEMY_BUILDING: i32 = 266;
+/// `ScriptActionType::TEAM_ALL_USE_COMMANDBUTTON_ON_NEAREST_ENEMY_BUILDING_CLASS` (value 267).
+pub const AT_TEAM_ALL_USE_COMMANDBUTTON_ON_NEAREST_ENEMY_BUILDING_CLASS: i32 = 267;
+/// `ScriptActionType::TEAM_ALL_USE_COMMANDBUTTON_ON_NEAREST_OBJECTTYPE` (value 268).
+pub const AT_TEAM_ALL_USE_COMMANDBUTTON_ON_NEAREST_OBJECTTYPE: i32 = 268;
+/// `ScriptActionType::TEAM_PARTIAL_USE_COMMANDBUTTON` (value 269).
+pub const AT_TEAM_PARTIAL_USE_COMMANDBUTTON: i32 = 269;
+/// `ScriptActionType::TEAM_CAPTURE_NEAREST_UNOWNED_FACTION_UNIT` (value 270).
+pub const AT_TEAM_CAPTURE_NEAREST_UNOWNED_FACTION_UNIT: i32 = 270;
+/// `ScriptActionType::PLAYER_CREATE_TEAM_FROM_CAPTURED_UNITS` (value 271).
+pub const AT_PLAYER_CREATE_TEAM_FROM_CAPTURED_UNITS: i32 = 271;
+/// `ScriptActionType::PLAYER_ADD_SKILLPOINTS` (value 272).
+pub const AT_PLAYER_ADD_SKILLPOINTS: i32 = 272;
+/// `ScriptActionType::PLAYER_ADD_RANKLEVEL` (value 273).
+pub const AT_PLAYER_ADD_RANKLEVEL: i32 = 273;
+/// `ScriptActionType::PLAYER_SET_RANKLEVEL` (value 274).
+pub const AT_PLAYER_SET_RANKLEVEL: i32 = 274;
+/// `ScriptActionType::PLAYER_SET_RANKLEVELLIMIT` (value 275).
+pub const AT_PLAYER_SET_RANKLEVELLIMIT: i32 = 275;
+/// `ScriptActionType::PLAYER_GRANT_SCIENCE` (value 276).
+pub const AT_PLAYER_GRANT_SCIENCE: i32 = 276;
+/// `ScriptActionType::PLAYER_PURCHASE_SCIENCE` (value 277).
+pub const AT_PLAYER_PURCHASE_SCIENCE: i32 = 277;
+/// `ScriptActionType::TEAM_HUNT_WITH_COMMAND_BUTTON` (value 278).
+pub const AT_TEAM_HUNT_WITH_COMMAND_BUTTON: i32 = 278;
+/// `ScriptActionType::TEAM_WAIT_FOR_NOT_CONTAINED_ALL` (value 279).
+pub const AT_TEAM_WAIT_FOR_NOT_CONTAINED_ALL: i32 = 279;
+/// `ScriptActionType::TEAM_WAIT_FOR_NOT_CONTAINED_PARTIAL` (value 280).
+pub const AT_TEAM_WAIT_FOR_NOT_CONTAINED_PARTIAL: i32 = 280;
+/// `ScriptActionType::TEAM_FOLLOW_WAYPOINTS_EXACT` (value 281).
+pub const AT_TEAM_FOLLOW_WAYPOINTS_EXACT: i32 = 281;
+/// `ScriptActionType::NAMED_FOLLOW_WAYPOINTS_EXACT` (value 282).
+pub const AT_NAMED_FOLLOW_WAYPOINTS_EXACT: i32 = 282;
+/// `ScriptActionType::TEAM_SET_EMOTICON` (value 283).
+pub const AT_TEAM_SET_EMOTICON: i32 = 283;
+/// `ScriptActionType::NAMED_SET_EMOTICON` (value 284).
+pub const AT_NAMED_SET_EMOTICON: i32 = 284;
+/// `ScriptActionType::AI_PLAYER_BUILD_SUPPLY_CENTER` (value 285).
+pub const AT_AI_PLAYER_BUILD_SUPPLY_CENTER: i32 = 285;
+/// `ScriptActionType::AI_PLAYER_BUILD_UPGRADE` (value 286).
+pub const AT_AI_PLAYER_BUILD_UPGRADE: i32 = 286;
+/// `ScriptActionType::OBJECTLIST_ADDOBJECTTYPE` (value 287).
+pub const AT_OBJECTLIST_ADDOBJECTTYPE: i32 = 287;
+/// `ScriptActionType::OBJECTLIST_REMOVEOBJECTTYPE` (value 288).
+pub const AT_OBJECTLIST_REMOVEOBJECTTYPE: i32 = 288;
+/// `ScriptActionType::MAP_REVEAL_PERMANENTLY_AT_WAYPOINT` (value 289).
+pub const AT_MAP_REVEAL_PERMANENTLY_AT_WAYPOINT: i32 = 289;
+/// `ScriptActionType::MAP_UNDO_REVEAL_PERMANENTLY_AT_WAYPOINT` (value 290).
+pub const AT_MAP_UNDO_REVEAL_PERMANENTLY_AT_WAYPOINT: i32 = 290;
+/// `ScriptActionType::NAMED_SET_STEALTH_ENABLED` (value 291).
+pub const AT_NAMED_SET_STEALTH_ENABLED: i32 = 291;
+/// `ScriptActionType::TEAM_SET_STEALTH_ENABLED` (value 292).
+pub const AT_TEAM_SET_STEALTH_ENABLED: i32 = 292;
+/// `ScriptActionType::EVA_SET_ENABLED_DISABLED` (value 293).
+pub const AT_EVA_SET_ENABLED_DISABLED: i32 = 293;
+/// `ScriptActionType::OPTIONS_SET_OCCLUSION_MODE` (value 294).
+pub const AT_OPTIONS_SET_OCCLUSION_MODE: i32 = 294;
+/// `ScriptActionType::LOCALDEFEAT` (value 295).
+pub const AT_LOCALDEFEAT: i32 = 295;
+/// `ScriptActionType::OPTIONS_SET_DRAWICON_UI_MODE` (value 296).
+pub const AT_OPTIONS_SET_DRAWICON_UI_MODE: i32 = 296;
+/// `ScriptActionType::OPTIONS_SET_PARTICLE_CAP_MODE` (value 297).
+pub const AT_OPTIONS_SET_PARTICLE_CAP_MODE: i32 = 297;
+/// `ScriptActionType::PLAYER_SCIENCE_AVAILABILITY` (value 298).
+pub const AT_PLAYER_SCIENCE_AVAILABILITY: i32 = 298;
+/// `ScriptActionType::UNIT_AFFECT_OBJECT_PANEL_FLAGS` (value 299).
+pub const AT_UNIT_AFFECT_OBJECT_PANEL_FLAGS: i32 = 299;
+/// `ScriptActionType::TEAM_AFFECT_OBJECT_PANEL_FLAGS` (value 300).
+pub const AT_TEAM_AFFECT_OBJECT_PANEL_FLAGS: i32 = 300;
+/// `ScriptActionType::PLAYER_SELECT_SKILLSET` (value 301).
+pub const AT_PLAYER_SELECT_SKILLSET: i32 = 301;
+/// `ScriptActionType::SCRIPTING_OVERRIDE_HULK_LIFETIME` (value 302).
+pub const AT_SCRIPTING_OVERRIDE_HULK_LIFETIME: i32 = 302;
+/// `ScriptActionType::NAMED_FACE_NAMED` (value 303).
+pub const AT_NAMED_FACE_NAMED: i32 = 303;
+/// `ScriptActionType::NAMED_FACE_WAYPOINT` (value 304).
+pub const AT_NAMED_FACE_WAYPOINT: i32 = 304;
+/// `ScriptActionType::TEAM_FACE_NAMED` (value 305).
+pub const AT_TEAM_FACE_NAMED: i32 = 305;
+/// `ScriptActionType::TEAM_FACE_WAYPOINT` (value 306).
+pub const AT_TEAM_FACE_WAYPOINT: i32 = 306;
+/// `ScriptActionType::COMMANDBAR_REMOVE_BUTTON_OBJECTTYPE` (value 307).
+pub const AT_COMMANDBAR_REMOVE_BUTTON_OBJECTTYPE: i32 = 307;
+/// `ScriptActionType::COMMANDBAR_ADD_BUTTON_OBJECTTYPE_SLOT` (value 308).
+pub const AT_COMMANDBAR_ADD_BUTTON_OBJECTTYPE_SLOT: i32 = 308;
+/// `ScriptActionType::UNIT_SPAWN_NAMED_LOCATION_ORIENTATION` (value 309).
+pub const AT_UNIT_SPAWN_NAMED_LOCATION_ORIENTATION: i32 = 309;
+/// `ScriptActionType::PLAYER_AFFECT_RECEIVING_EXPERIENCE` (value 310).
+pub const AT_PLAYER_AFFECT_RECEIVING_EXPERIENCE: i32 = 310;
+/// `ScriptActionType::PLAYER_EXCLUDE_FROM_SCORE_SCREEN` (value 311).
+pub const AT_PLAYER_EXCLUDE_FROM_SCORE_SCREEN: i32 = 311;
+/// `ScriptActionType::TEAM_GUARD_SUPPLY_CENTER` (value 312).
+pub const AT_TEAM_GUARD_SUPPLY_CENTER: i32 = 312;
+/// `ScriptActionType::ENABLE_SCORING` (value 313).
+pub const AT_ENABLE_SCORING: i32 = 313;
+/// `ScriptActionType::DISABLE_SCORING` (value 314).
+pub const AT_DISABLE_SCORING: i32 = 314;
+/// `ScriptActionType::SOUND_SET_VOLUME` (value 315).
+pub const AT_SOUND_SET_VOLUME: i32 = 315;
+/// `ScriptActionType::SPEECH_SET_VOLUME` (value 316).
+pub const AT_SPEECH_SET_VOLUME: i32 = 316;
+/// `ScriptActionType::DISABLE_BORDER_SHROUD` (value 317).
+pub const AT_DISABLE_BORDER_SHROUD: i32 = 317;
+/// `ScriptActionType::ENABLE_BORDER_SHROUD` (value 318).
+pub const AT_ENABLE_BORDER_SHROUD: i32 = 318;
+/// `ScriptActionType::OBJECT_ALLOW_BONUSES` (value 319).
+pub const AT_OBJECT_ALLOW_BONUSES: i32 = 319;
+/// `ScriptActionType::SOUND_REMOVE_ALL_DISABLED` (value 320).
+pub const AT_SOUND_REMOVE_ALL_DISABLED: i32 = 320;
+/// `ScriptActionType::SOUND_REMOVE_TYPE` (value 321).
+pub const AT_SOUND_REMOVE_TYPE: i32 = 321;
+/// `ScriptActionType::TEAM_GUARD_IN_TUNNEL_NETWORK` (value 322).
+pub const AT_TEAM_GUARD_IN_TUNNEL_NETWORK: i32 = 322;
+/// `ScriptActionType::QUICKVICTORY` (value 323).
+pub const AT_QUICKVICTORY: i32 = 323;
+/// `ScriptActionType::SET_INFANTRY_LIGHTING_OVERRIDE` (value 324).
+pub const AT_SET_INFANTRY_LIGHTING_OVERRIDE: i32 = 324;
+/// `ScriptActionType::RESET_INFANTRY_LIGHTING_OVERRIDE` (value 325).
+pub const AT_RESET_INFANTRY_LIGHTING_OVERRIDE: i32 = 325;
+/// `ScriptActionType::TEAM_DELETE_LIVING` (value 326).
+pub const AT_TEAM_DELETE_LIVING: i32 = 326;
+/// `ScriptActionType::RESIZE_VIEW_GUARDBAND` (value 327).
+pub const AT_RESIZE_VIEW_GUARDBAND: i32 = 327;
+/// `ScriptActionType::DELETE_ALL_UNMANNED` (value 328).
+pub const AT_DELETE_ALL_UNMANNED: i32 = 328;
+/// `ScriptActionType::CHOOSE_VICTIM_ALWAYS_USES_NORMAL` (value 329).
+pub const AT_CHOOSE_VICTIM_ALWAYS_USES_NORMAL: i32 = 329;
+/// `ScriptActionType::CAMERA_ENABLE_SLAVE_MODE` (value 330).
+pub const AT_CAMERA_ENABLE_SLAVE_MODE: i32 = 330;
+/// `ScriptActionType::CAMERA_DISABLE_SLAVE_MODE` (value 331).
+pub const AT_CAMERA_DISABLE_SLAVE_MODE: i32 = 331;
+/// `ScriptActionType::CAMERA_ADD_SHAKER_AT` (value 332).
+pub const AT_CAMERA_ADD_SHAKER_AT: i32 = 332;
+/// `ScriptActionType::SET_TRAIN_HELD` (value 333).
+pub const AT_SET_TRAIN_HELD: i32 = 333;
+/// `ScriptActionType::NAMED_SET_EVAC_LEFT_OR_RIGHT` (value 334).
+pub const AT_NAMED_SET_EVAC_LEFT_OR_RIGHT: i32 = 334;
+/// `ScriptActionType::ENABLE_OBJECT_SOUND` (value 335).
+pub const AT_ENABLE_OBJECT_SOUND: i32 = 335;
+/// `ScriptActionType::DISABLE_OBJECT_SOUND` (value 336).
+pub const AT_DISABLE_OBJECT_SOUND: i32 = 336;
+/// `ScriptActionType::NAMED_USE_COMMANDBUTTON_ABILITY_USING_WAYPOINT_PATH` (value 337).
+pub const AT_NAMED_USE_COMMANDBUTTON_ABILITY_USING_WAYPOINT_PATH: i32 = 337;
+/// `ScriptActionType::NAMED_SET_UNMANNED_STATUS` (value 338).
+pub const AT_NAMED_SET_UNMANNED_STATUS: i32 = 338;
+/// `ScriptActionType::TEAM_SET_UNMANNED_STATUS` (value 339).
+pub const AT_TEAM_SET_UNMANNED_STATUS: i32 = 339;
+/// `ScriptActionType::NAMED_SET_BOOBYTRAPPED` (value 340).
+pub const AT_NAMED_SET_BOOBYTRAPPED: i32 = 340;
+/// `ScriptActionType::TEAM_SET_BOOBYTRAPPED` (value 341).
+pub const AT_TEAM_SET_BOOBYTRAPPED: i32 = 341;
+/// `ScriptActionType::SHOW_WEATHER` (value 342).
+pub const AT_SHOW_WEATHER: i32 = 342;
+/// `ScriptActionType::AI_PLAYER_BUILD_TYPE_NEAREST_TEAM` (value 343).
+pub const AT_AI_PLAYER_BUILD_TYPE_NEAREST_TEAM: i32 = 343;
+/// `ScriptActionType::NUM_ITEMS` (value 344).
+pub const AT_NUM_ITEMS: i32 = 344;

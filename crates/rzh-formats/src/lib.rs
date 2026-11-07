@@ -130,7 +130,24 @@
 //!   boundary) and the post-load cleanup (the neutral ensure, the
 //!   default teams, the allies/enemies token cleanup, the collision
 //!   removal and the owner reparent) — the last of the map payload
-//!   family, over the same container.
+//!   family's own chunks, over the same container.
+//! - [`map_scripts`]: the script-engine load path — the nested
+//!   `PlayerScriptsList` chunk of the map's sides list and the
+//!   standalone `.scb` script files (`ScriptList::ParseScriptsDataChunk`
+//!   and the whole `Scripts.cpp` reader tree): the per-player script
+//!   lists with their flat scripts and groups, the or-chains of
+//!   and-conditions and the THEN/ELSE action lists, every condition's
+//!   and action's parameters — over the template registry
+//!   `ScriptEngine::init()` builds (the internal names the version-4
+//!   name-key rematch consults, the parameter counts the load checks
+//!   against), with the heal family (the version-1 area-condition
+//!   append, the special-power SIDE prepends, the camera action pads,
+//!   the attitude re-type), the parameter rewrites (the Fundamentalist
+//!   rename, the upgrade rename trio, the object-status bit, the
+//!   kindof table walk with its legacy remaps and the MISSILE split)
+//!   and the out-of-bounds stores stated as verdicts — the first
+//!   script-engine territory the map format reaches (plan §3.4
+//!   WP7's load path).
 //! - [`wnd`]: the WND window layouts — the whole
 //!   `winCreateFromScript` load path of
 //!   `GameWindowManagerScript.cpp` (the GUI's retained-mode
@@ -156,12 +173,14 @@
 //!   and the D3DX load model, with the missing-texture placeholder and
 //!   the null-surface crash stated as verdicts.
 //!
-//! Deferred to later phases: the map payloads' nested
-//! `PlayerScriptsList` (the script-engine slice, plan §3.4 WP7) and the
-//! audio containers (a Phase 5 spec-based module — the original's
-//! parsing lives in the proprietary, dropped Miles Sound System, so
-//! there is no C++ oracle to pin against; see the plan's Phase 2
-//! notes). Consumer-side normalizations the original performs on top
+//! Deferred to later phases: the audio containers (a Phase 5
+//! spec-based module — the original's parsing lives in the
+//! proprietary, dropped Miles Sound System, so there is no C++ oracle
+//! to pin against; see the plan's Phase 2 notes). The script engine's
+//! runtime (the conditions' and actions' execution, the sequential
+//! scripts, the teams — plan §3.4 WP7 proper) builds on
+//! [`map_scripts`]'s load path in Phase 3. Consumer-side normalizations
+//! the original performs on top
 //! of a format (space stripping, first-string selection, the texture
 //! loader's descriptor XOR, …) live in the format modules as explicit
 //! helpers or parameters so the parser stays byte-faithful and the
@@ -184,6 +203,7 @@ pub mod map_heightmap;
 pub mod map_lighting;
 pub mod map_objects;
 pub mod map_polygontriggers;
+pub mod map_scripts;
 pub mod map_sideslist;
 pub mod map_worldinfo;
 pub mod tga;
