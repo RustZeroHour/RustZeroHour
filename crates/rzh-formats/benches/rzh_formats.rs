@@ -46,6 +46,7 @@ use rzh_formats::w3d_hlod::{
 };
 use rzh_formats::w3d_htree::W3dHtree;
 use rzh_formats::w3d_mesh::W3dMesh;
+use rzh_formats::wnd::{WndDisplay, parse_wnd};
 
 /// Label count of the corpus (matches the C++ baseline).
 const LABELS: u32 = 4096;
@@ -439,7 +440,8 @@ criterion_group!(
     mapobjects_benches::bench_parse,
     mapworldinfo_benches::bench_parse,
     mappolygons_benches::bench_parse,
-    mapsides_benches::bench_parse
+    mapsides_benches::bench_parse,
+    wnd_benches::bench_parse
 );
 criterion_main!(benches);
 
@@ -3019,6 +3021,187 @@ mod mapsides_benches {
                     .expect("fired");
                 black_box(checksum(&data, &keys))
             })
+        });
+        group.finish();
+    }
+}
+
+// ---------------------------------------------------------------------------
+// wnd: the window layouts (GameWindowManagerScript.cpp)
+// ---------------------------------------------------------------------------
+
+mod wnd_benches {
+    use super::*;
+
+    /// The bench corpus repetition: 12 two-window blocks ≈ 187 KiB
+    /// (matches the C++ baseline).
+    const BENCH_WINDOWS: usize = 12;
+
+    /// The corpus checksum the C++ baseline computes over the same
+    /// fields (bench_wrap_wnd.cpp, verified at authoring time).
+    const CHECKSUM: u64 = 4_917_322_059_290_964_206;
+
+    /// One nine-line draw-data stanza with formula values (the same
+    /// shape GUIEdit writes).
+    fn stanza(out: &mut String, token: &str, k: u32) {
+        let pad = " ".repeat(token.len());
+        for i in 0..9u32 {
+            let iname = format!("BImg{}", (i + k) % 7);
+            let use_name = if i % 3 == 0 { "NoImage" } else { &iname };
+            let rr = (k * 13 + i * 17) % 300;
+            let gg = (k * 7 + i * 11) % 300;
+            let bb = (k * 29 + i * 3) % 300;
+            let a = 200 + ((k + i) % 56);
+            let br = (k * 3 + i * 23) % 300;
+            let bg = (k * 11 + i * 5) % 300;
+            let bb2 = (k * 19 + i * 13) % 300;
+            let ba = 150 + ((k * 2 + i) % 106);
+            let tail = if i == 8 { ";" } else { "," };
+            if i == 0 {
+                out.push_str(&format!(
+                    "{token} = IMAGE: {use_name}, COLOR: {rr} {gg} {bb} {a}, BORDERCOLOR: {br} {bg} {bb2} {ba}{tail}\n"
+                ));
+            } else {
+                out.push_str(&format!(
+                    "             {pad}   IMAGE: {use_name}, COLOR: {rr} {gg} {bb} {a}, BORDERCOLOR: {br} {bg} {bb2} {ba}{tail}\n"
+                ));
+            }
+        }
+    }
+
+    /// Builds the corpus: 12 two-window blocks (a full-field USER parent
+    /// with a listbox child carrying the composite stanzas) — keep in
+    /// lockstep with tools/differential/bench_wrap_wnd.cpp.
+    fn build_corpus() -> Vec<u8> {
+        let mut t = String::new();
+        t.push_str("FILE_VERSION = 2;\nSTARTLAYOUTBLOCK\n  LAYOUTINIT = BenchInit;\n  LAYOUTUPDATE = BenchUpdate;\nENDLAYOUTBLOCK\n");
+        for i in 0..BENCH_WINDOWS as u32 {
+            let x = (i * 7) % 400;
+            let y = (i * 11) % 300;
+            t.push_str("WINDOW\nWINDOWTYPE = USER;\n");
+            t.push_str(&format!(
+                "SCREENRECT = UPPERLEFT: {x} {y},\n             BOTTOMRIGHT: {} {},\n             CREATIONRESOLUTION: 800 600;\n",
+                x + 120,
+                y + 80
+            ));
+            t.push_str(&format!("NAME = \"Bench.wnd:Win{i}\";\n"));
+            t.push_str("STATUS = ENABLED+DRAGABLE+SEETHRU;\n");
+            t.push_str("STYLE = MOUSETRACK+ANIMATED;\n");
+            t.push_str(&format!(
+                "SYSTEMCALLBACK = \"SysCB{}\";\nINPUTCALLBACK = \"InCB{}\";\n",
+                i % 4,
+                i % 3
+            ));
+            t.push_str(&format!(
+                "TOOLTIPCALLBACK = \"TipCB{}\";\nDRAWCALLBACK = \"DrawCB{}\";\n",
+                i % 5,
+                i % 2
+            ));
+            t.push_str("FONT = NAME: \"Airborne\", SIZE: 12, BOLD: 0;\n");
+            t.push_str("HEADERTEMPLATE = \"BenchHeader\";\n");
+            t.push_str(&format!(
+                "TOOLTIPTEXT = \"Tip:{i}\";\nTOOLTIPDELAY = {} ;\n",
+                i % 30
+            ));
+            t.push_str(&format!("TEXT = \"GUI:Item{i}\";\n"));
+            t.push_str("IMAGEOFFSET = 3 7;\n");
+            // the three-state text colors
+            let (er, eg, eb) = ((i * 3) % 256, (i * 5) % 256, (i * 7) % 256);
+            let (dr, dg, db) = ((i * 11) % 256, (i * 13) % 256, (i * 17) % 256);
+            let (hr, hg, hb) = ((i * 19) % 256, (i * 23) % 256, (i * 29) % 256);
+            t.push_str(&format!(
+                "TEXTCOLOR = ENABLED:  {er} {eg} {eb} 255, ENABLEDBORDER:  0 0 0 255,\n            DISABLED: {dr} {dg} {db} 255, DISABLEDBORDER: 0 0 0 255,\n            HILITE:   {hr} {hg} {hb} 255, HILITEBORDER:   64 64 64 255;\n"
+            ));
+            stanza(&mut t, "ENABLEDDRAWDATA", i);
+            stanza(&mut t, "DISABLEDDRAWDATA", i + 1);
+            stanza(&mut t, "HILITEDRAWDATA", i + 2);
+            // the listbox child with its data and composite stanzas
+            t.push_str("CHILD\n");
+            t.push_str("WINDOW\nWINDOWTYPE = SCROLLLISTBOX;\n");
+            t.push_str(&format!(
+                "SCREENRECT = UPPERLEFT: {} {},\n             BOTTOMRIGHT: {} {},\n             CREATIONRESOLUTION: 800 600;\n",
+                x + 5,
+                y + 5,
+                x + 115,
+                y + 75
+            ));
+            t.push_str(&format!("NAME = \"Bench.wnd:List{i}\";\n"));
+            t.push_str(&format!(
+                "LISTBOXDATA = LENGTH: {},\n              AUTOSCROLL: {},\n              AUTOPURGE: {},\n              SCROLLBAR: 1,\n              MULTISELECT: {},\n              COLUMNS: 1,\n              FORCESELECT: {};\n",
+                i % 20,
+                i % 2,
+                (i + 1) % 2,
+                u32::from(i % 3 == 0),
+                u32::from(i % 5 == 0)
+            ));
+            stanza(&mut t, "LISTBOXENABLEDUPBUTTONDRAWDATA", i + 3);
+            stanza(&mut t, "LISTBOXDISABLEDUPBUTTONDRAWDATA", i + 4);
+            stanza(&mut t, "LISTBOXHILITEUPBUTTONDRAWDATA", i + 5);
+            stanza(&mut t, "LISTBOXENABLEDDOWNBUTTONDRAWDATA", i + 6);
+            stanza(&mut t, "LISTBOXDISABLEDDOWNBUTTONDRAWDATA", i + 7);
+            stanza(&mut t, "LISTBOXHILITEDOWNBUTTONDRAWDATA", i + 8);
+            stanza(&mut t, "LISTBOXENABLEDSLIDERDRAWDATA", i + 9);
+            stanza(&mut t, "LISTBOXDISABLEDSLIDERDRAWDATA", i + 10);
+            stanza(&mut t, "LISTBOXHILITESLIDERDRAWDATA", i + 11);
+            stanza(&mut t, "SLIDERTHUMBENABLEDDRAWDATA", i + 12);
+            stanza(&mut t, "SLIDERTHUMBDISABLEDDRAWDATA", i + 13);
+            stanza(&mut t, "SLIDERTHUMBHILITEDRAWDATA", i + 14);
+            t.push_str("END\nENDALLCHILDREN\nEND\n");
+        }
+        t.into_bytes()
+    }
+
+    /// The final-state checksum over the parsed layout's observable
+    /// fields (the same walk the C++ baseline drives).
+    fn checksum(layout: &rzh_formats::wnd::WndLayout) -> u64 {
+        // the signed words zero-extend the way the C++ baseline's
+        // (uint64_t)(uint32_t) casts do
+        let z = |v: i32| u64::from(v as u32);
+        let mut sum: u64 = layout.roots.len() as u64;
+        for w in &layout.arena {
+            sum = sum
+                .wrapping_mul(31)
+                .wrapping_add(z(w.id))
+                .wrapping_mul(31)
+                .wrapping_add(z(w.x))
+                .wrapping_mul(31)
+                .wrapping_add(z(w.y))
+                .wrapping_mul(31)
+                .wrapping_add(z(w.width))
+                .wrapping_mul(31)
+                .wrapping_add(z(w.height))
+                .wrapping_mul(31)
+                .wrapping_add(u64::from(w.status))
+                .wrapping_mul(31)
+                .wrapping_add(u64::from(w.style))
+                .wrapping_mul(31)
+                .wrapping_add(u64::from(w.enabled_draw_data[0].color))
+                .wrapping_mul(31)
+                .wrapping_add(u64::from(w.text_colors.enabled.0))
+                .wrapping_mul(31)
+                .wrapping_add(z(w.tooltip_delay));
+        }
+        sum = sum
+            .wrapping_mul(31)
+            .wrapping_add(u64::from(layout.defaults.text_color));
+        sum
+    }
+
+    pub(super) fn bench_parse(c: &mut Criterion) {
+        let bytes = build_corpus();
+        let display = WndDisplay::new(800, 600);
+        let layout = parse_wnd(black_box(&bytes), display);
+        assert_eq!(layout.verdict.word(), "ok");
+        assert_eq!(layout.arena.len(), BENCH_WINDOWS * 2);
+        let got = checksum(&layout);
+        assert_eq!(
+            got, CHECKSUM,
+            "the wnd corpus drifted from the C++ baseline"
+        );
+        let mut group = c.benchmark_group("wnd");
+        group.throughput(Throughput::Bytes(bytes.len() as u64));
+        group.bench_function("parse_x187k", |b| {
+            b.iter(|| checksum(&parse_wnd(black_box(&bytes), display)))
         });
         group.finish();
     }

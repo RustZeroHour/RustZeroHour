@@ -402,6 +402,19 @@ echo "compiling gen_mapsides_golden.cpp ..."
 "$BUILD_DIR/gen_mapsides_golden" "$REPO_ROOT/crates/rzh-formats/tests/golden/mapsides.txt"
 echo "wrote crates/rzh-formats/tests/golden/mapsides.txt"
 
+# --- wnd golden dump: the GameWindowManagerScript.cpp window-layout
+# load-path transcription (winCreateFromScript with the layout block,
+# the default blocks, parseWindow's field walk, the child blocks, the
+# creation routing and the obsolete DATA field, over the RAMFile scan
+# primitives and the collapsing readUntilSemicolon) over hand-built
+# version/layout/scaling/gadget/stale-routing/failure/verdict corpora.
+echo "compiling gen_wnd_golden.cpp ..."
+"$CXX" -O2 -std=c++17 -Wall -Wextra -Werror -ffp-contract=off \
+    -c -o "$BUILD_DIR/gen_wnd_golden.o" "$SCRIPT_DIR/gen_wnd_golden.cpp"
+"$CXX" -o "$BUILD_DIR/gen_wnd_golden" "$BUILD_DIR/gen_wnd_golden.o"
+"$BUILD_DIR/gen_wnd_golden" "$REPO_ROOT/crates/rzh-formats/tests/golden/wnd.txt"
+echo "wrote crates/rzh-formats/tests/golden/wnd.txt"
+
 echo "compiling gen_dds_golden.cpp ..."
 "$CXX" -O2 -std=c++17 -Wall -Wextra -Werror -ffp-contract=off \
     -c -o "$BUILD_DIR/gen_dds_golden.o" "$SCRIPT_DIR/gen_dds_golden.cpp"

@@ -516,6 +516,35 @@ height map 0.53–0.77x, blend tiles 0.79–0.81x, lighting 1.15x,
 objects 0.78x, world info 1.08x, polygons 1.08x, sides 0.98x — all
 within the §6 threshold.
 
+#### The WND window layouts (`wnd/parse_x187k`)
+
+The first Phase 2 slice past the map payload family: the GUI layout
+load. The corpus is a 12-block formula-generated menu screen (each
+block a full-field USER parent — callbacks, font, labels, image
+offset, the three-state text colors and three nine-entry draw-data
+stanzas — with a listbox child carrying `LISTBOXDATA` and the whole
+composite draw-data family; 187,231 bytes), built through the same
+formulas on both sides, with the walk cross-checked through the
+final-state checksum both sides compute (4,917,322,059,290,964,206 —
+the Rust bench asserts it; the corpora are verified byte-identical).
+The C++ side runs the `GameWindowManagerScript.cpp` transcription in
+`bench_wrap_wnd.cpp`; the Rust side `rzh_formats::wnd`.
+
+| Benchmark | Rust (criterion) | C++ baseline | Rust/C++ | Verdict |
+|---|---:|---:|---:|---|
+| `wnd/parse_x187k` | 651.64 µs | 1.75 ms | 0.37x | within |
+
+The port's win is the read loop shape: the collapsing
+`read_until_semicolon` runs over a borrowed slice with a single index
+(the transcription's byte-at-a-time `RAMFile::read` goes through a
+virtual call per byte), and the `strtok` chains walk byte ranges
+without the per-token pointer plumbing. The color/flag parsers
+themselves are near-identical walks on both sides. The corpus is
+representative of a real menu screen's field mix; the budget summary
+now reads: container 0.62–0.99x, height map 0.53–0.77x, blend tiles
+0.79–0.81x, lighting 1.15x, objects 0.78x, world info 1.08x, polygons
+1.08x, sides 0.98x, layouts 0.37x — all within the §6 threshold.
+
 ## Methodology
 
 - **Same code, same corpora.** The C++ side times the *verbatim

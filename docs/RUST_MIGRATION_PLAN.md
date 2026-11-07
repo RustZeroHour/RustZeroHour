@@ -235,7 +235,7 @@ is now specified in [`docs/TRACE_FORMAT_V1.md`](TRACE_FORMAT_V1.md).
 
 ### Phase 2: Data and asset formats (M–L) — **status: started (2026-11-03)**
 
-`rzh-formats` exists and ten modules are done to the Phase 1 standard:
+`rzh-formats` exists and nineteen modules are done to the Phase 1 standard:
 
 - the **CSF** string tables: the runtime reader (`GameText.cpp::parseCSF`)
   and the Babylon writer (`expimp.cpp::generate_csf`) are transcribed in
@@ -550,6 +550,48 @@ is now specified in [`docs/TRACE_FORMAT_V1.md`](TRACE_FORMAT_V1.md).
   global-scope rule, last-wins repeats and the walk refusals; the
   `mapblendtile` benches are within budget on both comparisons — the
   port is faster than the baseline (docs/benchmarks.md).
+- the **WND window layouts** — the first non-map format past the
+  payload family: the whole data path of
+  `GameWindowManagerScript.cpp`'s `winCreateFromScript`
+  (`Core/GameEngine/Source/GameClient/GUI/` — the version read whose
+  failed scan reads as 0, the version-2 layout block with its
+  dropped-unknown-token shifts, the default color blocks and the
+  *discarded* default font, the WINDOW loop with its unchecked
+  `nullptr` pushes, `parseWindow`'s WINDOWTYPE/SCREENRECT head with
+  the strtok continuation and the `f32` resolution scaling against
+  `TheDisplay` (an explicit context) resolved to parent-relative
+  coordinates through the `winGetScreenPosition` ancestor sum, the
+  `gameWindowFieldList` walk with its unchecked eat-'=' (a bare
+  `TOOLTIP;` swallows the next field token whole), the DATA/END/CHILD
+  routing with the double-CHILD re-creation that orphans the first
+  window with a duplicate id, `parseChildWindows`' ten-deep window
+  stack with its refusal cascade, the color defaults re-parsed between
+  children, `createWindow`/`createGadget`'s style-bit routing, the
+  radio screen id from the name's filename prefix, the combo-box
+  constructed halves and the composite draw-data arrays snapshotted at
+  creation — the stale routing a bare second listbox inherits
+  included), every field parser (the positional TEXTCOLOR and
+  nine-entry draw-data walks whose labels are never checked, the
+  `NULL` four-byte flag gate, the `atoi`/`sscanf` semantics with their
+  `int`-through-byte truncations, the label bounds, the quote scans
+  that walk through the strtok NULs) and the obsolete flat `DATA`
+  field with its un-re-zeroed statics — over the `RAMFile.cpp` scan
+  primitives and the collapsing `readUntilSemicolon` whose stale-buffer
+  EOF walk is transcribed with its spin stated as a verdict) is
+  transcribed in `tools/differential/gen_wnd_golden.cpp` and ported as
+  `rzh-formats::wnd`. The goldens pin 57 layout corpora: the version
+  and layout-block families, the full-field USER window, the nested
+  and over-deep children, the scaling family, the flag families, the
+  positional walks, the default shapes (mid-file, in-child-block, the
+  unrecognized in-window token eaten whole), every gadget type's data
+  and composite routing, the DATA family, the too-long labels with
+  their failure cascades, the double-CHILD orphan, the dropped-token
+  shifts at all three levels, and the sites where the original leaves
+  defined behaviour (EOF spins, null-token dereferences, the
+  out-of-bounds pane writes) stated as hang/crash/oob verdicts with
+  the partial state kept; the `wnd/parse_x187k` bench is within budget
+  (0.37x, docs/benchmarks.md — the port's single-index read loop runs
+  away from the transcription's per-byte virtual calls).
 - `rzh-ini`: lexer/parser (includes, `#define` macros, inheritance/reskin, load order) and a
   **derive-based schema layer** replacing the 195 hand-written `FieldParse` tables. Keep it
   format-agnostic so the data format can change later (ADR-003).
@@ -560,7 +602,11 @@ is now specified in [`docs/TRACE_FORMAT_V1.md`](TRACE_FORMAT_V1.md).
   being the script-engine slice's), W3D (meshes **done**, skeletons **done**,
   raw animations **done**, compressed animations **done**, HLOD
   **done**) **on top of the ported chunk container**, TGA/DDS
-  (**both done**), CSF string tables (**done**), WND layouts, fonts,
+  (**both done**), CSF string tables (**done**), WND layouts
+  (**done** — the `winCreateFromScript` load path: the layout block,
+  the default blocks, the full field walk with the resolution-scaled
+  parent-relative rects, every gadget's data and the composite
+  draw-data routing, quirks pinned by 57 golden corpora), fonts,
   audio containers.
 - `rzh-data`: typed templates (objects, weapons, armor, locomotors, upgrades, sciences, ranks,
   special powers, FX/particles, audio events, command sets, ...).

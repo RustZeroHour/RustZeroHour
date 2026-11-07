@@ -177,6 +177,48 @@
 #   Core/Libraries/Source/Lib/Include/Lib/ICoord2D.h
 #                                                     (the x/y int pair a
 #                                                     boundary is)
+#   Core/GameEngine/Source/GameClient/GUI/GameWindowManagerScript.cpp
+#                                                     (the WND window layouts:
+#                                                     GameWindowManager::
+#                                                     winCreateFromScript — the
+#                                                     version read, the layout
+#                                                     block, the default blocks,
+#                                                     parseWindow's field walk
+#                                                     and the child blocks, the
+#                                                     creation routing, and the
+#                                                     obsolete DATA field)
+#   Core/GameEngine/Source/Common/System/RAMFile.cpp  (the scan primitives
+#                                                     the WND walk drives:
+#                                                     read, scanInt, scanString,
+#                                                     nextLine)
+#   Core/GameEngine/Source/GameClient/GUI/WinInstanceData.cpp
+#                                                     (WinInstanceData::init —
+#                                                     the per-window defaults
+#                                                     the WND parse starts from)
+#   Core/GameEngine/Source/GameClient/GUI/GameWindow.cpp
+#                                                     (GameWindow::
+#                                                     winGetScreenPosition — the
+#                                                     ancestor sum the WND
+#                                                     parent-relative rects use)
+#   Core/GameEngine/Source/GameClient/GUI/GameWindowGlobal.cpp
+#   Core/GameEngine/Include/GameClient/Color.h       (winMakeColor /
+#                                                     GameMakeColor — the ARGB
+#                                                     pack the WND colors use)
+#   Core/GameEngine/Include/GameClient/GameWindow.h  (the WIN_STATUS_* flags,
+#                                                     WIN_COLOR_UNDEFINED)
+#   Core/GameEngine/Include/GameClient/Gadget.h      (the GWS_* style values
+#                                                     and the gadget data
+#                                                     structs the WND creation
+#                                                     routing reads)
+#   Core/GameEngine/Include/GameClient/WinInstanceData.h
+#                                                     (WinDrawData,
+#                                                     TextDrawData, the WND
+#                                                     draw-data shapes)
+#   Core/GameEngine/Source/Common/NameKeyGenerator.cpp
+#                                                     (nameToKey — the WND
+#                                                     window-id interning;
+#                                                     already cited above for
+#                                                     the map chunk)
 #   The pinned GameMath sources (TheSuperHackers/GameMath @ 59f7ccd4:
 #                     s_rintf.c, s_lrintf.c, e_acosf.c, s_sinf.c, k_sinf.c,
 #                     k_cosf.c, e_rem_pio2f.c — the deterministic entry points
@@ -196,7 +238,7 @@
 
 [package]
 name = "rzh-formats"
-description = "Zero Hour asset format parsers: CSF string tables, TGA and DDS textures, the W3D chunk container, the W3D mesh chunk tree, the W3D hierarchy trees, the W3D raw and compressed animations, the W3D HLOD assemblies, the map data-chunk container, the map height-map payload and the map blend-tile payload (the remaining map payloads, WND, fonts follow)"
+description = "Zero Hour asset format parsers: CSF string tables, TGA and DDS textures, the W3D chunk container, the W3D mesh chunk tree, the W3D hierarchy trees, the W3D raw and compressed animations, the W3D HLOD assemblies, the map data-chunk container, the map payload family and the WND window layouts (fonts and audio containers follow)"
 version.workspace = true
 edition.workspace = true
 rust-version.workspace = true

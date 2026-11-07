@@ -131,11 +131,26 @@
 //!   default teams, the allies/enemies token cleanup, the collision
 //!   removal and the owner reparent) — the last of the map payload
 //!   family, over the same container.
+//! - [`wnd`]: the WND window layouts — the whole
+//!   `winCreateFromScript` load path of
+//!   `GameWindowManagerScript.cpp` (the GUI's retained-mode
+//!   definition files, the format GUIEdit writes): the version read
+//!   and the version-2 layout block, the default color blocks (and
+//!   the *discarded* default font), the WINDOW loop, the
+//!   WINDOWTYPE/SCREENRECT head with its resolution-scaled
+//!   parent-relative rects, the full field walk (names, flags,
+//!   callbacks, fonts, labels, the positional text colors and the
+//!   nine-entry draw-data stanzas), every gadget's data block, the
+//!   nested child blocks over the ten-deep window stack, the
+//!   creation routing with the radio screen id and the composite
+//!   draw-data snapshots (the stale routing included), and the
+//!   obsolete flat DATA field — with the EOF spins, null-token
+//!   dereferences and out-of-bounds pane writes stated as verdicts.
 //!
 //! Deferred to later Phase 2 slices, in plan order: the remaining W3D
 //! modules (…), the map payloads' nested `PlayerScriptsList` (the
-//! script-engine slice, plan §3.4 WP7), WND layouts, fonts
-//! and audio containers (the DDS textures are done). Consumer-side
+//! script-engine slice, plan §3.4 WP7), fonts
+//! and audio containers (the WND layouts are done). Consumer-side
 //! normalizations the original performs on top
 //! of a format (space stripping, first-string selection, the texture
 //! loader's descriptor XOR, …) live in the format modules as explicit
@@ -165,6 +180,7 @@ pub mod w3d_hcanim;
 pub mod w3d_hlod;
 pub mod w3d_htree;
 pub mod w3d_mesh;
+pub mod wnd;
 
 pub use chunk::{
     CHUNK_HEADER_SIZE, CHUNK_SIZE_MASK, CHUNK_SUB_CHUNK_FLAG, ChunkError, ChunkHeader, ChunkLoad,
@@ -216,4 +232,13 @@ pub use w3d_mesh::{
     AabNode, AabTree, LegacyMaterial, MAX_PASSES, MAX_TEX_STAGES, MatDesc, MaterialInfo, MeshError,
     MeshGeometry, MeshHeader3, TextureEntry, UvArray, VertexMaterial, W3dMesh, W3dShaderStruct,
     W3dTextureInfo, W3dVertexMaterialInfo,
+};
+pub use wnd::{
+    GWS_CHECK_BOX, GWS_COMBO_BOX, GWS_ENTRY_FIELD, GWS_HORZ_SLIDER, GWS_PROGRESS_BAR,
+    GWS_PUSH_BUTTON, GWS_RADIO_BUTTON, GWS_SCROLL_LISTBOX, GWS_STATIC_TEXT, GWS_TAB_CONTROL,
+    GWS_TAB_PANE, GWS_USER_WINDOW, GWS_VERT_SLIDER, MAX_DRAW_DATA, MAX_TEXT_LABEL,
+    MAX_WINDOW_NAME_LEN, NUM_TAB_PANES, WIN_BUFFER_LENGTH, WIN_COLOR_UNDEFINED, WIN_STACK_DEPTH,
+    WINDOW_LAYOUT_CURRENT_VERSION, WINDOW_STATUS_NAMES, WINDOW_STYLE_NAMES, WndDefaults,
+    WndDisplay, WndDrawData, WndDrawState, WndFont, WndGadget, WndLayout, WndListboxData, WndRoot,
+    WndSubDraw, WndSubSlot, WndVerdict, WndWindow, WndWindowType, game_make_color, parse_wnd,
 };
