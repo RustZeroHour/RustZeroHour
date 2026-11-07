@@ -146,12 +146,20 @@
 //!   draw-data snapshots (the stale routing included), and the
 //!   obsolete flat DATA field — with the EOF spins, null-token
 //!   dereferences and out-of-bounds pane writes stated as verdicts.
+//! - [`font`]: the Targa font strikes and grids — the data path of
+//!   `WW3D2/font3d.cpp` (`Font3DDataClass`, the loader the asset
+//!   manager's `Get_Font3DData` cache fronts): the strike column scan
+//!   and the 16x16 grid cells, `Make_Proportional`'s per-cell
+//!   bounding-box walk, `Minimize_Font_Image`'s packed-page re-layout
+//!   and the instance layer's cached scaled tables — over the Targa
+//!   reader (in the font's load shape), the surface conversion stack
+//!   and the D3DX load model, with the missing-texture placeholder and
+//!   the null-surface crash stated as verdicts.
 //!
 //! Deferred to later Phase 2 slices, in plan order: the remaining W3D
 //! modules (…), the map payloads' nested `PlayerScriptsList` (the
-//! script-engine slice, plan §3.4 WP7), fonts
-//! and audio containers (the WND layouts are done). Consumer-side
-//! normalizations the original performs on top
+//! script-engine slice, plan §3.4 WP7) and audio containers (the
+//! fonts are done). Consumer-side normalizations the original performs on top
 //! of a format (space stripping, first-string selection, the texture
 //! loader's descriptor XOR, …) live in the format modules as explicit
 //! helpers or parameters so the parser stays byte-faithful and the
@@ -166,6 +174,8 @@
 pub mod chunk;
 pub mod csf;
 pub mod dds;
+pub mod font;
+mod font_tga;
 pub mod map_blendtile;
 pub mod map_chunk;
 pub mod map_heightmap;
@@ -194,6 +204,11 @@ pub use dds::{
     LegacyDdPixelFormat, LegacyDdSurfaceDesc2, MAX_DATA_BYTES, MAX_MIP_LEVELS, MAX_NAME_LEN,
     Ww3dFormat, argb8888_to_rgb565, calculate_dxtc_surface_size, munged_name, recolor,
     rgb565_to_argb8888,
+};
+pub use font::{
+    Font3DCache, Font3DData, Font3DInstance, FontVerdict, GLYPH_COUNT, MAX_SURFACE_DIM,
+    MISSING_TEXTURE_COLOR, MISSING_TEXTURE_SIZE, PACKED_BPP, PackedPage, SourceFormat,
+    SourceSurface, parse_font,
 };
 pub use tga::{
     TGA_CMAPPED, TGA_CMAPPED_ENCODED, TGA_MONO, TGA_MONO_ENCODED, TGA_NOIMAGE, TGA_TRUECOLOR,

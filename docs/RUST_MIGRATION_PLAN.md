@@ -235,7 +235,7 @@ is now specified in [`docs/TRACE_FORMAT_V1.md`](TRACE_FORMAT_V1.md).
 
 ### Phase 2: Data and asset formats (M–L) — **status: started (2026-11-03)**
 
-`rzh-formats` exists and nineteen modules are done to the Phase 1 standard:
+`rzh-formats` exists and twenty modules are done to the Phase 1 standard:
 
 - the **CSF** string tables: the runtime reader (`GameText.cpp::parseCSF`)
   and the Babylon writer (`expimp.cpp::generate_csf`) are transcribed in
@@ -592,6 +592,45 @@ is now specified in [`docs/TRACE_FORMAT_V1.md`](TRACE_FORMAT_V1.md).
   the partial state kept; the `wnd/parse_x187k` bench is within budget
   (0.37x, docs/benchmarks.md — the port's single-index read loop runs
   away from the transcription's per-byte virtual calls).
+- the **Targa font strikes and grids** — the twentieth slice, the
+  first of the two `rzh-formats` finishers: the data path of
+  `font3d.cpp`'s `Font3DDataClass` (`Load_Font_Image` — the strike
+  column scanner with its `>= 0x7F` zeroing and the 16x16 grid cells,
+  `Make_Proportional` — the per-cell FindBB walk with the swapped
+  empty box and the `> 0x80` turn-off, `Minimize_Font_Image` — the
+  packed-page re-layout into the 128/256 `A4R4G4B4` page with the
+  line-overflow overlap and the uchar table truncations; plus the
+  instance layer's cached scaled tables, the space/mono spacing and
+  `String_Width`, and the `Get_Font3DData` stricmp cache) over the
+  surface stack it drives — the Targa reader in the font's load shape
+  (the caller's palette buffer, `TGAF_IMAGE` only, the texture
+  loader's Y-origin XOR), `Load_Surface_Immediate`'s format mapping
+  and conversion branch, the `Is_Transparent_Column`/`FindBB` alpha
+  walks and the `Copy_Image`/`Write_B8G8R8A8` converters, all under a
+  pinned 32-bit-desktop environment with the D3DX
+  `D3DX_FILTER_NONE` software load modelled after the Wine reference
+  (1:1 top-left over the minimum extents, channels truncated,
+  missing channels set to max) — is transcribed in
+  `tools/differential/gen_font_golden.cpp` and ported as
+  `rzh-formats::font`. The goldens pin 28 font corpora: the strike
+  family (the basic strip, the 1024-wide wrap, the 300-column crop
+  with the uchar width wrap, the 130-run `0x7F` turn-off, the empty
+  strip, the RLE strip, the bottom-up and left-origin
+  normalizations, the line-overflow overlap), the grid family (the
+  128 and 256 pages with the `0x80`/`0x81` boundary, the straddling
+  blob, the empty grid, the fractional 100x100 and 20x20 cells, the
+  8-mod-16 rect-lock crash), the depth family (32-bit with mid
+  alphas, 32-bit RLE, the no-alpha 24-bit where every glyph dies,
+  8-bit mono, the 32- and 24-bit colormaps with the game's ARGB
+  palette-byte reading, the alpha-only A8 with the new-channel-max
+  packing), the error family (the truncated file, the unsupported
+  type, the absent file — all building from the missing-texture
+  placeholder, a working 129-glyph font) and the crash family (the
+  depth-15 and zero-height null surfaces); the instance layer's
+  cached tables, the string widths and the asset-cache reuse are
+  pinned per corpus; the `font` bench is within budget (0.23x — the
+  port's dedicated conversion loops run away from the transcription's
+  per-pixel dispatch, docs/benchmarks.md).
 - `rzh-ini`: lexer/parser (includes, `#define` macros, inheritance/reskin, load order) and a
   **derive-based schema layer** replacing the 195 hand-written `FieldParse` tables. Keep it
   format-agnostic so the data format can change later (ADR-003).
@@ -603,11 +642,10 @@ is now specified in [`docs/TRACE_FORMAT_V1.md`](TRACE_FORMAT_V1.md).
   raw animations **done**, compressed animations **done**, HLOD
   **done**) **on top of the ported chunk container**, TGA/DDS
   (**both done**), CSF string tables (**done**), WND layouts
-  (**done** — the `winCreateFromScript` load path: the layout block,
-  the default blocks, the full field walk with the resolution-scaled
-  parent-relative rects, every gadget's data and the composite
-  draw-data routing, quirks pinned by 57 golden corpora), fonts,
-  audio containers.
+  (**done**), fonts (**done** — the `font3d.cpp` strike/grid loader
+  over the surface stack, the D3DX load model and the instance/cache
+  layers, quirks pinned by 28 golden corpora); only the audio
+  containers remain.
 - `rzh-data`: typed templates (objects, weapons, armor, locomotors, upgrades, sciences, ranks,
   special powers, FX/particles, audio events, command sets, ...).
 - **Module census:** count how often each module type appears in the data → port order for Phase 3.

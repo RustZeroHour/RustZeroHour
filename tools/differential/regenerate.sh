@@ -421,4 +421,17 @@ echo "compiling gen_dds_golden.cpp ..."
 "$CXX" -o "$BUILD_DIR/gen_dds_golden" "$BUILD_DIR/gen_dds_golden.o"
 "$BUILD_DIR/gen_dds_golden" "$REPO_ROOT/crates/rzh-formats/tests/golden/dds.txt"
 echo "wrote crates/rzh-formats/tests/golden/dds.txt"
+
+# --- font golden dump: the font3d.cpp font-strike transcription
+# (Font3DDataClass::Load_Font_Image with the SurfaceClass collaborators,
+# the strike/grid table builds, Make_Proportional's FindBB walk and
+# Minimize_Font_Image's packed-page re-layout, over the Targa reader, the
+# surface conversion stack and the D3DX load model) over hand-built
+# strike/grid/depth/error/crash/reuse corpora.
+echo "compiling gen_font_golden.cpp ..."
+"$CXX" -O2 -std=c++17 -Wall -Wextra -Werror -ffp-contract=off \
+    -c -o "$BUILD_DIR/gen_font_golden.o" "$SCRIPT_DIR/gen_font_golden.cpp"
+"$CXX" -o "$BUILD_DIR/gen_font_golden" "$BUILD_DIR/gen_font_golden.o"
+"$BUILD_DIR/gen_font_golden" "$REPO_ROOT/crates/rzh-formats/tests/golden/font.txt"
+echo "wrote crates/rzh-formats/tests/golden/font.txt"
 echo "now run: cargo test --workspace"

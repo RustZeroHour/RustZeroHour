@@ -36,6 +36,7 @@ use criterion::{Criterion, Throughput, criterion_group, criterion_main};
 use rzh_formats::chunk::{ChunkLoad, ChunkSave};
 use rzh_formats::csf::{CsfFile, CsfLabel, CsfString};
 use rzh_formats::dds::{DdsFile, HsvShift, Ww3dFormat};
+use rzh_formats::font::parse_font;
 use rzh_formats::tga::{SaveFlags, TGA_TRUECOLOR, TgaFile, TgaHeader};
 use rzh_formats::w3d_hanim::W3dRawAnim;
 use rzh_formats::w3d_hcanim::{W3dCompressedAnim, W3dCompressedChannel};
@@ -441,7 +442,8 @@ criterion_group!(
     mapworldinfo_benches::bench_parse,
     mappolygons_benches::bench_parse,
     mapsides_benches::bench_parse,
-    wnd_benches::bench_parse
+    wnd_benches::bench_parse,
+    font_benches::bench_parse
 );
 criterion_main!(benches);
 
@@ -3202,6 +3204,105 @@ mod wnd_benches {
         group.throughput(Throughput::Bytes(bytes.len() as u64));
         group.bench_function("parse_x187k", |b| {
             b.iter(|| checksum(&parse_wnd(black_box(&bytes), display)))
+        });
+        group.finish();
+    }
+}
+
+// ---------------------------------------------------------------------------
+// font: the Targa font strikes (font3d.cpp)
+// ---------------------------------------------------------------------------
+
+mod font_benches {
+    use super::*;
+
+    /// The bench corpus: a 1024x64 16-bit strike with 64 twelve-column
+    /// glyphs at a 16-column pitch — 131,090 bytes (matches the C++
+    /// baseline).
+    const BENCH_WIDTH: usize = 1024;
+    const BENCH_HEIGHT: usize = 64;
+    const BENCH_GLYPHS: usize = 64;
+
+    /// The final-state checksum the C++ baseline computes over the same
+    /// fields (bench_wrap_font.cpp, verified at authoring time).
+    const CHECKSUM: u64 = 3_631_483_982_267_290_816;
+
+    /// Builds the corpus — keep in lockstep with
+    /// tools/differential/bench_wrap_font.cpp.
+    fn build_corpus() -> Vec<u8> {
+        let mut px = vec![0u16; BENCH_WIDTH * BENCH_HEIGHT];
+        for c in 0..BENCH_GLYPHS {
+            for y in 0..BENCH_HEIGHT {
+                for x in 0..12 {
+                    px[y * BENCH_WIDTH + c * 16 + x] = 0x8000
+                        | ((c & 31) as u16) << 10
+                        | (((c * 3) & 31) as u16) << 5
+                        | ((c * 7) & 31) as u16;
+                }
+            }
+        }
+        let mut v = vec![0u8, 0, 2, 0, 0, 0, 0, 0, 0, 0, 0, 0];
+        v.extend_from_slice(&(BENCH_WIDTH as u16).to_le_bytes());
+        v.extend_from_slice(&(BENCH_HEIGHT as u16).to_le_bytes());
+        v.push(16);
+        v.push(0x20);
+        for p in px {
+            v.extend_from_slice(&p.to_le_bytes());
+        }
+        v
+    }
+
+    /// The final-state checksum over the parsed font's observable fields
+    /// (the same walk the C++ baseline drives).
+    fn checksum(font: &rzh_formats::font::Font3DData) -> u64 {
+        let mut sum: u64 = 0;
+        for c in 0..256 {
+            sum = sum
+                .wrapping_mul(31)
+                .wrapping_add(u64::from(font.u_offset[c].to_bits()));
+            sum = sum
+                .wrapping_mul(31)
+                .wrapping_add(u64::from(font.v_offset[c].to_bits()));
+            sum = sum
+                .wrapping_mul(31)
+                .wrapping_add(u64::from(font.u_width[c].to_bits()));
+            sum = sum
+                .wrapping_mul(31)
+                .wrapping_add(u64::from(font.char_width[c]));
+        }
+        sum = sum
+            .wrapping_mul(31)
+            .wrapping_add(u64::from(font.v_height.to_bits()));
+        sum = sum
+            .wrapping_mul(31)
+            .wrapping_add(u64::from(font.char_height));
+        if let Some(packed) = &font.packed {
+            sum = sum.wrapping_mul(31).wrapping_add(packed.width as u64);
+            sum = sum.wrapping_mul(31).wrapping_add(packed.height as u64);
+            let mut s: u64 = 0;
+            for &b in &packed.bytes {
+                s = s.wrapping_mul(31).wrapping_add(b as u64);
+            }
+            sum = sum.wrapping_mul(31).wrapping_add(s);
+        }
+        sum
+    }
+
+    pub(super) fn bench_parse(c: &mut Criterion) {
+        let bytes = build_corpus();
+        assert_eq!(bytes.len(), 131_090, "the font corpus size drifted");
+        let font = parse_font(b"Bench.tga", Some(black_box(&bytes)));
+        assert_eq!(font.verdict, rzh_formats::font::FontVerdict::Ok);
+        let got = checksum(&font);
+        assert_eq!(
+            got, CHECKSUM,
+            "the font corpus drifted from the C++ baseline"
+        );
+        let file: Option<&[u8]> = Some(&bytes);
+        let mut group = c.benchmark_group("font");
+        group.throughput(Throughput::Bytes(bytes.len() as u64));
+        group.bench_function("parse_x131k", |b| {
+            b.iter(|| checksum(&parse_font(black_box(b"Bench.tga"), black_box(file))))
         });
         group.finish();
     }

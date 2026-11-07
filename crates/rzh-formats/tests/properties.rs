@@ -1888,3 +1888,95 @@ mod mapchunk_props {
         }
     }
 }
+
+mod font_props {
+    //! The font loader's invariants on arbitrary input: parsing never
+    //! panics (the crash family is verdicts, not traps), every accepted
+    //! font's tables are finite and in range, the packed page is always
+    //! 128 or 256 square, and the cache's reuse never re-parses.
+
+    use proptest::prelude::*;
+
+    use rzh_formats::font::{Font3DCache, FontVerdict, parse_font};
+
+    proptest! {
+        /// Arbitrary bytes as a font file: never a panic, and the
+        /// verdict is always one of the four words.
+        #[test]
+        fn arbitrary_bytes_never_panic(bytes in prop::collection::vec(prop::num::u8::ANY, 0..2048)) {
+            let font = parse_font(b"Prop.tga", Some(&bytes));
+            match font.verdict {
+                FontVerdict::Ok => {
+                    // the tables are finite and the page is packed
+                    let packed = font.packed.as_ref().unwrap();
+                    prop_assert!(packed.width == 128 || packed.width == 256);
+                    prop_assert_eq!(packed.width, packed.height);
+                    prop_assert_eq!(
+                        packed.bytes.len(),
+                        packed.width as usize * packed.height as usize * 2
+                    );
+                    for c in 0..256 {
+                        prop_assert!(font.u_offset[c].is_finite());
+                        prop_assert!(font.v_offset[c].is_finite());
+                        prop_assert!(font.u_width[c].is_finite());
+                        prop_assert!(font.u_width[c] >= 0.0);
+                        prop_assert!(font.v_height.is_finite());
+                    }
+                }
+                FontVerdict::Missing | FontVerdict::TgaError(_) | FontVerdict::Crash(_) => {
+                    // the placeholder/error fonts still build tables
+                    if let Some(packed) = &font.packed {
+                        prop_assert_eq!(packed.width, 128);
+                    }
+                }
+            }
+        }
+
+        /// A plausible 16-bit strike shape with random glyph runs: never
+        /// a panic, the strike's chars come out in scan order.
+        #[test]
+        fn arbitrary_strike_never_panics(
+            w in 17usize..1024,
+            h in 1usize..16,
+            runs in prop::collection::vec((1usize..64, 1usize..64), 0..80),
+        ) {
+            let w = w.max(8 * h + 1).min(1024); // keep the strike aspect
+            let mut px = vec![0u16; w * h];
+            let mut col = 0usize;
+            for (glyph, gap) in runs {
+                if col + glyph >= w { break; }
+                for y in 0..h {
+                    for x in 0..glyph {
+                        px[y * w + col + x] = 0x8000 | ((x & 31) as u16) << 10;
+                    }
+                }
+                col += glyph + gap;
+            }
+            let mut v = vec![0u8, 0, 2, 0, 0, 0, 0, 0, 0, 0, 0, 0];
+            v.extend_from_slice(&(w as u16).to_le_bytes());
+            v.extend_from_slice(&(h as u16).to_le_bytes());
+            v.push(16);
+            v.push(0x20);
+            for p in px {
+                v.extend_from_slice(&p.to_le_bytes());
+            }
+            let font = parse_font(b"Strike.tga", Some(&v));
+            prop_assert_eq!(font.verdict, FontVerdict::Ok);
+            // the strike's char heights match the strip height
+            prop_assert_eq!(font.char_height, h as u8);
+        }
+
+        /// The cache: a repeated (case-flipped) name never re-parses.
+        #[test]
+        fn cache_hits_never_reparse(
+            bytes in prop::collection::vec(prop::num::u8::ANY, 0..256),
+        ) {
+            let mut cache = Font3DCache::new();
+            let _ = cache.get(b"Once.tga", Some(&bytes));
+            let n = cache.parse_count();
+            let _ = cache.get(b"ONCE.TGA", Some(&bytes));
+            let _ = cache.get(b"once.tga", Some(&bytes));
+            prop_assert_eq!(cache.parse_count(), n);
+        }
+    }
+}

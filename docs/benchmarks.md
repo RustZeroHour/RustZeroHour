@@ -543,7 +543,39 @@ themselves are near-identical walks on both sides. The corpus is
 representative of a real menu screen's field mix; the budget summary
 now reads: container 0.62–0.99x, height map 0.53–0.77x, blend tiles
 0.79–0.81x, lighting 1.15x, objects 0.78x, world info 1.08x, polygons
-1.08x, sides 0.98x, layouts 0.37x — all within the §6 threshold.
+1.08x, sides 0.98x, layouts 0.37x, fonts 0.23x — all within the §6
+threshold.
+
+#### The Targa font strikes (`font/parse_x131k`)
+
+The fonts slice: the `font3d.cpp` strike loader. The corpus is a
+formula-generated 1024x64 16-bit strike with 64 twelve-column glyphs
+(131,090 bytes — the scale of a real font strip), built through the
+same glyph formula on both sides, with the final state cross-checked
+through the table/page checksum both sides compute
+(3,631,483,982,267,290,816 — the Rust bench asserts it; the corpora
+are verified byte-identical). The C++ side runs the `font3d.cpp`
+transcription (the Targa reader in the font's load shape, the surface
+conversion stack, the strike column scan and the packed-page
+re-layout) in `bench_wrap_font.cpp`; the Rust side
+`rzh_formats::font`.
+
+| Benchmark | Rust (criterion) | C++ baseline | Rust/C++ | Verdict |
+|---|---:|---:|---:|---|
+| `font/parse_x131k` | 252.82 µs | 1.09 ms | 0.23x | within |
+
+The port's win is the loop reshaping the budget run itself drove: the
+reachable conversions (the `A1R5G5B5`-to-`A8R8G8B8` expansion, the
+row copies and the `A4R4G4B4` packing blits) run as dedicated inner
+loops over `as_chunks` iterators, while the transcription pays the
+per-pixel `Copy_Pixel`/`Read_B8G8R8A8`/`Write_B8G8R8A8` dispatch for
+every one of the ~180K pixels; the strike column scan strides the
+alpha bytes directly. The rest of the walk (the table builds, the
+minimize layout) is near-identical on both sides. The budget summary
+now reads: container 0.62–0.99x, height map 0.53–0.77x, blend tiles
+0.79–0.81x, lighting 1.15x, objects 0.78x, world info 1.08x, polygons
+1.08x, sides 0.98x, layouts 0.37x, fonts 0.23x — all within the §6
+threshold.
 
 ## Methodology
 
