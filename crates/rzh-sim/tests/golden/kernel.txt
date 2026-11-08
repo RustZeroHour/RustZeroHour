@@ -2068,6 +2068,329 @@ cv o9 o8 m0 loc=42947c3b,42947c3b,00000000 nrm=bf3504f3,bf3504f3,80000000
 cv o10 o9 m0 loc=429783c5,429783c5,00000000 nrm=bf3504f3,bf3504f3,00000000
 cv o9 o10 m0 loc=429783c5,429783c5,00000000 nrm=3f3504f3,3f3504f3,80000000
 end
+corpus query_radiusvec
+a cells 2,2
+maxgco 3 rings 4
+ring 0 n 9
+o -1,-1
+o 0,-1
+o 1,-1
+o -1,0
+o 0,0
+o 1,0
+o -1,1
+o 0,1
+o 1,1
+ring 1 n 0
+ring 2 n 0
+ring 3 n 0
+minr 0,0 0
+minr 1,0 0
+minr 0,1 0
+minr -1,0 0
+minr 0,-1 0
+minr 1,1 0
+minr -1,1 0
+minr 1,-1 0
+minr -1,-1 0
+minr 2,0 2
+minr 2,1 2
+minr 2,2 2
+minr 3,2 3
+minr -2,1 2
+minr 5,7 8
+b cells 7,4
+maxgco 9 rings 10
+ring 0 n 9
+o -1,-1
+o 0,-1
+o 1,-1
+o -1,0
+o 0,0
+o 1,0
+o -1,1
+o 0,1
+o 1,1
+ring 1 n 0
+ring 2 n 16
+o -2,-2
+o -1,-2
+o 0,-2
+o 1,-2
+o 2,-2
+o -2,-1
+o 2,-1
+o -2,0
+o 2,0
+o -2,1
+o 2,1
+o -2,2
+o -1,2
+o 0,2
+o 1,2
+o 2,2
+ring 3 n 24
+o -3,-3
+o -2,-3
+o -1,-3
+o 0,-3
+o 1,-3
+o 2,-3
+o 3,-3
+o -3,-2
+o 3,-2
+o -3,-1
+o 3,-1
+o -3,0
+o 3,0
+o -3,1
+o 3,1
+o -3,2
+o 3,2
+o -3,3
+o -2,3
+o -1,3
+o 0,3
+o 1,3
+o 2,3
+o 3,3
+ring 4 n 14
+o -4,-3
+o 4,-3
+o -4,-2
+o 4,-2
+o -4,-1
+o 4,-1
+o -4,0
+o 4,0
+o -4,1
+o 4,1
+o -4,2
+o 4,2
+o -4,3
+o 4,3
+ring 5 n 14
+o -5,-3
+o 5,-3
+o -5,-2
+o 5,-2
+o -5,-1
+o 5,-1
+o -5,0
+o 5,0
+o -5,1
+o 5,1
+o -5,2
+o 5,2
+o -5,3
+o 5,3
+ring 6 n 14
+o -6,-3
+o 6,-3
+o -6,-2
+o 6,-2
+o -6,-1
+o 6,-1
+o -6,0
+o 6,0
+o -6,1
+o 6,1
+o -6,2
+o 6,2
+o -6,3
+o 6,3
+ring 7 n 0
+ring 8 n 0
+ring 9 n 0
+c cells 11,11
+c maxgco 16 rings 17
+ring 0 n 9
+ring 1 n 0
+ring 2 n 16
+ring 3 n 24
+ring 4 n 28
+ring 5 n 32
+ring 6 n 48
+ring 7 n 44
+ring 8 n 56
+ring 9 n 64
+ring 10 n 64
+ring 11 n 32
+ring 12 n 12
+ring 13 n 12
+ring 14 n 0
+ring 15 n 0
+ring 16 n 0
+r2 head -2,-2
+r2 head -1,-2
+r2 head 0,-2
+r2 head 1,-2
+r2 tail 0,2
+r2 tail 1,2
+r2 tail 2,2
+r3 head -3,-3
+r3 head -2,-3
+r3 head -1,-3
+r3 head 0,-3
+r3 tail 1,3
+r3 tail 2,3
+r3 tail 3,3
+end
+corpus query_closest
+a o4 dist=41200000 vec=41200000,00000000,00000000
+b o1 dist=00000000 vec=00000000,00000000,00000000
+c o0 dist=40a00000 vec=40a00000,40a00000,40a00000
+d o10 dist=40a00000 vec=00000000,c0a00000,00000000
+e o6 dist=40400000 vec=40400000,00000000,00000000
+f o7 dist=00000000 vec=00000000,80000000,00000000
+g o4 dist=41000000 vec=41000000,00000000,00000000
+h raw o11
+h alive o0
+h onmap o8
+h accept o2
+h reject o4
+h samemap o5
+i vec dc0 =41a00000,00000000,00000000
+i ds dc0 43c80000 =41a00000,00000000,00000000
+i dsp dc0 43c80000
+i gs dc0 43480000 =41200000,c1200000,00000000
+i gsp dc0 43480000
+i vec dc1 =41a00000,00000000,40a00000
+i ds dc1 43d48000 =41a00000,00000000,40a00000
+i dsp dc1 43d48000
+i gs dc1 43610000 =41200000,c1200000,40a00000
+i gsp dc1 43610000
+i vec dc2 =41100000,00000000,00000000
+i ds dc2 42a20000 =41100000,00000000,00000000
+i dsp dc2 43b48000
+i gs dc2 411df7e0 =400e3263,c00e3263,00000000
+i gsp dc2 432cb73a
+i vec dc3 =4119e185,00000000,40576eee
+i ds dc3 42cfa821 =4119e185,00000000,40576eee
+i dsp dc3 43c0626d
+i gs dc3 41b6c44f =4041dbae,c041dbae,4007b360
+i gsp dc3 43440000
+i ang east 00000000
+i ango east 00000000
+i ang north 3fc90fdb
+i ango north 00000000
+i ang south bfc90fdb
+i ango south 00000000
+i ang west 40490fdb
+i ango west 00000000
+i ang same 00000000
+i ango same 00000000
+i ang roteast bfc90fda
+i ango roteast bf490fd8
+i ang rotnorth 00000000
+i ango rotnorth bf490fd8
+end
+corpus query_iterate
+a fastest pre 0 00000000
+a fastest n o4 43100000
+a fastest n o5 43100000
+a fastest n o2 43100000
+a fastest n o3 43100000
+a fastest n o6 42480000
+a fastest n o1 00000000
+a fastest count 6
+b near pre 1 00000000
+b near n o1 00000000
+b near n o6 42480000
+b near n o4 43100000
+b near n o5 43100000
+b near n o2 43100000
+b near n o3 43100000
+b near count 6
+c far pre 4 43100000
+c far n o4 43100000
+c far n o5 43100000
+c far n o2 43100000
+c far n o3 43100000
+c far n o6 42480000
+c far n o1 00000000
+c far count 6
+d cheap pre 5 43100000
+d cheap n o5 43100000
+d cheap n o3 43100000
+d cheap n o4 43100000
+d cheap n o2 43100000
+d cheap n o6 42480000
+d cheap n o1 00000000
+d cheap count 6
+d exp pre 1 00000000
+d exp n o1 00000000
+d exp n o6 42480000
+d exp n o4 43100000
+d exp n o2 43100000
+d exp n o3 43100000
+d exp n o5 43100000
+d exp count 6
+e huge pre 0 00000000
+e huge n o7 457d2000
+e huge n o8 44480000
+e huge n o4 43100000
+e huge n o5 43100000
+e huge n o2 43100000
+e huge n o3 43100000
+e huge n o6 42480000
+e huge n o1 00000000
+e huge count 8
+f all pre 0 00000000
+f all n o1 00000000
+f all n o2 00000000
+f all n o3 00000000
+f all n o4 00000000
+f all n o5 00000000
+f all n o6 00000000
+f all n o7 00000000
+f all n o8 00000000
+f all count 8
+f onmapalive pre 0 00000000
+f onmapalive n o1 00000000
+f onmapalive n o2 00000000
+f onmapalive n o3 00000000
+f onmapalive n o4 00000000
+f onmapalive n o6 00000000
+f onmapalive n o8 00000000
+f onmapalive count 6
+f accept pre 0 00000000
+f accept n o8 00000000
+f accept count 1
+f reject pre 0 00000000
+f reject n o1 00000000
+f reject n o2 00000000
+f reject n o3 00000000
+f reject n o4 00000000
+f reject n o5 00000000
+f reject n o6 00000000
+f reject n o7 00000000
+f reject count 7
+g fromobj pre 0 00000000
+g fromobj n o4 43100000
+g fromobj n o5 43100000
+g fromobj n o2 43100000
+g fromobj n o3 43100000
+g fromobj n o6 42480000
+g fromobj count 5
+h bnd pre 6 00000000
+h bnd n o6 00000000
+h bnd n o1 00000000
+h bnd n o4 42f20000
+h bnd n o5 42f20000
+h bnd n o2 42f20000
+h bnd n o3 42f20000
+h bnd n o8 443a1b9d
+h bnd count 7
+i 2d pre 0 00000000
+i 2d n o2 40800000
+i 2d n o1 00000000
+i 2d count 2
+i 3d pre 0 00000000
+i 3d n o2 4175e886
+i 3d n o1 00000000
+i 3d count 2
+end
 corpus kernel_roundtrip
 events 21
 ev objcreated 1

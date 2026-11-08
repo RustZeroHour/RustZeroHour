@@ -15,6 +15,11 @@
 //! - `kernel/dispatch`: the same corpus with no movement — the sleepy
 //!   churn alone (the heap's requeue path; the dirty list stays empty
 //!   after the first frame).
+//! - `kernel/query_x300`: 300 mixed spatial queries over the settled
+//!   corpus — the closest-object ring walk (twice: center-2d and the
+//!   boundary-2d measure behind an on-map filter) and the
+//!   near-to-far-sorted range iterator drained to exhaustion, the
+//!   checksum folding every id and distance bit.
 //!
 //! Both benches assert the final-state checksum (the heap array's packed
 //! priorities in order, the object list's coverage and cell-change
@@ -28,9 +33,11 @@ use criterion::{BatchSize, Criterion, criterion_group, criterion_main};
 
 use rzh_sim::logic::{Kernel, KernelHost, ObjectSpec, UpdateModuleSpec, UpdateOutcome};
 use rzh_sim::partition::Region2;
+use rzh_sim::query::{PartitionFilter, PartitionFilterOnMap};
 use rzh_sim::scheduler::ModuleArena;
 use rzh_sim::types::{
-    Coord3, DisabledMask, GeometryInfo, GeometryType, SleepyUpdatePhase, UpdateSleepTime,
+    Coord3, DisabledMask, DistanceCalculationType, GeometryInfo, GeometryType, IterOrderType,
+    SleepyUpdatePhase, UpdateSleepTime,
 };
 
 /// The bench corpus size (the scale of the other map benches' corpora).
@@ -237,5 +244,105 @@ fn bench_dispatch(c: &mut Criterion) {
     });
 }
 
-criterion_group!(benches, bench_frame_loop, bench_dispatch);
+/// The query bench's checksum (pinned at authoring time against the C++
+/// wrapper — both sides build the identical corpus and query stream).
+const QUERY_CHECKSUM: u64 = 1_025_416_407_242_357_139;
+
+/// The query corpus: the frame-loop corpus settled by one full update
+/// (the COI coverage the ring walk reads), then the 300-query stream —
+/// a third closest-object center-2d queries, a third boundary-2d
+/// closest behind an on-map filter, a third near-to-far-sorted range
+/// iterators drained to exhaustion. The checksum folds every id and
+/// distance bit, locking the two sides together.
+fn run_queries(kernel: &mut Kernel) -> u64 {
+    let mut sum: u64 = 1_000_003;
+    for i in 0..300u64 {
+        let pos = Coord3 {
+            x: 20.0 + ((i * 7) % 260) as f32,
+            y: 15.0 + ((i * 13) % 270) as f32,
+            z: 0.0,
+        };
+        match i % 3 {
+            0 => {
+                let (id, dist, _) = kernel.pm.get_closest_object_from_position(
+                    &mut kernel.objects,
+                    pos,
+                    45.0,
+                    DistanceCalculationType::FromCenter2d,
+                    &[],
+                );
+                sum = sum
+                    .wrapping_mul(31)
+                    .wrapping_add(id.unwrap_or(0) as u64)
+                    .wrapping_mul(31)
+                    .wrapping_add(u64::from(dist.to_bits()));
+            }
+            1 => {
+                let on_map = PartitionFilterOnMap;
+                let filters: [&dyn PartitionFilter; 1] = [&on_map];
+                let (id, dist, _) = kernel.pm.get_closest_object_from_position(
+                    &mut kernel.objects,
+                    pos,
+                    60.0,
+                    DistanceCalculationType::FromBoundingsphere2d,
+                    &filters,
+                );
+                sum = sum
+                    .wrapping_mul(31)
+                    .wrapping_add(id.unwrap_or(0) as u64)
+                    .wrapping_mul(31)
+                    .wrapping_add(u64::from(dist.to_bits()));
+            }
+            _ => {
+                let mut it = kernel.pm.iterate_objects_in_range_from_position(
+                    &mut kernel.objects,
+                    pos,
+                    35.0,
+                    DistanceCalculationType::FromCenter2d,
+                    &[],
+                    IterOrderType::SortedNearToFar,
+                );
+                it.reset();
+                loop {
+                    let (o, num) = it.next_with_numeric();
+                    if o == 0 {
+                        break;
+                    }
+                    sum = sum
+                        .wrapping_mul(31)
+                        .wrapping_add(o as u64)
+                        .wrapping_mul(31)
+                        .wrapping_add(u64::from(num.to_bits()));
+                }
+            }
+        }
+    }
+    sum
+}
+
+/// The settled query corpus (the coverage filled by one full update).
+fn query_corpus() -> (Kernel, BenchHost) {
+    let (mut kernel, mut host) = build_corpus(10.0, (0.0, 0.0, 300.0, 300.0));
+    kernel.update(&mut host);
+    (kernel, host)
+}
+
+fn bench_query(c: &mut Criterion) {
+    // the authoring-time lockstep check: the corpus and the query stream
+    // are deterministic, so the checksum is too (the C++ wrapper asserts
+    // the same value)
+    let (mut kernel, _host) = query_corpus();
+    let expected = run_queries(&mut kernel);
+    assert_eq!(expected, QUERY_CHECKSUM, "re-pin QUERY_CHECKSUM");
+
+    c.bench_function("kernel/query_x300", |b| {
+        b.iter_batched(
+            query_corpus,
+            |(mut kernel, _host)| run_queries(&mut kernel),
+            BatchSize::PerIteration,
+        )
+    });
+}
+
+criterion_group!(benches, bench_frame_loop, bench_dispatch, bench_query);
 criterion_main!(benches);

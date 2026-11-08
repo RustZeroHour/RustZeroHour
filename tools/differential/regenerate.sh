@@ -459,11 +459,17 @@ echo "wrote crates/rzh-formats/tests/golden/font.txt"
 # refusal family; Object.cpp's disabled mask and movement thresholds;
 # PartitionManager.cpp's spatial store — the grid, the COI coverage with
 # the small/precise-circle/rect fills over the BaseFunctions.h
-# conversions, the dirty-module refresh and the contact-pair collection)
+# conversions, the dirty-module refresh and the contact-pair collection —
+# and the collide-test family with the contact list's processing, plus
+# the query family — the FASTER_GCO rings, the distCalcProc measures,
+# getClosestObjects, the SimpleObjectIterator, the filters and the
+# measure entries)
 # over hand-built id/frame/scheduler/destroy/disabled/grid/fill/dirty/
-# contact/register/roundtrip corpora. The generator links the pinned
-# GameMath sources for gm_sinf / gm_cosf / gm_sqrtf, like
-# gen_hanim_golden.cpp (the deterministic-math build's trig entry points).
+# contact/register/collide-matrix/collide-process/query-radiusvec/
+# query-closest/query-iterate/roundtrip corpora. The generator links the
+# pinned GameMath sources for gm_sinf / gm_cosf / gm_sqrtf / gm_acosf,
+# like gen_hanim_golden.cpp (the deterministic-math build's trig entry
+# points).
 echo "compiling gen_kernel_golden.cpp against the pin ..."
 for src in $PIN_SOURCES; do
     obj="$BUILD_DIR/$(basename "$src").o"

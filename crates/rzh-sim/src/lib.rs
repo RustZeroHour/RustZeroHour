@@ -20,6 +20,11 @@
 //!   cell coverage with its three fill algorithms, the dirty-module
 //!   refresh, the collision candidate pairs and the contact list's
 //!   processing (the collide dispatch and the re-dirty family);
+//! - [`query`]: the partition query family the AI and weapon targeting
+//!   consume — the FASTER_GCO ring walk of `getClosestObjects` over the
+//!   four distance measures, the `SimpleObjectIterator` with its five
+//!   sort orders, the `PartitionFilter` set and the
+//!   vector/distance/goal-distance/relative-angle measures;
 //! - [`types`]: the kernel's shared vocabulary (ids, geometry, masks,
 //!   the 30 Hz frame constants).
 //!
@@ -37,9 +42,10 @@
 //! [`types::ObjectID`] — never by pointer.
 //!
 //! The module bodies, subsystem walk members (script engine, terrain,
-//! commands, AI, economy, stores) and spatial queries are later slices;
-//! they plug in through the [`logic::KernelHost`] trait whose call order
-//! this kernel pins.
+//! commands, AI, economy, stores) are later slices; they plug in through
+//! the [`logic::KernelHost`] trait whose call order this kernel pins.
+//! The players/teams/relationships block of WP1's remainder (and the
+//! filters over it) is the next slice.
 
 #![forbid(unsafe_code)]
 
@@ -47,5 +53,6 @@ pub mod collide;
 pub mod fastmath;
 pub mod logic;
 pub mod partition;
+pub mod query;
 pub mod scheduler;
 pub mod types;

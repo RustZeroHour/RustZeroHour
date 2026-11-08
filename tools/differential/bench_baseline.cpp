@@ -155,8 +155,10 @@ long bench_font_materialize(uint8_t *out, size_t cap);
 // The game-logic kernel wrapper (bench_wrap_kernel.cpp): the Phase 3
 // WP1 frame loop over the mixed corpus and the sleepy dispatch alone.
 void *bench_kernel_build();
+void *bench_kernel_query_build();
 std::uint64_t bench_kernel_frame_loop(void *world);
 std::uint64_t bench_kernel_dispatch(void *world);
+std::uint64_t bench_kernel_query(void *world);
 void bench_kernel_teardown(void *world);
 int bench_kernel_verify();
 std::uint64_t bench_font_parse(const uint8_t *data, size_t len);
@@ -909,6 +911,10 @@ int main(int argc, char **argv)
                 report("kernel/dispatch_x180",
                         measure_ns_ctx([] { return bench_kernel_build(); },
                                 [](void *world) { return bench_kernel_dispatch(world); },
+                                bench_kernel_teardown));
+                report("kernel/query_x300",
+                        measure_ns_ctx([] { return bench_kernel_query_build(); },
+                                [](void *world) { return bench_kernel_query(world); },
                                 bench_kernel_teardown));
         }
 

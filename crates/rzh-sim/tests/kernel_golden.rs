@@ -69,14 +69,19 @@ use rzh_sim::logic::{
     CollideOutcome, Kernel, KernelHost, ObjectSpec, Objects, UpdateModuleSpec, UpdateOutcome,
 };
 use rzh_sim::partition::Region2;
+use rzh_sim::query::{
+    PartitionFilter, PartitionFilterAcceptByKindOf, PartitionFilterAlive, PartitionFilterOnMap,
+    PartitionFilterRejectByKindOf, PartitionFilterSameMapStatus, SimpleObjectIterator,
+};
 use rzh_sim::scheduler::ModuleArena;
 use rzh_sim::types::{
     Coord3, DisabledMask, DisabledType, FOREVER, GeometryInfo, GeometryType, INVALID_ID,
     KINDOF_NO_COLLIDE_BIT, LOGICFRAMES_PER_MSEC_REAL, LOGICFRAMES_PER_SECOND,
-    LOGICFRAMES_PER_SECONDS_REAL, MSEC_PER_LOGICFRAME_REAL, OBJECT_STATUS_NO_COLLISIONS_BIT,
-    SECONDS_PER_LOGICFRAME_REAL, SleepyUpdatePhase, UPDATE_SLEEP_FOREVER, UPDATE_SLEEP_NONE,
-    WW_SYNC_MILLISECONDS,
+    LOGICFRAMES_PER_SECONDS_REAL, MSEC_PER_LOGICFRAME_REAL, OBJECT_PRIVATE_EFFECTIVELY_DEAD_BIT,
+    OBJECT_PRIVATE_OFF_MAP_BIT, OBJECT_STATUS_NO_COLLISIONS_BIT, SECONDS_PER_LOGICFRAME_REAL,
+    SleepyUpdatePhase, UPDATE_SLEEP_FOREVER, UPDATE_SLEEP_NONE, WW_SYNC_MILLISECONDS,
 };
+use rzh_sim::types::{DistanceCalculationType, IterOrderType};
 
 /// The corpus driver: the generator's `World` (the logic, the partition
 /// manager, the object arena) plus its dump string.
@@ -677,6 +682,100 @@ impl Harness {
                 unregister: Some(victim),
             },
         ));
+    }
+
+    /// The generator's `freshWorld`: a brand-new World on the same dumper
+    /// (the sub-corpora with their own grids).
+    fn fresh_world(&mut self, cell_size: f32, extents: (f32, f32, f32, f32)) {
+        let region = Region2 {
+            lo_x: extents.0,
+            lo_y: extents.1,
+            hi_x: extents.2,
+            hi_y: extents.3,
+        };
+        self.kernel = Kernel::with_grid(cell_size, region);
+        self.host = GoldenHost {
+            engine_time_frozen: false,
+            events: Vec::new(),
+            scripted: Vec::new(),
+            collide_events: Vec::new(),
+            scripted_collide: Vec::new(),
+        };
+    }
+
+    /// The generator's z-carrying, angle-carrying object creation (no
+    /// update modules, no colliders — the query corpora's objects).
+    fn create_query_obj(&mut self, geometry: GeometryInfo, pos: (f32, f32, f32)) -> i32 {
+        self.create_query_obj_angle(geometry, pos, 0.0)
+    }
+
+    fn create_query_obj_angle(
+        &mut self,
+        geometry: GeometryInfo,
+        pos: (f32, f32, f32),
+        angle: f32,
+    ) -> i32 {
+        let spec = ObjectSpec {
+            geometry,
+            immobile: false,
+            modules: Vec::new(),
+            colliders: 0,
+            position: Coord3 {
+                x: pos.0,
+                y: pos.1,
+                z: pos.2,
+            },
+            orientation: angle,
+        };
+        self.kernel.create_object(&spec, &mut self.host)
+    }
+
+    /// The generator's `drainIter`: the pre-reset next (the fresh
+    /// cursor's null — the original's callers must first()/reset()), the
+    /// reset, then the full drain with numerics.
+    fn drain_iter(&mut self, iter: &mut SimpleObjectIterator, tag: &str) {
+        let (pre_obj, pre_num) = iter.next_with_numeric();
+        self.line(&format!("{tag} pre {} {:08x}", pre_obj, pre_num.to_bits()));
+        iter.reset();
+        let mut count = 0;
+        loop {
+            let (o, num) = iter.next_with_numeric();
+            if o == INVALID_ID {
+                break;
+            }
+            self.line(&format!("{tag} n o{o} {:08x}", num.to_bits()));
+            count += 1;
+        }
+        self.line(&format!("{tag} count {count}"));
+    }
+
+    /// The generator's `dumpRadiusVec`.
+    fn dump_radius_vec(&mut self) {
+        let mut lines = Vec::new();
+        let pm = &self.kernel.pm;
+        lines.push(format!(
+            "maxgco {} rings {}",
+            pm.max_gco_radius,
+            pm.radius_vec.len()
+        ));
+        for (r, v) in pm.radius_vec.iter().enumerate() {
+            lines.push(format!("ring {r} n {}", v.len()));
+            for &(x, y) in v {
+                lines.push(format!("o {x},{y}"));
+            }
+        }
+        for l in lines {
+            self.line(&l);
+        }
+    }
+
+    /// The store refresh (the query corpora's `w.pm.update(&w.hooks)`).
+    fn refresh_store(&mut self) {
+        self.kernel.pm.update(
+            &mut self.kernel.objects,
+            &mut self.kernel.logic,
+            &mut self.host,
+        );
     }
 }
 
@@ -2147,12 +2246,676 @@ fn corpus_roundtrip(h: &mut Harness) {
 
 // ============================================================================
 // The driver.
+
+// ============================================================================
+// The query corpora (the third Phase 3 slice: the partition query family).
+// ============================================================================
+
+/// --- query_radiusvec: the FASTER_GCO ring precompute (calcMinRadius's
+/// corner-pair minimum with the corner-touch and edge-share radii, the
+/// maxGcoRadius diagonal bound, the y-outer/x-inner offset scan order) --
+#[allow(clippy::too_many_lines)]
+fn corpus_query_radiusvec(h: &mut Harness) {
+    h.line("corpus query_radiusvec");
+    {
+        // (a) the 1x1-cell world: the whole offset space is the single
+        // cell (corner-touch); rings 1..2 exist but stay empty
+        h.fresh_world(10.0, (0.0, 0.0, 10.0, 10.0));
+        let (cx, cy) = (h.kernel.pm.cell_count_x, h.kernel.pm.cell_count_y);
+        h.line(&format!("a cells {cx},{cy}"));
+        h.dump_radius_vec();
+        // calcMinRadius probes: the same cell, the orthogonal neighbors
+        // (edge share), the diagonal neighbors (corner touch), and the
+        // beyond-diagonal offsets
+        let probes: [(i32, i32); 15] = [
+            (0, 0),
+            (1, 0),
+            (0, 1),
+            (-1, 0),
+            (0, -1),
+            (1, 1),
+            (-1, 1),
+            (1, -1),
+            (-1, -1),
+            (2, 0),
+            (2, 1),
+            (2, 2),
+            (3, 2),
+            (-2, 1),
+            (5, 7),
+        ];
+        for (x, y) in probes {
+            let r = h.kernel.pm.calc_min_radius((x, y));
+            h.line(&format!("minr {x},{y} {r}"));
+        }
+    }
+    {
+        // (b) a non-square fractional-cell grid (the f32 CEIL drift of
+        // the count math rides along, pinned by both sides computing it)
+        h.fresh_world(3.5, (0.0, 0.0, 21.0, 10.5));
+        let (cx, cy) = (h.kernel.pm.cell_count_x, h.kernel.pm.cell_count_y);
+        h.line(&format!("b cells {cx},{cy}"));
+        h.dump_radius_vec();
+    }
+    {
+        // (c) a mid-size square grid: the ring counts only (the ring
+        // sum is the offset space) plus the first/last offsets of the
+        // early rings — the scan order the walk takes
+        h.fresh_world(10.0, (0.0, 0.0, 100.0, 100.0));
+        let (cx, cy) = (h.kernel.pm.cell_count_x, h.kernel.pm.cell_count_y);
+        h.line(&format!("c cells {cx},{cy}"));
+        let mut lines = Vec::new();
+        {
+            let pm = &h.kernel.pm;
+            lines.push(format!(
+                "c maxgco {} rings {}",
+                pm.max_gco_radius,
+                pm.radius_vec.len()
+            ));
+            for (r, v) in pm.radius_vec.iter().enumerate() {
+                lines.push(format!("ring {r} n {}", v.len()));
+            }
+            for r in 1..=3 {
+                let v = &pm.radius_vec[r];
+                for &(x, y) in v.iter().take(4) {
+                    lines.push(format!("r{r} head {x},{y}"));
+                }
+                for &(x, y) in v[v.len().saturating_sub(3)..].iter() {
+                    lines.push(format!("r{r} tail {x},{y}"));
+                }
+            }
+        }
+        for l in lines {
+            h.line(&l);
+        }
+    }
+    h.line("end");
+}
+
+/// --- query_closest: getClosestObjects — the ring walk's early exit, the
+/// strict < boundary (the exact-distance reject and the no-match
+/// prefill), the same-cell tie (first walked wins), the boundary measures
+/// (the clamped-zero and the shrunk-vector cases), the filters, and the
+/// measure helpers --
+#[allow(clippy::too_many_lines)]
+// the rotated source's angle literal 1.5707963 is one ulp UNDER
+// std::f32::consts::FRAC_PI_2 — clippy's approx_constant wants the
+// constant, but the transcription's corpus (and the committed golden)
+// pinned the literal's value; switching would desync the two sides
+#[allow(clippy::approx_constant)]
+fn corpus_query_closest(h: &mut Harness) {
+    h.line("corpus query_closest");
+    h.fresh_world(10.0, (0.0, 0.0, 100.0, 100.0));
+    let sph = geom(GeometryType::Sphere, true, 1.0, 1.0, 1.0);
+    let cyl3 = geom(GeometryType::Cylinder, false, 4.0, 3.0, 3.0);
+    let cyl10 = geom(GeometryType::Cylinder, false, 4.0, 10.0, 10.0);
+
+    let a = h.create_query_obj(sph, (50.0, 50.0, 0.0));
+    let b = h.create_query_obj(sph, (65.0, 50.0, 0.0));
+    h.create_query_obj(sph, (50.0, 35.0, 0.0)); // c: 15 south of a
+    h.create_query_obj(sph, (60.0, 50.0, 0.0)); // d: 10 east of a, ring 1
+    let e = h.create_query_obj(sph, (85.0, 85.0, 0.0));
+    // the boundary-measure cylinders, kept away from the center so the
+    // center queries stay unpolluted: m1 the r=3 pair partner, m2 the
+    // r=10 overlap clamper, m3 the z-stepped 3d target
+    h.create_query_obj(cyl3, (76.0, 12.0, 0.0)); // m1
+    h.create_query_obj(cyl10, (56.0, 12.0, 0.0)); // m2
+    let m3 = h.create_query_obj(cyl10, (70.0, 50.0, 5.0));
+    // the same-cell equidistant pair (both exactly 5 from the query
+    // position, both in cell (3,2) — the COI-list order decides)
+    h.create_query_obj(sph, (30.0, 30.0, 0.0)); // s1 (registered first)
+    h.create_query_obj(sph, (30.0, 20.0, 0.0)); // s2 (prepended: walked first)
+    // the filter objects: f1 dies, e leaves the map, b carries an
+    // anonymous kindof bit (bit 5 — the bit's meaning is the data
+    // layer's; the filter semantics is what is pinned)
+    let f1 = h.create_query_obj(sph, (42.0, 42.0, 0.0));
+    h.kernel.objects.get_mut(f1).private_status |= 1 << OBJECT_PRIVATE_EFFECTIVELY_DEAD_BIT;
+    h.kernel.objects.get_mut(e).private_status |= 1 << OBJECT_PRIVATE_OFF_MAP_BIT;
+    h.kernel.objects.get_mut(b).kindof |= 1 << 5;
+
+    // the store refresh: the COI coverage the queries walk
+    h.refresh_store();
+
+    // (a) from-object, wide: d wins at 10 — found in ring 1 (its cell is
+    // the orthogonal neighbor), so the walk stops after ring 1 and the
+    // farther b/c/e are never even walked
+    {
+        let (o, dist, vec) = h.kernel.pm.get_closest_object_from_object(
+            &mut h.kernel.objects,
+            a,
+            100.0,
+            DistanceCalculationType::FromCenter2d,
+            &[],
+        );
+        h.line(&format!(
+            "a o{} dist={:08x} vec={:08x},{:08x},{:08x}",
+            o.unwrap_or(INVALID_ID),
+            dist.to_bits(),
+            vec.x.to_bits(),
+            vec.y.to_bits(),
+            vec.z.to_bits()
+        ));
+    }
+    // (b) from-position at a's spot: no self-exclusion — a itself wins at
+    // distance zero (replacing m1's earlier ring-0 find within the walk)
+    {
+        let (o, dist, vec) = h.kernel.pm.get_closest_object_from_position(
+            &mut h.kernel.objects,
+            Coord3 {
+                x: 50.0,
+                y: 50.0,
+                z: 0.0,
+            },
+            100.0,
+            DistanceCalculationType::FromCenter2d,
+            &[],
+        );
+        h.line(&format!(
+            "b o{} dist={:08x} vec={:08x},{:08x},{:08x}",
+            o.unwrap_or(INVALID_ID),
+            dist.to_bits(),
+            vec.x.to_bits(),
+            vec.y.to_bits(),
+            vec.z.to_bits()
+        ));
+    }
+    // (c) the strict boundary: from (55,50) both a (5 west) and d (5
+    // east) are exactly maxDist away — 25 < 25 fails for both, so no
+    // match; the outputs carry the sqrt of the initial bound and the
+    // non-retail prefill of maxDist^3
+    {
+        let (o, dist, vec) = h.kernel.pm.get_closest_object_from_position(
+            &mut h.kernel.objects,
+            Coord3 {
+                x: 55.0,
+                y: 50.0,
+                z: 0.0,
+            },
+            5.0,
+            DistanceCalculationType::FromCenter2d,
+            &[],
+        );
+        h.line(&format!(
+            "c o{} dist={:08x} vec={:08x},{:08x},{:08x}",
+            o.unwrap_or(INVALID_ID),
+            dist.to_bits(),
+            vec.x.to_bits(),
+            vec.y.to_bits(),
+            vec.z.to_bits()
+        ));
+    }
+    // (d) the same-cell tie: from (30,25) s1 and s2 are both exactly 5
+    // away in cell (3,2); the COI list is newest-first, so s2 is walked
+    // first and wins — s1 then fails the strict < against the tightened
+    // bound
+    {
+        let (o, dist, vec) = h.kernel.pm.get_closest_object_from_position(
+            &mut h.kernel.objects,
+            Coord3 {
+                x: 30.0,
+                y: 25.0,
+                z: 0.0,
+            },
+            10.0,
+            DistanceCalculationType::FromCenter2d,
+            &[],
+        );
+        h.line(&format!(
+            "d o{} dist={:08x} vec={:08x},{:08x},{:08x}",
+            o.unwrap_or(INVALID_ID),
+            dist.to_bits(),
+            vec.x.to_bits(),
+            vec.y.to_bits(),
+            vec.z.to_bits()
+        ));
+    }
+    // (e) the boundary-2d measure, the shrunk case: from the position
+    // (70,12) m1's r=3 cylinder sits 6 away — the position side
+    // contributes no radius, so the 3 shrinks the distance to 3 and the
+    // vector by half (m2's 14-away r=10 pair shrinks to 4 — farther)
+    {
+        let (o, dist, vec) = h.kernel.pm.get_closest_object_from_position(
+            &mut h.kernel.objects,
+            Coord3 {
+                x: 70.0,
+                y: 12.0,
+                z: 0.0,
+            },
+            20.0,
+            DistanceCalculationType::FromBoundingsphere2d,
+            &[],
+        );
+        h.line(&format!(
+            "e o{} dist={:08x} vec={:08x},{:08x},{:08x}",
+            o.unwrap_or(INVALID_ID),
+            dist.to_bits(),
+            vec.x.to_bits(),
+            vec.y.to_bits(),
+            vec.z.to_bits()
+        ));
+    }
+    // (f) the boundary-2d measure, the clamped case: from (56,20) the
+    // r=10 cylinder m2 is 8 away — well inside the 11 of combined radii
+    // — so the distance clamps to zero and the vector scales by the
+    // zero factor (the -0.0 of the southward y is bit-visible)
+    {
+        let (o, dist, vec) = h.kernel.pm.get_closest_object_from_position(
+            &mut h.kernel.objects,
+            Coord3 {
+                x: 56.0,
+                y: 20.0,
+                z: 0.0,
+            },
+            12.0,
+            DistanceCalculationType::FromBoundingsphere2d,
+            &[],
+        );
+        h.line(&format!(
+            "f o{} dist={:08x} vec={:08x},{:08x},{:08x}",
+            o.unwrap_or(INVALID_ID),
+            dist.to_bits(),
+            vec.x.to_bits(),
+            vec.y.to_bits(),
+            vec.z.to_bits()
+        ));
+    }
+    // (g) the boundary-3d measure: from a the d pair (two r=1 spheres
+    // 10 apart) shrinks to 8 — beating m3's 11.2 (the z=5 cylinder's
+    // 21.2 diagonal minus the 11 of combined spheres; its z-delta path
+    // is pinned by the measure helpers below)
+    {
+        let (o, dist, vec) = h.kernel.pm.get_closest_object_from_object(
+            &mut h.kernel.objects,
+            a,
+            100.0,
+            DistanceCalculationType::FromBoundingsphere3d,
+            &[],
+        );
+        h.line(&format!(
+            "g o{} dist={:08x} vec={:08x},{:08x},{:08x}",
+            o.unwrap_or(INVALID_ID),
+            dist.to_bits(),
+            vec.x.to_bits(),
+            vec.y.to_bits(),
+            vec.z.to_bits()
+        ));
+    }
+    // (h) the filters: the dead f1 is refused by Alive (and the raw
+    // query finds it at zero), the off-map e by OnMap, everyone but b by
+    // the kindof accept, b by the kindof reject, and everyone but e by
+    // the same-map-status view from e
+    {
+        let q =
+            |h: &mut Harness, pos: (f32, f32), max_dist: f32, filters: &[&dyn PartitionFilter]| {
+                h.kernel
+                    .pm
+                    .get_closest_object_from_position(
+                        &mut h.kernel.objects,
+                        Coord3 {
+                            x: pos.0,
+                            y: pos.1,
+                            z: 0.0,
+                        },
+                        max_dist,
+                        DistanceCalculationType::FromCenter2d,
+                        filters,
+                    )
+                    .0
+                    .unwrap_or(INVALID_ID)
+            };
+        let raw = q(h, (42.0, 42.0), 6.0, &[]);
+        h.line(&format!("h raw o{raw}"));
+        let alive = PartitionFilterAlive;
+        let f_alive: [&dyn PartitionFilter; 1] = [&alive];
+        let got = q(h, (42.0, 42.0), 6.0, &f_alive);
+        h.line(&format!("h alive o{got}"));
+        let on_map = PartitionFilterOnMap;
+        let f_on_map: [&dyn PartitionFilter; 1] = [&on_map];
+        let got = q(h, (80.0, 80.0), 100.0, &f_on_map);
+        h.line(&format!("h onmap o{got}"));
+        let accept = PartitionFilterAcceptByKindOf::new(1 << 5, 0);
+        let f_accept: [&dyn PartitionFilter; 1] = [&accept];
+        let got = q(h, (65.0, 50.0), 100.0, &f_accept);
+        h.line(&format!("h accept o{got}"));
+        let reject = PartitionFilterRejectByKindOf::new(1 << 5, 0);
+        let f_reject: [&dyn PartitionFilter; 1] = [&reject];
+        let got = q(h, (65.0, 50.0), 100.0, &f_reject);
+        h.line(&format!("h reject o{got}"));
+        let same_map = PartitionFilterSameMapStatus::new(e);
+        let f_same: [&dyn PartitionFilter; 1] = [&same_map];
+        let got = q(h, (84.0, 84.0), 100.0, &f_same);
+        h.line(&format!("h samemap o{got}"));
+    }
+    // (i) the measure helpers over all four dc types: the vector, the
+    // distance and the goal distance to the z-stepped cylinder, and the
+    // relative angles (the four quadrants, the coincident early-out and
+    // a rotated source)
+    {
+        for dc in 0..4 {
+            let dc = DistanceCalculationType::from_bits(dc);
+            let vec = h.kernel.pm.get_vector_to(&h.kernel.objects, a, m3, dc);
+            h.line(&format!(
+                "i vec dc{} ={:08x},{:08x},{:08x}",
+                dc.bits(),
+                vec.x.to_bits(),
+                vec.y.to_bits(),
+                vec.z.to_bits()
+            ));
+            let (ds, vec2) = h
+                .kernel
+                .pm
+                .get_distance_squared(&h.kernel.objects, a, m3, dc);
+            h.line(&format!(
+                "i ds dc{} {:08x} ={:08x},{:08x},{:08x}",
+                dc.bits(),
+                ds.to_bits(),
+                vec2.x.to_bits(),
+                vec2.y.to_bits(),
+                vec2.z.to_bits()
+            ));
+            let pos = Coord3 {
+                x: 70.0,
+                y: 50.0,
+                z: 5.0,
+            };
+            let (ds2, _) = h
+                .kernel
+                .pm
+                .get_distance_squared_to_pos(&h.kernel.objects, a, &pos, dc);
+            h.line(&format!("i dsp dc{} {:08x}", dc.bits(), ds2.to_bits()));
+            let goal = Coord3 {
+                x: 60.0,
+                y: 60.0,
+                z: 0.0,
+            };
+            let (gs, vec3) =
+                h.kernel
+                    .pm
+                    .get_goal_distance_squared(&h.kernel.objects, a, &goal, m3, dc);
+            h.line(&format!(
+                "i gs dc{} {:08x} ={:08x},{:08x},{:08x}",
+                dc.bits(),
+                gs.to_bits(),
+                vec3.x.to_bits(),
+                vec3.y.to_bits(),
+                vec3.z.to_bits()
+            ));
+            let (gs2, _) =
+                h.kernel
+                    .pm
+                    .get_goal_distance_squared_to_pos(&h.kernel.objects, a, &goal, &pos, dc);
+            h.line(&format!("i gsp dc{} {:08x}", dc.bits(), gs2.to_bits()));
+        }
+        let rot = h.create_query_obj_angle(sph, (30.0, 30.0, 0.0), 1.5707963);
+        let angle_queries: [(i32, (f32, f32), &str); 7] = [
+            (a, (60.0, 50.0), "east"),
+            (a, (50.0, 60.0), "north"),
+            (a, (50.0, 40.0), "south"),
+            (a, (40.0, 50.0), "west"),
+            (a, (50.0, 50.0), "same"),
+            (rot, (40.0, 30.0), "roteast"),
+            (rot, (30.0, 40.0), "rotnorth"),
+        ];
+        for (src, pos, tag) in angle_queries {
+            let ang = h.kernel.pm.get_relative_angle_2d_to_pos(
+                &h.kernel.objects,
+                src,
+                &Coord3 {
+                    x: pos.0,
+                    y: pos.1,
+                    z: 0.0,
+                },
+            );
+            h.line(&format!("i ang {tag} {:08x}", ang.to_bits()));
+            let ango = h.kernel.pm.get_relative_angle_2d(&h.kernel.objects, src, a);
+            h.line(&format!("i ango {tag} {:08x}", ango.to_bits()));
+        }
+    }
+    h.line("end");
+}
+
+/// --- query_iterate: iterateObjectsInRange over the SimpleObjectIterator
+/// (the FASTEST insertion order, the mergesort's tie stability in all four
+/// sorted orders, the pre-reset empty quirk, reset), iterateAllObjects
+/// (the master-list order and the filter set) and iteratePotentialCollisions
+/// (the 1.1 slop gate vs the would-collide filter, the 2d/3d numeric split) --
+#[allow(clippy::too_many_lines)]
+fn corpus_query_iterate(h: &mut Harness) {
+    h.line("corpus query_iterate");
+    {
+        h.fresh_world(10.0, (0.0, 0.0, 100.0, 100.0));
+        let sph = geom(GeometryType::Sphere, true, 1.0, 1.0, 1.0);
+        let big = geom(GeometryType::Sphere, false, 1.0, 25.0, 25.0);
+
+        // the cluster: a at the center, b/c/d/e at 12 on the axes (the
+        // four-way tie), f the big multi-cell sphere (the done-flag
+        // dedup), g far out, h the kindof carrier; e dead, g off-map
+        let a = h.create_query_obj(sph, (50.0, 50.0, 0.0));
+        let b = h.create_query_obj(sph, (50.0, 62.0, 0.0));
+        let c = h.create_query_obj(sph, (62.0, 50.0, 0.0));
+        let d = h.create_query_obj(sph, (38.0, 50.0, 0.0));
+        let e = h.create_query_obj(sph, (50.0, 38.0, 0.0));
+        let f = h.create_query_obj(big, (55.0, 55.0, 0.0));
+        let g = h.create_query_obj(sph, (95.0, 95.0, 0.0));
+        let hh = h.create_query_obj(sph, (30.0, 70.0, 0.0));
+        // the corpus programs the template-supplied inputs post-creation
+        for (id, cost) in [
+            (a, 1000.0),
+            (b, 100.0),
+            (c, 50.0),
+            (d, 100.0),
+            (e, 25.0),
+            (f, 500.0),
+            (g, 10.0),
+            (hh, 50.0),
+        ] {
+            h.kernel.objects.get_mut(id).build_cost = cost;
+        }
+        h.kernel.objects.get_mut(e).private_status |= 1 << OBJECT_PRIVATE_EFFECTIVELY_DEAD_BIT;
+        h.kernel.objects.get_mut(g).private_status |= 1 << OBJECT_PRIVATE_OFF_MAP_BIT;
+        h.kernel.objects.get_mut(hh).kindof |= 1 << 5;
+
+        h.refresh_store();
+
+        let center = Coord3 {
+            x: 50.0,
+            y: 50.0,
+            z: 0.0,
+        };
+        let range_from_pos = |h: &mut Harness,
+                              pos: Coord3,
+                              max_dist: f32,
+                              dc: DistanceCalculationType,
+                              order: IterOrderType|
+         -> SimpleObjectIterator {
+            h.kernel.pm.iterate_objects_in_range_from_position(
+                &mut h.kernel.objects,
+                pos,
+                max_dist,
+                dc,
+                &[],
+                order,
+            )
+        };
+
+        // (a) FASTEST: the ring-walk insertion order, numerics attached
+        {
+            let mut it = range_from_pos(
+                h,
+                center,
+                20.0,
+                DistanceCalculationType::FromCenter2d,
+                IterOrderType::Fastest,
+            );
+            h.drain_iter(&mut it, "a fastest");
+        }
+        // (b) NEAR_TO_FAR: the sorted drain with the tie order (a 0,
+        // f 50, then the four at 144 in the mergesort's stable order)
+        {
+            let mut it = range_from_pos(
+                h,
+                center,
+                20.0,
+                DistanceCalculationType::FromCenter2d,
+                IterOrderType::SortedNearToFar,
+            );
+            h.drain_iter(&mut it, "b near");
+        }
+        // (c) FAR_TO_NEAR
+        {
+            let mut it = range_from_pos(
+                h,
+                center,
+                20.0,
+                DistanceCalculationType::FromCenter2d,
+                IterOrderType::SortedFarToNear,
+            );
+            h.drain_iter(&mut it, "c far");
+        }
+        // (d) the cost orders over the same cluster
+        {
+            let mut it = range_from_pos(
+                h,
+                center,
+                20.0,
+                DistanceCalculationType::FromCenter2d,
+                IterOrderType::SortedCheapToExpensive,
+            );
+            h.drain_iter(&mut it, "d cheap");
+        }
+        {
+            let mut it = range_from_pos(
+                h,
+                center,
+                20.0,
+                DistanceCalculationType::FromCenter2d,
+                IterOrderType::SortedExpensiveToCheap,
+            );
+            h.drain_iter(&mut it, "d exp");
+        }
+        // (e) the no-clamp branch: maxDist >= HUGE_DIST walks every ring
+        // of the map — the whole cluster with its distances (the
+        // master-list-free ring walk reaches everything)
+        {
+            let mut it = range_from_pos(
+                h,
+                center,
+                1_000_000.0,
+                DistanceCalculationType::FromCenter2d,
+                IterOrderType::Fastest,
+            );
+            h.drain_iter(&mut it, "e huge");
+        }
+        // (f) iterateAllObjects: the master-list prepend order (newest
+        // first), then the filter refusals over the same walk
+        {
+            let mut it = h.kernel.pm.iterate_all_objects(&mut h.kernel.objects, &[]);
+            h.drain_iter(&mut it, "f all");
+        }
+        {
+            let on_map = PartitionFilterOnMap;
+            let alive = PartitionFilterAlive;
+            let filters: [&dyn PartitionFilter; 2] = [&on_map, &alive];
+            let mut it = h
+                .kernel
+                .pm
+                .iterate_all_objects(&mut h.kernel.objects, &filters);
+            h.drain_iter(&mut it, "f onmapalive");
+        }
+        {
+            let accept = PartitionFilterAcceptByKindOf::new(1 << 5, 0);
+            let filters: [&dyn PartitionFilter; 1] = [&accept];
+            let mut it = h
+                .kernel
+                .pm
+                .iterate_all_objects(&mut h.kernel.objects, &filters);
+            h.drain_iter(&mut it, "f accept");
+        }
+        {
+            let reject = PartitionFilterRejectByKindOf::new(1 << 5, 0);
+            let filters: [&dyn PartitionFilter; 1] = [&reject];
+            let mut it = h
+                .kernel
+                .pm
+                .iterate_all_objects(&mut h.kernel.objects, &filters);
+            h.drain_iter(&mut it, "f reject");
+        }
+        // (g) the from-object form: a excludes itself, everything else
+        // within 20 stays
+        {
+            let mut it = h.kernel.pm.iterate_objects_in_range_from_object(
+                &mut h.kernel.objects,
+                a,
+                20.0,
+                DistanceCalculationType::FromCenter2d,
+                &[],
+                IterOrderType::Fastest,
+            );
+            h.drain_iter(&mut it, "g fromobj");
+        }
+        // (h) the boundary measure in the range query: the 2d sphere
+        // radii pull the far-apart big sphere in (its boundary touches
+        // the center's)
+        {
+            let mut it = range_from_pos(
+                h,
+                center,
+                30.0,
+                DistanceCalculationType::FromBoundingsphere2d,
+                IterOrderType::SortedNearToFar,
+            );
+            h.drain_iter(&mut it, "h bnd");
+        }
+    }
+    {
+        // (i) iteratePotentialCollisions: the small rotated box against a
+        // z-stepped cluster — the 1.1-slop dist gate (the far sphere
+        // never reaches the filter; the at-gate sphere reaches it and is
+        // refused), the would-collide pass at z=3.9 with the 2d/3d
+        // numeric split, and the centered overlap
+        h.fresh_world(10.0, (0.0, 0.0, 100.0, 100.0));
+        let sph = geom(GeometryType::Sphere, true, 1.0, 1.0, 1.0);
+        let bx = geom(GeometryType::Box, false, 4.0, 3.0, 2.0);
+
+        h.create_query_obj(sph, (50.0, 50.0, 0.0)); // a: the centered overlap
+        h.create_query_obj(sph, (53.0, 50.0, 3.9)); // k1: the z-stepped overlap
+        h.create_query_obj(sph, (56.0, 50.0, 0.0)); // k2: past the box edge — filter refuses
+        h.create_query_obj(sph, (60.0, 50.0, 0.0)); // k3: past the slop gate — never filtered
+
+        h.refresh_store();
+
+        let pos = Coord3 {
+            x: 50.0,
+            y: 50.0,
+            z: 0.0,
+        };
+        {
+            let mut it =
+                h.kernel
+                    .pm
+                    .iterate_potential_collisions(&mut h.kernel.objects, pos, bx, 0.3, true);
+            h.drain_iter(&mut it, "i 2d");
+        }
+        {
+            let mut it = h.kernel.pm.iterate_potential_collisions(
+                &mut h.kernel.objects,
+                pos,
+                bx,
+                0.3,
+                false,
+            );
+            h.drain_iter(&mut it, "i 3d");
+        }
+    }
+    h.line("end");
+}
+
 // ============================================================================
 
 #[test]
 fn kernel_golden() {
     let mut all = String::new();
-    let corpora: [fn(&mut Harness); 21] = [
+    let corpora: [fn(&mut Harness); 24] = [
         corpus_ids,
         corpus_frame,
         corpus_sched_basic,
@@ -2173,6 +2936,9 @@ fn kernel_golden() {
         corpus_part_register,
         corpus_collide_matrix,
         corpus_collide_process,
+        corpus_query_radiusvec,
+        corpus_query_closest,
+        corpus_query_iterate,
         corpus_roundtrip,
     ];
     for corpus in corpora {

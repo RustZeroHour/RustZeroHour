@@ -219,6 +219,15 @@ pub struct Object {
     pub kindof: u32,
     /// `m_status` (the ObjectStatusMaskType).
     pub status: u32,
+    /// `m_privateStatus` (the ObjectPrivateStatusBits: EFFECTIVELY_DEAD,
+    /// OFF_MAP — the query family's alive / on-map / same-map-status
+    /// filters read them; the setters are the body-module and
+    /// ghost-object slices').
+    pub private_status: u32,
+    /// The template's `friend_getBuildCost()` (the cost-sorted
+    /// iterators read it through the template; the template itself is
+    /// the rzh-data object model's — the corpus programs the value).
+    pub build_cost: f32,
     /// `m_disabledMask`.
     pub disabled_mask: DisabledMask,
     /// `m_disabledTillFrame[DISABLED_COUNT]` (born NEVER).
@@ -258,6 +267,39 @@ impl Object {
     #[must_use]
     pub fn is_no_collisions(&self) -> bool {
         (self.status & (1 << OBJECT_STATUS_NO_COLLISIONS_BIT)) != 0
+    }
+
+    /// `isEffectivelyDead()` (Object.h: the EFFECTIVELY_DEAD private bit).
+    #[must_use]
+    pub fn is_effectively_dead(&self) -> bool {
+        (self.private_status & (1 << crate::types::OBJECT_PRIVATE_EFFECTIVELY_DEAD_BIT)) != 0
+    }
+
+    /// `isOffMap()` (Object.h: the OFF_MAP private bit).
+    #[must_use]
+    pub fn is_off_map(&self) -> bool {
+        (self.private_status & (1 << crate::types::OBJECT_PRIVATE_OFF_MAP_BIT)) != 0
+    }
+
+    /// `isKindOfMulti(mustBeSet, mustBeClear)` (Thing.cpp → the
+    /// template's kindof bits; the port keeps the bits on the object):
+    /// every must-be-set bit set and every must-be-clear bit clear.
+    #[must_use]
+    pub fn is_kind_of_multi(&self, must_be_set: u32, must_be_clear: u32) -> bool {
+        (self.kindof & must_be_set) == must_be_set && (self.kindof & must_be_clear) == 0
+    }
+
+    /// `Thing::getUnitDirectionVector2D` (Thing.cpp): the facing angle's
+    /// unit vector in the xy plane (the original caches it behind the
+    /// VALID_DIRVECTOR flag; the on-demand form computes the identical
+    /// value).
+    #[must_use]
+    pub fn unit_direction_vector_2d(&self) -> crate::types::Coord3 {
+        crate::types::Coord3 {
+            x: rzh_math::gmath::cosf(self.orientation),
+            y: rzh_math::gmath::sinf(self.orientation),
+            z: 0.0,
+        }
     }
 }
 
@@ -716,6 +758,8 @@ impl Kernel {
                 0
             },
             status: 0,
+            private_status: 0,
+            build_cost: 0.0,
             disabled_mask: DisabledMask::default(),
             disabled_till_frame: [NEVER; DISABLED_COUNT],
             updates: spec

@@ -606,7 +606,7 @@ now reads: container 0.62–0.99x, height map 0.53–0.77x, blend tiles
 1.08x, sides 0.98x, layouts 0.37x, fonts 0.23x — all within the §6
 threshold.
 
-#### The game-logic kernel (`kernel/frame_loop_x180`, `kernel/dispatch_x180`)
+#### The game-logic kernel (`kernel/frame_loop_x180`, `kernel/dispatch_x180`, `kernel/query_x300`)
 
 The Phase 3 opener: the WP1 kernel — the frame loop's full walk and the
 sleepy dispatch, since the collide slice also the contact list's
@@ -639,6 +639,22 @@ same setup and flags as the Phase 2 numbers.
 |---|---:|---:|---:|---|
 | `kernel/frame_loop_x180` | 13.02 ms | 24.83 ms | 0.52x | within |
 | `kernel/dispatch_x180` | 6.44 ms | 18.61 ms | 0.35x | within |
+| `kernel/query_x300` | 154.09 µs | 759.98 µs | 0.20x | within |
+
+The query slice adds the third comparison: 300 mixed spatial queries
+over the same formula corpus settled by one full update (a third
+closest-object center-2d ring walks, a third boundary-2d closest
+queries behind an on-map filter, a third near-to-far-sorted range
+iterators drained to exhaustion — the checksum folding every id and
+distance bit, 1,025,416,407,242,357,139 on both sides). Measured
+2026-11-09, same setup and flags as above. The Rust advantage is the
+same structural story as the processing benches, at higher relief: the
+ring walk's per-COI module and object lookups ride the id-indexed
+arena while the transcription's `findModule`/`resolveObject` linear
+scans pay O(N) per candidate — the transcription's own bookkeeping,
+not the original's (the retail `PartitionManager.cpp` resolves through
+intrusive pointers; a faithful-C++ baseline would sit between the
+two).
 
 Two structural choices the budget run itself surfaced and paid for,
 before any number was recorded: the host and module-arena surfaces are

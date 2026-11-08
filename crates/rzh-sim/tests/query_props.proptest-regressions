@@ -1,0 +1,7 @@
+# Seeds for failure cases proptest has generated in the past. It is
+# automatically read and these particular cases re-run before any
+# novel cases are generated.
+#
+# It is recommended to check this file in to source control so that
+# everyone who runs the test benefits from these saved cases.
+cc 7f777182ec8180f50487bcbfed0306085447e778296a42510a2b7b0234a10f3f # shrinks to objects = [(GeometryInfo { geom_type: Sphere, is_small: false, height: 0.0, major_radius: 15.765143, minor_radius: 0.0 }, Coord3 { x: 52.73361, y: 51.805283, z: 0.0 }, 0.0, 0.0), (GeometryInfo { geom_type: Sphere, is_small: false, height: 0.0, major_radius: 0.0, minor_radius: 0.0 }, Coord3 { x: 87.3898, y: 10.0, z: 0.0 }, 0.0, 0.0)], query_pos = Coord3 { x: 77.36542, y: 10.0, z: 0.0 }, max_dist = 33.854004

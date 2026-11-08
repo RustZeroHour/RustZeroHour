@@ -11,10 +11,16 @@
 //! (GeometryType/GeometryInfo), `Core/GameEngine/Include/Common/KindOf.h`
 //! (the IMMOBILE bit) and
 //! `GeneralsMD/Code/GameEngine/Include/GameLogic/Module/UpdateModule.h`
-//! (UpdateSleepTime, SleepyUpdatePhase) — at baseline 571a7c5.
+//! (UpdateSleepTime, SleepyUpdatePhase),
+//! `GeneralsMD/Code/GameEngine/Include/GameLogic/PartitionManager.h`
+//! (HUGE_DIST, DistanceCalculationType) and
+//! `GeneralsMD/Code/GameEngine/Include/GameLogic/ObjectIter.h`
+//! (IterOrderType) — at baseline 571a7c5.
 //!
 //! Original: Copyright 2025 Electronic Arts Inc.
 //! Rust port Copyright 2026 the RustZeroHour contributors.
+
+use rzh_math::scalar::sqrt;
 
 /// `MAX_PLAYER_COUNT` (GameCommon.h): the per-player array bound.
 pub const MAX_PLAYER_COUNT: usize = 16;
@@ -188,19 +194,70 @@ impl Default for GeometryInfo {
 
 impl GeometryInfo {
     /// `setMajorRadius` (Geometry.h): the field write. (The original also
-    /// recomputes the bounding circle/sphere radii — `calcBoundingStuff` —
-    /// which no path of the collide family reads; the recompute is not
-    /// modelled, stated per plan §3.3 rule 2.)
+    /// recomputes the bounding circle/sphere radii via `calcBoundingStuff`;
+    /// the port computes them on demand in
+    /// [`Self::bounding_circle_radius`] / [`Self::bounding_sphere_radius`]
+    /// — the same pure function of the same five inputs, so the values
+    /// the cached original reads are identical, plan §3.3 rule 2.)
     pub fn set_major_radius(&mut self, radius: f32) {
         self.major_radius = radius;
-        // (calcBoundingStuff — the bounding radii this family never reads)
+        // (calcBoundingStuff — recomputed on demand by the getters below)
     }
 
     /// `setMinorRadius` (Geometry.h): the field write (ditto the
     /// `calcBoundingStuff` note of [`Self::set_major_radius`]).
     pub fn set_minor_radius(&mut self, radius: f32) {
         self.minor_radius = radius;
-        // (calcBoundingStuff — the bounding radii this family never reads)
+        // (calcBoundingStuff — recomputed on demand by the getters below)
+    }
+
+    /// `calcBoundingStuff` (Geometry.cpp), the `m_boundingCircleRadius`
+    /// half: the circle radius of the shape's footprint — the major
+    /// radius for spheres and cylinders, the diagonal for boxes.
+    #[must_use]
+    pub fn bounding_circle_radius(&self) -> f32 {
+        match self.geom_type {
+            GeometryType::Sphere | GeometryType::Cylinder => self.major_radius,
+            GeometryType::Box => {
+                sqrt(self.major_radius * self.major_radius + self.minor_radius * self.minor_radius)
+            }
+        }
+    }
+
+    /// `calcBoundingStuff` (Geometry.cpp), the `m_boundingSphereRadius`
+    /// half: the sphere radius of the full 3d shape — the radius for
+    /// spheres, the max of the half-height and the radius for cylinders,
+    /// the full 3d diagonal for boxes.
+    #[must_use]
+    pub fn bounding_sphere_radius(&self) -> f32 {
+        match self.geom_type {
+            GeometryType::Sphere => self.major_radius,
+            GeometryType::Cylinder => {
+                let r = self.height * 0.5;
+                if r < self.major_radius {
+                    self.major_radius
+                } else {
+                    r
+                }
+            }
+            GeometryType::Box => sqrt(
+                self.major_radius * self.major_radius
+                    + self.minor_radius * self.minor_radius
+                    + (self.height * 0.5) * (self.height * 0.5),
+            ),
+        }
+    }
+
+    /// `getZDeltaToCenterPosition` (Geometry.cpp): where the "center"
+    /// of the geometry is, relative to the canonical position — the
+    /// half-height for the grounded shapes, nothing for spheres.
+    #[must_use]
+    pub fn z_delta_to_center_position(&self) -> f32 {
+        if self.geom_type == GeometryType::Sphere {
+            0.0
+        } else {
+            self.height * 0.5
+        }
     }
 
     /// `getMaxHeightAbovePosition` (Geometry.cpp): how far above the
@@ -412,3 +469,83 @@ pub fn hash2ints(a: i32, b: i32) -> u32 {
 /// `PartitionContactList::SOCKET_COUNT` (PartitionManager.cpp): 5381 —
 /// "prime, and not too close to a power of 2".
 pub const CONTACT_LIST_SOCKET_COUNT: usize = 5381;
+
+/// `HUGE_DIST` (PartitionManager.h): the query family's "everything"
+/// range — a `maxDist` at or above it skips the ring clamp entirely.
+pub const HUGE_DIST: f32 = 1_000_000.0;
+
+/// `HUGE_DIST_SQR` (PartitionManager.cpp): `HUGE_DIST * HUGE_DIST`, the
+/// no-bound ceiling the measure helpers pass the dist procs.
+pub const HUGE_DIST_SQR: f32 = HUGE_DIST * HUGE_DIST;
+
+/// `DistanceCalculationType` (PartitionManager.h): the four measures,
+/// in `theDistCalcProcs` order.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+#[repr(i32)]
+pub enum DistanceCalculationType {
+    /// `FROM_CENTER_2D`: measure from Object center in 2d.
+    #[default]
+    FromCenter2d = 0,
+    /// `FROM_CENTER_3D`: measure from Object center in 3d.
+    FromCenter3d = 1,
+    /// `FROM_BOUNDINGSPHERE_2D`: measure from Object bounding sphere in
+    /// 2d.
+    FromBoundingsphere2d = 2,
+    /// `FROM_BOUNDINGSPHERE_3D`: measure from Object bounding sphere in
+    /// 3d.
+    FromBoundingsphere3d = 3,
+}
+
+impl DistanceCalculationType {
+    /// The wire value (the C++ enum ordinals; the table is indexed by
+    /// it).
+    #[must_use]
+    pub fn bits(self) -> i32 {
+        self as i32
+    }
+
+    /// The value from the wire ordinal (out-of-range values saturate to
+    /// the last known type — the original's unchecked array read can't
+    /// be reached through the typed port).
+    #[must_use]
+    pub fn from_bits(bits: i32) -> Self {
+        match bits {
+            0 => Self::FromCenter2d,
+            1 => Self::FromCenter3d,
+            2 => Self::FromBoundingsphere2d,
+            _ => Self::FromBoundingsphere3d,
+        }
+    }
+}
+
+/// `IterOrderType` (ObjectIter.h): the iterator orders, in
+/// `theClumpCompareProcs` order.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+#[repr(i32)]
+pub enum IterOrderType {
+    /// `ITER_FASTEST`: iterate in arbitrary order (no sort proc — the
+    /// insertion order, which the prepend reverses).
+    #[default]
+    Fastest = 0,
+    /// `ITER_SORTED_NEAR_TO_FAR`: nearest-to-farthest.
+    SortedNearToFar = 1,
+    /// `ITER_SORTED_FAR_TO_NEAR`: farthest-to-nearest.
+    SortedFarToNear = 2,
+    /// `ITER_SORTED_CHEAP_TO_EXPENSIVE`: by the template build cost,
+    /// ascending.
+    SortedCheapToExpensive = 3,
+    /// `ITER_SORTED_EXPENSIVE_TO_CHEAP`: by the template build cost,
+    /// descending.
+    SortedExpensiveToCheap = 4,
+}
+
+/// `ObjectPrivateStatusBits` (Object.h): the per-object private bits the
+/// query family's alive / on-map / same-map-status filters read (set by
+/// the body modules' death paths and the ghost-object/script off-map
+/// paths — those slices' setters; the corpora program the bits
+/// directly).
+pub const OBJECT_PRIVATE_EFFECTIVELY_DEAD_BIT: u32 = 0;
+
+/// `OFF_MAP` (Object.h: "set to true if I am known to be OFF the current
+/// map").
+pub const OBJECT_PRIVATE_OFF_MAP_BIT: u32 = 3;

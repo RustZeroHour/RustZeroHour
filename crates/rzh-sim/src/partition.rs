@@ -139,6 +139,9 @@ pub struct PartitionData {
     pub shroudedness_previous: [ObjectShroudStatus; MAX_PLAYER_COUNT],
     /// `m_everSeenByPlayer[MAX_PLAYER_COUNT]`.
     pub ever_seen: [bool; MAX_PLAYER_COUNT],
+    /// `m_doneFlag` (born 0; the query family's per-call generation
+    /// counter marks it).
+    pub done_flag: i32,
 }
 
 impl Default for PartitionData {
@@ -151,6 +154,7 @@ impl Default for PartitionData {
             shroudedness: [ObjectShroudStatus::Invalid; MAX_PLAYER_COUNT],
             shroudedness_previous: [ObjectShroudStatus::Invalid; MAX_PLAYER_COUNT],
             ever_seen: [false; MAX_PLAYER_COUNT],
+            done_flag: 0,
         }
     }
 }
@@ -417,9 +421,9 @@ fn object_on_collide(
     }
 }
 
-/// The partition manager: the grid, the per-object module registry and
-/// the dirty refresh.
-#[derive(Debug, Default)]
+/// The partition manager: the grid, the per-object module registry, the
+/// dirty refresh and the FASTER_GCO query engine.
+#[derive(Debug)]
 pub struct PartitionManager {
     /// `m_cellSize` (after the < 1 clamp).
     pub cell_size: f32,
@@ -448,6 +452,37 @@ pub struct PartitionManager {
     /// order (the dump observable; `processContactList` is the collision
     /// slice's).
     pub last_contacts: Vec<(ObjectID, ObjectID)>,
+    /// `m_maxGcoRadius` (FASTER_GCO): the ring bound from the map
+    /// diagonal, in cells.
+    pub max_gco_radius: i32,
+    /// `m_radiusVec` (FASTER_GCO): the per-radius cell-offset rings
+    /// [`Self::get_closest_objects`] walks, in the y-outer/x-inner scan
+    /// order.
+    pub radius_vec: Vec<Vec<(i32, i32)>>,
+    /// The done-flag generation counter (the original's function-static
+    /// `theIterFlag`, hoisted to manager state — "nonzero, thanks").
+    pub iter_flag: i32,
+}
+
+impl Default for PartitionManager {
+    fn default() -> Self {
+        Self {
+            cell_size: 0.0,
+            cell_size_inv: 0.0,
+            cell_count_x: 0,
+            cell_count_y: 0,
+            total_cell_count: 0,
+            cells: Vec::new(),
+            world_extents: Region2::default(),
+            module_list: VecDeque::new(),
+            dirty_modules: VecDeque::new(),
+            updated_since_last_reset: false,
+            last_contacts: Vec::new(),
+            max_gco_radius: 0,
+            radius_vec: Vec::new(),
+            iter_flag: 1, // nonzero, thanks
+        }
+    }
 }
 
 impl PartitionManager {
@@ -490,12 +525,20 @@ impl PartitionManager {
                 }
             }
         }
+
+        // (the store's init always has extents — it takes them as the
+        // parameter; the original's null-TerrainLogic branch zeroing the
+        // grid is the caller's domain, stated)
+        self.calc_radius_vec();
     }
 
     /// `shutdown`: clear everything.
     pub fn shutdown(&mut self) {
         self.updated_since_last_reset = false;
         self.remove_all_dirty_modules();
+
+        self.radius_vec.clear();
+        self.radius_vec.shrink_to_fit();
 
         self.cells.clear();
 

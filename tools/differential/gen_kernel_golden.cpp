@@ -94,7 +94,32 @@
 //     sides' isDestroyed, and the makeDirty(false) re-dirty family with
 //     its destroyed / unregistered / IMMOBILE refusals — over
 //     Object.cpp's onCollide and Geometry.cpp's getMaxHeightAbovePosition
-//     / getMaxHeightBelowPosition / setMajorRadius / setMinorRadius.
+//     / getMaxHeightBelowPosition / setMajorRadius / setMinorRadius;
+//   - PartitionManager.cpp's query family (the FASTER_GCO build):
+//     calcMinRadius (the 4x4 corner-pair minimum over the cell corners,
+//     the promoted square-root and the CEIL cell-radius) and calcRadiusVec
+//     (the m_maxGcoRadius bound from the diagonal, the per-radius offset
+//     rings in the y-outer/x-inner scan order), the four distCalcProc_X_Y
+//     distance measures (center/center and boundary/boundary in 2d and
+//     3d — the boundary pair's bounding-circle/sphere shrink with its
+//     clamped-to-zero branch, the 3d z delta through
+//     getZDeltaToCenterPosition) and theDistCalcProcs, getClosestObjects
+//     (the ring walk with the done-flag dedup, the closestDistSqr
+//     tightening, the iterArg insert-vs-closest split, the
+//     maxRadiusLimit = curRadius early exit, the non-retail closestVec
+//     prefill of maxDist^3), getClosestObject / iterateObjectsInRange /
+//     iteratePotentialCollisions (the bounding-sphere 1.1 slop and the
+//     PartitionFilterWouldCollide filter) / iterateAllObjects, the
+//     getVectorTo / getDistanceSquared / getGoalDistanceSquared measure
+//     entries and getRelativeAngle2D (the unit-direction dot, the [-1,1]
+//     clamp, ACos and the perp-Z sign flip) — over SimpleObjectIterator.cpp
+//     (the clump list with its prepend insert, nextWithNumeric, reset,
+//     makeEmpty and the bottom-up linked-list mergesort of sort() with
+//     the five compare procs), ObjectIter.h (IterOrderType), the
+//     PartitionFilter base and the wouldCollide / acceptByKindOf /
+//     rejectByKindOf / alive / onMap / sameMapStatus filters over
+//     Object's isKindOfMulti / isEffectivelyDead / isOffMap, and Thing.cpp's
+//     getUnitDirectionVector2D (Cos/Sin of the facing angle).
 //
 // The frame constants are pinned from the sources: WWSyncPerSecond = 30
 // (WWLib/WWCommon.h), LOGICFRAMES_PER_SECOND = WWSyncPerSecond,
@@ -150,12 +175,33 @@
 //   zero-initialize instead (the garbage becomes the pinned zero; the
 //   corpora exercise the path).
 // - GeometryInfo's bounding-radius recalculation (calcBoundingStuff) is
-//   not transcribed: no path of the collide family reads the bounding
-//   circle/sphere radii, so setMajorRadius/setMinorRadius write their
-//   field only (stated; the bounding radii are a later slice's
-//   observable). The dead five-argument forward declaration of
-//   xy_collideTest_Circle_Circle (declared, never defined, never called)
-//   is not transcribed.
+//   transcribed as on-demand getters (getBoundingCircleRadius /
+//   getBoundingSphereRadius): the original caches the two radii at
+//   construction and recomputes in every setter (the fields are private,
+//   so the cache can never go stale); the transcription and the port
+//   recompute from the same five inputs, which yields the identical
+//   values the cached original reads. The dead five-argument forward
+//   declaration of xy_collideTest_Circle_Circle (declared, never defined,
+//   never called) is not transcribed.
+// - The query family's per-object inputs that later slices own are plain
+//   ObjectT fields the corpora program post-creation: the template's
+//   build cost (a float — the cost-sorted iterators read it through
+//   getTemplate()->friend_getBuildCost(); the template itself is the
+//   rzh-data object model's) and the private-status bits
+//   EFFECTIVELY_DEAD / OFF_MAP (set by the body modules and the
+//   ghost-object paths — their setters are those slices'). The
+//   players/teams/locomotors filters (SamePlayer, Relationship, Team,
+//   Squad, LineOfSight, StealthedAndUndetected, IsFlying, ...) read
+//   state those slices own and are not transcribed; the filter FRAMEWORK
+//   (the PartitionFilter base and filtersAllow) and every filter over
+//   state this slice owns are.
+// - SimpleObjectIterator is a plain by-value struct: the original is a
+//   MemoryPoolObject the caller news and deletes (the holder dance of
+//   iterateObjectsInRange et al.); the pointer is never observable, the
+//   list order is. getClosestObjects' function-static theIterFlag (the
+//   per-call generation counter the done-flag dedup keys on) becomes
+//   PartitionManager state — each corpus's fresh World starts it at 1
+//   exactly as the original's first call would see it.
 // - The collide-module bodies are scripted corpus effects (the absorb /
 //   destroy / unregister triple, applied in that order inside the
 //   dispatch) exactly as the update-module bodies are — the real module
@@ -197,6 +243,7 @@ float gm_sinf(float);
 float gm_cosf(float);
 float gm_sqrtf(float);
 float gm_fabsf(float);
+float gm_acosf(float);
 }
 
 // ============================================================================
@@ -209,6 +256,8 @@ static inline float Sin(float x) { return gm_sinf(x); }
 static inline float Sqrtf(float x) { return gm_sqrtf(x); }
 // WWMath::Fabs, deterministic branch (wwmath.h: gm_fabsf).
 static inline float Fabs(float x) { return gm_fabsf(x); }
+// ACos (Lib/trig.h → Lib/Trig.cpp), deterministic branch.
+static inline float ACos(float x) { return gm_acosf(x); }
 
 // ============================================================================
 // Lib/BaseFunctions.h — the Hoffesommer conversions, non-VC6 branch, as
@@ -370,6 +419,41 @@ enum {
     KINDOF_NO_COLLIDE_BIT = 27, // KindOf.h (ALLOW_SURRENDER off)
 };
 
+// PartitionManager.h's HUGE_DIST and its square (the "everything" range
+// and the no-bound measure ceiling of the query family).
+static const float HUGE_DIST = 1000000.0f;
+static const float HUGE_DIST_SQR = HUGE_DIST * HUGE_DIST;
+
+// DistanceCalculationType (PartitionManager.h): the four measures, in
+// theDistCalcProcs order.
+enum DistanceCalculationType {
+    FROM_CENTER_2D,           ///< measure from Object center in 2d.
+    FROM_CENTER_3D,           ///< measure from Object center in 3d.
+    FROM_BOUNDINGSPHERE_2D,   ///< measure from Object bounding sphere in 2d.
+    FROM_BOUNDINGSPHERE_3D,   ///< measure from Object bounding sphere in 3d.
+    DISTANCE_CALCULATION_TYPE_COUNT,
+};
+
+// IterOrderType (ObjectIter.h): the iterator orders, in
+// theClumpCompareProcs order.
+enum IterOrderType {
+    ITER_FASTEST,                    ///< iterate in arbitrary order
+    ITER_SORTED_NEAR_TO_FAR,         ///< iterate in nearest-to-farthest order (may be slower)
+    ITER_SORTED_FAR_TO_NEAR,         ///< iterate in farthest-to-nearest order (may be slower)
+    ITER_SORTED_CHEAP_TO_EXPENSIVE,  ///< iterate in cheapest-to-most-expensive order (slower)
+    ITER_SORTED_EXPENSIVE_TO_CHEAP,  ///< iterate in most-expensive-to-cheapest order (slower)
+    ITER_ORDER_TYPE_COUNT,
+};
+
+// ObjectPrivateStatusBits (Object.h): the per-object private bits the
+// query family's alive / onMap / sameMapStatus filters read (set by the
+// body modules' death paths and the ghost-object/script off-map paths —
+// those slices' setters; the corpora program the bits directly).
+enum {
+    OBJECT_PRIVATE_EFFECTIVELY_DEAD_BIT = 0, // "Object is effectively dead"
+    OBJECT_PRIVATE_OFF_MAP_BIT = 3,          // "set to true if I am known to be OFF the current map"
+};
+
 // ============================================================================
 // The transcription's model objects. Handles are stable ids: objects by
 // their ObjectID (never reused), update modules by (object id, module
@@ -454,12 +538,11 @@ struct Coord2DT {
     float x = 0, y = 0;
 };
 
-// GeometryInfo's collide-relevant surface (Geometry.h / Geometry.cpp).
-// The bounding-circle/sphere radius recalculation (calcBoundingStuff) is
-// not modelled: no path of the collide family reads the bounding radii,
-// so setMajorRadius/setMinorRadius write the field only (the original
-// also recomputes m_boundingCircleRadius/m_boundingSphereRadius — stated
-// deviation, identical observables).
+// GeometryInfo's collide-and-query-relevant surface (Geometry.h /
+// Geometry.cpp). The bounding-circle/sphere radii are calcBoundingStuff's
+// formulas computed on demand (the original caches them at construction
+// and recomputes in every setter — the private fields can never go stale,
+// so the on-demand form reads the identical values).
 struct GeometryInfoT {
     int geomType = GEOMETRY_SPHERE;
     bool isSmall = false;
@@ -471,12 +554,58 @@ struct GeometryInfoT {
     void setMajorRadius(float r)
     {
         majorRadius = r;
-        // (calcBoundingStuff — the bounding radii this family never reads)
+        // (calcBoundingStuff — recomputed on demand by the getters below)
     }
     void setMinorRadius(float r)
     {
         minorRadius = r;
-        // (calcBoundingStuff — the bounding radii this family never reads)
+        // (calcBoundingStuff — recomputed on demand by the getters below)
+    }
+
+    // GeometryInfo::calcBoundingStuff (Geometry.cpp), the
+    // m_boundingCircleRadius half: the circle radius of the shape's
+    // footprint — the major radius for spheres and cylinders, the
+    // diagonal for boxes.
+    float getBoundingCircleRadius() const
+    {
+        switch (geomType) {
+        case GEOMETRY_SPHERE:
+        case GEOMETRY_CYLINDER:
+            return majorRadius;
+        case GEOMETRY_BOX:
+            return Sqrtf(majorRadius * majorRadius + minorRadius * minorRadius);
+        }
+        return 0.0f;
+    }
+
+    // calcBoundingStuff, the m_boundingSphereRadius half: the sphere
+    // radius of the full 3d shape — the radius for spheres, the
+    // max of the half-height and the radius for cylinders, the full
+    // 3d diagonal for boxes.
+    float getBoundingSphereRadius() const
+    {
+        switch (geomType) {
+        case GEOMETRY_SPHERE:
+            return majorRadius;
+        case GEOMETRY_CYLINDER: {
+            float r = height * 0.5f;
+            if (r < majorRadius)
+                r = majorRadius;
+            return r;
+        }
+        case GEOMETRY_BOX:
+            return Sqrtf(majorRadius * majorRadius + minorRadius * minorRadius +
+                         (height * 0.5f) * (height * 0.5f));
+        }
+        return 0.0f;
+    }
+
+    // GeometryInfo::getZDeltaToCenterPosition (Geometry.cpp): where the
+    // "center" of the geometry is, relative to the canonical position —
+    // the half-height for the grounded shapes, nothing for spheres.
+    float getZDeltaToCenterPosition() const
+    {
+        return (geomType == GEOMETRY_SPHERE) ? 0.0f : (height * 0.5f);
     }
 
     // Geometry.cpp: given an object with this geom, how far above the
@@ -526,6 +655,8 @@ struct ObjectT {
     float m_angle = 0;
     unsigned m_kindof = 0; // the bitset; IMMOBILE is what the store consults
     unsigned m_status = 0; // ObjectStatusMaskType
+    unsigned m_privateStatus = 0; // ObjectPrivateStatusBits (EFFECTIVELY_DEAD, OFF_MAP)
+    float m_buildCost = 0.0f;     // the template's friend_getBuildCost (the template is rzh-data's)
     DisabledMask m_disabledMask;
     int m_disabledTillFrame[DISABLED_COUNT] = {0};
     std::vector<UpdateModuleT> m_updates;
@@ -537,6 +668,28 @@ struct ObjectT {
     bool isKindOfNoCollide() const { return (m_kindof & (1u << KINDOF_NO_COLLIDE_BIT)) != 0; }
     bool isDestroyed() const { return (m_status & (1u << OBJECT_STATUS_DESTROYED_BIT)) != 0; }
     bool isNoCollisions() const { return (m_status & (1u << OBJECT_STATUS_NO_COLLISIONS_BIT)) != 0; }
+    bool isEffectivelyDead() const { return (m_privateStatus & (1u << OBJECT_PRIVATE_EFFECTIVELY_DEAD_BIT)) != 0; }
+    bool isOffMap() const { return (m_privateStatus & (1u << OBJECT_PRIVATE_OFF_MAP_BIT)) != 0; }
+
+    // Thing::isKindOfMulti (Thing.cpp → the template's kindof bits; the
+    // transcription keeps the bits on the object): every must-be-set bit
+    // set and every must-be-clear bit clear.
+    bool isKindOfMulti(unsigned mustBeSet, unsigned mustBeClear) const
+    {
+        return (m_kindof & mustBeSet) == mustBeSet && (m_kindof & mustBeClear) == 0;
+    }
+
+    // Thing::getUnitDirectionVector2D (Thing.cpp): the facing angle's
+    // unit vector in the xy plane (the original caches it behind
+    // VALID_DIRVECTOR; the on-demand form computes the identical value).
+    Coord3D getUnitDirectionVector2D() const
+    {
+        Coord3D dir;
+        dir.x = Cos(m_angle);
+        dir.y = Sin(m_angle);
+        dir.z = 0;
+        return dir;
+    }
 };
 
 // ============================================================================
@@ -1440,6 +1593,20 @@ struct Region2DT {
     float height() const { return hiY - loY; }
 };
 
+// ICoord2D (Lib/ICoord2D.h).
+struct ICoord2DT {
+    int x = 0, y = 0;
+};
+
+// OffsetVec / RadiusVec (PartitionManager.h): the FASTER_GCO rings.
+typedef std::vector<ICoord2DT> OffsetVecT;
+typedef std::vector<OffsetVecT> RadiusVecT;
+
+// (the query family's collaborator types, defined with the family after
+// the World — the manager's declarations only carry pointers/references)
+struct PartitionFilterT;
+struct SimpleObjectIteratorT;
+
 struct PartitionManagerT {
     float m_cellSize = 0.0f;
     float m_cellSizeInv = 0.0f;
@@ -1450,6 +1617,14 @@ struct PartitionManagerT {
     PartitionData *m_dirtyModules = nullptr;
     bool m_updatedSinceLastReset = false;
     PartitionContactList *m_contactList = nullptr; // TheContactList while update() runs
+
+    // FASTER_GCO (defined in the retail PartitionManager.h): the
+    // precomputed per-radius cell-offset rings getClosestObjects walks,
+    // and the done-flag generation counter (the original's function-static
+    // theIterFlag, hoisted to manager state).
+    int m_maxGcoRadius = 0;
+    RadiusVecT m_radiusVec;
+    int m_iterFlag = 1; // nonzero, thanks
 
     // transcription storage for the PartitionData modules (ids are object
     // ids; the store never frees mid-corpus)
@@ -1496,12 +1671,20 @@ struct PartitionManagerT {
                 getCellAt(x, y)->init(x, y);
             }
         }
+
+        // (the transcription's init always has extents — the store takes
+        // them as the parameter; the original's null-TerrainLogic branch
+        // zeroing the grid is the caller's domain, stated)
+        calcRadiusVec();
     }
 
     void shutdown()
     {
         m_updatedSinceLastReset = false;
         removeAllDirtyModules();
+
+        m_radiusVec.clear();
+        m_radiusVec.shrink_to_fit();
 
         m_cells.clear();
         m_cells.shrink_to_fit();
@@ -1526,6 +1709,38 @@ struct PartitionManagerT {
             ? nullptr
             : &m_cells[(size_t)y * (size_t)m_cellCountX + (size_t)x];
     }
+
+    // --- the FASTER_GCO rings (calcMinRadius / calcRadiusVec).
+    int calcMinRadius(const ICoord2DT &cur);
+    void calcRadiusVec();
+
+    // --- the query family (the FASTER_GCO getClosestObjects and its
+    // wrappers over the distCalcProcs, the filters and
+    // SimpleObjectIteratorT — defined with the family below).
+    ObjectT *getClosestObjects(ObjectT *obj, const Coord3D *pos, float maxDist, DistanceCalculationType dc,
+                                PartitionFilterT **filters, SimpleObjectIteratorT *iterArg, float *closestDistArg,
+                                Coord3D *closestVecArg);
+    ObjectT *getClosestObject(ObjectT *obj, float maxDist, DistanceCalculationType dc, PartitionFilterT **filters,
+                               float *closestDist, Coord3D *closestDistVec);
+    ObjectT *getClosestObject(const Coord3D *pos, float maxDist, DistanceCalculationType dc,
+                               PartitionFilterT **filters, float *closestDist, Coord3D *closestDistVec);
+    void getVectorTo(const ObjectT *obj, const ObjectT *otherObj, DistanceCalculationType dc, Coord3D &vec);
+    void getVectorTo(const ObjectT *obj, const Coord3D *pos, DistanceCalculationType dc, Coord3D &vec);
+    float getDistanceSquared(const ObjectT *obj, const ObjectT *otherObj, DistanceCalculationType dc, Coord3D *vec);
+    float getDistanceSquared(const ObjectT *obj, const Coord3D *pos, DistanceCalculationType dc, Coord3D *vec);
+    float getGoalDistanceSquared(const ObjectT *obj, const Coord3D *goalPos, const ObjectT *otherObj,
+                                  DistanceCalculationType dc, Coord3D *vec);
+    float getGoalDistanceSquared(const ObjectT *obj, const Coord3D *goalPos, const Coord3D *otherPos,
+                                  DistanceCalculationType dc, Coord3D *vec);
+    float getRelativeAngle2D(const ObjectT *obj, const ObjectT *otherObj);
+    float getRelativeAngle2D(const ObjectT *obj, const Coord3D *pos);
+    SimpleObjectIteratorT iterateObjectsInRange(ObjectT *obj, float maxDist, DistanceCalculationType dc,
+                                                 PartitionFilterT **filters, IterOrderType order);
+    SimpleObjectIteratorT iterateObjectsInRange(const Coord3D *pos, float maxDist, DistanceCalculationType dc,
+                                                 PartitionFilterT **filters, IterOrderType order);
+    SimpleObjectIteratorT iteratePotentialCollisions(const Coord3D *pos, const GeometryInfoT &geom, float angle,
+                                                      bool use2D);
+    SimpleObjectIteratorT iterateAllObjects(PartitionFilterT **filters);
 
     // --- the dirty list.
     void removeAllDirtyModules()
@@ -2701,6 +2916,855 @@ void PartitionContactList::processContactList(World &w)
 }
 
 // ============================================================================
+// The query family (PartitionManager.cpp's FASTER_GCO build, over
+// SimpleObjectIterator.cpp / ObjectIter.h and the filter set).
+// ============================================================================
+
+// --- the distance measures (the four distCalcProc_X_Y procs). ---------------
+
+// if the dist is greater than maxDist, return false, and the output stuff is undefined.
+typedef bool (*DistCalcProcT)(const Coord3D *posA, const ObjectT *objA, const Coord3D *posB,
+                              const ObjectT *objB, float &abDistSqr, Coord3D &abVec, float maxDistSqr);
+
+static bool distCalcProc_CenterAndCenter_2D(const Coord3D *posA, const ObjectT *objA,
+                                            const Coord3D *posB, const ObjectT *objB,
+                                            float &abDistSqr, Coord3D &abVec, float maxDistSqr)
+{
+    (void)objA;
+    (void)objB;
+    // note that object positions are defined as the bottom center of the geometry,
+    // thus we must add the radius to the z coord to get the proper center of the bounding sphere.
+    Coord3D diff;
+    diff.x = posB->x - posA->x;
+    diff.y = posB->y - posA->y;
+    diff.z = 0.0f;
+
+    abDistSqr = diff.x * diff.x + diff.y * diff.y;
+    abVec = diff;
+
+    return abDistSqr < maxDistSqr;
+}
+
+static bool distCalcProc_BoundaryAndBoundary_2D(const Coord3D *posA, const ObjectT *objA,
+                                                const Coord3D *posB, const ObjectT *objB,
+                                                float &abDistSqr, Coord3D &abVec, float maxDistSqr)
+{
+    Coord3D diff;
+    diff.x = posB->x - posA->x;
+    diff.y = posB->y - posA->y;
+    diff.z = 0.0f;
+
+    float actualDistSqr = diff.x * diff.x + diff.y * diff.y;
+
+    float shrinkFactor = 1.0f;
+    float shrunkenDistSqr = actualDistSqr;
+    float totalRad = (objA ? objA->m_geometryInfo.getBoundingCircleRadius() : 0.0f) +
+                     (objB ? objB->m_geometryInfo.getBoundingCircleRadius() : 0.0f);
+
+    if (totalRad > 0.0f) {
+        float actualDist = Sqrtf(actualDistSqr);
+        float shrunkenDist = actualDist - totalRad;
+        if (shrunkenDist <= 0.0f) {
+            shrinkFactor = 0.0f;
+            shrunkenDistSqr = 0.0f; // sorry, distances can't be negative
+        } else {
+            shrinkFactor = shrunkenDist / actualDist;
+            shrunkenDistSqr = shrunkenDist * shrunkenDist;
+        }
+    }
+
+    abDistSqr = shrunkenDistSqr;
+
+    // (the original's DEBUG_ASSERTCRASH on shrinkFactor outside [0,1] is
+    // debug-only — dropped)
+    diff.x *= shrinkFactor;
+    diff.y *= shrinkFactor;
+    abVec = diff;
+    return abDistSqr < maxDistSqr;
+}
+
+static bool distCalcProc_CenterAndCenter_3D(const Coord3D *posA, const ObjectT *objA,
+                                            const Coord3D *posB, const ObjectT *objB,
+                                            float &abDistSqr, Coord3D &abVec, float maxDistSqr)
+{
+    (void)objA;
+    (void)objB;
+    // note that object positions are defined as the bottom center of the geometry,
+    // thus we must add the radius to the z coord to get the proper center of the bounding sphere.
+    Coord3D diff;
+    diff.x = posB->x - posA->x;
+    diff.y = posB->y - posA->y;
+    diff.z = posB->z - posA->z;
+
+    abDistSqr = diff.x * diff.x + diff.y * diff.y + diff.z * diff.z;
+    abVec = diff;
+
+    return abDistSqr < maxDistSqr;
+}
+
+static bool distCalcProc_BoundaryAndBoundary_3D(const Coord3D *posA, const ObjectT *objA,
+                                                const Coord3D *posB, const ObjectT *objB,
+                                                float &abDistSqr, Coord3D &abVec, float maxDistSqr)
+{
+    const GeometryInfoT *geomA = objA ? &objA->m_geometryInfo : nullptr;
+    const GeometryInfoT *geomB = objB ? &objB->m_geometryInfo : nullptr;
+
+    // note that object positions are defined as the bottom center of the geometry,
+    // thus we must add the radius to the z coord to get the proper center of the bounding sphere.
+    Coord3D diff;
+    diff.x = posB->x - posA->x;
+    diff.y = posB->y - posA->y;
+    diff.z = ((posB->z + (geomB ? geomB->getZDeltaToCenterPosition() : 0.0f)) -
+              (posA->z + (geomA ? geomA->getZDeltaToCenterPosition() : 0.0f)));
+
+    float actualDistSqr = diff.x * diff.x + diff.y * diff.y + diff.z * diff.z;
+
+    float shrinkFactor = 1.0f;
+    float shrunkenDistSqr = actualDistSqr;
+    float totalRad = (geomA ? geomA->getBoundingSphereRadius() : 0) + (geomB ? geomB->getBoundingSphereRadius() : 0);
+    if (totalRad > 0.0f) {
+        float actualDist = Sqrtf(actualDistSqr);
+        float shrunkenDist = actualDist - totalRad;
+        if (shrunkenDist <= 0.0f) {
+            shrinkFactor = 0.0f;
+            shrunkenDistSqr = 0.0f; // sorry, distances can't be negative
+        } else {
+            shrinkFactor = shrunkenDist / actualDist;
+            shrunkenDistSqr = shrunkenDist * shrunkenDist;
+        }
+    }
+
+    abDistSqr = shrunkenDistSqr;
+
+    diff.x *= shrinkFactor;
+    diff.y *= shrinkFactor;
+    diff.z *= shrinkFactor;
+    abVec = diff;
+    return abDistSqr < maxDistSqr;
+}
+
+static DistCalcProcT theDistCalcProcs[] = {
+    distCalcProc_CenterAndCenter_2D,
+    distCalcProc_CenterAndCenter_3D,
+    distCalcProc_BoundaryAndBoundary_2D,
+    distCalcProc_BoundaryAndBoundary_3D,
+};
+
+// --- SimpleObjectIterator (SimpleObjectIterator.cpp). ------------------------
+
+// (the cost compares need the World's object table; the original reads the
+// template pointer carried by the clump's object. The transcription's
+// statics get the World through a file-scope pointer the corpora set —
+// each corpus owns exactly one World at a time. The World is complete
+// here — the query family sits after it — so the out-of-line cost
+// compares below can dereference it.)
+static World *g_queryWorld = nullptr;
+
+struct SimpleObjectIteratorT {
+    class ClumpT
+    {
+    public:
+        ClumpT *m_nextClump = nullptr;
+        int m_obj = INVALID_ID;
+        float m_numeric = 0.0f; // typically, dist-squared
+    };
+
+    typedef float (*ClumpCompareProc)(ClumpT *, ClumpT *);
+
+    ClumpT *m_firstClump = nullptr;
+    ClumpT *m_curClump = nullptr;
+    int m_clumpCount = 0;
+
+    SimpleObjectIteratorT() {}
+    ~SimpleObjectIteratorT() { makeEmpty(); }
+    // (the original is a MemoryPoolObject — noncopyable; the pointer is
+    // never observable. The transcription deletes the copy ops so a
+    // by-value return moves.)
+    SimpleObjectIteratorT(const SimpleObjectIteratorT &) = delete;
+    SimpleObjectIteratorT &operator=(const SimpleObjectIteratorT &) = delete;
+    SimpleObjectIteratorT(SimpleObjectIteratorT &&other)
+        : m_firstClump(other.m_firstClump), m_curClump(other.m_curClump), m_clumpCount(other.m_clumpCount)
+    {
+        other.m_firstClump = nullptr;
+        other.m_curClump = nullptr;
+        other.m_clumpCount = 0;
+    }
+    SimpleObjectIteratorT &operator=(SimpleObjectIteratorT &&other)
+    {
+        if (this != &other) {
+            makeEmpty();
+            m_firstClump = other.m_firstClump;
+            m_curClump = other.m_curClump;
+            m_clumpCount = other.m_clumpCount;
+            other.m_firstClump = nullptr;
+            other.m_curClump = nullptr;
+            other.m_clumpCount = 0;
+        }
+        return *this;
+    }
+
+    void insert(int obj, float numeric = 0.0f)
+    {
+        ClumpT *clump = new ClumpT();
+
+        clump->m_nextClump = m_firstClump;
+        m_firstClump = clump;
+
+        clump->m_obj = obj;
+        clump->m_numeric = numeric;
+
+        ++m_clumpCount;
+    }
+
+    int nextWithNumeric(float *num)
+    {
+        int obj = INVALID_ID;
+        if (num)
+            *num = 0.0f;
+
+        if (m_curClump) {
+            obj = m_curClump->m_obj;
+            if (num)
+                *num = m_curClump->m_numeric;
+            m_curClump = m_curClump->m_nextClump;
+        }
+
+        return obj;
+    }
+
+    void reset() { m_curClump = m_firstClump; }
+
+    void makeEmpty()
+    {
+        while (m_firstClump) {
+            ClumpT *next = m_firstClump->m_nextClump;
+            delete m_firstClump;
+            m_firstClump = next;
+            --m_clumpCount;
+        }
+
+        m_firstClump = nullptr;
+        m_curClump = nullptr;
+        m_clumpCount = 0;
+    }
+
+    void sort(IterOrderType order);
+
+    static float sortNearToFar(ClumpT *a, ClumpT *b) { return a->m_numeric - b->m_numeric; }
+    static float sortFarToNear(ClumpT *a, ClumpT *b) { return b->m_numeric - a->m_numeric; }
+    static float sortCheapToExpensive(ClumpT *a, ClumpT *b);
+    static float sortExpensiveToCheap(ClumpT *a, ClumpT *b);
+};
+
+// the cost compares, out-of-line (they read the build costs through the
+// corpus's object table): m_obj->getTemplate()->friend_getBuildCost().
+float SimpleObjectIteratorT::sortCheapToExpensive(ClumpT *a, ClumpT *b)
+{
+    return g_queryWorld->object(a->m_obj)->m_buildCost - g_queryWorld->object(b->m_obj)->m_buildCost;
+}
+
+float SimpleObjectIteratorT::sortExpensiveToCheap(ClumpT *a, ClumpT *b)
+{
+    return g_queryWorld->object(b->m_obj)->m_buildCost - g_queryWorld->object(a->m_obj)->m_buildCost;
+}
+
+// SimpleObjectIterator::sort (SimpleObjectIterator.cpp): the bottom-up
+// linked-list mergesort, verbatim — the exact splice choreography decides
+// the order of equal numerics (the tie order the corpora pin).
+void SimpleObjectIteratorT::sort(IterOrderType order)
+{
+    static ClumpCompareProc theClumpCompareProcs[] = {
+        nullptr, // "fastest" gets no proc
+        &SimpleObjectIteratorT::sortNearToFar,
+        &SimpleObjectIteratorT::sortFarToNear,
+        &SimpleObjectIteratorT::sortCheapToExpensive,
+        &SimpleObjectIteratorT::sortExpensiveToCheap,
+    };
+
+    if (m_clumpCount == 0)
+        return;
+
+    ClumpCompareProc cmpProc = theClumpCompareProcs[order];
+
+    if (!cmpProc)
+        return; // my, that was easy
+
+    // do a basic mergesort, which works nicely for linked lists,
+    // and is reasonably efficient (N log N).
+
+    for (int n = 1;; n *= 2) {
+        ClumpT *to_do = m_firstClump;
+        ClumpT *tail = nullptr;
+        m_firstClump = nullptr;
+
+        int mergeCount = 0;
+
+        while (to_do) {
+            ++mergeCount;
+
+            int to_do_count = 0;
+
+            // make two lists of length 'n' (to_do is one, sub is the other)
+            ClumpT *sub = to_do;
+            for (int i = 0; i < n; i++) {
+                ++to_do_count;
+                sub = sub->m_nextClump;
+                if (!sub)
+                    break;
+            }
+            int subCount = sub ? n : 0;
+
+            // merge the two lists.
+            while (to_do_count + subCount > 0) {
+                ClumpT *tmp;
+
+                // bleah, coalesce into more elegant test case
+                if (subCount == 0) {
+                    tmp = to_do;
+                    to_do = to_do->m_nextClump;
+                    --to_do_count;
+                } else if (to_do_count == 0) {
+                    tmp = sub;
+                    sub = sub->m_nextClump;
+                    --subCount;
+                } else if ((*cmpProc)(to_do, sub) <= 0.0f) {
+                    tmp = to_do;
+                    to_do = to_do->m_nextClump;
+                    --to_do_count;
+                } else {
+                    tmp = sub;
+                    sub = sub->m_nextClump;
+                    --subCount;
+                }
+                if (!sub)
+                    subCount = 0;
+                if (!to_do)
+                    to_do_count = 0;
+
+                if (tail)
+                    tail->m_nextClump = tmp;
+                else
+                    m_firstClump = tmp;
+                tail = tmp;
+            }
+
+            to_do = sub;
+        }
+        if (tail)
+            tail->m_nextClump = nullptr;
+
+        if (mergeCount <= 1) // when we have done just one (or none) swap, we're done
+            break;
+    }
+
+    // always reset after sorting, to prevent weirdness
+    reset();
+}
+
+// --- the partition filters (PartitionManager.h / PartitionManager.cpp). ------
+
+// this is an ABC. getClosestObjects allows you to pass multiple filters to
+// filter out objects you don't want; any that get false returned are not
+// iterated.
+struct PartitionFilterT {
+    virtual ~PartitionFilterT() {}
+    virtual bool allow(ObjectT *objOther) = 0;
+};
+
+// filtersAllow (PartitionManager.cpp), the non-profiling build.
+static inline bool filtersAllow(PartitionFilterT **filters, ObjectT *objOther)
+{
+    for (PartitionFilterT **fp = filters; fp && *fp; fp++) {
+        if (!(*fp)->allow(objOther)) {
+            return false;
+        }
+    }
+    // assume true if no filters rejected it
+    return true;
+}
+
+// PartitionFilterWouldCollide: the inline geomCollidesWithGeom body
+// (the z-gate that ignores the below-extents, theCollideTestProcs dispatch)
+// compared against the desired result.
+struct PartitionFilterWouldCollideT : public PartitionFilterT {
+    Coord3D m_position;
+    GeometryInfoT m_geom;
+    float m_angle;
+    bool m_desiredCollisionResult; // collision must match this for allow to return true
+
+    PartitionFilterWouldCollideT(const Coord3D &pos, const GeometryInfoT &geom, float angle, bool desired)
+        : m_position(pos), m_geom(geom), m_angle(angle), m_desiredCollisionResult(desired)
+    {
+    }
+
+    bool allow(ObjectT *objOther) override
+    {
+        CollideInfoT thisInfo(m_position, m_geom, m_angle);
+        CollideInfoT thatInfo(objOther->m_pos, objOther->m_geometryInfo, objOther->m_angle);
+
+        bool doesCollide;
+
+        // invariant for all geometries: first do z collision check.
+        if (thisInfo.position.z + thisInfo.geom.getMaxHeightAbovePosition() >= thatInfo.position.z &&
+            thisInfo.position.z <= thatInfo.position.z + thatInfo.geom.getMaxHeightAbovePosition()) {
+            int thisGeom = m_geom.getGeomType();
+            int thatGeom = objOther->m_geometryInfo.getGeomType();
+
+            //
+            // NOTE: This assumes geometry enumerations that start at GEOMETRY_FIRST AND depends on the
+            // order in which they appear in the enum list
+            //
+            CollideTestProc collideProc =
+                theCollideTestProcs[(size_t)(thisGeom - GEOMETRY_FIRST) * GEOMETRY_NUM_TYPES + (thatGeom - GEOMETRY_FIRST)];
+            CollideLocAndNormal cinfo = {}; // (the original's uninitialized local — the pinned zero)
+            doesCollide = (*collideProc)(&thisInfo, &thatInfo, &cinfo);
+        } else {
+            // no z-intersection -> no collision.
+            doesCollide = false;
+        }
+
+        return doesCollide == m_desiredCollisionResult;
+    }
+};
+
+// PartitionFilterAcceptByKindOf / RejectByKindOf: the isKindOfMulti test
+// over the must-be-set / must-be-clear masks.
+struct PartitionFilterAcceptByKindOfT : public PartitionFilterT {
+    unsigned m_mustBeSet, m_mustBeClear;
+    PartitionFilterAcceptByKindOfT(unsigned mustBeSet, unsigned mustBeClear)
+        : m_mustBeSet(mustBeSet), m_mustBeClear(mustBeClear)
+    {
+    }
+    bool allow(ObjectT *objOther) override { return objOther->isKindOfMulti(m_mustBeSet, m_mustBeClear); }
+};
+
+struct PartitionFilterRejectByKindOfT : public PartitionFilterT {
+    unsigned m_mustBeSet, m_mustBeClear;
+    PartitionFilterRejectByKindOfT(unsigned mustBeSet, unsigned mustBeClear)
+        : m_mustBeSet(mustBeSet), m_mustBeClear(mustBeClear)
+    {
+    }
+    bool allow(ObjectT *objOther) override { return !objOther->isKindOfMulti(m_mustBeSet, m_mustBeClear); }
+};
+
+// PartitionFilterAlive: reject the effectively dead.
+struct PartitionFilterAliveT : public PartitionFilterT {
+    bool allow(ObjectT *objOther) override { return !objOther->isEffectivelyDead(); }
+};
+
+// PartitionFilterOnMap: reject the off-map.
+struct PartitionFilterOnMapT : public PartitionFilterT {
+    bool allow(ObjectT *objOther) override { return !objOther->isOffMap(); }
+};
+
+// PartitionFilterSameMapStatus: only objects sharing m_obj's map status.
+struct PartitionFilterSameMapStatusT : public PartitionFilterT {
+    ObjectT *m_obj;
+    explicit PartitionFilterSameMapStatusT(ObjectT *obj) : m_obj(obj) {}
+    bool allow(ObjectT *objOther) override { return objOther->isOffMap() == m_obj->isOffMap(); }
+};
+
+// --- calcMinRadius / calcRadiusVec (the FASTER_GCO ring precompute). ---------
+
+// PartitionManager::calcMinRadius (PartitionManager.cpp, verbatim):
+int PartitionManagerT::calcMinRadius(const ICoord2DT &cur)
+{
+    /*
+        ok, so if obj "A" is in cell (0,0), and obj "B"
+        is in cell (cur.x, cur.y), calc the smallest distance they could be
+        from each other, in integral multiples of cellSize. Note that
+        each object can be anywhere within a given cell (not just in the center!)
+        so even objects in the same cell can still be cellSize*1.414 apart,
+        and objects in adjacent cells can be nearly-zero distance apart!
+    */
+    float halfCell = m_cellSize * 0.5f;
+    Coord3D centerPos[4] = {
+        {-halfCell, -halfCell, 0.0f},
+        {halfCell, -halfCell, 0.0f},
+        {-halfCell, halfCell, 0.0f},
+        {halfCell, halfCell, 0.0f},
+    };
+
+    float x = (float)cur.x * m_cellSize;
+    float y = (float)cur.y * m_cellSize;
+    Coord3D otherPos[4] = {
+        {x - halfCell, y - halfCell, 0.0f},
+        {x + halfCell, y - halfCell, 0.0f},
+        {x - halfCell, y + halfCell, 0.0f},
+        {x + halfCell, y + halfCell, 0.0f},
+    };
+
+    /*
+        this is ugly and there's probably a faster way, but we only do this once per PM reset,
+        so it really shouldn't matter... (I hope)
+    */
+
+    // (RETAIL_COMPATIBLE_CRC is off in this build: Real, not double)
+    typedef float RealOrDouble;
+
+    RealOrDouble minDistSqr = (RealOrDouble)1e12; // double, not real
+    for (int i = 0; i < 4; ++i) {
+        for (int j = 0; j < 4; ++j) {
+            // double, not real
+            RealOrDouble dx = centerPos[i].x - otherPos[j].x;
+            RealOrDouble dy = centerPos[i].y - otherPos[j].y;
+            RealOrDouble curDistSqr = dx * dx + dy * dy;
+            if (minDistSqr > curDistSqr)
+                minDistSqr = curDistSqr;
+        }
+    }
+
+    // double, not real
+    RealOrDouble dist = Sqrtf(minDistSqr);
+    int minRadius = (int)REAL_TO_INT_CEIL(dist / m_cellSize);
+
+    return minRadius;
+}
+
+// PartitionManager::calcRadiusVec (PartitionManager.cpp, verbatim):
+void PartitionManagerT::calcRadiusVec()
+{
+    float cellSize = m_cellSize;
+    int cx = m_cellCountX;
+    int cy = m_cellCountY;
+
+    // (RETAIL_COMPATIBLE_CRC is off in this build: Real, not double)
+    typedef float RealOrDouble;
+
+    // double, not real
+    RealOrDouble dx = (RealOrDouble)cx * (RealOrDouble)cellSize;
+    RealOrDouble dy = (RealOrDouble)cy * (RealOrDouble)cellSize;
+    RealOrDouble maxPossibleDist = Sqrtf(dx * dx + dy * dy);
+
+    m_maxGcoRadius = (int)REAL_TO_INT_CEIL(maxPossibleDist / cellSize);
+
+    m_radiusVec.clear();
+    m_radiusVec.resize((size_t)m_maxGcoRadius + 1, OffsetVecT());
+
+    ICoord2DT cur;
+    for (cur.y = -cy + 1; cur.y < cy; ++cur.y) {
+        for (cur.x = -cx + 1; cur.x < cx; ++cur.x) {
+            /*
+                m_radiusVec[curRadius] contains a list of the cells (foo) that could
+                contain objects that are <= (curRadius * cellSize) distance away from cell (0,0).
+            */
+            int curRadius = calcMinRadius(cur);
+            // (the DEBUG_ASSERTCRASH on curRadius > m_maxGcoRadius is
+            // debug-only — dropped)
+            if (curRadius <= m_maxGcoRadius)
+                m_radiusVec[(size_t)curRadius].push_back(cur);
+        }
+    }
+}
+
+// --- getClosestObjects and friends (PartitionManager.cpp, FASTER_GCO). ------
+
+// PartitionManager::getClosestObjects (the FASTER_GCO branch, verbatim).
+ObjectT *PartitionManagerT::getClosestObjects(ObjectT *obj, const Coord3D *pos, float maxDist,
+                                              DistanceCalculationType dc, PartitionFilterT **filters,
+                                              SimpleObjectIteratorT *iterArg, float *closestDistArg,
+                                              Coord3D *closestVecArg)
+{
+    // (the entrancy assert is RTS_DEBUG-only — dropped)
+    // (the DEBUG_ASSERTCRASH((obj==nullptr) != (pos == nullptr)) is
+    // debug-only — the corpora always pass exactly one)
+
+    DistCalcProcT distProc = theDistCalcProcs[dc];
+
+    const Coord3D *objPos;
+    const ObjectT *objToUse;
+    if (pos) {
+        objPos = pos;
+        objToUse = nullptr;
+    } else {
+        objPos = &obj->m_pos;
+        objToUse = obj;
+    }
+    int cellCenterX, cellCenterY;
+    worldToCell(objPos->x, objPos->y, &cellCenterX, &cellCenterY);
+
+    ObjectT *closestObj = nullptr;
+    float closestDistSqr = maxDist * maxDist; // if it's not closer than this, we shouldn't consider it anyway...
+    Coord3D closestVec;
+    // TheSuperHackers @info This should be safe to initialize because it is
+    // unused, but let us be extra safe for now. (The non-retail build
+    // initializes; the corpora pin the no-match output.)
+    closestVec.x = maxDist;
+    closestVec.y = maxDist;
+    closestVec.z = maxDist;
+
+    int maxRadius = m_maxGcoRadius;
+    if (maxDist < HUGE_DIST) {
+        // don't go outwards any farther than necessary.
+        maxRadius = std::min(m_maxGcoRadius, worldToCellDist(maxDist));
+    }
+    // (INTENSE_DEBUG's maxRadiusLimit = maxRadius + 3 clamp is not defined
+    // in the build — the plain limit)
+    int maxRadiusLimit = maxRadius;
+
+    bool foundAny = false;
+
+    ++m_iterFlag; // the function-static theIterFlag, hoisted to manager state
+
+    /*
+        m_radiusVec[curRadius] contains a list of the cells (foo) that could
+        contain objects that are <= (curRadius * cellSize) distance away from cell (0,0).
+    */
+    for (int curRadius = 0; curRadius <= maxRadiusLimit; ++curRadius) {
+        const OffsetVecT &offsets = m_radiusVec[(size_t)curRadius];
+        if (offsets.empty())
+            continue;
+        for (OffsetVecT::const_iterator it = offsets.begin(); it != offsets.end(); ++it) {
+            PartitionCell *thisCell = getCellAt(cellCenterX + it->x, cellCenterY + it->y);
+            if (thisCell == nullptr)
+                continue;
+
+            for (CellAndObjectIntersection *thisCoi = thisCell->m_firstCoiInCell; thisCoi; thisCoi = thisCoi->m_nextCoi) {
+                PartitionData *thisMod = thisCoi->m_module != INVALID_ID ? findModule(thisCoi->m_module) : nullptr;
+                ObjectT *thisObj = thisMod ? resolveObject(thisMod->m_object) : nullptr;
+
+                // never compare against ourself.
+                if (thisObj == obj || thisObj == nullptr)
+                    continue;
+
+                // since an object can exist in multiple COIs, we use this to avoid processing
+                // the same one more than once.
+                if (thisMod->m_doneFlag == m_iterFlag)
+                    continue;
+                thisMod->m_doneFlag = m_iterFlag;
+
+                float thisDistSqr;
+                Coord3D distVec;
+                if (!(*distProc)(objPos, objToUse, &thisObj->m_pos, thisObj, thisDistSqr, distVec, closestDistSqr))
+                    continue;
+
+                // check the filters now
+                if (!filtersAllow(filters, thisObj))
+                    continue;
+
+                // ok, guess this is a winner!
+                if (iterArg) {
+                    iterArg->insert(thisObj->m_id, thisDistSqr);
+                } else {
+                    closestObj = thisObj;
+                    closestDistSqr = thisDistSqr;
+                    closestVec = distVec;
+
+                    if (!foundAny) {
+                        // if not adding to iterArg, we want to stop once we have the closest object.
+                        maxRadiusLimit = curRadius;
+                    }
+                    foundAny = true;
+                }
+            }
+        }
+    }
+
+    if (closestVecArg) {
+        *closestVecArg = closestVec;
+    }
+    if (closestDistArg) {
+        *closestDistArg = Sqrtf(closestDistSqr);
+    }
+
+    return closestObj; // might be null...
+}
+
+// PartitionManager::getClosestObject (the object form).
+ObjectT *PartitionManagerT::getClosestObject(ObjectT *obj, float maxDist, DistanceCalculationType dc,
+                                              PartitionFilterT **filters, float *closestDist,
+                                              Coord3D *closestDistVec)
+{
+    return getClosestObjects(obj, nullptr, maxDist, dc, filters, nullptr, closestDist, closestDistVec);
+}
+
+// PartitionManager::getClosestObject (the position form).
+ObjectT *PartitionManagerT::getClosestObject(const Coord3D *pos, float maxDist, DistanceCalculationType dc,
+                                              PartitionFilterT **filters, float *closestDist,
+                                              Coord3D *closestDistVec)
+{
+    return getClosestObjects(nullptr, pos, maxDist, dc, filters, nullptr, closestDist, closestDistVec);
+}
+
+// PartitionManager::getVectorTo (both forms).
+void PartitionManagerT::getVectorTo(const ObjectT *obj, const ObjectT *otherObj, DistanceCalculationType dc, Coord3D &vec)
+{
+    DistCalcProcT distProc = theDistCalcProcs[dc];
+    float distSqr;
+    (*distProc)(&obj->m_pos, obj, &otherObj->m_pos, otherObj, distSqr, vec, HUGE_DIST_SQR);
+}
+
+void PartitionManagerT::getVectorTo(const ObjectT *obj, const Coord3D *pos, DistanceCalculationType dc, Coord3D &vec)
+{
+    DistCalcProcT distProc = theDistCalcProcs[dc];
+    float distSqr;
+    (*distProc)(&obj->m_pos, obj, pos, nullptr, distSqr, vec, HUGE_DIST_SQR);
+}
+
+// PartitionManager::getDistanceSquared (both forms).
+float PartitionManagerT::getDistanceSquared(const ObjectT *obj, const ObjectT *otherObj, DistanceCalculationType dc, Coord3D *vec)
+{
+    DistCalcProcT distProc = theDistCalcProcs[dc];
+    float thisDistSqr;
+    Coord3D thisVec;
+    (*distProc)(&obj->m_pos, obj, &otherObj->m_pos, otherObj, thisDistSqr, thisVec, HUGE_DIST_SQR);
+    if (vec)
+        *vec = thisVec;
+    return thisDistSqr;
+}
+
+float PartitionManagerT::getDistanceSquared(const ObjectT *obj, const Coord3D *pos, DistanceCalculationType dc, Coord3D *vec)
+{
+    DistCalcProcT distProc = theDistCalcProcs[dc];
+    float thisDistSqr;
+    Coord3D thisVec;
+    (*distProc)(&obj->m_pos, obj, pos, nullptr, thisDistSqr, thisVec, HUGE_DIST_SQR);
+    if (vec)
+        *vec = thisVec;
+    return thisDistSqr;
+}
+
+// Gets the distance if obj were at goalPos.  Used to calculate attack position paths.
+float PartitionManagerT::getGoalDistanceSquared(const ObjectT *obj, const Coord3D *goalPos, const ObjectT *otherObj,
+                                                DistanceCalculationType dc, Coord3D *vec)
+{
+    DistCalcProcT distProc = theDistCalcProcs[dc];
+    float thisDistSqr;
+    Coord3D thisVec;
+    (*distProc)(goalPos, obj, &otherObj->m_pos, otherObj, thisDistSqr, thisVec, HUGE_DIST_SQR);
+    if (vec)
+        *vec = thisVec;
+    return thisDistSqr;
+}
+
+float PartitionManagerT::getGoalDistanceSquared(const ObjectT *obj, const Coord3D *goalPos, const Coord3D *otherPos,
+                                                DistanceCalculationType dc, Coord3D *vec)
+{
+    DistCalcProcT distProc = theDistCalcProcs[dc];
+    float thisDistSqr;
+    Coord3D thisVec;
+    (*distProc)(goalPos, obj, otherPos, nullptr, thisDistSqr, thisVec, HUGE_DIST_SQR);
+    if (vec)
+        *vec = thisVec;
+    return thisDistSqr;
+}
+
+// PartitionManager::getRelativeAngle2D (both forms).
+float PartitionManagerT::getRelativeAngle2D(const ObjectT *obj, const ObjectT *otherObj)
+{
+    return getRelativeAngle2D(obj, &otherObj->m_pos);
+}
+
+float PartitionManagerT::getRelativeAngle2D(const ObjectT *obj, const Coord3D *pos)
+{
+    Coord3D v;
+
+    // compute vector to given position
+    Coord3D objPos = obj->m_pos;
+    v.x = pos->x - objPos.x;
+    v.y = pos->y - objPos.y;
+    v.z = 0.0f;
+
+    float dist = Sqrtf(v.x * v.x + v.y * v.y);
+
+    // normalize
+    if (dist == 0.0f)
+        return 0.0f;
+
+    Coord3D dir = obj->getUnitDirectionVector2D();
+
+    float distInv = 1.0f / dist;
+    v.x *= distInv;
+    v.y *= distInv;
+    v.z *= distInv;
+
+    // dot of two unit vectors is cos of angle
+    float c = dir.x * v.x + dir.y * v.y; // + dir->z*v.z;
+
+    // bound it in case of numerical error
+    if (c < -1.0f)
+        c = -1.0f;
+    else if (c > 1.0f)
+        c = 1.0f;
+
+    float value = ACos(c);
+
+    // Determine sign by checking Z component of dir cross v
+    // Note this is assumes 2D, and is identical to dotting the perpendicular of v with dir
+    float perpZ = dir.x * v.y - dir.y * v.x;
+    if (perpZ < 0.0f)
+        value = -value;
+
+    return value;
+}
+
+// PartitionManager::iterateObjectsInRange (both forms): the fill, then the
+// sort. (The original's MemoryPoolObjectHolder dance is memory management —
+// the by-value move is the observable-preserving transcription.)
+SimpleObjectIteratorT PartitionManagerT::iterateObjectsInRange(ObjectT *obj, float maxDist,
+                                                                DistanceCalculationType dc,
+                                                                PartitionFilterT **filters, IterOrderType order)
+{
+    SimpleObjectIteratorT iter;
+
+    getClosestObjects(obj, nullptr, maxDist, dc, filters, &iter, nullptr, nullptr);
+
+    iter.sort(order);
+    return iter;
+}
+
+SimpleObjectIteratorT PartitionManagerT::iterateObjectsInRange(const Coord3D *pos, float maxDist,
+                                                                DistanceCalculationType dc,
+                                                                PartitionFilterT **filters, IterOrderType order)
+{
+    SimpleObjectIteratorT iter;
+
+    getClosestObjects(nullptr, pos, maxDist, dc, filters, &iter, nullptr, nullptr);
+
+    iter.sort(order);
+    return iter;
+}
+
+// PartitionManager::iteratePotentialCollisions: the bounding-sphere slop
+// range and the would-collide filter (no sort — the insertion order is
+// the caller's).
+SimpleObjectIteratorT PartitionManagerT::iteratePotentialCollisions(const Coord3D *pos, const GeometryInfoT &geom,
+                                                                     float angle, bool use2D)
+{
+    float maxDist = geom.getBoundingSphereRadius();
+    maxDist *= 1.1f; // just a little slop
+
+    SimpleObjectIteratorT iter;
+
+    PartitionFilterWouldCollideT filter(*pos, geom, angle, true);
+    PartitionFilterT *filters[] = {&filter, nullptr};
+
+    getClosestObjects(nullptr, pos, maxDist, use2D ? FROM_BOUNDINGSPHERE_2D : FROM_BOUNDINGSPHERE_3D, filters,
+                      &iter, nullptr, nullptr);
+
+    return iter;
+}
+
+// PartitionManager::iterateAllObjects: no distance constraints; we're gonna
+// have to process 'em all anyway, so go thru in the fastest way we know how.
+SimpleObjectIteratorT PartitionManagerT::iterateAllObjects(PartitionFilterT **filters)
+{
+    SimpleObjectIteratorT iter;
+
+    PartitionData *mod, *nextMod;
+    for (mod = m_moduleList; mod; mod = nextMod) {
+        nextMod = mod->m_next;
+        ObjectT *obj = mod->m_object != INVALID_ID ? resolveObject(mod->m_object) : nullptr;
+        if (obj && filtersAllow(filters, obj)) {
+            iter.insert(obj->m_id);
+        }
+    }
+
+    return iter;
+}
+
+
+// ============================================================================
 // The dumper.
 // ============================================================================
 static unsigned f32bits(float f) { return bits_of(f); }
@@ -2858,6 +3922,9 @@ static World &freshWorld(float cellSize, const Region2DT &extents)
     // start would hand out id 0, which no real object ever carries)
     w->logic.setObjectIDCounter(1);
     w->pm.init(cellSize, extents);
+    // the cost-sorted iterators' object-table stand-in (each corpus owns
+    // exactly one World at a time)
+    g_queryWorld = w;
     return *w;
 }
 
@@ -3833,9 +4900,433 @@ static void corpusRoundtrip(Dumper &d)
     d.line("end");
 }
 
-// ============================================================================
-// main.
-// ============================================================================
+// --- query_radiusvec: the FASTER_GCO ring precompute (calcMinRadius's
+// corner-pair minimum with the corner-touch and edge-share radii, the
+// maxGcoRadius diagonal bound, the y-outer/x-inner offset scan order) --
+static void dumpRadiusVec(Dumper &d, World &w)
+{
+    d.line("maxgco %d rings %d", w.pm.m_maxGcoRadius, (int)w.pm.m_radiusVec.size());
+    for (size_t r = 0; r < w.pm.m_radiusVec.size(); ++r) {
+        const OffsetVecT &v = w.pm.m_radiusVec[r];
+        d.line("ring %d n %d", (int)r, (int)v.size());
+        for (size_t i = 0; i < v.size(); ++i)
+            d.line("o %d,%d", v[i].x, v[i].y);
+    }
+}
+
+static void corpusQueryRadiusVec(Dumper &d)
+{
+    d.line("corpus query_radiusvec");
+    {
+        // (a) the 1x1-cell world: the whole offset space is the single
+        // cell (corner-touch); rings 1..2 exist but stay empty
+        World &w = freshWorld(10.0f, Region2DT{0, 0, 10, 10});
+        d.line("a cells %d,%d", w.pm.m_cellCountX, w.pm.m_cellCountY);
+        dumpRadiusVec(d, w);
+        // calcMinRadius probes: the same cell, the orthogonal neighbors
+        // (edge share), the diagonal neighbors (corner touch), and the
+        // beyond-diagonal offsets
+        ICoord2DT probes[] = {{0, 0}, {1, 0}, {0, 1}, {-1, 0}, {0, -1},
+                              {1, 1}, {-1, 1}, {1, -1}, {-1, -1},
+                              {2, 0}, {2, 1}, {2, 2}, {3, 2}, {-2, 1}, {5, 7}};
+        for (auto &p : probes)
+            d.line("minr %d,%d %d", p.x, p.y, w.pm.calcMinRadius(p));
+    }
+    {
+        // (b) a non-square fractional-cell grid (the f32 CEIL drift of
+        // the count math rides along, pinned by both sides computing it)
+        World &w = freshWorld(3.5f, Region2DT{0, 0, 21, 10.5f});
+        d.line("b cells %d,%d", w.pm.m_cellCountX, w.pm.m_cellCountY);
+        dumpRadiusVec(d, w);
+    }
+    {
+        // (c) a mid-size square grid: the ring counts only (the ring
+        // sum is the offset space) plus the first/last offsets of the
+        // early rings — the scan order the walk takes
+        World &w = freshWorld(10.0f, Region2DT{0, 0, 100, 100});
+        d.line("c cells %d,%d", w.pm.m_cellCountX, w.pm.m_cellCountY);
+        d.line("c maxgco %d rings %d", w.pm.m_maxGcoRadius, (int)w.pm.m_radiusVec.size());
+        for (size_t r = 0; r < w.pm.m_radiusVec.size(); ++r)
+            d.line("ring %d n %d", (int)r, (int)w.pm.m_radiusVec[r].size());
+        for (int r = 1; r <= 3; ++r) {
+            const OffsetVecT &v = w.pm.m_radiusVec[(size_t)r];
+            for (size_t i = 0; i < v.size() && i < 4; ++i)
+                d.line("r%d head %d,%d", r, v[i].x, v[i].y);
+            for (size_t i = v.size() > 3 ? v.size() - 3 : 0; i < v.size(); ++i)
+                d.line("r%d tail %d,%d", r, v[i].x, v[i].y);
+        }
+    }
+    d.line("end");
+}
+
+// --- query_closest: getClosestObjects — the ring walk's early exit, the
+// strict < boundary (the exact-distance reject and the no-match prefill),
+// the same-cell tie (first walked wins), the boundary measures (the
+// clamped-zero and the shrunk-vector cases), the filters, and the
+// measure helpers --
+static void corpusQueryClosest(Dumper &d)
+{
+    d.line("corpus query_closest");
+    World &w = freshWorld(10.0f, Region2DT{0, 0, 100, 100});
+    GeometryInfoT sph{GEOMETRY_SPHERE, true, 1.0f, 1.0f, 1.0f};
+    GeometryInfoT cyl3{GEOMETRY_CYLINDER, false, 4.0f, 3.0f, 3.0f};
+    GeometryInfoT cyl10{GEOMETRY_CYLINDER, false, 4.0f, 10.0f, 10.0f};
+
+    ObjectT *a = w.createObject(sph, false, 0, {}, Coord3D{50.0f, 50.0f, 0.0f});
+    ObjectT *b = w.createObject(sph, false, 0, {}, Coord3D{65.0f, 50.0f, 0.0f});
+    w.createObject(sph, false, 0, {}, Coord3D{50.0f, 35.0f, 0.0f}); // c: 15 south of a
+    w.createObject(sph, false, 0, {}, Coord3D{60.0f, 50.0f, 0.0f}); // d: 10 east of a, ring 1
+    ObjectT *e = w.createObject(sph, false, 0, {}, Coord3D{85.0f, 85.0f, 0.0f});
+    // the boundary-measure cylinders, kept away from the center so the
+    // center queries stay unpolluted: m1 the r=3 pair partner, m2 the
+    // r=10 overlap clamper, m3 the z-stepped 3d target
+    ObjectT *m1 = w.createObject(cyl3, false, 0, {}, Coord3D{76.0f, 12.0f, 0.0f});
+    ObjectT *m2 = w.createObject(cyl10, false, 0, {}, Coord3D{56.0f, 12.0f, 0.0f});
+    ObjectT *m3 = w.createObject(cyl10, false, 0, {}, Coord3D{70.0f, 50.0f, 5.0f});
+    // the same-cell equidistant pair (both exactly 5 from the query
+    // position, both in cell (3,2) — the COI-list order decides)
+    w.createObject(sph, false, 0, {}, Coord3D{30.0f, 30.0f, 0.0f}); // s1 (registered first)
+    w.createObject(sph, false, 0, {}, Coord3D{30.0f, 20.0f, 0.0f}); // s2 (prepended: walked first)
+    // the filter objects: f1 dies, e leaves the map, b carries an
+    // anonymous kindof bit (bit 5 — the bit's meaning is the data
+    // layer's; the filter semantics is what is pinned)
+    ObjectT *f1 = w.createObject(sph, false, 0, {}, Coord3D{42.0f, 42.0f, 0.0f});
+    f1->m_privateStatus |= (1u << OBJECT_PRIVATE_EFFECTIVELY_DEAD_BIT);
+    e->m_privateStatus |= (1u << OBJECT_PRIVATE_OFF_MAP_BIT);
+    b->m_kindof |= (1u << 5);
+
+    // the store refresh: the COI coverage the queries walk
+    w.pm.update(&w.hooks);
+
+    // (a) from-object, wide: d wins at 10 — found in ring 1 (its cell is
+    // the orthogonal neighbor), so the walk stops after ring 1 and the
+    // farther b/c/e are never even walked
+    {
+        float dist;
+        Coord3D vec;
+        ObjectT *o = w.pm.getClosestObject(a, 100.0f, FROM_CENTER_2D, nullptr, &dist, &vec);
+        d.line("a o%d dist=%08x vec=%08x,%08x,%08x", o ? o->m_id : INVALID_ID, bits_of(dist),
+               bits_of(vec.x), bits_of(vec.y), bits_of(vec.z));
+    }
+    // (b) from-position at a's spot: no self-exclusion — a itself wins at
+    // distance zero (replacing m1's earlier ring-0 find within the walk)
+    {
+        float dist;
+        Coord3D vec;
+        Coord3D pos{50.0f, 50.0f, 0.0f};
+        ObjectT *o = w.pm.getClosestObject(&pos, 100.0f, FROM_CENTER_2D, nullptr, &dist, &vec);
+        d.line("b o%d dist=%08x vec=%08x,%08x,%08x", o ? o->m_id : INVALID_ID, bits_of(dist),
+               bits_of(vec.x), bits_of(vec.y), bits_of(vec.z));
+    }
+    // (c) the strict boundary: from (55,50) both a (5 west) and d (5
+    // east) are exactly maxDist away — 25 < 25 fails for both, so no
+    // match; the outputs carry the sqrt of the initial bound and the
+    // non-retail prefill of maxDist^3
+    {
+        float dist = -1.0f;
+        Coord3D vec;
+        Coord3D pos{55.0f, 50.0f, 0.0f};
+        ObjectT *o = w.pm.getClosestObject(&pos, 5.0f, FROM_CENTER_2D, nullptr, &dist, &vec);
+        d.line("c o%d dist=%08x vec=%08x,%08x,%08x", o ? o->m_id : INVALID_ID, bits_of(dist),
+               bits_of(vec.x), bits_of(vec.y), bits_of(vec.z));
+    }
+    // (d) the same-cell tie: from (30,25) s1 and s2 are both exactly 5
+    // away in cell (3,2); the COI list is newest-first, so s2 is walked
+    // first and wins — s1 then fails the strict < against the tightened
+    // bound
+    {
+        float dist;
+        Coord3D vec;
+        Coord3D pos{30.0f, 25.0f, 0.0f};
+        ObjectT *o = w.pm.getClosestObject(&pos, 10.0f, FROM_CENTER_2D, nullptr, &dist, &vec);
+        d.line("d o%d dist=%08x vec=%08x,%08x,%08x", o ? o->m_id : INVALID_ID, bits_of(dist),
+               bits_of(vec.x), bits_of(vec.y), bits_of(vec.z));
+    }
+    // (e) the boundary-2d measure, the shrunk case: from the position
+    // (70,12) m1's r=3 cylinder sits 6 away — the position side
+    // contributes no radius, so the 3 shrinks the distance to 3 and the
+    // vector by half (m2's 14-away r=10 pair shrinks to 4 — farther)
+    {
+        float dist;
+        Coord3D vec;
+        Coord3D pos{70.0f, 12.0f, 0.0f};
+        ObjectT *o = w.pm.getClosestObject(&pos, 20.0f, FROM_BOUNDINGSPHERE_2D, nullptr, &dist, &vec);
+        d.line("e o%d dist=%08x vec=%08x,%08x,%08x", o ? o->m_id : INVALID_ID, bits_of(dist),
+               bits_of(vec.x), bits_of(vec.y), bits_of(vec.z));
+    }
+    // (f) the boundary-2d measure, the clamped case: from (56,20) the
+    // r=10 cylinder m2 is 8 away — well inside the 11 of combined radii
+    // — so the distance clamps to zero and the vector scales by the
+    // zero factor (the -0.0 of the southward y is bit-visible)
+    {
+        float dist;
+        Coord3D vec;
+        Coord3D pos{56.0f, 20.0f, 0.0f};
+        ObjectT *o = w.pm.getClosestObject(&pos, 12.0f, FROM_BOUNDINGSPHERE_2D, nullptr, &dist, &vec);
+        d.line("f o%d dist=%08x vec=%08x,%08x,%08x", o ? o->m_id : INVALID_ID, bits_of(dist),
+               bits_of(vec.x), bits_of(vec.y), bits_of(vec.z));
+    }
+    // (g) the boundary-3d measure: from a the d pair (two r=1 spheres
+    // 10 apart) shrinks to 8 — beating m3's 11.2 (the z=5 cylinder's
+    // 21.2 diagonal minus the 11 of combined spheres; its z-delta path
+    // is pinned by the measure helpers below)
+    {
+        float dist;
+        Coord3D vec;
+        ObjectT *o = w.pm.getClosestObject(a, 100.0f, FROM_BOUNDINGSPHERE_3D, nullptr, &dist, &vec);
+        d.line("g o%d dist=%08x vec=%08x,%08x,%08x", o ? o->m_id : INVALID_ID, bits_of(dist),
+               bits_of(vec.x), bits_of(vec.y), bits_of(vec.z));
+    }
+    // (h) the filters: the dead f1 is refused by Alive (and the raw
+    // query finds it at zero), the off-map e by OnMap, everyone but b by
+    // the kindof accept, b by the kindof reject, and everyone but e by
+    // the same-map-status view from e
+    {
+        Coord3D pos{42.0f, 42.0f, 0.0f};
+        float dist;
+        ObjectT *o = w.pm.getClosestObject(&pos, 6.0f, FROM_CENTER_2D, nullptr, &dist, nullptr);
+        d.line("h raw o%d", o ? o->m_id : INVALID_ID);
+        PartitionFilterAliveT alive;
+        PartitionFilterT *fAlive[] = {&alive, nullptr};
+        o = w.pm.getClosestObject(&pos, 6.0f, FROM_CENTER_2D, fAlive, &dist, nullptr);
+        d.line("h alive o%d", o ? o->m_id : INVALID_ID);
+        PartitionFilterOnMapT onMap;
+        PartitionFilterT *fOnMap[] = {&onMap, nullptr};
+        Coord3D pos2{80.0f, 80.0f, 0.0f};
+        o = w.pm.getClosestObject(&pos2, 100.0f, FROM_CENTER_2D, fOnMap, &dist, nullptr);
+        d.line("h onmap o%d", o ? o->m_id : INVALID_ID);
+        PartitionFilterAcceptByKindOfT accept((1u << 5), 0u);
+        PartitionFilterT *fAccept[] = {&accept, nullptr};
+        Coord3D pos3{65.0f, 50.0f, 0.0f};
+        o = w.pm.getClosestObject(&pos3, 100.0f, FROM_CENTER_2D, fAccept, &dist, nullptr);
+        d.line("h accept o%d", o ? o->m_id : INVALID_ID);
+        PartitionFilterRejectByKindOfT reject((1u << 5), 0u);
+        PartitionFilterT *fReject[] = {&reject, nullptr};
+        o = w.pm.getClosestObject(&pos3, 100.0f, FROM_CENTER_2D, fReject, &dist, nullptr);
+        d.line("h reject o%d", o ? o->m_id : INVALID_ID);
+        PartitionFilterSameMapStatusT sameMap(e);
+        PartitionFilterT *fSame[] = {&sameMap, nullptr};
+        Coord3D pos4{84.0f, 84.0f, 0.0f};
+        o = w.pm.getClosestObject(&pos4, 100.0f, FROM_CENTER_2D, fSame, &dist, nullptr);
+        d.line("h samemap o%d", o ? o->m_id : INVALID_ID);
+    }
+    // (i) the measure helpers over all four dc types: the vector, the
+    // distance and the goal distance to the z-stepped cylinder, and the
+    // relative angles (the four quadrants, the coincident early-out and
+    // a rotated source)
+    {
+        for (int dc = FROM_CENTER_2D; dc < DISTANCE_CALCULATION_TYPE_COUNT; ++dc) {
+            Coord3D vec;
+            w.pm.getVectorTo(a, m3, (DistanceCalculationType)dc, vec);
+            d.line("i vec dc%d =%08x,%08x,%08x", dc, bits_of(vec.x), bits_of(vec.y), bits_of(vec.z));
+            Coord3D vec2;
+            float ds = w.pm.getDistanceSquared(a, m3, (DistanceCalculationType)dc, &vec2);
+            d.line("i ds dc%d %08x =%08x,%08x,%08x", dc, bits_of(ds), bits_of(vec2.x), bits_of(vec2.y),
+                   bits_of(vec2.z));
+            Coord3D pos{70.0f, 50.0f, 5.0f};
+            float ds2 = w.pm.getDistanceSquared(a, &pos, (DistanceCalculationType)dc, nullptr);
+            d.line("i dsp dc%d %08x", dc, bits_of(ds2));
+            Coord3D goal{60.0f, 60.0f, 0.0f};
+            Coord3D vec3;
+            float gs = w.pm.getGoalDistanceSquared(a, &goal, m3, (DistanceCalculationType)dc, &vec3);
+            d.line("i gs dc%d %08x =%08x,%08x,%08x", dc, bits_of(gs), bits_of(vec3.x), bits_of(vec3.y),
+                   bits_of(vec3.z));
+            float gs2 = w.pm.getGoalDistanceSquared(a, &goal, &pos, (DistanceCalculationType)dc, nullptr);
+            d.line("i gsp dc%d %08x", dc, bits_of(gs2));
+        }
+        ObjectT *rot = w.createObject(sph, false, 0, {}, Coord3D{30.0f, 30.0f, 0.0f}, 1.5707963f);
+        struct
+        {
+            ObjectT *src;
+            Coord3D pos;
+            const char *tag;
+        } angleQueries[] = {
+            {a, {60.0f, 50.0f, 0.0f}, "east"},
+            {a, {50.0f, 60.0f, 0.0f}, "north"},
+            {a, {50.0f, 40.0f, 0.0f}, "south"},
+            {a, {40.0f, 50.0f, 0.0f}, "west"},
+            {a, {50.0f, 50.0f, 0.0f}, "same"},
+            {rot, {40.0f, 30.0f, 0.0f}, "roteast"},
+            {rot, {30.0f, 40.0f, 0.0f}, "rotnorth"},
+        };
+        for (auto &q : angleQueries) {
+            d.line("i ang %s %08x", q.tag, bits_of(w.pm.getRelativeAngle2D(q.src, &q.pos)));
+            d.line("i ango %s %08x", q.tag, bits_of(w.pm.getRelativeAngle2D(q.src, a)));
+        }
+    }
+    (void)m1;
+    (void)m2;
+    d.line("end");
+}
+
+// --- query_iterate: iterateObjectsInRange over the SimpleObjectIterator
+// (the FASTEST insertion order, the mergesort's tie stability in all four
+// sorted orders, the pre-reset empty quirk, reset), iterateAllObjects
+// (the master-list order and the filter set) and iteratePotentialCollisions
+// (the 1.1 slop gate vs the would-collide filter, the 2d/3d numeric split) --
+static void drainIter(Dumper &d, World &w, SimpleObjectIteratorT &iter, const char *tag)
+{
+    (void)w; // (the World is the cost compares' table; the drain itself only reads the iterator)
+    // the fresh iterator's cursor is null — the original's callers must
+    // first()/reset() before draining (sorted orders return post-sort
+    // cursors; FASTEST does not — the quirk the dump pins)
+    float num;
+    int pre = iter.nextWithNumeric(&num);
+    d.line("%s pre %d %08x", tag, pre, bits_of(num));
+    iter.reset();
+    int count = 0;
+    for (int o = iter.nextWithNumeric(&num); o != INVALID_ID; o = iter.nextWithNumeric(&num)) {
+        d.line("%s n o%d %08x", tag, o, bits_of(num));
+        ++count;
+    }
+    d.line("%s count %d", tag, count);
+}
+
+static void corpusQueryIterate(Dumper &d)
+{
+    d.line("corpus query_iterate");
+    {
+        World &w = freshWorld(10.0f, Region2DT{0, 0, 100, 100});
+        GeometryInfoT sph{GEOMETRY_SPHERE, true, 1.0f, 1.0f, 1.0f};
+        GeometryInfoT big{GEOMETRY_SPHERE, false, 1.0f, 25.0f, 25.0f};
+
+        // the cluster: a at the center, b/c/d/e at 12 on the axes (the
+        // four-way tie), f the big multi-cell sphere (the done-flag
+        // dedup), g far out, h the kindof carrier; e dead, g off-map
+        ObjectT *a = w.createObject(sph, false, 0, {}, Coord3D{50.0f, 50.0f, 0.0f});
+        ObjectT *b = w.createObject(sph, false, 0, {}, Coord3D{50.0f, 62.0f, 0.0f});
+        ObjectT *c = w.createObject(sph, false, 0, {}, Coord3D{62.0f, 50.0f, 0.0f});
+        ObjectT *dd = w.createObject(sph, false, 0, {}, Coord3D{38.0f, 50.0f, 0.0f});
+        ObjectT *e = w.createObject(sph, false, 0, {}, Coord3D{50.0f, 38.0f, 0.0f});
+        ObjectT *f = w.createObject(big, false, 0, {}, Coord3D{55.0f, 55.0f, 0.0f});
+        ObjectT *g = w.createObject(sph, false, 0, {}, Coord3D{95.0f, 95.0f, 0.0f});
+        ObjectT *h = w.createObject(sph, false, 0, {}, Coord3D{30.0f, 70.0f, 0.0f});
+        // the corpus programs the template-supplied inputs post-creation
+        a->m_buildCost = 1000.0f;
+        b->m_buildCost = 100.0f;
+        c->m_buildCost = 50.0f;
+        dd->m_buildCost = 100.0f;
+        e->m_buildCost = 25.0f;
+        f->m_buildCost = 500.0f;
+        g->m_buildCost = 10.0f;
+        h->m_buildCost = 50.0f;
+        e->m_privateStatus |= (1u << OBJECT_PRIVATE_EFFECTIVELY_DEAD_BIT);
+        g->m_privateStatus |= (1u << OBJECT_PRIVATE_OFF_MAP_BIT);
+        h->m_kindof |= (1u << 5);
+
+        w.pm.update(&w.hooks);
+
+        Coord3D center{50.0f, 50.0f, 0.0f};
+
+        // (a) FASTEST: the ring-walk insertion order, numerics attached
+        {
+            SimpleObjectIteratorT it = w.pm.iterateObjectsInRange(&center, 20.0f, FROM_CENTER_2D, nullptr, ITER_FASTEST);
+            drainIter(d, w, it, "a fastest");
+        }
+        // (b) NEAR_TO_FAR: the sorted drain with the tie order (a 0,
+        // f 50, then the four at 144 in the mergesort's stable order)
+        {
+            SimpleObjectIteratorT it =
+                w.pm.iterateObjectsInRange(&center, 20.0f, FROM_CENTER_2D, nullptr, ITER_SORTED_NEAR_TO_FAR);
+            drainIter(d, w, it, "b near");
+        }
+        // (c) FAR_TO_NEAR
+        {
+            SimpleObjectIteratorT it =
+                w.pm.iterateObjectsInRange(&center, 20.0f, FROM_CENTER_2D, nullptr, ITER_SORTED_FAR_TO_NEAR);
+            drainIter(d, w, it, "c far");
+        }
+        // (d) the cost orders over the same cluster
+        {
+            SimpleObjectIteratorT it = w.pm.iterateObjectsInRange(&center, 20.0f, FROM_CENTER_2D, nullptr,
+                                                                  ITER_SORTED_CHEAP_TO_EXPENSIVE);
+            drainIter(d, w, it, "d cheap");
+        }
+        {
+            SimpleObjectIteratorT it = w.pm.iterateObjectsInRange(&center, 20.0f, FROM_CENTER_2D, nullptr,
+                                                                  ITER_SORTED_EXPENSIVE_TO_CHEAP);
+            drainIter(d, w, it, "d exp");
+        }
+        // (e) the no-clamp branch: maxDist >= HUGE_DIST walks every ring
+        // of the map — the whole cluster with its distances (the
+        // master-list-free ring walk reaches everything)
+        {
+            SimpleObjectIteratorT it =
+                w.pm.iterateObjectsInRange(&center, 1000000.0f, FROM_CENTER_2D, nullptr, ITER_FASTEST);
+            drainIter(d, w, it, "e huge");
+        }
+        // (f) iterateAllObjects: the master-list prepend order (newest
+        // first), then the filter refusals over the same walk
+        {
+            SimpleObjectIteratorT it = w.pm.iterateAllObjects(nullptr);
+            drainIter(d, w, it, "f all");
+        }
+        {
+            PartitionFilterOnMapT onMap;
+            PartitionFilterAliveT alive;
+            PartitionFilterT *filters[] = {&onMap, &alive, nullptr};
+            SimpleObjectIteratorT it = w.pm.iterateAllObjects(filters);
+            drainIter(d, w, it, "f onmapalive");
+        }
+        {
+            PartitionFilterAcceptByKindOfT accept((1u << 5), 0u);
+            PartitionFilterT *filters[] = {&accept, nullptr};
+            SimpleObjectIteratorT it = w.pm.iterateAllObjects(filters);
+            drainIter(d, w, it, "f accept");
+        }
+        {
+            PartitionFilterRejectByKindOfT reject((1u << 5), 0u);
+            PartitionFilterT *filters[] = {&reject, nullptr};
+            SimpleObjectIteratorT it = w.pm.iterateAllObjects(filters);
+            drainIter(d, w, it, "f reject");
+        }
+        // (g) the from-object form: a excludes itself, everything else
+        // within 20 stays
+        {
+            SimpleObjectIteratorT it = w.pm.iterateObjectsInRange(a, 20.0f, FROM_CENTER_2D, nullptr, ITER_FASTEST);
+            drainIter(d, w, it, "g fromobj");
+        }
+        // (h) the boundary measure in the range query: the 2d sphere
+        // radii pull the far-apart big sphere in (its boundary touches
+        // the center's)
+        {
+            SimpleObjectIteratorT it =
+                w.pm.iterateObjectsInRange(&center, 30.0f, FROM_BOUNDINGSPHERE_2D, nullptr, ITER_SORTED_NEAR_TO_FAR);
+            drainIter(d, w, it, "h bnd");
+        }
+    }
+    {
+        // (i) iteratePotentialCollisions: the small rotated box against a
+        // z-stepped cluster — the 1.1-slop dist gate (the far sphere
+        // never reaches the filter; the at-gate sphere reaches it and is
+        // refused), the would-collide pass at z=3.9 with the 2d/3d
+        // numeric split, and the centered overlap
+        World &w = freshWorld(10.0f, Region2DT{0, 0, 100, 100});
+        GeometryInfoT sph{GEOMETRY_SPHERE, true, 1.0f, 1.0f, 1.0f};
+        GeometryInfoT box{GEOMETRY_BOX, false, 4.0f, 3.0f, 2.0f};
+
+        ObjectT *a = w.createObject(sph, false, 0, {}, Coord3D{50.0f, 50.0f, 0.0f});
+        w.createObject(sph, false, 0, {}, Coord3D{53.0f, 50.0f, 3.9f});   // k1: the z-stepped overlap
+        w.createObject(sph, false, 0, {}, Coord3D{56.0f, 50.0f, 0.0f});   // k2: past the box edge — filter refuses
+        w.createObject(sph, false, 0, {}, Coord3D{60.0f, 50.0f, 0.0f});   // k3: past the slop gate — never filtered
+        (void)a;
+
+        w.pm.update(&w.hooks);
+
+        Coord3D pos{50.0f, 50.0f, 0.0f};
+        {
+            SimpleObjectIteratorT it = w.pm.iteratePotentialCollisions(&pos, box, 0.3f, true);
+            drainIter(d, w, it, "i 2d");
+        }
+        {
+            SimpleObjectIteratorT it = w.pm.iteratePotentialCollisions(&pos, box, 0.3f, false);
+            drainIter(d, w, it, "i 3d");
+        }
+    }
+    d.line("end");
+}
+
+
 int main(int argc, char **argv)
 {
     if (argc != 2) {
@@ -3869,6 +5360,9 @@ int main(int argc, char **argv)
     corpusPartRegister(d);
     corpusCollideMatrix(d);
     corpusCollideProcess(d);
+    corpusQueryRadiusVec(d);
+    corpusQueryClosest(d);
+    corpusQueryIterate(d);
     corpusRoundtrip(d);
 
     fclose(out);

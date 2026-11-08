@@ -729,10 +729,10 @@ is now specified in [`docs/TRACE_FORMAT_V1.md`](TRACE_FORMAT_V1.md).
 
 ### Phase 3: Deterministic headless simulation (XXL) — **status: started (2026-11-08)**
 
-`rzh-sim` exists with the WP1 kernel's first two slices done to the
+`rzh-sim` exists with the WP1 kernel's first three slices done to the
 Phase 2 standard: the **frame loop, the object model's registry half,
-the partition manager's spatial store and the contact list's
-processing** — GameLogic.cpp's `update()` (the
+the partition manager's spatial store, the contact list's processing
+and the partition query family** — GameLogic.cpp's `update()` (the
 ordered subsystem walk — the frame hand-off, the script engine, the
 time-freeze gate, the terrain, the recorder/CRC position, the command
 list, the sleepy updates, the AI, the build assistant, the partition
@@ -829,11 +829,62 @@ destroyed second calls, the nulled later pairs, the immobile
 refusal), plus a 256-case result-symmetry / unit-normal property test
 in `tests/collide_props.rs`. The re-pinned bench checksums carry the
 steady-state churn; the budget comparison re-measured within
-(0.52x / 0.35x — docs/benchmarks.md). The **next slice** per WP
-order: the partition query family (`getClosestObjects`,
-`iterateObjectsInRange`, the `SimpleObjectIterator`) that the AI and
-weapon targeting consume; then the players/teams/relationships block
-of WP1's remainder.
+(0.52x / 0.35x — docs/benchmarks.md).
+
+The **third slice** (the second slice's "next"): the partition query
+family the AI and weapon targeting consume — `getClosestObjects` (the
+FASTER_GCO build; the retail `PartitionManager.h` defines it),
+`iterateObjectsInRange`, `iteratePotentialCollisions`,
+`iterateAllObjects` and the `SimpleObjectIterator`. Transcribed whole:
+`calcMinRadius` (the 4×4 corner-pair minimum over the cell corners —
+the corner-touch that puts the diagonals in ring 0 and the edge-share
+that puts the orthogonals in ring 1 — the promoted square root and the
+CEIL cell radius) and `calcRadiusVec` (the `m_maxGcoRadius` diagonal
+bound and the per-radius offset rings in the y-outer/x-inner scan
+order); the four `distCalcProc_X_Y` measures (center/center and
+boundary/boundary in 2d and 3d — the boundary pair's
+bounding-circle/sphere shrink over the on-demand `calcBoundingStuff`
+formulas with its clamped-to-zero branch, the 3d z delta through
+`getZDeltaToCenterPosition`); `getClosestObjects` itself (the ring
+walk with the `theIterFlag` done-flag dedup — the function-static
+hoisted to manager state — the `closestDistSqr` tightening, the
+insert-vs-closest split, the `maxRadiusLimit = curRadius` early exit
+with its documented slop, the non-retail `closestVec` prefill of
+`maxDist³` and the strictly-`<` bound that refuses the exact-distance
+candidate); the `SimpleObjectIterator` (the clump list with its
+prepend insert — the drained order is the reverse of the insertion
+order — `nextWithNumeric`'s null-cursor contract, and the bottom-up
+linked-list mergesort of `sort()` whose `<= 0.0f` splice choreography
+decides the tie order, over the five compare procs incl. the
+template-build-cost pair); the `PartitionFilter` framework
+(`filtersAllow`) with every filter over state the slice owns —
+`WouldCollide` (the inline `geomCollidesWithGeom` z-gate),
+`AcceptByKindOf`/`RejectByKindOf` over `isKindOfMulti`, `Alive`,
+`OnMap`, `SameMapStatus` (the players/teams/locomotors filters arrive
+with the state they read) — and the measure entries `getVectorTo`,
+`getDistanceSquared`, `getGoalDistanceSquared` (the attack-position
+path) and `getRelativeAngle2D` (the unit-direction dot, the [-1,1]
+clamp, `ACos` and the perp-Z sign flip) over `Thing.cpp`'s
+`getUnitDirectionVector2D`. The corpora grew to 24 (three new: the
+radius-vec rings over three grids with the CEIL drift; the closest
+walk — the ring-1 early exit, the from-position no-self-exclusion at
+distance zero, the exact-distance refusal with the prefill outputs,
+the same-cell tie, the boundary shrunk/clamped pairs with the -0.0
+bit, the filters, the four measures over all four dc types and the
+relative angles incl. the one-ulp-under-π/2 rotated source; the
+iterators — the FASTEST pre-reset quirk vs the sorted post-sort
+cursors, the tie stability in all four sorted orders, the
+`HUGE_DIST` no-clamp walk, the master-list order and the filter set,
+and the potential-collisions 1.1-slop gate with the 2d/3d numeric
+split), plus a 256-case property suite in `tests/query_props.rs` (the
+sorted drains' monotonicity and tie stability, the range query's
+set-exactness and the closest query's bound vs the brute-force
+minimum — the early-exit slop modelled — and the rings' partition of
+the offset space). A third bench pins the budget:
+`kernel/query_x300` (300 mixed queries over the settled formula
+corpus, checksum-locked at 1,025,416,407,242,357,139) measured within
+(0.20x — docs/benchmarks.md). The **next slice** per WP order: the
+players/teams/relationships block of WP1's remainder.
 
 Work packages, in order. Develop by **vertical slices**, not by subsystem:
 

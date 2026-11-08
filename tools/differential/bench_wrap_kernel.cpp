@@ -8,9 +8,11 @@
 // cylinder and rotated-box geometries; every third object moving each
 // frame so the partition refresh's fills and contact-pair collection
 // run; two objects destroyed at frame 90 so the destroy list's
-// two-pass sleepy erase runs; 180 frames per measurement) and the
+// two-pass sleepy erase runs; 180 frames per measurement), the
 // sleepy dispatch alone (the same corpus with no movement — the heap's
-// requeue churn).
+// requeue churn) and the query family over the settled corpus (300
+// mixed queries: the closest-object ring walk twice and the
+// near-to-far-sorted range iterator drained — the query slice).
 //
 // The corpus is built by the same formulas on both sides and the final
 // -state checksums (the heap array's packed priorities in order, the
@@ -42,6 +44,7 @@
 // The authoring-time lockstep checksums (the Rust bench asserts the same).
 #define FRAME_LOOP_CHECKSUM 16055563144769613415ULL
 #define DISPATCH_CHECKSUM 14539779273077219524ULL
+#define QUERY_CHECKSUM 1025416407242357139ULL
 
 // The final-state checksum (the same formula the Rust bench computes).
 static uint64_t kernel_checksum(World &w)
@@ -138,6 +141,16 @@ void *bench_kernel_build()
         return build_corpus();
 }
 
+// Untimed corpus materialization for the query bench: the corpus
+// settled by one full update (the COI coverage the ring walk reads).
+void *bench_kernel_query_build()
+{
+        World *w = build_corpus();
+        w->update();
+        w->hooks.m_events.clear(); // (the bench host records nothing)
+        return w;
+}
+
 // The timed body: the full frame loop over the mixed corpus.
 uint64_t bench_kernel_frame_loop(void *world)
 {
@@ -148,6 +161,53 @@ uint64_t bench_kernel_frame_loop(void *world)
 uint64_t bench_kernel_dispatch(void *world)
 {
         return run_frames((World *)world, false);
+}
+
+// The timed body: the query family over the settled corpus (the Rust
+// bench's run_queries, formula for formula — a third closest-object
+// center-2d queries, a third boundary-2d closest behind an on-map
+// filter, a third near-to-far-sorted range iterators drained).
+uint64_t bench_kernel_query(void *world)
+{
+        World *w = (World *)world;
+        uint64_t sum = 1000003ULL;
+        for (uint64_t i = 0; i < 300; ++i) {
+                Coord3D pos;
+                pos.x = 20.0f + (float)((i * 7) % 260);
+                pos.y = 15.0f + (float)((i * 13) % 270);
+                pos.z = 0.0f;
+                switch (i % 3) {
+                case 0: {
+                        float dist;
+                        Coord3D vec;
+                        ObjectT *o = w->pm.getClosestObject(&pos, 45.0f, FROM_CENTER_2D, nullptr, &dist, &vec);
+                        sum = sum * 31 + (uint64_t)(o ? o->m_id : 0);
+                        sum = sum * 31 + (uint64_t)bits_of(dist);
+                        break;
+                }
+                case 1: {
+                        PartitionFilterOnMapT onMap;
+                        PartitionFilterT *filters[] = {&onMap, nullptr};
+                        float dist;
+                        Coord3D vec;
+                        ObjectT *o = w->pm.getClosestObject(&pos, 60.0f, FROM_BOUNDINGSPHERE_2D, filters, &dist, &vec);
+                        sum = sum * 31 + (uint64_t)(o ? o->m_id : 0);
+                        sum = sum * 31 + (uint64_t)bits_of(dist);
+                        break;
+                }
+                default: {
+                        SimpleObjectIteratorT iter = w->pm.iterateObjectsInRange(&pos, 35.0f, FROM_CENTER_2D, nullptr, ITER_SORTED_NEAR_TO_FAR);
+                        float num;
+                        iter.reset();
+                        for (int o = iter.nextWithNumeric(&num); o != INVALID_ID; o = iter.nextWithNumeric(&num)) {
+                                sum = sum * 31 + (uint64_t)o;
+                                sum = sum * 31 + (uint64_t)bits_of(num);
+                        }
+                        break;
+                }
+                }
+        }
+        return sum;
 }
 
 void bench_kernel_teardown(void *world)
@@ -171,6 +231,15 @@ int bench_kernel_verify()
                 uint64_t sum = run_frames(w, false);
                 delete w;
                 if (sum != DISPATCH_CHECKSUM)
+                        return 0;
+        }
+        {
+                World *w = build_corpus();
+                w->update(); // the settle: the COI coverage the queries walk
+                w->hooks.m_events.clear();
+                uint64_t sum = bench_kernel_query(w);
+                delete w;
+                if (sum != QUERY_CHECKSUM)
                         return 0;
         }
         return 1;

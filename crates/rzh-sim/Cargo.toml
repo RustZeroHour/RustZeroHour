@@ -49,7 +49,7 @@
 #                                                     -module refresh with its
 #                                                     LIFO order and contact
 #                                                     -pair collection, register/
-#                                                     unRegisterObject — and the
+#                                                     unRegisterObject — the
 #                                                     collide-test family: CollideInfo
 #                                                     / CollideLocAndNormal, the
 #                                                     rectToFourPoints / testRotated
@@ -68,20 +68,59 @@
 #                                                     gate, and the contact list's
 #                                                     processContactList with the
 #                                                     removeSpecificPartitionData
-#                                                     null-only cleanup)
+#                                                     null-only cleanup — and the
+#                                                     query family: calcMinRadius /
+#                                                     calcRadiusVec, the four
+#                                                     distCalcProc_X_Y measures and
+#                                                     theDistCalcProcs,
+#                                                     getClosestObjects with its
+#                                                     done-flag dedup and
+#                                                     maxRadiusLimit early exit,
+#                                                     the getClosestObject /
+#                                                     iterateObjectsInRange /
+#                                                     iteratePotentialCollisions /
+#                                                     iterateAllObjects wrappers,
+#                                                     the getVectorTo /
+#                                                     getDistanceSquared /
+#                                                     getGoalDistanceSquared /
+#                                                     getRelativeAngle2D measures,
+#                                                     filtersAllow and the
+#                                                     PartitionFilterWouldCollide /
+#                                                     AcceptByKindOf / RejectByKindOf
+#                                                     / Alive / OnMap /
+#                                                     SameMapStatus filters, HUGE_DIST
+#                                                     and DistanceCalculationType)
+#   GeneralsMD/Code/GameEngine/Source/GameLogic/Object/SimpleObjectIterator.cpp
+#   GeneralsMD/Code/GameEngine/Include/GameLogic/ObjectIter.h
+#                                                     (the SimpleObjectIterator: the
+#                                                     clump list with its prepend
+#                                                     insert and nextWithNumeric,
+#                                                     and sort()'s bottom-up
+#                                                     linked-list mergesort with the
+#                                                     five ClumpCompareProcs and
+#                                                     IterOrderType)
+#   GeneralsMD/Code/GameEngine/Source/Common/Thing/Thing.cpp
+#   GeneralsMD/Code/GameEngine/Include/Common/Thing.h
+#                                                     (getUnitDirectionVector2D —
+#                                                     Cos/Sin of the facing angle;
+#                                                     isKindOfMulti's mask test)
 #   GeneralsMD/Code/GameEngine/Source/Common/Thing/ThingFactory.cpp
 #                                                     (the newObject shape the
 #                                                      corpus creation mirrors)
 #   GeneralsMD/Code/GameEngine/Source/Common/System/Geometry.cpp
 #   GeneralsMD/Code/GameEngine/Include/Common/Geometry.h
-#                                                     (the collide family's geometry
-#                                                     surface: getMaxHeightAbove
-#                                                     Position / getMaxHeightBelow
-#                                                     Position, setMajorRadius /
-#                                                     setMinorRadius — the
-#                                                     calcBoundingStuff recompute is
-#                                                     not modelled: the family never
-#                                                     reads the bounding radii)
+#                                                     (the collide and query
+#                                                     families' geometry surface:
+#                                                     getMaxHeightAbovePosition /
+#                                                     getMaxHeightBelowPosition /
+#                                                     getZDeltaToCenterPosition and
+#                                                     the calcBoundingStuff
+#                                                     bounding-circle/sphere radii —
+#                                                     computed on demand from the
+#                                                     same five inputs the cached
+#                                                     original recomputes in every
+#                                                     setter, identical values;
+#                                                     setMajorRadius / setMinorRadius)
 #   Core/Libraries/Source/Lib/Include/Lib/Coord3D.h     (Coord3D::normalize — the
 #                                                      length via the pinned sqrt
 #                                                      and the len != 0 guard)
@@ -120,7 +159,7 @@
 
 [package]
 name = "rzh-sim"
-description = "Zero Hour deterministic simulation kernel: the frame loop, the object registry with its sleepy-update scheduler, and the partition-manager spatial store"
+description = "Zero Hour deterministic simulation kernel: the frame loop, the object registry with its sleepy-update scheduler, the partition-manager spatial store and its query family"
 version.workspace = true
 edition.workspace = true
 rust-version.workspace = true
