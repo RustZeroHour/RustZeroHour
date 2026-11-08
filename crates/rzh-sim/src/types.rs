@@ -138,6 +138,21 @@ pub struct Coord3 {
     pub z: f32,
 }
 
+impl Coord3 {
+    /// `Coord3D::normalize` (Lib/Coord3D.h): the length via the
+    /// unqualified `Sqrt` (Lib/trig.h — `gm_sqrtf` in the deterministic
+    /// build) and the `len != 0` guard (a zero vector stays zero — the
+    /// coincident-spheres normal).
+    pub fn normalize(&mut self) {
+        let len = rzh_math::scalar::sqrt(self.x * self.x + self.y * self.y + self.z * self.z);
+        if len != 0.0 {
+            self.x /= len;
+            self.y /= len;
+            self.z /= len;
+        }
+    }
+}
+
 /// `GeometryInfo` (Common/Geometry.h): the shape and size the partition
 /// store rasterizes.
 #[derive(Clone, Copy, Debug, PartialEq)]
@@ -171,11 +186,58 @@ impl Default for GeometryInfo {
     }
 }
 
+impl GeometryInfo {
+    /// `setMajorRadius` (Geometry.h): the field write. (The original also
+    /// recomputes the bounding circle/sphere radii — `calcBoundingStuff` —
+    /// which no path of the collide family reads; the recompute is not
+    /// modelled, stated per plan §3.3 rule 2.)
+    pub fn set_major_radius(&mut self, radius: f32) {
+        self.major_radius = radius;
+        // (calcBoundingStuff — the bounding radii this family never reads)
+    }
+
+    /// `setMinorRadius` (Geometry.h): the field write (ditto the
+    /// `calcBoundingStuff` note of [`Self::set_major_radius`]).
+    pub fn set_minor_radius(&mut self, radius: f32) {
+        self.minor_radius = radius;
+        // (calcBoundingStuff — the bounding radii this family never reads)
+    }
+
+    /// `getMaxHeightAbovePosition` (Geometry.cpp): how far above the
+    /// canonical position the max z extends — the radius for spheres,
+    /// the height for boxes and cylinders, 0 beyond the known types.
+    #[must_use]
+    pub fn max_height_above_position(&self) -> f32 {
+        match self.geom_type {
+            GeometryType::Sphere => self.major_radius,
+            GeometryType::Box | GeometryType::Cylinder => self.height,
+        }
+    }
+
+    /// `getMaxHeightBelowPosition` (Geometry.cpp): how far below the
+    /// canonical position the min z extends — the radius for spheres,
+    /// nothing for the grounded shapes.
+    #[must_use]
+    pub fn max_height_below_position(&self) -> f32 {
+        match self.geom_type {
+            GeometryType::Sphere => self.major_radius,
+            GeometryType::Box | GeometryType::Cylinder => 0.0,
+        }
+    }
+}
+
 /// The kindof bitset's `KINDOF_IMMOBILE` (KindOf.h: `KINDOF_OBSTACLE` = 0,
 /// `KINDOF_SELECTABLE` = 1, `KINDOF_IMMOBILE` = 2). The kernel consults
 /// exactly this bit (the partition refresh's collision gate); the full
 /// 122-entry kindof table arrives with the rzh-data object model.
 pub const KINDOF_IMMOBILE_BIT: u32 = 2;
+
+/// The kindof bitset's `KINDOF_NO_COLLIDE` (KindOf.h, the Zero Hour build
+/// with `ALLOW_SURRENDER` and `RTS_GENERALS` both off — the same
+/// configuration the script-engine slice's generated `KINDOF_NAMES` table
+/// pinned: ordinal 27, "Never collide with or be collided with"). The
+/// collide family refuses pairs where either side carries it.
+pub const KINDOF_NO_COLLIDE_BIT: u32 = 27;
 
 /// `DisabledType` (Common/DisabledTypes.h): the 13 disable reasons. The
 /// ordinals are the bit indices of `DisabledMask`.
@@ -318,9 +380,20 @@ pub enum ObjectShroudStatus {
     InvalidButPreviousValid = 5,
 }
 
-/// The `OBJECT_STATUS_DESTROYED` bit position in the object status mask
-/// (ObjectStatusTypes.h order): the flag `destroyObject` sets.
+/// The `OBJECT_STATUS_DESTROYED` bit position (the model-internal
+/// numbering of the transcription this port mirrors — see
+/// `tools/differential/gen_kernel_golden.cpp`; the real
+/// ObjectStatusTypes.h ordinal is 1, but the number is pinned by the
+/// golden dump only, the semantic is "destroyed").
 pub const OBJECT_STATUS_DESTROYED_BIT: u32 = 24;
+
+/// The `OBJECT_STATUS_NO_COLLISIONS` bit position (ObjectStatusTypes.h:
+/// "object should be ignored for object-object collisions" — the real
+/// ordinal is 5; the model-internal numbering continues past the model's
+/// DESTROYED bit, pinned by the golden dump only). The collide family's
+/// gates consult it: the processContactList pre-gate and the mid-walk
+/// break of `Object::onCollide`.
+pub const OBJECT_STATUS_NO_COLLISIONS_BIT: u32 = 25;
 
 /// `hash2ints` (PartitionManager.cpp): the symmetric pair hash the
 /// contact list's dedup buckets key on — `[a, b]` always hashes to the

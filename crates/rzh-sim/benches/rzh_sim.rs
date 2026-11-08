@@ -40,9 +40,9 @@ const BENCH_FRAMES: u32 = 180;
 
 /// The mixed-run checksum (pinned at authoring time against the C++
 /// wrapper — both sides build the identical corpus).
-const FRAME_LOOP_CHECKSUM: u64 = 16_055_563_144_769_613_296;
+const FRAME_LOOP_CHECKSUM: u64 = 16_055_563_144_769_613_415;
 /// The no-movement checksum (ditto).
-const DISPATCH_CHECKSUM: u64 = 14_539_779_273_077_219_143;
+const DISPATCH_CHECKSUM: u64 = 14_539_779_273_077_219_524;
 
 /// The scripted module bodies (the formula corpus's sleep patterns).
 struct BenchHost {
@@ -127,6 +127,7 @@ fn build_corpus(cell_size: f32, extents: (f32, f32, f32, f32)) -> (Kernel, Bench
             geometry,
             immobile,
             modules,
+            colliders: 0,
             position: Coord3 {
                 x: 20.0 + (i % 20) as f32 * 13.0 + (i / 20) as f32 * 2.5,
                 y: 20.0 + (i / 20) as f32 * 11.5,

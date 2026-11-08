@@ -609,29 +609,36 @@ threshold.
 #### The game-logic kernel (`kernel/frame_loop_x180`, `kernel/dispatch_x180`)
 
 The Phase 3 opener: the WP1 kernel — the frame loop's full walk and the
-sleepy dispatch. The corpus is a formula-generated mixed world (120
-objects cycling the four geometries — the small sphere, the sphere, the
-cylinder, the rotated box — every third object moving each frame so the
-partition refresh's fills and contact-pair collection run, two objects
-destroyed at frame 90 so the destroy list's two-pass sleepy erase runs;
-180 frames per measurement), built through the same formulas on both
-sides, with the final-state checksums (the heap array's packed
-priorities in order, the object list's coverage and cell-change counts,
-the contact-pair count) locking the two together: the mixed run pins
-16,055,563,144,769,613,296 and the no-movement run
-14,539,779,273,077,219,143 — the Rust benches assert them and the C++
-wrapper's `bench_kernel_verify` re-checks. The C++ side runs the
-`GameLogic.cpp`/`PartitionManager.cpp` transcription in
+sleepy dispatch, since the collide slice also the contact list's
+processing (the collide-test family and the CollideModule dispatch).
+The corpus is a formula-generated mixed world (120 objects cycling the
+four geometries — the small sphere, the sphere, the cylinder, the
+rotated box — every third object moving each frame so the partition
+refresh's fills and contact-pair collection run, two objects destroyed
+at frame 90 so the destroy list's two-pass sleepy erase runs; 180 frames
+per measurement), built through the same formulas on both sides, with
+the final-state checksums (the heap array's packed priorities in order,
+the object list's coverage and cell-change counts, the contact-pair
+count) locking the two together: the mixed run pins
+16,055,563,144,769,613,415 and the no-movement run
+14,539,779,273,077,219,524 — the Rust benches assert them and the C++
+wrapper's `bench_kernel_verify` re-checks (both pins moved with the
+collide slice: the corpus's genuinely overlapping pairs now process,
+and the re-dirty family keeps them re-processing every frame — the
+collision steady state the original's design intends). The C++ side
+runs the `GameLogic.cpp`/`PartitionManager.cpp` transcription in
 `bench_wrap_kernel.cpp`; the Rust side `rzh_sim::logic` (the
 `Kernel::update` walk over the same scripted module bodies). The corpus
 build is untimed on both sides (`iter_batched` /
-`measure_ns_ctx`). Measured on 2026-11-08, same setup and flags as the
-Phase 2 numbers.
+`measure_ns_ctx`). Re-measured on 2026-11-08 after the collide slice
+(the processing added the steady-state churn to both benches — the
+no-movement corpus's overlapping placements now process every frame),
+same setup and flags as the Phase 2 numbers.
 
 | Benchmark | Rust (criterion) | C++ baseline | Rust/C++ | Verdict |
 |---|---:|---:|---:|---|
-| `kernel/frame_loop_x180` | 5.04 ms | 6.53 ms | 0.77x | within |
-| `kernel/dispatch_x180` | 912.66 µs | 1.31 ms | 0.70x | within |
+| `kernel/frame_loop_x180` | 13.02 ms | 24.83 ms | 0.52x | within |
+| `kernel/dispatch_x180` | 6.44 ms | 18.61 ms | 0.35x | within |
 
 Two structural choices the budget run itself surfaced and paid for,
 before any number was recorded: the host and module-arena surfaces are
@@ -641,12 +648,16 @@ inline away exactly like the C++'s direct calls), and the contact-pair
 dedup is the transcription's **5381-socket `hash2ints` bucket table**
 (a chain walk per add), not a linear membership scan — the linear scan
 cost the port 2.1x on the mixed corpus at the first measurement. The
-remaining Rust advantage is the usual one: the heap's index stamps
-resolve through id-indexed arena slots the bounds checker can reason
-about, while the transcription chases `std::vector<UpdateModulePtr>`
-indirections, and the dirty worklist's `VecDeque` pops in place where
+remaining Rust advantage is the usual one, amplified by the collide
+slice: the processing's per-pair object lookups (`collidesWith`, the
+dispatch walk, the re-dirty checks) resolve through id-indexed arena
+slots the bounds checker can reason about, while the transcription's
+`World::object(id)` and `findModule` are linear scans over the whole
+store — the steady-state churn makes that difference every frame — and
+the heap's index stamps chase no `std::vector<UpdateModulePtr>`
+indirections while the dirty worklist's `VecDeque` pops in place where
 the transcription's linked list mallocs a node per registration. The
-frame-loop budget summary: kernel 0.70–0.77x — within the §6
+frame-loop budget summary: kernel 0.35–0.52x — within the §6
 threshold.
 
 ## Methodology

@@ -12,9 +12,14 @@
 //!   driver that ties the pieces together;
 //! - [`scheduler`]: the sleepy-update heap — the packed
 //!   frame-and-phase priority that orders every module's `update()` call;
+//! - [`collide`]: the collide-test family — the geometry collision
+//!   matrix (`theCollideTestProcs`) the contact list's processing
+//!   drives, with `geomCollidesWithGeom` and the object entry
+//!   `collidesWith`;
 //! - [`partition`]: the spatial store — the cell grid, the per-object
 //!   cell coverage with its three fill algorithms, the dirty-module
-//!   refresh and the collision candidate pairs;
+//!   refresh, the collision candidate pairs and the contact list's
+//!   processing (the collide dispatch and the re-dirty family);
 //! - [`types`]: the kernel's shared vocabulary (ids, geometry, masks,
 //!   the 30 Hz frame constants).
 //!
@@ -38,6 +43,7 @@
 
 #![forbid(unsafe_code)]
 
+pub mod collide;
 pub mod fastmath;
 pub mod logic;
 pub mod partition;

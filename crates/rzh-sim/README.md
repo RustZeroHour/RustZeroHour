@@ -1,13 +1,15 @@
 # rzh-sim
 
 The deterministic headless simulation kernel for RustZeroHour — the
-first Phase 3 slice of the [Rust migration plan]
+first Phase 3 slices of the [Rust migration plan]
 (../docs/RUST_MIGRATION_PLAN.md): the frame loop, the object model's
-registry half and the partition manager's spatial store (plan §4 WP1).
+registry half, the partition manager's spatial store and the contact
+list's processing — the collide-test family (plan §4 WP1).
 
 Ported from the Zero Hour `GameLogic.cpp`, `Object.cpp`,
-`PartitionManager.cpp`, `UpdateModule.{h,cpp}` and `ThingFactory.cpp`
-core (see `Cargo.toml`'s provenance list), the crate owns:
+`PartitionManager.cpp`, `UpdateModule.{h,cpp}`, `Geometry.{h,cpp}` and
+`ThingFactory.cpp` core (see `Cargo.toml`'s provenance list), the crate
+owns:
 
 - the **frame loop** — `GameLogic::update`'s ordered subsystem walk (the
   client frame hand-off, the script engine, the time-freeze gate, the
@@ -24,21 +26,33 @@ core (see `Cargo.toml`'s provenance list), the crate owns:
   parity-critical update ordering every module body hangs on);
 - the **spatial store** — the cell grid, the per-object coverage with
   the small / precise-circle / rotated-rect fills, the dirty-module
-  refresh and the collision-candidate pairs.
+  refresh and the collision-candidate pairs;
+- the **collide-test family** — the rect/circle/sphere/cylinder/box
+  collision matrix (`theCollideTestProcs`) with its square-promotion,
+  sphere-slice and `closeEnough` preflight quirks, the
+  `collidesWith`/`geomCollidesWithGeom` entries with their two
+  z-gates, and the contact list's processing: the `Object::onCollide`
+  dispatch with its mid-walk NO_COLLISIONS break and the re-dirty
+  family behind the collision steady state.
 
 Parity is golden-pinned against
 `tools/differential/gen_kernel_golden.cpp` — a verbatim C++
-transcription of the same paths — through 19 corpora covering the id
+transcription of the same paths — through 21 corpora covering the id
 scheme, the frame ordering, the scheduler family, the disabled gates,
 the destroy flows, the grid math, all three fills, the dirty-list
-family, the contact pairs and a mixed roundtrip
-(`tests/golden/kernel.txt`, 1,765 lines).
+family, the contact pairs, the collide matrix (the loc/normal bits,
+the touch boundary, the preflight's unwritten loc/normal, the
+square-promotion corner cap, the z-gate asymmetries), the contact
+processing (the dispatch order, the gates, the nulled later pairs) and
+a mixed roundtrip (`tests/golden/kernel.txt`, 2,248 lines), plus a
+256-case result-symmetry / unit-normal property test
+(`tests/collide_props.rs`).
 
 Deterministic by construction (plan §3.3): `#![forbid(unsafe_code)]`,
 single-threaded, no I/O, no wall-clock, no `HashMap` iteration, `f32`
 with the original's operation order, objects referenced by id.
 
 The subsystem bodies (script engine, terrain, commands, AI, economy),
-the module framework, the spatial queries and the collision tests are
-later slices; they plug in through the `KernelHost` trait whose call
-order the kernel pins.
+the module framework and the spatial queries are later slices; they
+plug in through the `KernelHost` trait whose call order the kernel
+pins.

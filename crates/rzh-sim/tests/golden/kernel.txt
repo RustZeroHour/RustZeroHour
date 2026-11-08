@@ -646,9 +646,11 @@ cell 5,5 n=1 shr=1,1,0
 k o1
 grid size=41200000 inv=3dcccccd 11x11 total=121 lo=00000000,00000000 hi=42c80000,42c80000 updated=1
 modules
-m o2 coi=4/4 dirty=0 last=60 shr=0,0,0 seen=0,0
-m o1 coi=4/4 dirty=0 last=60 shr=0,0,0 seen=0,0
+m o2 coi=4/4 dirty=1 last=60 shr=0,0,0 seen=0,0
+m o1 coi=4/4 dirty=1 last=60 shr=0,0,0 seen=0,0
 dirtylist
+dl o1 status=1
+dl o2 status=1
 coi o2
 c 4,4
 c 4,5
@@ -675,9 +677,11 @@ k o1
 grid size=41200000 inv=3dcccccd 11x11 total=121 lo=00000000,00000000 hi=42c80000,42c80000 updated=1
 modules
 m o3 coi=4/16 dirty=0 last=24 shr=0,0,0 seen=0,0
-m o2 coi=4/4 dirty=0 last=60 shr=0,0,0 seen=0,0
-m o1 coi=4/4 dirty=0 last=60 shr=0,0,0 seen=0,0
+m o2 coi=4/4 dirty=1 last=60 shr=0,0,0 seen=0,0
+m o1 coi=4/4 dirty=1 last=60 shr=0,0,0 seen=0,0
 dirtylist
+dl o2 status=1
+dl o1 status=1
 coi o3
 c 2,2
 c 2,3
@@ -718,9 +722,11 @@ grid size=41200000 inv=3dcccccd 11x11 total=121 lo=00000000,00000000 hi=42c80000
 modules
 m o4 coi=1/4 dirty=0 last=0 shr=0,0,0 seen=0,0
 m o3 coi=4/16 dirty=0 last=24 shr=0,0,0 seen=0,0
-m o2 coi=4/4 dirty=0 last=60 shr=0,0,0 seen=0,0
-m o1 coi=4/4 dirty=0 last=60 shr=0,0,0 seen=0,0
+m o2 coi=4/4 dirty=1 last=60 shr=0,0,0 seen=0,0
+m o1 coi=4/4 dirty=1 last=60 shr=0,0,0 seen=0,0
 dirtylist
+dl o1 status=1
+dl o2 status=1
 coi o4
 c 0,0
 coi o3
@@ -819,11 +825,13 @@ cell 5,5 n=1 shr=1,1,0
 k o2
 grid size=41200000 inv=3dcccccd 11x11 total=121 lo=00000000,00000000 hi=42c80000,42c80000 updated=1
 modules
-m o4 coi=32/36 dirty=0 last=60 shr=0,0,0 seen=0,0
+m o4 coi=32/36 dirty=1 last=60 shr=0,0,0 seen=0,0
 m o3 coi=6/9 dirty=0 last=12 shr=0,0,0 seen=0,0
-m o2 coi=2/9 dirty=0 last=60 shr=0,0,0 seen=0,0
+m o2 coi=2/9 dirty=1 last=60 shr=0,0,0 seen=0,0
 m o1 coi=0/4 dirty=0 last=60 shr=0,0,0 seen=0,0
 dirtylist
+dl o2 status=1
+dl o4 status=1
 coi o4
 c 2,3
 c 2,4
@@ -969,9 +977,11 @@ cell 6,6 n=1 shr=1,1,0
 k o1
 grid size=41200000 inv=3dcccccd 11x11 total=121 lo=00000000,00000000 hi=42c80000,42c80000 updated=1
 modules
-m o2 coi=12/16 dirty=0 last=60 shr=0,0,0 seen=0,0
-m o1 coi=4/9 dirty=0 last=60 shr=0,0,0 seen=0,0
+m o2 coi=12/16 dirty=1 last=60 shr=0,0,0 seen=0,0
+m o1 coi=4/9 dirty=1 last=60 shr=0,0,0 seen=0,0
 dirtylist
+dl o1 status=1
+dl o2 status=1
 coi o2
 c 3,5
 c 4,5
@@ -1022,10 +1032,13 @@ cell 6,6 n=1 shr=1,1,0
 k o1
 grid size=41200000 inv=3dcccccd 11x11 total=121 lo=00000000,00000000 hi=42c80000,42c80000 updated=1
 modules
-m o3 coi=1/4 dirty=0 last=60 shr=0,0,0 seen=0,0
-m o2 coi=12/16 dirty=0 last=60 shr=0,0,0 seen=0,0
-m o1 coi=4/9 dirty=0 last=60 shr=0,0,0 seen=0,0
+m o3 coi=1/4 dirty=1 last=60 shr=0,0,0 seen=0,0
+m o2 coi=12/16 dirty=1 last=60 shr=0,0,0 seen=0,0
+m o1 coi=4/9 dirty=1 last=60 shr=0,0,0 seen=0,0
 dirtylist
+dl o3 status=1
+dl o2 status=1
+dl o1 status=1
 coi o3
 c 5,5
 coi o2
@@ -1080,10 +1093,13 @@ k o1
 grid size=41200000 inv=3dcccccd 11x11 total=121 lo=00000000,00000000 hi=42c80000,42c80000 updated=1
 modules
 m o4 coi=0/4 dirty=0 last=60 shr=0,0,0 seen=0,0
-m o3 coi=1/4 dirty=0 last=60 shr=0,0,0 seen=0,0
-m o2 coi=12/16 dirty=0 last=60 shr=0,0,0 seen=0,0
-m o1 coi=4/9 dirty=0 last=60 shr=0,0,0 seen=0,0
+m o3 coi=1/4 dirty=1 last=60 shr=0,0,0 seen=0,0
+m o2 coi=12/16 dirty=1 last=60 shr=0,0,0 seen=0,0
+m o1 coi=4/9 dirty=1 last=60 shr=0,0,0 seen=0,0
 dirtylist
+dl o3 status=1
+dl o1 status=1
+dl o2 status=1
 coi o4
 coi o3
 c 5,5
@@ -1140,10 +1156,13 @@ grid size=41200000 inv=3dcccccd 11x11 total=121 lo=00000000,00000000 hi=42c80000
 modules
 m o5 coi=6/36 dirty=0 last=12 shr=0,0,0 seen=0,0
 m o4 coi=0/4 dirty=0 last=60 shr=0,0,0 seen=0,0
-m o3 coi=1/4 dirty=0 last=60 shr=0,0,0 seen=0,0
-m o2 coi=12/16 dirty=0 last=60 shr=0,0,0 seen=0,0
-m o1 coi=4/9 dirty=0 last=60 shr=0,0,0 seen=0,0
+m o3 coi=1/4 dirty=1 last=60 shr=0,0,0 seen=0,0
+m o2 coi=12/16 dirty=1 last=60 shr=0,0,0 seen=0,0
+m o1 coi=4/9 dirty=1 last=60 shr=0,0,0 seen=0,0
 dirtylist
+dl o3 status=1
+dl o2 status=1
+dl o1 status=1
 coi o5
 c 0,1
 c 1,1
@@ -1220,10 +1239,13 @@ modules
 m o6 coi=1/4 dirty=0 last=72 shr=0,0,0 seen=0,0
 m o5 coi=6/36 dirty=0 last=12 shr=0,0,0 seen=0,0
 m o4 coi=0/4 dirty=0 last=60 shr=0,0,0 seen=0,0
-m o3 coi=1/4 dirty=0 last=60 shr=0,0,0 seen=0,0
-m o2 coi=12/16 dirty=0 last=60 shr=0,0,0 seen=0,0
-m o1 coi=4/9 dirty=0 last=60 shr=0,0,0 seen=0,0
+m o3 coi=1/4 dirty=1 last=60 shr=0,0,0 seen=0,0
+m o2 coi=12/16 dirty=1 last=60 shr=0,0,0 seen=0,0
+m o1 coi=4/9 dirty=1 last=60 shr=0,0,0 seen=0,0
 dirtylist
+dl o3 status=1
+dl o1 status=1
+dl o2 status=1
 coi o6
 c 6,6
 coi o5
@@ -1428,10 +1450,13 @@ grid size=41200000 inv=3dcccccd 11x11 total=121 lo=00000000,00000000 hi=42c80000
 modules
 m o5 coi=4/9 dirty=0 last=108 shr=0,0,0 seen=0,0
 m o4 coi=4/9 dirty=0 last=60 shr=0,0,0 seen=0,0
-m o3 coi=4/9 dirty=0 last=72 shr=0,0,0 seen=0,0
-m o2 coi=4/9 dirty=0 last=60 shr=0,0,0 seen=0,0
-m o1 coi=4/9 dirty=0 last=60 shr=0,0,0 seen=0,0
+m o3 coi=4/9 dirty=1 last=72 shr=0,0,0 seen=0,0
+m o2 coi=4/9 dirty=1 last=60 shr=0,0,0 seen=0,0
+m o1 coi=4/9 dirty=1 last=60 shr=0,0,0 seen=0,0
 dirtylist
+dl o3 status=1
+dl o2 status=1
+dl o1 status=1
 coi o5
 c 8,8
 c 8,9
@@ -1489,16 +1514,21 @@ cell 8,9 n=1 shr=1,1,0
 k o5
 cell 9,9 n=1 shr=1,1,0
 k o5
-contacts 1
+contacts 5
+p o1 o4
 p o2 o5
+p o3 o4
+p o3 o2
+p o3 o1
 grid size=41200000 inv=3dcccccd 11x11 total=121 lo=00000000,00000000 hi=42c80000,42c80000 updated=1
 modules
 m o5 coi=4/9 dirty=0 last=108 shr=0,0,0 seen=0,0
 m o4 coi=4/9 dirty=0 last=60 shr=0,0,0 seen=0,0
 m o3 coi=4/9 dirty=0 last=72 shr=0,0,0 seen=0,0
 m o2 coi=4/9 dirty=0 last=96 shr=0,0,0 seen=0,0
-m o1 coi=4/9 dirty=0 last=60 shr=0,0,0 seen=0,0
+m o1 coi=4/9 dirty=1 last=60 shr=0,0,0 seen=0,0
 dirtylist
+dl o1 status=1
 coi o5
 c 8,8
 c 8,9
@@ -1584,6 +1614,459 @@ grid size=41200000 inv=3dcccccd 11x11 total=121 lo=00000000,00000000 hi=42c80000
 modules
 dirtylist
 cells 121
+end
+corpus collide_matrix
+m 0 0 1
+m 0 1 1
+m 0 2 1
+m 1 0 1
+m 1 1 1
+m 1 2 1
+m 2 0 1
+m 2 1 1
+m 2 2 1
+miss 0 0 0
+miss 0 1 0
+miss 0 2 0
+miss 1 0 0
+miss 1 1 0
+miss 1 2 0
+miss 2 0 0
+miss 2 1 0
+miss 2 2 0
+d 0 0 1 loc=42dc0000,42c80000,00000000 nrm=3f800000,00000000,00000000
+d 0 1 1 loc=42dc0000,42c80000,00000000 nrm=3f800000,00000000,00000000
+d 0 2 1 loc=42bce4ad,42c216f0,00000000 nrm=3f800000,80000000,80000000
+d 1 0 1 loc=42bc0000,42c80000,00000000 nrm=3f800000,80000000,80000000
+d 1 1 1 loc=00000000,00000000,40800000 nrm=00000000,00000000,00000000
+d 1 2 1 loc=00000000,00000000,40800000 nrm=00000000,00000000,00000000
+d 2 0 1 loc=42dc0000,42c80000,00000000 nrm=3f800000,00000000,00000000
+d 2 1 1 loc=00000000,00000000,40800000 nrm=00000000,00000000,00000000
+d 2 2 1 loc=00000000,00000000,40800000 nrm=00000000,00000000,00000000
+nullcinfo 1
+touch 1 loc=41700000,00000000,00000000 nrm=3f800000,00000000,00000000
+past 0
+coincident 1 loc=00000000,00000000,00000000 nrm=00000000,00000000,00000000
+closeenough 1 loc=00000000,00000000,40800000 nrm=00000000,00000000,00000000
+toofar 0
+closeenough-geom 1
+promo-cyl-box 1 loc=426d0000,425f0000,40800000 nrm=bf4a12fd,bf1d2b37,80000000
+promo-box-cyl 1 loc=426d0000,425f0000,40800000 nrm=3f4a12fd,3f1d2b37,00000000
+promo-far 0
+slice-above 1 loc=40e48695,00000000,41000000 nrm=3f800000,00000000,00000000
+slice-above-far 0
+slice-below 1 loc=410a9067,00000000,00000000 nrm=3f800000,00000000,00000000
+slice-rev 1 loc=410a9067,00000000,00000000 nrm=bf800000,80000000,80000000
+asym-collides 1
+asym-geom 0
+asym-geom-rev 0
+zbound 1
+zbound-past 0
+nocol 0
+nocol-rev 0
+end
+corpus collide_process
+contacts 1
+p o1 o2
+collideevents 4
+cv o1 o2 m0 loc=4258f877,4258f877,00000000 nrm=3f3504f3,3f3504f3,00000000
+cv o1 o2 m1 loc=4258f877,4258f877,00000000 nrm=3f3504f3,3f3504f3,00000000
+cv o2 o1 m0 loc=4258f877,4258f877,00000000 nrm=bf3504f3,bf3504f3,80000000
+cv o2 o1 m1 loc=4258f877,4258f877,00000000 nrm=bf3504f3,bf3504f3,80000000
+grid size=41200000 inv=3dcccccd 11x11 total=121 lo=00000000,00000000 hi=42c80000,42c80000 updated=1
+modules
+m o2 coi=4/9 dirty=1 last=60 shr=0,0,0 seen=0,0
+m o1 coi=4/9 dirty=1 last=60 shr=0,0,0 seen=0,0
+dirtylist
+dl o2 status=1
+dl o1 status=1
+coi o2
+c 4,4
+c 4,5
+c 5,4
+c 5,5
+coi o1
+c 4,4
+c 4,5
+c 5,4
+c 5,5
+cells 121
+cell 4,4 n=2 shr=1,1,0
+k o1
+k o2
+cell 5,4 n=2 shr=1,1,0
+k o1
+k o2
+cell 4,5 n=2 shr=1,1,0
+k o1
+k o2
+cell 5,5 n=2 shr=1,1,0
+k o1
+k o2
+contacts 1
+p o2 o1
+collideevents 4
+cv o2 o1 m0 loc=423f0789,423f0789,00000000 nrm=bf3504f3,bf3504f3,00000000
+cv o2 o1 m1 loc=423f0789,423f0789,00000000 nrm=bf3504f3,bf3504f3,00000000
+cv o1 o2 m0 loc=423f0789,423f0789,00000000 nrm=3f3504f3,3f3504f3,80000000
+cv o1 o2 m1 loc=423f0789,423f0789,00000000 nrm=3f3504f3,3f3504f3,80000000
+contacts 1
+p o1 o2
+collideevents 0
+collideevents 3
+cv o2 o1 m0 loc=423f0789,423f0789,00000000 nrm=bf3504f3,bf3504f3,00000000
+cv o2 o1 m1 loc=423f0789,423f0789,00000000 nrm=bf3504f3,bf3504f3,00000000
+cv o1 o2 m0 loc=423f0789,423f0789,00000000 nrm=3f3504f3,3f3504f3,80000000
+collideevents 0
+grid size=41200000 inv=3dcccccd 11x11 total=121 lo=00000000,00000000 hi=42c80000,42c80000 updated=1
+modules
+m o2 coi=4/9 dirty=0 last=60 shr=0,0,0 seen=0,0
+m o1 coi=4/9 dirty=0 last=60 shr=0,0,0 seen=0,0
+dirtylist
+coi o2
+c 4,4
+c 4,5
+c 5,4
+c 5,5
+coi o1
+c 4,4
+c 4,5
+c 5,4
+c 5,5
+cells 121
+cell 4,4 n=2 shr=1,1,0
+k o1
+k o2
+cell 5,4 n=2 shr=1,1,0
+k o1
+k o2
+cell 4,5 n=2 shr=1,1,0
+k o1
+k o2
+cell 5,5 n=2 shr=1,1,0
+k o1
+k o2
+collideevents 1
+cv o3 o4 m0 loc=41c1f0ee,4258f877,00000000 nrm=3f3504f3,3f3504f3,00000000
+frame 0
+nextid 5
+objlist 4
+o id=4 upd=0 part=4 dis=0000 cellchg=1
+o id=3 upd=0 part=3 dis=0000 cellchg=1
+o id=2 upd=0 part=2 dis=0000 cellchg=1
+o id=1 upd=0 part=1 dis=0000 cellchg=1
+destroylist 1
+d id=4
+grid size=41200000 inv=3dcccccd 11x11 total=121 lo=00000000,00000000 hi=42c80000,42c80000 updated=1
+modules
+m o4 coi=4/9 dirty=0 last=57 shr=0,0,0 seen=0,0
+m o3 coi=4/9 dirty=1 last=57 shr=0,0,0 seen=0,0
+m o2 coi=4/9 dirty=0 last=60 shr=0,0,0 seen=0,0
+m o1 coi=4/9 dirty=0 last=60 shr=0,0,0 seen=0,0
+dirtylist
+dl o3 status=1
+coi o4
+c 1,4
+c 1,5
+c 2,4
+c 2,5
+coi o3
+c 1,4
+c 1,5
+c 2,4
+c 2,5
+coi o2
+c 4,4
+c 4,5
+c 5,4
+c 5,5
+coi o1
+c 4,4
+c 4,5
+c 5,4
+c 5,5
+cells 121
+cell 1,4 n=2 shr=1,1,0
+k o3
+k o4
+cell 2,4 n=2 shr=1,1,0
+k o3
+k o4
+cell 4,4 n=2 shr=1,1,0
+k o1
+k o2
+cell 5,4 n=2 shr=1,1,0
+k o1
+k o2
+cell 1,5 n=2 shr=1,1,0
+k o3
+k o4
+cell 2,5 n=2 shr=1,1,0
+k o3
+k o4
+cell 4,5 n=2 shr=1,1,0
+k o1
+k o2
+cell 5,5 n=2 shr=1,1,0
+k o1
+k o2
+grid size=41200000 inv=3dcccccd 11x11 total=121 lo=00000000,00000000 hi=42c80000,42c80000 updated=1
+modules
+m o3 coi=4/9 dirty=1 last=57 shr=0,0,0 seen=0,0
+m o2 coi=4/9 dirty=0 last=60 shr=0,0,0 seen=0,0
+m o1 coi=4/9 dirty=0 last=60 shr=0,0,0 seen=0,0
+dirtylist
+dl o3 status=1
+coi o3
+c 1,4
+c 1,5
+c 2,4
+c 2,5
+coi o2
+c 4,4
+c 4,5
+c 5,4
+c 5,5
+coi o1
+c 4,4
+c 4,5
+c 5,4
+c 5,5
+cells 121
+cell 1,4 n=1 shr=1,1,0
+k o3
+cell 2,4 n=1 shr=1,1,0
+k o3
+cell 4,4 n=2 shr=1,1,0
+k o1
+k o2
+cell 5,4 n=2 shr=1,1,0
+k o1
+k o2
+cell 1,5 n=1 shr=1,1,0
+k o3
+cell 2,5 n=1 shr=1,1,0
+k o3
+cell 4,5 n=2 shr=1,1,0
+k o1
+k o2
+cell 5,5 n=2 shr=1,1,0
+k o1
+k o2
+contacts 3
+p o5 o7
+p o5 o6
+p o6 o7
+collideevents 2
+cv o5 o6 m0 loc=41c1f0ee,41c1f0ee,00000000 nrm=3f3504f3,3f3504f3,00000000
+cv o6 o5 m0 loc=41c1f0ee,41c1f0ee,00000000 nrm=bf3504f3,bf3504f3,80000000
+frame 0
+nextid 8
+objlist 6
+o id=7 upd=0 part=0 dis=0000 cellchg=1
+o id=6 upd=0 part=6 dis=0000 cellchg=1
+o id=5 upd=0 part=5 dis=0000 cellchg=1
+o id=3 upd=0 part=3 dis=0000 cellchg=1
+o id=2 upd=0 part=2 dis=0000 cellchg=1
+o id=1 upd=0 part=1 dis=0000 cellchg=1
+destroylist 0
+grid size=41200000 inv=3dcccccd 11x11 total=121 lo=00000000,00000000 hi=42c80000,42c80000 updated=1
+modules
+m o6 coi=5/9 dirty=1 last=24 shr=0,0,0 seen=0,0
+m o5 coi=4/9 dirty=1 last=24 shr=0,0,0 seen=0,0
+m o3 coi=4/9 dirty=0 last=57 shr=0,0,0 seen=0,0
+m o2 coi=4/9 dirty=0 last=60 shr=0,0,0 seen=0,0
+m o1 coi=4/9 dirty=0 last=60 shr=0,0,0 seen=0,0
+dirtylist
+dl o6 status=1
+dl o5 status=1
+coi o6
+c 1,2
+c 2,1
+c 2,2
+c 2,3
+c 3,2
+coi o5
+c 1,1
+c 1,2
+c 2,1
+c 2,2
+coi o3
+c 1,4
+c 1,5
+c 2,4
+c 2,5
+coi o2
+c 4,4
+c 4,5
+c 5,4
+c 5,5
+coi o1
+c 4,4
+c 4,5
+c 5,4
+c 5,5
+cells 121
+cell 1,1 n=1 shr=1,1,0
+k o5
+cell 2,1 n=2 shr=1,1,0
+k o5
+k o6
+cell 1,2 n=2 shr=1,1,0
+k o5
+k o6
+cell 2,2 n=2 shr=1,1,0
+k o5
+k o6
+cell 3,2 n=1 shr=1,1,0
+k o6
+cell 2,3 n=1 shr=1,1,0
+k o6
+cell 1,4 n=1 shr=1,1,0
+k o3
+cell 2,4 n=1 shr=1,1,0
+k o3
+cell 4,4 n=2 shr=1,1,0
+k o1
+k o2
+cell 5,4 n=2 shr=1,1,0
+k o1
+k o2
+cell 1,5 n=1 shr=1,1,0
+k o3
+cell 2,5 n=1 shr=1,1,0
+k o3
+cell 4,5 n=2 shr=1,1,0
+k o1
+k o2
+cell 5,5 n=2 shr=1,1,0
+k o1
+k o2
+collideevents 4
+cv o6 o5 m0 loc=41a60f12,41a60f12,00000000 nrm=bf3504f3,bf3504f3,00000000
+cv o5 o6 m0 loc=41a60f12,41a60f12,00000000 nrm=3f3504f3,3f3504f3,80000000
+cv o8 o9 m0 loc=42947c3b,42947c3b,00000000 nrm=3f3504f3,3f3504f3,00000000
+cv o9 o8 m0 loc=42947c3b,42947c3b,00000000 nrm=bf3504f3,bf3504f3,80000000
+grid size=41200000 inv=3dcccccd 11x11 total=121 lo=00000000,00000000 hi=42c80000,42c80000 updated=1
+modules
+m o9 coi=4/9 dirty=0 last=84 shr=0,0,0 seen=0,0
+m o8 coi=4/9 dirty=1 last=84 shr=0,0,0 seen=0,0
+m o6 coi=5/9 dirty=1 last=24 shr=0,0,0 seen=0,0
+m o5 coi=4/9 dirty=1 last=24 shr=0,0,0 seen=0,0
+m o3 coi=4/9 dirty=0 last=57 shr=0,0,0 seen=0,0
+m o2 coi=4/9 dirty=0 last=60 shr=0,0,0 seen=0,0
+m o1 coi=4/9 dirty=0 last=60 shr=0,0,0 seen=0,0
+dirtylist
+dl o8 status=1
+dl o5 status=1
+dl o6 status=1
+coi o9
+c 6,6
+c 6,7
+c 7,6
+c 7,7
+coi o8
+c 6,6
+c 6,7
+c 7,6
+c 7,7
+coi o6
+c 1,2
+c 2,1
+c 2,2
+c 2,3
+c 3,2
+coi o5
+c 1,1
+c 1,2
+c 2,1
+c 2,2
+coi o3
+c 1,4
+c 1,5
+c 2,4
+c 2,5
+coi o2
+c 4,4
+c 4,5
+c 5,4
+c 5,5
+coi o1
+c 4,4
+c 4,5
+c 5,4
+c 5,5
+cells 121
+cell 1,1 n=1 shr=1,1,0
+k o5
+cell 2,1 n=2 shr=1,1,0
+k o5
+k o6
+cell 1,2 n=2 shr=1,1,0
+k o5
+k o6
+cell 2,2 n=2 shr=1,1,0
+k o5
+k o6
+cell 3,2 n=1 shr=1,1,0
+k o6
+cell 2,3 n=1 shr=1,1,0
+k o6
+cell 1,4 n=1 shr=1,1,0
+k o3
+cell 2,4 n=1 shr=1,1,0
+k o3
+cell 4,4 n=2 shr=1,1,0
+k o1
+k o2
+cell 5,4 n=2 shr=1,1,0
+k o1
+k o2
+cell 1,5 n=1 shr=1,1,0
+k o3
+cell 2,5 n=1 shr=1,1,0
+k o3
+cell 4,5 n=2 shr=1,1,0
+k o1
+k o2
+cell 5,5 n=2 shr=1,1,0
+k o1
+k o2
+cell 6,6 n=2 shr=1,1,0
+k o8
+k o9
+cell 7,6 n=2 shr=1,1,0
+k o8
+k o9
+cell 6,7 n=2 shr=1,1,0
+k o8
+k o9
+cell 7,7 n=2 shr=1,1,0
+k o8
+k o9
+contacts 2
+p o5 o6
+p o8 o9
+collideevents 4
+cv o5 o6 m0 loc=41c1f0ee,41c1f0ee,00000000 nrm=3f3504f3,3f3504f3,00000000
+cv o6 o5 m0 loc=41c1f0ee,41c1f0ee,00000000 nrm=bf3504f3,bf3504f3,80000000
+cv o8 o9 m0 loc=42947c3b,42947c3b,00000000 nrm=3f3504f3,3f3504f3,00000000
+cv o9 o8 m0 loc=42947c3b,42947c3b,00000000 nrm=bf3504f3,bf3504f3,80000000
+contacts 7
+p o6 o5
+p o8 o9
+p o10 o9
+p o10 o8
+p o10 o11
+p o11 o9
+p o11 o8
+collideevents 6
+cv o6 o5 m0 loc=41a60f12,41a60f12,00000000 nrm=bf3504f3,bf3504f3,00000000
+cv o5 o6 m0 loc=41a60f12,41a60f12,00000000 nrm=3f3504f3,3f3504f3,80000000
+cv o8 o9 m0 loc=42947c3b,42947c3b,00000000 nrm=3f3504f3,3f3504f3,00000000
+cv o9 o8 m0 loc=42947c3b,42947c3b,00000000 nrm=bf3504f3,bf3504f3,80000000
+cv o10 o9 m0 loc=429783c5,429783c5,00000000 nrm=bf3504f3,bf3504f3,00000000
+cv o9 o10 m0 loc=429783c5,429783c5,00000000 nrm=3f3504f3,3f3504f3,80000000
 end
 corpus kernel_roundtrip
 events 21

@@ -50,25 +50,51 @@
 //     the double-division cellSizeInv, the zero-extent patch, the CEIL
 //     cell counts), shutdown, update (the dirty-module refresh with its
 //     LIFO processing, the updateCells / collision-check gates, the
-//     KINDOF_IMMOBILE collision refusal and the contact-list pair
-//     collection), registerObject / unRegisterObject (the master-list
-//     prepend, the double-register refusal), PartitionData (the COI array
-//     with calcMaxCoiForShape, allocCoiArray / freeCoiArray, makeDirty's
-//     status upgrades, removeAllTouchedCells, addSubPixToCoverage's
-//     rescan, updateCellsTouched with doSmallFill (the half-cell radius
-//     truncation), doCircleFillPrecise (the non-retail bugfix branch —
-//     Stubbjax 29/01/2026 — with doesCircleOverlapCell's strict
-//     inequality) and doRectFill (the half-step fudge, the CEIL step
-//     counts and the rotated walk), the last-cell change hook and the
-//     shroudedness invalidation), the CellAndObjectIntersection coverage
-//     (the cell-list prepend and the ordered unlink) and
-//     PartitionContactList::addToContactList (the hash2ints symmetric
-//     hash, the 5381 sockets, the either-order dedup and the LIFO pair
-//     list) — over Lib/BaseFunctions.h's conversions (fast_float_trunc/
-//     floor/ceil with the Hoffesommer bit tricks, fast_float2long_round,
-//     the REAL_TO_INT_CEIL/FLOOR composites of the Zero Hour non-retail
-//     build) and the pinned GameMath trig (gm_sinf/gm_cosf under
-//     USE_DETERMINISTIC_MATH = 1).
+//     KINDOF_IMMOBILE collision refusal, the contact-list pair
+//     collection and processContactList — the collide-test family and
+//     the CollideModule dispatch), registerObject / unRegisterObject (the
+//     master-list prepend, the double-register refusal), PartitionData
+//     (the COI array with calcMaxCoiForShape, allocCoiArray /
+//     freeCoiArray, makeDirty's status upgrades, removeAllTouchedCells,
+//     addSubPixToCoverage's rescan, updateCellsTouched with doSmallFill
+//     (the half-cell radius truncation), doCircleFillPrecise (the
+//     non-retail bugfix branch — Stubbjax 29/01/2026 — with
+//     doesCircleOverlapCell's strict inequality) and doRectFill (the
+//     half-step fudge, the CEIL step counts and the rotated walk), the
+//     last-cell change hook and the shroudedness invalidation), the
+//     CellAndObjectIntersection coverage (the cell-list prepend and the
+//     ordered unlink) and PartitionContactList::addToContactList (the
+//     hash2ints symmetric hash, the 5381 sockets, the either-order dedup
+//     and the LIFO pair list);
+//   - PartitionManager.cpp's collide-test family: CollideInfo /
+//     CollideLocAndNormal, rectToFourPoints and
+//     testRotatedPointsAgainstRect (the inverse rotation with
+//     WWMath::Fabs), the xy_collideTest_Rect_Rect / Rect_Circle /
+//     Circle_Rect / Circle_Circle quartet (Rect_Circle promotes the
+//     circle to a square — setMinorRadius(majorRadius) — and defers to
+//     Rect_Rect; Circle_Rect is Rect_Circle with the flipped normal),
+//     z_collideTest_Sphere_Nonsphere (the center-within-z case, the
+//     below/above slice cases with the sphere-slice radius via
+//     WWMath::Sqrtf) and z_collideTest_Nonsphere_Nonsphere (the
+//     minRadius-squared closeEnough preflight whose true path leaves
+//     loc.x/y and normal unwritten — the original's uninitialized stack
+//     local, pinned as the zero here), the nine collideTest_X_Y procs
+//     and theCollideTestProcs table (indexed (this - GEOMETRY_FIRST) *
+//     GEOMETRY_NUM_TYPES + (that - GEOMETRY_FIRST)); PartitionData::
+//     collidesWith (the KINDOF_NO_COLLIDE refusal, the z-intersection
+//     gate with the getMaxHeightBelowPosition extents and the table
+//     dispatch) and PartitionManager::geomCollidesWithGeom (the
+//     standalone test whose z-gate ignores the below-extents — a
+//     narrower gate than collidesWith's, pinned by the corpora);
+//   - PartitionContactList::processContactList: the null-node skip, the
+//     friend_collidesWith call, the OBJECT_STATUS_NO_COLLISIONS gates,
+//     the node nulling before the dispatch, Object::onCollide's
+//     behavior walk (the per-module NO_COLLISIONS re-check with its
+//     mid-walk break) with the flipped-normal second call gated by both
+//     sides' isDestroyed, and the makeDirty(false) re-dirty family with
+//     its destroyed / unregistered / IMMOBILE refusals — over
+//     Object.cpp's onCollide and Geometry.cpp's getMaxHeightAbovePosition
+//     / getMaxHeightBelowPosition / setMajorRadius / setMinorRadius.
 //
 // The frame constants are pinned from the sources: WWSyncPerSecond = 30
 // (WWLib/WWCommon.h), LOGICFRAMES_PER_SECOND = WWSyncPerSecond,
@@ -113,10 +139,29 @@
 //   The Rust port transcribes round-half-away-from-zero semantics for
 //   the same domain; the out-of-domain behaviour (|x| >= 2^31, NaN) is a
 //   stated contract.
-// - The contact list's processContactList (the collide-test family and
-//   the CollideModule dispatch) is the collision slice; the pair
-//   collection the store walk produces is dumped as this slice's
-//   observable.
+// - The contact list's processContactList is transcribed with the
+//   collide-test family (this slice): the pair collection the store walk
+//   produces is captured as the dump observable BEFORE the processing
+//   mutates the nodes. The original's CollideLocAndNormal stack locals
+//   are uninitialized; the closeEnough preflight of
+//   z_collideTest_Nonsphere_Nonsphere returns true without writing
+//   loc.x/y or the normal, so the original hands uninitialized memory
+//   into Object::onCollide on that path — the transcription and the port
+//   zero-initialize instead (the garbage becomes the pinned zero; the
+//   corpora exercise the path).
+// - GeometryInfo's bounding-radius recalculation (calcBoundingStuff) is
+//   not transcribed: no path of the collide family reads the bounding
+//   circle/sphere radii, so setMajorRadius/setMinorRadius write their
+//   field only (stated; the bounding radii are a later slice's
+//   observable). The dead five-argument forward declaration of
+//   xy_collideTest_Circle_Circle (declared, never defined, never called)
+//   is not transcribed.
+// - The collide-module bodies are scripted corpus effects (the absorb /
+//   destroy / unregister triple, applied in that order inside the
+//   dispatch) exactly as the update-module bodies are — the real module
+//   bodies are the WP2 module framework's. The collide dispatches are a
+//   separate event stream (nothing else emits while processContactList
+//   runs, so the order against the main stream is fixed).
 // - Ghost objects (the fog-memory half of unRegisterObject) need draw
 //   -module knowledge and are not in this slice; the branch is
 //   transcribed with its condition and never taken by the corpora.
@@ -151,6 +196,7 @@ extern "C" {
 float gm_sinf(float);
 float gm_cosf(float);
 float gm_sqrtf(float);
+float gm_fabsf(float);
 }
 
 // ============================================================================
@@ -161,6 +207,8 @@ static inline float Cos(float x) { return gm_cosf(x); }
 static inline float Sin(float x) { return gm_sinf(x); }
 // WWMath::Sqrtf, deterministic branch.
 static inline float Sqrtf(float x) { return gm_sqrtf(x); }
+// WWMath::Fabs, deterministic branch (wwmath.h: gm_fabsf).
+static inline float Fabs(float x) { return gm_fabsf(x); }
 
 // ============================================================================
 // Lib/BaseFunctions.h — the Hoffesommer conversions, non-VC6 branch, as
@@ -259,6 +307,7 @@ enum GeometryType {
     GEOMETRY_CYLINDER, // partition/collision testing as cylinder. (majorRadius = radius, height = height)
     GEOMETRY_BOX,      // partition/collision testing as rectangular box (majorRadius = half len in forward dir; minorRadius = half len in side dir)
     GEOMETRY_NUM_TYPES,
+    GEOMETRY_FIRST = 0,
 };
 
 enum DisabledType {
@@ -300,6 +349,25 @@ enum {
 // pinned by the transcription's dump only, the semantic is "destroyed").
 enum {
     OBJECT_STATUS_DESTROYED_BIT = 24,
+};
+
+// The ObjectStatus bit the collide family consults (ObjectStatusTypes.h:
+// OBJECT_STATUS_NO_COLLISIONS — "object should be ignored for object-
+// object collisions"; the real ordinal is 5, but the transcription keeps
+// its model-internal numbering past the model's DESTROYED bit — the
+// number is pinned by the transcription's dump only, the semantic is
+// "no collisions").
+enum {
+    OBJECT_STATUS_NO_COLLISIONS_BIT = 25,
+};
+
+// The second kindof bit the collide family consults (KindOf.h, the Zero
+// Hour build with ALLOW_SURRENDER and RTS_GENERALS both off — the same
+// configuration the generated KINDOF_NAMES table of the script-engine
+// slice pinned: KINDOF_NO_COLLIDE = 27, "Never collide with or be
+// collided with").
+enum {
+    KINDOF_NO_COLLIDE_BIT = 27, // KindOf.h (ALLOW_SURRENDER off)
 };
 
 // ============================================================================
@@ -366,11 +434,88 @@ static inline void friend_setNextCallFrame(UpdateModuleT *u, unsigned frame)
 // --- Coord3D / GeometryInfo (Lib/Coord3D.h, Common/Geometry.h) -------------
 struct Coord3D {
     float x = 0, y = 0, z = 0;
+
+    // Coord3D::normalize (Lib/Coord3D.h): the length via the unqualified
+    // Sqrt (Lib/trig.h — gm_sqrtf in the deterministic build) and the
+    // len != 0 guard.
+    void normalize()
+    {
+        float len = Sqrtf(x * x + y * y + z * z);
+        if (len != 0) {
+            x /= len;
+            y /= len;
+            z /= len;
+        }
+    }
 };
+
+// Coord2D (Lib/Coord2D.h) — the rect corners.
+struct Coord2DT {
+    float x = 0, y = 0;
+};
+
+// GeometryInfo's collide-relevant surface (Geometry.h / Geometry.cpp).
+// The bounding-circle/sphere radius recalculation (calcBoundingStuff) is
+// not modelled: no path of the collide family reads the bounding radii,
+// so setMajorRadius/setMinorRadius write the field only (the original
+// also recomputes m_boundingCircleRadius/m_boundingSphereRadius — stated
+// deviation, identical observables).
 struct GeometryInfoT {
     int geomType = GEOMETRY_SPHERE;
     bool isSmall = false;
     float height = 0, majorRadius = 0, minorRadius = 0;
+
+    int getGeomType() const { return geomType; }
+    float getMajorRadius() const { return majorRadius; }
+    float getMinorRadius() const { return minorRadius; }
+    void setMajorRadius(float r)
+    {
+        majorRadius = r;
+        // (calcBoundingStuff — the bounding radii this family never reads)
+    }
+    void setMinorRadius(float r)
+    {
+        minorRadius = r;
+        // (calcBoundingStuff — the bounding radii this family never reads)
+    }
+
+    // Geometry.cpp: given an object with this geom, how far above the
+    // object's canonical position does its max z extend?
+    float getMaxHeightAbovePosition() const
+    {
+        switch (geomType) {
+        case GEOMETRY_SPHERE:
+            return majorRadius;
+        case GEOMETRY_BOX:
+        case GEOMETRY_CYLINDER:
+            return height;
+        };
+        return 0.0f;
+    }
+
+    // Geometry.cpp: ... and how far below.
+    float getMaxHeightBelowPosition() const
+    {
+        switch (geomType) {
+        case GEOMETRY_SPHERE:
+            return majorRadius;
+        case GEOMETRY_BOX:
+        case GEOMETRY_CYLINDER:
+            return 0.0f;
+        };
+        return 0.0f;
+    }
+};
+
+// --- the collide module interface (Object.cpp's onCollide walk) -------------
+// The behavior modules whose getCollide() returns non-null. The corpus
+// scripts each module's body with the same field shape the update
+// modules use; the effects run where the original's module body would
+// run them (inside CollideModule::onCollide).
+struct CollideModuleT {
+    bool m_onCollideAbsorb = false;         // sets OBJECT_STATUS_NO_COLLISIONS on the owner
+    int m_onCollideDestroyObj = INVALID_ID;  // GameLogic::destroyObject request
+    int m_onCollideUnregisterObj = INVALID_ID; // PartitionManager::unRegisterObject request
 };
 
 // --- Object (GameLogic/Object.h — the kernel's state half) -----------------
@@ -384,11 +529,14 @@ struct ObjectT {
     DisabledMask m_disabledMask;
     int m_disabledTillFrame[DISABLED_COUNT] = {0};
     std::vector<UpdateModuleT> m_updates;
+    std::vector<CollideModuleT> m_colliders; // the behavior list's collide modules (onCollide's walk)
     int m_partitionData = INVALID_ID; // the object-id handle of the PartitionData
     int m_cellChangeCount = 0;        // onPartitionCellChange() invocations
 
     bool isKindOfImmobile() const { return (m_kindof & (1u << KINDOF_IMMOBILE_BIT)) != 0; }
+    bool isKindOfNoCollide() const { return (m_kindof & (1u << KINDOF_NO_COLLIDE_BIT)) != 0; }
     bool isDestroyed() const { return (m_status & (1u << OBJECT_STATUS_DESTROYED_BIT)) != 0; }
+    bool isNoCollisions() const { return (m_status & (1u << OBJECT_STATUS_NO_COLLISIONS_BIT)) != 0; }
 };
 
 // ============================================================================
@@ -668,7 +816,439 @@ struct GameLogicHooks {
         EV_STARTNEWGAME, EV_OBJ_CREATED, EV_OBJ_DESTROYED, EV_CELL_CHANGE,
     };
     void ev(int e, int a = -1, int b = -1) { m_events.push_back({e, a, b}); }
+
+    // The collide-module dispatch stream: one entry per onCollide module
+    // call, with the loc and normal the collide test produced (the float
+    // observables of the family). A separate stream: nothing else emits
+    // while processContactList runs (the dispatches are the only
+    // host-visible activity inside the partition update), so the order
+    // against the main stream is fixed.
+    struct CollideEvent {
+        int m_obj, m_other, m_module;
+        Coord3D m_loc, m_normal;
+    };
+    std::vector<CollideEvent> m_collideEvents;
+    void collideEv(int obj, int other, int module, const Coord3D &loc, const Coord3D &normal)
+    {
+        m_collideEvents.push_back({obj, other, module, loc, normal});
+    }
 };
+
+// ============================================================================
+// The collide-test family (PartitionManager.cpp, PartitionManager.h's
+// CollideLocAndNormal, Geometry.cpp's height helpers) — verbatim.
+// ============================================================================
+
+// PartitionManager.h: the collision location and the collision surface
+// normal at 'a'. (The original leaves both undefined on a false result and
+// never reads them then; the closeEnough preflight of
+// z_collideTest_Nonsphere_Nonsphere returns true WITHOUT writing loc.x/y or
+// the normal — the original hands its uninitialized stack local onward.
+// The transcription zero-initializes every CollideLocAndNormal so the
+// garbage becomes the pinned zero; stated deviation, both sides.)
+struct CollideLocAndNormal {
+    Coord3D loc;
+    Coord3D normal;
+};
+
+// PartitionManager.cpp: the geometry pair under test.
+struct CollideInfoT {
+    Coord3D position;
+    GeometryInfoT geom;
+    float angle;
+
+    CollideInfoT(const Coord3D &p, const GeometryInfoT &g, float a) : position(p), geom(g), angle(a) {}
+};
+
+// sqr (Lib/Precompiled/BaseAlgorithm.h): x*x.
+static inline float csqr(float x) { return x * x; }
+
+// --- the 2d/3d vector helpers (PartitionManager.cpp's inline functions). ---
+static inline void vecDiff_2D(const Coord3D *posA, const Coord3D *posB, Coord3D *resultVec)
+{
+    resultVec->x = posA->x - posB->x;
+    resultVec->y = posA->y - posB->y;
+    resultVec->z = 0.0f;
+}
+
+static inline void vecDiff_3D(const Coord3D *posA, const Coord3D *posB, Coord3D *resultVec)
+{
+    resultVec->x = posA->x - posB->x;
+    resultVec->y = posA->y - posB->y;
+    resultVec->z = posA->z - posB->z;
+}
+
+static inline float calcSqrDist_2D(const Coord3D *dist) { return csqr(dist->x) + csqr(dist->y); }
+
+static inline float calcSqrDist_3D(const Coord3D *dist)
+{
+    return csqr(dist->x) + csqr(dist->y) + csqr(dist->z);
+}
+
+static inline void projectCoord3D(Coord3D *coord, const Coord3D *unitDir, float dist)
+{
+    coord->x += unitDir->x * dist;
+    coord->y += unitDir->y * dist;
+    coord->z += unitDir->z * dist;
+}
+
+static inline void flipCoord3D(Coord3D *coord)
+{
+    coord->x = -coord->x;
+    coord->y = -coord->y;
+    coord->z = -coord->z;
+}
+
+// --- rectToFourPoints / testRotatedPointsAgainstRect. ---------------------
+static void rectToFourPoints(
+    const CollideInfoT *a, // z is ignored
+    Coord2DT pts[])
+{
+    float c = Cos(a->angle);
+    float s = Sin(a->angle);
+
+    float exc = a->geom.getMajorRadius() * c;
+    float eyc = a->geom.getMinorRadius() * c;
+    float exs = a->geom.getMajorRadius() * s;
+    float eys = a->geom.getMinorRadius() * s;
+
+    // tl
+    pts[0].x = a->position.x - exc - eys;
+    pts[0].y = a->position.y + eyc - exs;
+
+    // tr
+    pts[1].x = a->position.x + exc - eys;
+    pts[1].y = a->position.y + eyc + exs;
+
+    // bl
+    pts[2].x = a->position.x - exc + eys;
+    pts[2].y = a->position.y - eyc - exs;
+
+    // br
+    pts[3].x = a->position.x + exc + eys;
+    pts[3].y = a->position.y - eyc + exs;
+}
+
+static void testRotatedPointsAgainstRect(
+    const Coord2DT *pts, // an array of 4
+    const CollideInfoT *a,
+    Coord2DT *avg,
+    int *avgTot)
+{
+    //DEBUG_ASSERTCRASH(a->geom.getGeomType() == GEOMETRY_BOX, ("only boxes are ok here"));
+    float major = a->geom.getMajorRadius();
+    float minor = (a->geom.getGeomType() == GEOMETRY_SPHERE) ? a->geom.getMajorRadius() : a->geom.getMinorRadius();
+
+    float c = Cos(-a->angle);
+    float s = Sin(-a->angle);
+
+    for (int i = 0; i < 4; ++i, ++pts) {
+        // convert to a delta relative to rect ctr
+        float ptx = pts->x - a->position.x;
+        float pty = pts->y - a->position.y;
+
+        // inverse-rotate it to the right coord system
+        float ptx_new = Fabs(ptx * c - pty * s);
+        float pty_new = Fabs(ptx * s + pty * c);
+
+        if (ptx_new <= major && pty_new <= minor) {
+            avg->x += pts->x;
+            avg->y += pts->y;
+            *avgTot += 1;
+        }
+    }
+}
+
+// The CollideTestProc: collideLoc/collideNormal are filled only if the
+// result is true; either may be null if the caller doesn't need it.
+typedef bool (*CollideTestProc)(const CollideInfoT *a, const CollideInfoT *b, CollideLocAndNormal *cinfo);
+
+// --- the xy quartet. -------------------------------------------------------
+// (The original forward-declares a five-argument xy_collideTest_Circle_Circle
+// (a_pos, b_pos, a_radius, b_radius, cinfo) that it never defines and never
+// calls — dead declaration, an overload sibling of the CollideInfo form the
+// z_ helpers pass around. Not transcribed.)
+
+static bool xy_collideTest_Rect_Rect(const CollideInfoT *a, const CollideInfoT *b, CollideLocAndNormal *cinfo)
+{
+    Coord2DT pts[4];
+    Coord2DT avg;
+    avg.x = avg.y = 0.0f;
+    int avgTot = 0;
+
+    rectToFourPoints(a, pts);
+    testRotatedPointsAgainstRect(pts, b, &avg, &avgTot);
+
+    rectToFourPoints(b, pts);
+    testRotatedPointsAgainstRect(pts, a, &avg, &avgTot);
+
+    if (avgTot > 0) {
+        if (cinfo) {
+            // this is a little hokey, but generally adequate...
+            cinfo->loc.x = avg.x / avgTot;
+            cinfo->loc.y = avg.y / avgTot;
+            cinfo->loc.z = (a->position.z + b->position.z) * 0.5f;
+
+            // yow, what exactly does it mean to find the normal to two *intersecting*
+            // rects? ... we provide a (poor) guess by just doing the center-to-center
+            // normal. (srj)
+            vecDiff_2D(&b->position, &a->position, &cinfo->normal);
+            cinfo->normal.normalize();
+        }
+        return true;
+    }
+    return false;
+}
+
+// 2d utility routine for rect/cyl & rect/sphere collisions testing.
+static bool xy_collideTest_Rect_Circle(const CollideInfoT *a, const CollideInfoT *b, CollideLocAndNormal *cinfo)
+{
+    // srj -- this is better than the other one, since it actually handles rotated rects,
+    // but still not as accurate as is could be.
+    CollideInfoT btmp = *b;
+    btmp.geom.setMinorRadius(btmp.geom.getMajorRadius());
+    return xy_collideTest_Rect_Rect(a, &btmp, cinfo);
+}
+
+// 2d utility routine for rect/cyl & rect/sphere collisions testing.
+static bool xy_collideTest_Circle_Rect(const CollideInfoT *a, const CollideInfoT *b, CollideLocAndNormal *cinfo)
+{
+    bool result = xy_collideTest_Rect_Circle(b, a, cinfo);
+    if (cinfo)
+        flipCoord3D(&cinfo->normal);
+    return result;
+}
+
+// 2d utility routine for cyl & sphere collisions testing.
+static bool xy_collideTest_Circle_Circle(const CollideInfoT *a, const CollideInfoT *b, CollideLocAndNormal *cinfo)
+{
+    Coord3D diff;
+    vecDiff_2D(&b->position, &a->position, &diff);
+    float distSqr = calcSqrDist_2D(&diff);
+    float touchingDistSqr = csqr(a->geom.getMajorRadius() + b->geom.getMajorRadius());
+    if (distSqr <= touchingDistSqr) {
+        // calc the approximate location and normal.
+        if (cinfo) {
+            cinfo->normal = diff;
+            cinfo->normal.normalize();
+            cinfo->loc = a->position;
+            projectCoord3D(&cinfo->loc, &cinfo->normal, a->geom.getMajorRadius());
+        }
+
+        return true;
+    }
+    return false;
+}
+
+// --- the z composites. -----------------------------------------------------
+inline bool z_collideTest_Sphere_Nonsphere(CollideTestProc xyproc, const CollideInfoT *a, const CollideInfoT *b,
+    CollideLocAndNormal *cinfo)
+{
+    // case 1: center of sphere is within the nonsphere z-space.
+    if (a->position.z >= b->position.z && a->position.z <= b->position.z + b->geom.getMaxHeightAbovePosition()) {
+        if (xyproc(a, b, cinfo)) {
+            // a side-to-side collision; just need to adjust the z-coord of collideLoc
+            if (cinfo) {
+                cinfo->loc.z = a->position.z;
+            }
+            return true;
+        }
+        return false;
+    }
+
+    // case 2: center of sphere is above or below nonsphere, but within
+    // major-radius of top or bottom.
+
+    // 2a: sphere is below the nonsphere
+    float b_bot = b->position.z;
+    if (a->position.z < b_bot && a->position.z + a->geom.getMajorRadius() >= b_bot) {
+        // find the radius of the slice of the sphere that is at b_bot
+        CollideInfoT amod = *a;
+        amod.position.z = b_bot;
+        amod.geom.setMajorRadius(Sqrtf(csqr(a->geom.getMajorRadius()) - csqr(b_bot - a->position.z)));
+        if (xyproc(&amod, b, cinfo)) {
+            // (the 'end' collision normal would point straight up; never
+            // possible, never computed)
+            return true;
+        }
+        return false;
+    }
+
+    // 2b: sphere is above the nonsphere
+    float b_top = b->position.z + b->geom.getMaxHeightAbovePosition();
+    if (a->position.z > b_top && a->position.z - a->geom.getMajorRadius() <= b_top) {
+        CollideInfoT amod = *a;
+        amod.position.z = b_top;
+        amod.geom.setMajorRadius(Sqrtf(csqr(a->geom.getMajorRadius()) - csqr(a->position.z - b_top)));
+        if (xyproc(&amod, b, cinfo)) {
+            // (ditto, straight down)
+            return true;
+        }
+        return false;
+    }
+
+    return false;
+}
+
+inline bool z_collideTest_Nonsphere_Nonsphere(CollideTestProc xyproc, const CollideInfoT *a, const CollideInfoT *b,
+    CollideLocAndNormal *cinfo)
+{
+    // note: we already know that there is a z-intersection (our caller filters that out)
+    // so we need not recheck that here.
+
+    // Preflight for close objects.
+    float dSqr = csqr(a->position.x - b->position.x) + csqr(a->position.y - b->position.y);
+    float minRadius = a->geom.getMajorRadius();
+    float r = a->geom.getMinorRadius();
+    if (minRadius > r)
+        minRadius = r;
+    r = b->geom.getMajorRadius();
+    if (minRadius > r)
+        minRadius = r;
+    r = b->geom.getMinorRadius();
+    if (minRadius > r)
+        minRadius = r;
+
+    bool closeEnough = csqr(minRadius) > dSqr;
+
+    if (closeEnough || xyproc(a, b, cinfo)) {
+        // since we allow objects to overlap at times, how do we distinguish
+        // between a "top-to-bottom" vs "side-to-side" collision?
+        // currently, we don't: cylindrical shapes currently never collide
+        // top-to-bottom, so we just declare everything to be side-to-side.
+        // if this changes, need to smarten this.
+
+        // case 1: side-to-side collision
+        // just need to adjust the z-coord of collideLoc
+        if (cinfo) {
+            if (b->position.z > a->position.z)
+                cinfo->loc.z = (b->position.z + a->position.z + a->geom.getMaxHeightAbovePosition()) * 0.5f;
+            else
+                cinfo->loc.z = (a->position.z + b->position.z + b->geom.getMaxHeightAbovePosition()) * 0.5f;
+        }
+        return true;
+    }
+
+    return false;
+}
+
+// --- the nine proc entries. ------------------------------------------------
+static bool collideTest_Sphere_Sphere(const CollideInfoT *a, const CollideInfoT *b, CollideLocAndNormal *cinfo)
+{
+    Coord3D diff;
+    vecDiff_3D(&b->position, &a->position, &diff);
+    float distSqr = calcSqrDist_3D(&diff);
+    float touchingDistSqr = csqr(a->geom.getMajorRadius() + b->geom.getMajorRadius());
+    if (distSqr <= touchingDistSqr) {
+        if (cinfo) {
+            cinfo->normal = diff;
+            cinfo->normal.normalize();
+            cinfo->loc = a->position;
+            projectCoord3D(&cinfo->loc, &cinfo->normal, a->geom.getMajorRadius());
+        }
+
+        return true;
+    }
+    return false;
+}
+
+static bool collideTest_Sphere_Cylinder(const CollideInfoT *a, const CollideInfoT *b, CollideLocAndNormal *cinfo)
+{
+    return z_collideTest_Sphere_Nonsphere(xy_collideTest_Circle_Circle, a, b, cinfo);
+}
+
+static bool collideTest_Sphere_Box(const CollideInfoT *a, const CollideInfoT *b, CollideLocAndNormal *cinfo)
+{
+    return z_collideTest_Sphere_Nonsphere(xy_collideTest_Circle_Rect, a, b, cinfo);
+}
+
+static bool collideTest_Cylinder_Sphere(const CollideInfoT *a, const CollideInfoT *b, CollideLocAndNormal *cinfo)
+{
+    bool result = z_collideTest_Sphere_Nonsphere(xy_collideTest_Circle_Circle, b, a, cinfo);
+    if (cinfo)
+        flipCoord3D(&cinfo->normal);
+    return result;
+}
+
+static bool collideTest_Cylinder_Cylinder(const CollideInfoT *a, const CollideInfoT *b, CollideLocAndNormal *cinfo)
+{
+    return z_collideTest_Nonsphere_Nonsphere(xy_collideTest_Circle_Circle, a, b, cinfo);
+}
+
+static bool collideTest_Cylinder_Box(const CollideInfoT *a, const CollideInfoT *b, CollideLocAndNormal *cinfo)
+{
+    return z_collideTest_Nonsphere_Nonsphere(xy_collideTest_Circle_Rect, a, b, cinfo);
+}
+
+static bool collideTest_Box_Sphere(const CollideInfoT *a, const CollideInfoT *b, CollideLocAndNormal *cinfo)
+{
+    bool result = z_collideTest_Sphere_Nonsphere(xy_collideTest_Circle_Rect, b, a, cinfo);
+    if (cinfo)
+        flipCoord3D(&cinfo->normal);
+    return result;
+}
+
+static bool collideTest_Box_Cylinder(const CollideInfoT *a, const CollideInfoT *b, CollideLocAndNormal *cinfo)
+{
+    return z_collideTest_Nonsphere_Nonsphere(xy_collideTest_Rect_Circle, a, b, cinfo);
+}
+
+static bool collideTest_Box_Box(const CollideInfoT *a, const CollideInfoT *b, CollideLocAndNormal *cinfo)
+{
+    return z_collideTest_Nonsphere_Nonsphere(xy_collideTest_Rect_Rect, a, b, cinfo);
+}
+
+// NOTE: This *DEPENDS* on the order of the geometry enum defines
+static CollideTestProc theCollideTestProcs[] = {
+    collideTest_Sphere_Sphere,
+    collideTest_Sphere_Cylinder,
+    collideTest_Sphere_Box,
+    collideTest_Cylinder_Sphere,
+    collideTest_Cylinder_Cylinder,
+    collideTest_Cylinder_Box,
+    collideTest_Box_Sphere,
+    collideTest_Box_Cylinder,
+    collideTest_Box_Box
+};
+static_assert(sizeof(theCollideTestProcs) / sizeof(theCollideTestProcs[0]) == GEOMETRY_NUM_TYPES * GEOMETRY_NUM_TYPES,
+    "Incorrect array size");
+
+// PartitionManager::geomCollidesWithGeom — see if thisObj collides with
+// geom at pos & angle. (A const member on the manager in the original,
+// but pure geometry: no manager state is read, so it is a free function
+// here.) Note the z-gate: unlike PartitionData::collidesWith this one
+// ignores the getMaxHeightBelowPosition extents entirely — thisTop is
+// compared against that's raw z and this's raw z against thatTop — a
+// NARROWER gate than collidesWith's, pinned by the corpora.
+static bool geomCollidesWithGeom(const Coord3D *pos1,
+    const GeometryInfoT &geom1,
+    float angle1,
+    const Coord3D *pos2,
+    const GeometryInfoT &geom2,
+    float angle2)
+{
+    CollideInfoT thisInfo(*pos1, geom1, angle1);
+    CollideInfoT thatInfo(*pos2, geom2, angle2);
+
+    // invariant for all geometries: first do z collision check.
+    if (thisInfo.position.z + thisInfo.geom.getMaxHeightAbovePosition() >= thatInfo.position.z &&
+        thisInfo.position.z <= thatInfo.position.z + thatInfo.geom.getMaxHeightAbovePosition()) {
+        int thisGeom = geom1.getGeomType();
+        int thatGeom = geom2.getGeomType();
+
+        //
+        // NOTE: This assumes geometry enumerations that start at GEOMETRY_FIRST AND depends on the
+        // order in which they appear in the enum list
+        //
+        CollideTestProc collideProc =
+            theCollideTestProcs[(size_t)(thisGeom - GEOMETRY_FIRST) * GEOMETRY_NUM_TYPES + (thatGeom - GEOMETRY_FIRST)];
+        CollideLocAndNormal cloc = {}; // (the original's uninitialized local — the pinned zero)
+        return (*collideProc)(&thisInfo, &thatInfo, &cloc);
+    } else {
+        // no z-intersection -> no collision.
+        return false;
+    }
+}
 
 // ============================================================================
 // The PartitionManager transcription.
@@ -828,31 +1408,30 @@ struct PartitionContactList {
         m_contactList = ncd;
     }
 
-    // removeSpecificPartitionData: drop every contact that refers to the
-    // given object (the detachFromObject mid-processing path).
+    // removeSpecificPartitionData: null every contact that refers to the
+    // given object (the detachFromObject mid-processing path). The
+    // original's verbatim shape — the nodes stay in the list and the hash
+    // with nulled ids, and the processing walk skips them. (This replaces
+    // the transcription-time unlink-and-erase variant, which had never
+    // been reachable: same observables — the skipped nodes are skipped
+    // either way, and the pair dump is captured before processing.)
     void removeSpecificPartitionData(int objId)
     {
-        for (size_t i = 0; i < m_nodeStore.size();) {
-            PartitionContactListNode *n = m_nodeStore[i].get();
-            if (n->m_obj == objId || n->m_other == objId) {
-                // unlink from hash
-                PartitionContactListNode **pp = &m_contactHash[(size_t)n->m_hashValue];
-                while (*pp && *pp != n)
-                    pp = &(*pp)->m_nextHash;
-                if (*pp)
-                    *pp = n->m_nextHash;
-                // unlink from list
-                PartitionContactListNode **lp = &m_contactList;
-                while (*lp && *lp != n)
-                    lp = &(*lp)->m_next;
-                if (*lp)
-                    *lp = n->m_next;
-                m_nodeStore.erase(m_nodeStore.begin() + (long)i);
-            } else {
-                ++i;
+        for (PartitionContactListNode *cd = m_contactList; cd; cd = cd->m_next)
+        {
+            if (cd->m_obj == objId || cd->m_other == objId)
+            {
+                cd->m_obj = INVALID_ID;
+                cd->m_other = INVALID_ID;
             }
         }
     }
+
+    // process all pairs in the contact list: first, determine if they
+    // truly collide, based on their geometry. if so, call the collide
+    // actions for each object in the pair. (Defined after the World —
+    // the dispatch needs the driver's singletons.)
+    void processContactList(World &w);
 };
 
 struct Region2DT {
@@ -1365,11 +1944,16 @@ struct PartitionManagerT {
                 }
             }
 
-            // (processContactList — the collide-test family — is the
-            // collision slice; the pair collection is this slice's dump)
+            // the pair collection, in contact-list order (captured before
+            // the processing nulls the nodes — the dump observable)
             m_lastContacts.clear();
             for (PartitionContactListNode *n = ctList.m_contactList; n; n = n->m_next)
                 m_lastContacts.emplace_back(n->m_obj, n->m_other);
+
+            // the contact list's processing: the collide-test family and
+            // the CollideModule dispatch (the collision slice)
+            ctList.processContactList(*m_world);
+
             m_contactList = nullptr;
             // (processPendingUndoShroudRevealQueue is the shroud slice)
         }
@@ -1621,13 +2205,17 @@ struct World {
         return nullptr;
     }
 
+    // PartitionData::collidesWith / friend_collidesWith (defined after the
+    // World — the collide family's object entry).
+    bool collidesWith(int thisId, int thatId, CollideLocAndNormal *cinfo);
+
     // The ThingFactory::newObject shape: ID allocation, module birth (with
     // the phases and the optional constructor wakes — the not-in-list
-    // awaken path), the GameLogic registration, then the partition
-    // registration.
+    // awaken path — and the collide modules the behavior list carries),
+    // the GameLogic registration, then the partition registration.
     ObjectT *createObject(const GeometryInfoT &geom, bool immobile, int numUpdates,
                           const std::vector<int> &ctorWakes, const Coord3D &pos = {}, float angle = 0.0f,
-                          const std::vector<int> &phases = {})
+                          const std::vector<int> &phases = {}, int numColliders = 0)
     {
         ObjectT *obj = new ObjectT();
         objects.emplace_back(obj);
@@ -1640,6 +2228,7 @@ struct World {
         obj->m_updates.resize((size_t)numUpdates);
         for (int i = 0; i < numUpdates && i < (int)phases.size(); ++i)
             obj->m_updates[(size_t)i].m_phase = phases[(size_t)i];
+        obj->m_colliders.resize((size_t)numColliders);
         obj->m_id = logic.allocateObjectID();
 
         // module constructors may setWakeFrame (the not-in-list path)
@@ -1981,6 +2570,136 @@ int GameLogicT::moduleIndexOf(const UpdateModuleT *u) const
 }
 ObjectT *PartitionManagerT::resolveObject(int id) { return m_world ? m_world->object(id) : nullptr; }
 
+// --- the collide-test family's object half (needs the World). ----------------
+// PartitionData::collidesWith (the friend_collidesWith the contact list
+// calls): the KINDOF_NO_COLLIDE refusal, the z-intersection gate with the
+// getMaxHeightBelowPosition extents, and theCollideTestProcs dispatch.
+bool World::collidesWith(int thisId, int thatId, CollideLocAndNormal *cinfo)
+{
+    ObjectT *thisObj = object(thisId);
+    ObjectT *thatObj = object(thatId);
+    if (!thisObj || !thatObj)
+        return false; // (the transcription's dead-id guard; unreachable in the corpora)
+
+    if (thisObj->isKindOfNoCollide() || thatObj->isKindOfNoCollide())
+        return false; // A collision extent of zero size is still a point and can collide, but we don't always want to.
+
+    CollideInfoT thisInfo(thisObj->m_pos, thisObj->m_geometryInfo, thisObj->m_angle);
+    CollideInfoT thatInfo(thatObj->m_pos, thatObj->m_geometryInfo, thatObj->m_angle);
+
+    // invariant for all geometries: first do z collision check.
+    float thisTop = thisInfo.position.z + thisInfo.geom.getMaxHeightAbovePosition();
+    float thisBot = thisInfo.position.z - thisInfo.geom.getMaxHeightBelowPosition();
+    float thatTop = thatInfo.position.z + thatInfo.geom.getMaxHeightAbovePosition();
+    float thatBot = thatInfo.position.z - thatInfo.geom.getMaxHeightBelowPosition();
+    if (thisTop >= thatBot && thisBot <= thatTop) {
+        int thisGeom = thisObj->m_geometryInfo.getGeomType();
+        int thatGeom = thatObj->m_geometryInfo.getGeomType();
+
+        //
+        // NOTE: This assumes geometry enumerations that start at GEOMETRY_FIRST AND depends on the
+        // order in which they appear in the enum list
+        //
+        CollideTestProc collideProc =
+            theCollideTestProcs[(size_t)(thisGeom - GEOMETRY_FIRST) * GEOMETRY_NUM_TYPES + (thatGeom - GEOMETRY_FIRST)];
+        return (*collideProc)(&thisInfo, &thatInfo, cinfo);
+    } else {
+        // no z-intersection -> no collision.
+        return false;
+    }
+}
+
+// Object::onCollide (Object.cpp): walk the behavior list, dispatch every
+// module whose getCollide() returns non-null, re-checking
+// OBJECT_STATUS_NO_COLLISIONS each time thru the loop (a collide module
+// may set it mid-walk — the break). The non-collide behaviors contribute
+// nothing observable, so the walk is over the collide slots only.
+static void objectOnCollide(World &w, ObjectT *obj, ObjectT *other, const Coord3D *loc, const Coord3D *normal)
+{
+    for (size_t i = 0; i < obj->m_colliders.size(); ++i) {
+        // check each time thru the loop, in case a collide module sets it
+        if (obj->isNoCollisions()) {
+            break;
+        }
+
+        w.hooks.collideEv(obj->m_id, other->m_id, (int)i, *loc, *normal);
+
+        // the scripted module body (the corpus's three effects, applied
+        // in this order: the absorb, the destroy, the unregister)
+        CollideModuleT &cm = obj->m_colliders[i];
+        if (cm.m_onCollideAbsorb)
+            obj->m_status |= (1u << OBJECT_STATUS_NO_COLLISIONS_BIT);
+        if (cm.m_onCollideDestroyObj != INVALID_ID) {
+            ObjectT *victim = w.object(cm.m_onCollideDestroyObj);
+            if (victim)
+                w.logic.destroyObject(victim, &w.hooks);
+        }
+        if (cm.m_onCollideUnregisterObj != INVALID_ID) {
+            ObjectT *victim = w.object(cm.m_onCollideUnregisterObj);
+            if (victim)
+                w.pm.unRegisterObject(victim); // (detachFromObject consults m_contactList)
+        }
+    }
+}
+
+// PartitionContactList::processContactList (PartitionManager.cpp,
+// verbatim structure): the null-node skip, the friend_collidesWith call,
+// the OBJECT_STATUS_NO_COLLISIONS gates, the node nulling before the
+// dispatch, the flipped-normal second call gated by both sides'
+// isDestroyed, and the re-dirty family with its refusals.
+void PartitionContactList::processContactList(World &w)
+{
+    for (PartitionContactListNode *cd = m_contactList; cd; cd = cd->m_next)
+    {
+        if (cd->m_obj == INVALID_ID || cd->m_other == INVALID_ID)
+            continue;
+
+        // we know that their partitions overlap; determine if they REALLY collide
+        // before proceeding...
+        CollideLocAndNormal cinfo = {}; // (the original's uninitialized local — the pinned zero)
+        if (!w.collidesWith(cd->m_obj, cd->m_other, &cinfo))
+            continue;
+
+        ObjectT *obj = w.object(cd->m_obj);
+        ObjectT *other = w.object(cd->m_other);
+
+        if (obj->isNoCollisions() || other->isNoCollisions())
+            continue;
+
+        // (the DEBUG_ASSERTCRASH about two immobile things is debug-only — dropped)
+
+        // the onCollide() calls can remove the object(s) from the partition mgr,
+        // thus destroying the partitiondata for 'em. go ahead and null these out here
+        // so we won't be tempted to use 'em (since they might be bogus).
+        cd->m_obj = INVALID_ID;
+        cd->m_other = INVALID_ID;
+
+        objectOnCollide(w, obj, other, &cinfo.loc, &cinfo.normal);
+        flipCoord3D(&cinfo.normal);
+
+        //Before checking the "other" case, make sure that the previous collision didn't
+        //absorb him. This becomes a conflict for pilots giving veterancy to transports
+        //and pilots entering transports. Both would occur if these isDestroyed checks
+        //were missing.
+        if (!obj->isDestroyed() && !other->isDestroyed()) {
+            objectOnCollide(w, other, obj, &cinfo.loc, &cinfo.normal);
+        }
+
+        //
+        // NOTE: it is VERY IMPORTANT (for performance reasons) to not re-dirty immobile things.
+        //
+        // NOTE also that we re-get partitiondata from the object, since it might have been
+        // removed from the partition system by the onCollide call...
+        //
+        if (!obj->isDestroyed() && obj->m_partitionData != INVALID_ID && !obj->isKindOfImmobile()) {
+            w.pm.makeDirty(w.pm.findModule(obj->m_partitionData), false);
+        }
+        if (!other->isDestroyed() && other->m_partitionData != INVALID_ID && !other->isKindOfImmobile()) {
+            w.pm.makeDirty(w.pm.findModule(other->m_partitionData), false);
+        }
+    }
+}
+
 // ============================================================================
 // The dumper.
 // ============================================================================
@@ -2114,6 +2833,19 @@ static void dumpContacts(Dumper &d, World &w)
     d.line("contacts %d", (int)w.pm.m_lastContacts.size());
     for (auto &p : w.pm.m_lastContacts)
         d.line("p o%d o%d", p.first, p.second);
+}
+
+// The collide-module dispatches the last partition update produced (in
+// dispatch order, with the loc and normal the collide test computed).
+static void dumpCollideEvents(Dumper &d, World &w)
+{
+    d.line("collideevents %d", (int)w.hooks.m_collideEvents.size());
+    for (auto &e : w.hooks.m_collideEvents) {
+        d.line("cv o%d o%d m%d loc=%08x,%08x,%08x nrm=%08x,%08x,%08x",
+               e.m_obj, e.m_other, e.m_module, f32bits(e.m_loc.x), f32bits(e.m_loc.y), f32bits(e.m_loc.z),
+               f32bits(e.m_normal.x), f32bits(e.m_normal.y), f32bits(e.m_normal.z));
+    }
+    w.hooks.m_collideEvents.clear();
 }
 
 // ============================================================================
@@ -2755,6 +3487,312 @@ static void corpusPartRegister(Dumper &d)
     d.line("end");
 }
 
+// --- collide_matrix: the collide-test family over crafted geometry pairs -------
+static void corpusCollideMatrix(Dumper &d)
+{
+    d.line("corpus collide_matrix");
+
+    // the three geometry flavors: sphere (r=10), cylinder (r=10, h=8),
+    // box (10x6, h=8)
+    GeometryInfoT sphere{GEOMETRY_SPHERE, false, 10.0f, 10.0f, 10.0f};
+    GeometryInfoT cyl{GEOMETRY_CYLINDER, false, 8.0f, 10.0f, 10.0f};
+    GeometryInfoT box{GEOMETRY_BOX, false, 8.0f, 10.0f, 6.0f};
+    const GeometryInfoT *geoms[3] = {&sphere, &cyl, &box};
+
+    // (a) the 3x3 matrix at an overlapping offset (the second geom rotated
+    // 0.3 rad), through geomCollidesWithGeom — the boolean
+    Coord3D p1{100.0f, 100.0f, 0.0f};
+    Coord3D p2{104.0f, 100.0f, 0.0f};
+    for (int i = 0; i < 3; ++i) {
+        for (int j = 0; j < 3; ++j) {
+            bool res = geomCollidesWithGeom(&p1, *geoms[i], 0.0f, &p2, *geoms[j], 0.3f);
+            d.line("m %d %d %d", i, j, res ? 1 : 0);
+        }
+    }
+    // ... and at a miss offset
+    Coord3D p3{140.0f, 100.0f, 0.0f};
+    for (int i = 0; i < 3; ++i) {
+        for (int j = 0; j < 3; ++j) {
+            bool res = geomCollidesWithGeom(&p1, *geoms[i], 0.0f, &p3, *geoms[j], 0.3f);
+            d.line("miss %d %d %d", i, j, res ? 1 : 0);
+        }
+    }
+
+    // (b) the same matrix through the proc table directly, with the cinfo —
+    // the float observables (loc and normal)
+    for (int i = 0; i < 3; ++i) {
+        for (int j = 0; j < 3; ++j) {
+            CollideInfoT a(p1, *geoms[i], 0.0f);
+            CollideInfoT b(p2, *geoms[j], 0.3f);
+            CollideLocAndNormal cinfo = {};
+            bool res = theCollideTestProcs[(size_t)i * GEOMETRY_NUM_TYPES + j](&a, &b, &cinfo);
+            d.line("d %d %d %d loc=%08x,%08x,%08x nrm=%08x,%08x,%08x", i, j, res ? 1 : 0,
+                   f32bits(cinfo.loc.x), f32bits(cinfo.loc.y), f32bits(cinfo.loc.z),
+                   f32bits(cinfo.normal.x), f32bits(cinfo.normal.y), f32bits(cinfo.normal.z));
+        }
+    }
+
+    // (c) the null-cinfo guard: every proc takes a null cinfo fine
+    {
+        CollideInfoT a(p1, sphere, 0.0f);
+        CollideInfoT b(p2, sphere, 0.0f);
+        bool res = theCollideTestProcs[0](&a, &b, nullptr);
+        d.line("nullcinfo %d", res ? 1 : 0);
+    }
+
+    // (d) the sphere-sphere touch boundary: dist == r1+r2 (the <=) and
+    // the step past it; plus the coincident spheres (the normalize
+    // zero-guard leaves the normal zero)
+    {
+        GeometryInfoT s15{GEOMETRY_SPHERE, false, 15.0f, 15.0f, 15.0f};
+        CollideInfoT a(Coord3D{0.0f, 0.0f, 0.0f}, s15, 0.0f);
+        CollideInfoT b(Coord3D{30.0f, 0.0f, 0.0f}, s15, 0.0f);
+        CollideLocAndNormal cinfo = {};
+        bool res = theCollideTestProcs[0](&a, &b, &cinfo);
+        d.line("touch %d loc=%08x,%08x,%08x nrm=%08x,%08x,%08x", res ? 1 : 0,
+               f32bits(cinfo.loc.x), f32bits(cinfo.loc.y), f32bits(cinfo.loc.z),
+               f32bits(cinfo.normal.x), f32bits(cinfo.normal.y), f32bits(cinfo.normal.z));
+        CollideInfoT c(Coord3D{30.1f, 0.0f, 0.0f}, s15, 0.0f);
+        d.line("past %d", theCollideTestProcs[0](&a, &c, nullptr) ? 1 : 0);
+        CollideInfoT z(Coord3D{0.0f, 0.0f, 0.0f}, s15, 0.0f);
+        CollideLocAndNormal cz = {};
+        bool resz = theCollideTestProcs[0](&a, &z, &cz);
+        d.line("coincident %d loc=%08x,%08x,%08x nrm=%08x,%08x,%08x", resz ? 1 : 0,
+               f32bits(cz.loc.x), f32bits(cz.loc.y), f32bits(cz.loc.z),
+               f32bits(cz.normal.x), f32bits(cz.normal.y), f32bits(cz.normal.z));
+    }
+
+    // (e) the closeEnough preflight: a thin 10x1 box rotated 90 degrees
+    // versus an unrotated 10x6 box, centers 0.9 apart — every corner of
+    // either misses the other's frame (the plate's corners stand 10 off
+    // the box's minor axis; the box's corners stand 9.1 off the plate's
+    // minor axis), so the rect test says false; the minRadius=1 preflight
+    // (0.9^2 < 1^2) forces the true — with loc.x/y and the normal left
+    // unwritten (the pinned zero), loc.z the side-to-side average
+    {
+        GeometryInfoT plate{GEOMETRY_BOX, false, 8.0f, 10.0f, 1.0f};
+        GeometryInfoT bx{GEOMETRY_BOX, false, 8.0f, 10.0f, 6.0f};
+        CollideInfoT a(Coord3D{50.0f, 50.0f, 0.0f}, plate, 1.57079632f);
+        CollideInfoT c(Coord3D{50.9f, 50.0f, 0.0f}, bx, 0.0f);
+        CollideLocAndNormal cinfo = {};
+        bool res = theCollideTestProcs[8](&a, &c, &cinfo); // Box_Box
+        d.line("closeenough %d loc=%08x,%08x,%08x nrm=%08x,%08x,%08x", res ? 1 : 0,
+               f32bits(cinfo.loc.x), f32bits(cinfo.loc.y), f32bits(cinfo.loc.z),
+               f32bits(cinfo.normal.x), f32bits(cinfo.normal.y), f32bits(cinfo.normal.z));
+        // the same pair one step further apart: the preflight misses too,
+        // and the rect test still says false
+        CollideInfoT c2(Coord3D{51.1f, 50.0f, 0.0f}, bx, 0.0f);
+        d.line("toofar %d", theCollideTestProcs[8](&a, &c2, nullptr) ? 1 : 0);
+        // and through geomCollidesWithGeom (the z-gate passes at z=0, so
+        // the same verdict)
+        d.line("closeenough-geom %d", geomCollidesWithGeom(&a.position, plate, 1.57079632f, &c.position, bx, 0.0f) ? 1 : 0);
+    }
+
+    // (f) the rect-circle square promotion: a cylinder r=5 diagonal from an
+    // unrotated 10x6 box — the true circle misses (the closest box corner
+    // is sqrt(3.5^2+4.5^2) > 5 away) but the promoted 10x10 square's
+    // corner cap catches the box corner. Both orders (the flipped normal
+    // of the Circle_Rect wrapper).
+    {
+        GeometryInfoT small{GEOMETRY_CYLINDER, false, 8.0f, 5.0f, 5.0f};
+        GeometryInfoT bx{GEOMETRY_BOX, false, 8.0f, 10.0f, 6.0f};
+        CollideInfoT cylI(Coord3D{63.5f, 60.5f, 0.0f}, small, 0.0f);
+        CollideInfoT boxI(Coord3D{50.0f, 50.0f, 0.0f}, bx, 0.0f);
+        CollideLocAndNormal c1 = {};
+        bool r1 = theCollideTestProcs[1 * GEOMETRY_NUM_TYPES + 2](&cylI, &boxI, &c1); // Cylinder_Box
+        d.line("promo-cyl-box %d loc=%08x,%08x,%08x nrm=%08x,%08x,%08x", r1 ? 1 : 0,
+               f32bits(c1.loc.x), f32bits(c1.loc.y), f32bits(c1.loc.z),
+               f32bits(c1.normal.x), f32bits(c1.normal.y), f32bits(c1.normal.z));
+        CollideLocAndNormal c2 = {};
+        bool r2 = theCollideTestProcs[2 * GEOMETRY_NUM_TYPES + 1](&boxI, &cylI, &c2); // Box_Cylinder
+        d.line("promo-box-cyl %d loc=%08x,%08x,%08x nrm=%08x,%08x,%08x", r2 ? 1 : 0,
+               f32bits(c2.loc.x), f32bits(c2.loc.y), f32bits(c2.loc.z),
+               f32bits(c2.normal.x), f32bits(c2.normal.y), f32bits(c2.normal.z));
+        // the true circle would miss: the same cylinder moved past the
+        // box — both the circle and the promoted square miss
+        CollideInfoT far(Coord3D{66.0f, 63.0f, 0.0f}, small, 0.0f);
+        d.line("promo-far %d", theCollideTestProcs[1 * GEOMETRY_NUM_TYPES + 2](&far, &boxI, nullptr) ? 1 : 0);
+    }
+
+    // (g) the sphere-slice cases of z_collideTest_Sphere_Nonsphere: a
+    // sphere above (2b) and below (2a) the nonsphere, within radius of its
+    // top/bottom — the slice radius sqrt(r^2 - dz^2) decides
+    {
+        GeometryInfoT sph{GEOMETRY_SPHERE, false, 10.0f, 10.0f, 10.0f};
+        GeometryInfoT small{GEOMETRY_CYLINDER, false, 8.0f, 6.0f, 6.0f};
+        // 2b: sphere center z=15 above the cylinder top (z=8), 7 within
+        // the radius 10 → slice radius sqrt(100-49)≈7.14; xy distance 6.5
+        // → collides (6.5 <= 7.14+6); at 14 it does not
+        CollideInfoT above(Coord3D{0.0f, 0.0f, 15.0f}, sph, 0.0f);
+        CollideInfoT cylI(Coord3D{6.5f, 0.0f, 0.0f}, small, 0.0f);
+        CollideLocAndNormal c1 = {};
+        bool r1 = theCollideTestProcs[0 * GEOMETRY_NUM_TYPES + 1](&above, &cylI, &c1); // Sphere_Cylinder
+        d.line("slice-above %d loc=%08x,%08x,%08x nrm=%08x,%08x,%08x", r1 ? 1 : 0,
+               f32bits(c1.loc.x), f32bits(c1.loc.y), f32bits(c1.loc.z),
+               f32bits(c1.normal.x), f32bits(c1.normal.y), f32bits(c1.normal.z));
+        CollideInfoT farC(Coord3D{14.0f, 0.0f, 0.0f}, small, 0.0f);
+        d.line("slice-above-far %d", theCollideTestProcs[0 * GEOMETRY_NUM_TYPES + 1](&above, &farC, nullptr) ? 1 : 0);
+        // 2a: sphere center z=-5 below the cylinder bottom (z=0), 5 within
+        // the radius 10 → slice radius sqrt(100-25)≈8.66; xy distance 7
+        CollideInfoT below(Coord3D{0.0f, 0.0f, -5.0f}, sph, 0.0f);
+        CollideInfoT cyl2(Coord3D{7.0f, 0.0f, 0.0f}, small, 0.0f);
+        CollideLocAndNormal c2 = {};
+        bool r2 = theCollideTestProcs[0 * GEOMETRY_NUM_TYPES + 1](&below, &cyl2, &c2);
+        d.line("slice-below %d loc=%08x,%08x,%08x nrm=%08x,%08x,%08x", r2 ? 1 : 0,
+               f32bits(c2.loc.x), f32bits(c2.loc.y), f32bits(c2.loc.z),
+               f32bits(c2.normal.x), f32bits(c2.normal.y), f32bits(c2.normal.z));
+        // the reversed order (Cylinder_Sphere): the same path with the
+        // flipped normal
+        CollideLocAndNormal c3 = {};
+        bool r3 = theCollideTestProcs[1 * GEOMETRY_NUM_TYPES + 0](&cyl2, &below, &c3);
+        d.line("slice-rev %d loc=%08x,%08x,%08x nrm=%08x,%08x,%08x", r3 ? 1 : 0,
+               f32bits(c3.loc.x), f32bits(c3.loc.y), f32bits(c3.loc.z),
+               f32bits(c3.normal.x), f32bits(c3.normal.y), f32bits(c3.normal.z));
+    }
+
+    // (h) the z-gates. collidesWith (the object path, with the
+    // getMaxHeightBelowPosition extents) vs geomCollidesWithGeom (the
+    // raw-z gate — narrower). The sphere-pair below-extent asymmetry: two
+    // spheres r=10 at z=5 and z=-6, xy 3 apart — collidesWith's gate
+    // passes (thisBot=-5 <= thatTop=4), geomCollidesWithGeom's does not
+    // (this.z=5 > thatTop=4). Also the collidesWith boundary itself:
+    // sphere z=18 vs cylinder h=8 (thisBot=8 == thatTop=8 passes; z=18.5
+    // does not).
+    {
+        World &w = freshWorld(10.0f, Region2DT{0, 0, 100, 100});
+        GeometryInfoT sph{GEOMETRY_SPHERE, false, 10.0f, 10.0f, 10.0f};
+        ObjectT *s1 = w.createObject(sph, false, 0, {}, Coord3D{10.0f, 10.0f, 5.0f}, 0.0f);
+        ObjectT *s2 = w.createObject(sph, false, 0, {}, Coord3D{13.0f, 10.0f, -6.0f}, 0.0f);
+        CollideLocAndNormal cinfo = {};
+        d.line("asym-collides %d", w.collidesWith(s1->m_id, s2->m_id, &cinfo) ? 1 : 0);
+        d.line("asym-geom %d",
+               geomCollidesWithGeom(&s1->m_pos, sph, 0.0f, &s2->m_pos, sph, 0.0f) ? 1 : 0);
+        d.line("asym-geom-rev %d",
+               geomCollidesWithGeom(&s2->m_pos, sph, 0.0f, &s1->m_pos, sph, 0.0f) ? 1 : 0);
+
+        GeometryInfoT cy{GEOMETRY_CYLINDER, false, 8.0f, 6.0f, 6.0f};
+        ObjectT *s3 = w.createObject(sph, false, 0, {}, Coord3D{30.0f, 10.0f, 18.0f}, 0.0f);
+        ObjectT *cylO = w.createObject(cy, false, 0, {}, Coord3D{31.0f, 10.0f, 0.0f}, 0.0f);
+        d.line("zbound %d", w.collidesWith(s3->m_id, cylO->m_id, nullptr) ? 1 : 0);
+        ObjectT *s4 = w.createObject(sph, false, 0, {}, Coord3D{40.0f, 10.0f, 18.5f}, 0.0f);
+        ObjectT *cylO2 = w.createObject(cy, false, 0, {}, Coord3D{41.0f, 10.0f, 0.0f}, 0.0f);
+        d.line("zbound-past %d", w.collidesWith(s4->m_id, cylO2->m_id, nullptr) ? 1 : 0);
+        // the KINDOF_NO_COLLIDE refusal (either side)
+        ObjectT *nc = w.createObject(sph, false, 0, {}, Coord3D{50.0f, 10.0f, 0.0f}, 0.0f);
+        ObjectT *plain = w.createObject(sph, false, 0, {}, Coord3D{52.0f, 10.0f, 0.0f}, 0.0f);
+        nc->m_kindof |= (1u << KINDOF_NO_COLLIDE_BIT);
+        d.line("nocol %d", w.collidesWith(nc->m_id, plain->m_id, nullptr) ? 1 : 0);
+        d.line("nocol-rev %d", w.collidesWith(plain->m_id, nc->m_id, nullptr) ? 1 : 0);
+    }
+    d.line("end");
+}
+
+// --- collide_process: processContactList through the store --------------------
+static void corpusCollideProcess(Dumper &d)
+{
+    d.line("corpus collide_process");
+    World &w = freshWorld(10.0f, Region2DT{0, 0, 100, 100});
+    GeometryInfoT sph{GEOMETRY_SPHERE, false, 6.0f, 6.0f, 6.0f};
+
+    // (a) the dispatch order and the flipped normal: two overlapping
+    // spheres, two plain colliders each
+    ObjectT *a = w.createObject(sph, false, 0, {}, Coord3D{50.0f, 50.0f, 0.0f}, 0.0f, {}, 2);
+    ObjectT *b = w.createObject(sph, false, 0, {}, Coord3D{52.0f, 52.0f, 0.0f}, 0.0f, {}, 2);
+    w.pm.update(&w.hooks);
+    dumpContacts(d, w);
+    dumpCollideEvents(d, w);
+    dumpPartition(d, w);
+
+    // (b) the steady state: the re-dirtied pair re-processes every frame
+    w.pm.update(&w.hooks);
+    dumpContacts(d, w);
+    dumpCollideEvents(d, w);
+
+    // (c) the NO_COLLISIONS pre-gate: the pair is still collected, no
+    // dispatch
+    b->m_status |= (1u << OBJECT_STATUS_NO_COLLISIONS_BIT);
+    w.pm.update(&w.hooks);
+    dumpContacts(d, w);
+    dumpCollideEvents(d, w);
+
+    // (d) the mid-walk absorb: a's first collider sets the bit — a's
+    // second is skipped, b's walk is unaffected; the NEXT update's
+    // pre-gate refuses the pair. (The pair must be re-dirtied first: the
+    // pre-gate refusal of part (c) left both clean.)
+    b->m_status &= ~(1u << OBJECT_STATUS_NO_COLLISIONS_BIT);
+    w.pm.makeDirty(w.pm.findModule(a->m_id), true);
+    w.pm.makeDirty(w.pm.findModule(b->m_id), true);
+    a->m_colliders[0].m_onCollideAbsorb = true;
+    w.pm.update(&w.hooks);
+    dumpCollideEvents(d, w);
+    w.pm.update(&w.hooks);
+    dumpCollideEvents(d, w);
+    dumpPartition(d, w);
+    a->m_colliders[0].m_onCollideAbsorb = false;
+    a->m_status &= ~(1u << OBJECT_STATUS_NO_COLLISIONS_BIT);
+
+    // (e) the destroyed-absorb: c's first collider destroys e during the
+    // FIRST dispatch — e's onCollide is skipped (the isDestroyed gate),
+    // e's re-dirty is refused; the destroy list processes at the corpus's
+    // hand. (The first update after registration collects the pair from
+    // the first-registered object's walk, so the pair is (c, e) — c
+    // dispatches first.)
+    ObjectT *c = w.createObject(sph, false, 0, {}, Coord3D{20.0f, 50.0f, 0.0f}, 0.0f, {}, 1);
+    ObjectT *e = w.createObject(sph, false, 0, {}, Coord3D{22.0f, 52.0f, 0.0f}, 0.0f, {}, 1);
+    c->m_colliders[0].m_onCollideDestroyObj = e->m_id;
+    w.pm.update(&w.hooks);
+    dumpCollideEvents(d, w);
+    dumpRegistry(d, w);
+    dumpPartition(d, w);
+    w.logic.processDestroyList(&w.pm, &w.hooks);
+    dumpPartition(d, w);
+
+    // (f) the unregister mid-processing: g's first collider unregisters h
+    // during the (g,f) pair's dispatch — removeSpecificPartitionData nulls
+    // the later (h,g) node, and the walk skips it. h stays a live object
+    // with no partition data (its re-dirty is refused, its dispatch in the
+    // pair that spawned the unregister still runs)
+    ObjectT *f = w.createObject(sph, false, 0, {}, Coord3D{20.0f, 20.0f, 0.0f}, 0.0f, {}, 1);
+    ObjectT *g = w.createObject(sph, false, 0, {}, Coord3D{25.0f, 25.0f, 0.0f}, 0.0f, {}, 1);
+    ObjectT *h = w.createObject(sph, false, 0, {}, Coord3D{30.0f, 30.0f, 0.0f}, 0.0f, {}, 1);
+    g->m_colliders[0].m_onCollideUnregisterObj = h->m_id;
+    w.pm.update(&w.hooks);
+    dumpContacts(d, w);
+    dumpCollideEvents(d, w);
+    dumpRegistry(d, w);
+    dumpPartition(d, w);
+
+    // (g) the immobile re-dirty refusal: a mobile-immobile pair — both
+    // dispatch, only the mobile side re-dirties (the steady state below
+    // collects the pair through the mobile side alone)
+    ObjectT *mob = w.createObject(sph, false, 0, {}, Coord3D{70.0f, 70.0f, 0.0f}, 0.0f, {}, 1);
+    ObjectT *imm = w.createObject(sph, true, 0, {}, Coord3D{72.0f, 72.0f, 0.0f}, 0.0f, {}, 1);
+    w.pm.update(&w.hooks);
+    dumpCollideEvents(d, w);
+    dumpPartition(d, w);
+    w.pm.update(&w.hooks);
+    dumpContacts(d, w);
+    dumpCollideEvents(d, w);
+
+    // (h) the z-miss: xy-overlapping but z-disjoint — the pair is
+    // collected (the cells are 2d), the collide test refuses
+    w.createObject(sph, false, 0, {}, Coord3D{80.0f, 80.0f, 0.0f}, 0.0f, {}, 1);
+    w.createObject(sph, false, 0, {}, Coord3D{82.0f, 82.0f, 50.0f}, 0.0f, {}, 1);
+    w.pm.update(&w.hooks);
+    dumpContacts(d, w);
+    dumpCollideEvents(d, w);
+    (void)a;
+    (void)b;
+    (void)c;
+    (void)e;
+    (void)f;
+    (void)g;
+    (void)h;
+    (void)mob;
+    (void)imm;
+    d.line("end");
+}
+
 // --- kernel_roundtrip: a mixed run — the whole kernel through several frames -------
 static void corpusRoundtrip(Dumper &d)
 {
@@ -2829,6 +3867,8 @@ int main(int argc, char **argv)
     corpusPartDirty(d);
     corpusPartContact(d);
     corpusPartRegister(d);
+    corpusCollideMatrix(d);
+    corpusCollideProcess(d);
     corpusRoundtrip(d);
 
     fclose(out);

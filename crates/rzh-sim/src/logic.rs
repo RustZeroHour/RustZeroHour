@@ -44,9 +44,10 @@ use std::collections::VecDeque;
 use crate::partition::{PartitionData, PartitionManager, Region2};
 use crate::scheduler::{ModuleArena, ModuleHandle, SleepyScheduler, SleepyState};
 use crate::types::{
-    DISABLED_COUNT, DISABLED_TYPES, DisabledMask, DisabledType, FOREVER, GeometryInfo, INVALID_ID,
-    KINDOF_IMMOBILE_BIT, NEVER, OBJECT_STATUS_DESTROYED_BIT, ObjectID, SleepyUpdatePhase,
-    UPDATE_SLEEP_NONE, UpdateSleepTime,
+    Coord3, DISABLED_COUNT, DISABLED_TYPES, DisabledMask, DisabledType, FOREVER, GeometryInfo,
+    INVALID_ID, KINDOF_IMMOBILE_BIT, KINDOF_NO_COLLIDE_BIT, NEVER, OBJECT_STATUS_DESTROYED_BIT,
+    OBJECT_STATUS_NO_COLLISIONS_BIT, ObjectID, SleepyUpdatePhase, UPDATE_SLEEP_NONE,
+    UpdateSleepTime,
 };
 
 /// The outcome of one update-module body: the sleep length plus the
@@ -71,6 +72,23 @@ impl Default for UpdateOutcome {
             wake: None,
         }
     }
+}
+
+/// The outcome of one collide-module body: the side effects the corpus
+/// model programs (applied by the dispatch in this order — absorb, then
+/// destroy, then unregister). The WP2 module framework replaces this
+/// with real module bodies.
+#[derive(Clone, Copy, Debug, Default)]
+pub struct CollideOutcome {
+    /// A `setObjectStatus(OBJECT_STATUS_NO_COLLISIONS)` request — the
+    /// mid-walk break of `Object::onCollide` and the next pair's
+    /// pre-gate.
+    pub absorb: bool,
+    /// A `GameLogic::destroyObject` request issued from inside the body.
+    pub destroy: Option<ObjectID>,
+    /// A `PartitionManager::unRegisterObject` request issued from inside
+    /// the body (the mid-processing `TheContactList` cleanup path).
+    pub unregister: Option<ObjectID>,
 }
 
 /// The subsystem surface of the frame loop. The kernel calls these in
@@ -149,6 +167,32 @@ pub trait KernelHost {
     /// `Object::onPartitionCellChange`.
     fn on_partition_cell_change(&mut self, id: ObjectID, cell: i32) {}
 
+    /// One collide-module dispatch inside `Object::onCollide` (before the
+    /// body runs) — the pair, the module, and the collision location and
+    /// normal the collide test produced.
+    fn on_collide_module(
+        &mut self,
+        id: ObjectID,
+        module: u32,
+        other: ObjectID,
+        loc: &Coord3,
+        normal: &Coord3,
+    ) {
+    }
+
+    /// The collide-module body. Returns the outcome the dispatch applies
+    /// (absorb, then destroy, then unregister).
+    fn run_collide(
+        &mut self,
+        id: ObjectID,
+        module: u32,
+        other: ObjectID,
+        loc: &Coord3,
+        normal: &Coord3,
+    ) -> CollideOutcome {
+        CollideOutcome::default()
+    }
+
     /// The update-module body. Returns the outcome the kernel applies.
     fn run_update(&mut self, id: ObjectID, module: u32) -> UpdateOutcome {
         UpdateOutcome::default()
@@ -169,8 +213,9 @@ pub struct Object {
     pub position: crate::types::Coord3,
     /// The orientation (the facing angle, radians).
     pub orientation: f32,
-    /// `m_kindof` (the bitset; the IMMOBILE bit is what the store
-    /// consults — the full 122-entry table is the data layer's).
+    /// `m_kindof` (the bitset; the IMMOBILE and NO_COLLIDE bits are what
+    /// the store and the collide family consult — the full 122-entry
+    /// table is the data layer's).
     pub kindof: u32,
     /// `m_status` (the ObjectStatusMaskType).
     pub status: u32,
@@ -180,6 +225,10 @@ pub struct Object {
     pub disabled_till_frame: [u32; DISABLED_COUNT],
     /// The update modules (the scheduler state each carries).
     pub updates: Vec<SleepyState>,
+    /// The behavior list's collide modules — `Object::onCollide`'s walk
+    /// length (the bodies are the host's [`KernelHost::run_collide`];
+    /// the non-collide behaviors contribute nothing observable).
+    pub colliders: usize,
     /// The partition data (None until the store registers the object).
     pub partition: Option<PartitionData>,
     /// `onPartitionCellChange()` invocations.
@@ -193,10 +242,22 @@ impl Object {
         (self.kindof & (1 << KINDOF_IMMOBILE_BIT)) != 0
     }
 
+    /// `isKindOf(KINDOF_NO_COLLIDE)`.
+    #[must_use]
+    pub fn is_kind_of_no_collide(&self) -> bool {
+        (self.kindof & (1 << KINDOF_NO_COLLIDE_BIT)) != 0
+    }
+
     /// `isDestroyed()` (the DESTROYED status bit).
     #[must_use]
     pub fn is_destroyed(&self) -> bool {
         (self.status & (1 << OBJECT_STATUS_DESTROYED_BIT)) != 0
+    }
+
+    /// `getStatusBits().test(OBJECT_STATUS_NO_COLLISIONS)`.
+    #[must_use]
+    pub fn is_no_collisions(&self) -> bool {
+        (self.status & (1 << OBJECT_STATUS_NO_COLLISIONS_BIT)) != 0
     }
 }
 
@@ -594,6 +655,9 @@ pub struct ObjectSpec {
     /// disabled-types-to-process mask and its constructor wake (an
     /// absolute frame, clamped to now).
     pub modules: Vec<UpdateModuleSpec>,
+    /// The behavior list's collide modules — `Object::onCollide`'s walk
+    /// length.
+    pub colliders: usize,
     /// The birth position.
     pub position: crate::types::Coord3,
     /// The birth orientation.
@@ -659,6 +723,7 @@ impl Kernel {
                 .iter()
                 .map(|m| SleepyState::new(m.phase, m.disabled_types_to_process))
                 .collect(),
+            colliders: spec.colliders,
             partition: None,
             cell_change_count: 0,
         };
@@ -872,7 +937,7 @@ impl Kernel {
 
         // update partition info
         host.on_partition_update();
-        self.pm.update(&mut self.objects, host);
+        self.pm.update(&mut self.objects, &mut self.logic, host);
 
         //
         // End of frame clean-up

@@ -40,19 +40,42 @@
 //! cover); the rect fill's half-step fudge with its rotated walk and
 //! the degenerate zero-step box; the movement thresholds (0.01); the
 //! dirty-list LIFO and status upgrades; the master-list prepend and the
-//! refusals; the contact pairs' dedup and LIFO order.
+//! refusals; the contact pairs' dedup and LIFO order; the collide-test
+//! family — the 3x3 matrix's loc/normal bits, the sphere-sphere touch
+//! boundary (the <=) and the coincident zero-normal (the normalize
+//! zero-guard), the closeEnough preflight's unwritten loc.x/y and
+//! normal (the pinned zero of the original's uninitialized stack
+//! local), the rect-circle square promotion (the corner-cap hit a true
+//! circle misses, both orders with the flipped normal's -0.0 z), the
+//! sphere-slice radii above and below the nonsphere, the
+//! geomCollidesWithGeom z-gate that ignores the below-extents (narrower
+//! than collidesWith's — the sphere-pair asymmetry), the z-gate
+//! boundary itself, the KINDOF_NO_COLLIDE refusal; and
+//! processContactList — the dispatch order with the flipped normal and
+//! the shared loc, the LIFO pair processing order (the re-dirty
+//! cascade's dirty-list order is its observable), the steady-state
+//! re-dirty, the NO_COLLISIONS pre-gate, the mid-walk absorb break, the
+//! destroyed-absorb (the skipped second call and the refused re-dirty),
+//! the unregister mid-processing (the nulled later pairs), the immobile
+//! re-dirty refusal, and the z-miss pair (collected but refused).
 
 use std::fmt::Write as _;
 use std::path::PathBuf;
 
-use rzh_sim::logic::{Kernel, KernelHost, ObjectSpec, Objects, UpdateModuleSpec, UpdateOutcome};
+use rzh_sim::collide::{
+    COLLIDE_TEST_PROCS, CollideInfo, CollideLocAndNormal, geom_collides_with_geom,
+};
+use rzh_sim::logic::{
+    CollideOutcome, Kernel, KernelHost, ObjectSpec, Objects, UpdateModuleSpec, UpdateOutcome,
+};
 use rzh_sim::partition::Region2;
 use rzh_sim::scheduler::ModuleArena;
 use rzh_sim::types::{
-    DisabledMask, DisabledType, FOREVER, GeometryInfo, GeometryType, INVALID_ID,
-    LOGICFRAMES_PER_MSEC_REAL, LOGICFRAMES_PER_SECOND, LOGICFRAMES_PER_SECONDS_REAL,
-    MSEC_PER_LOGICFRAME_REAL, SECONDS_PER_LOGICFRAME_REAL, SleepyUpdatePhase, UPDATE_SLEEP_FOREVER,
-    UPDATE_SLEEP_NONE, WW_SYNC_MILLISECONDS,
+    Coord3, DisabledMask, DisabledType, FOREVER, GeometryInfo, GeometryType, INVALID_ID,
+    KINDOF_NO_COLLIDE_BIT, LOGICFRAMES_PER_MSEC_REAL, LOGICFRAMES_PER_SECOND,
+    LOGICFRAMES_PER_SECONDS_REAL, MSEC_PER_LOGICFRAME_REAL, OBJECT_STATUS_NO_COLLISIONS_BIT,
+    SECONDS_PER_LOGICFRAME_REAL, SleepyUpdatePhase, UPDATE_SLEEP_FOREVER, UPDATE_SLEEP_NONE,
+    WW_SYNC_MILLISECONDS,
 };
 
 /// The corpus driver: the generator's `World` (the logic, the partition
@@ -72,11 +95,33 @@ struct ScriptedBody {
     destroy: Option<i32>,
 }
 
-/// The golden host: the ordered event stream plus the scripted modules.
+/// The scripted collide-module body (the generator's `CollideModuleT`
+/// scripting fields).
+#[derive(Clone, Copy, Default)]
+struct ScriptedCollideBody {
+    absorb: bool,
+    destroy: Option<i32>,
+    unregister: Option<i32>,
+}
+
+/// One collide-module dispatch record (the generator's
+/// `GameLogicHooks::CollideEvent`).
+#[derive(Clone, Copy)]
+struct CollideEvent {
+    obj: i32,
+    other: i32,
+    module: i32,
+    loc: Coord3,
+    normal: Coord3,
+}
+
+/// The golden host: the ordered event streams plus the scripted modules.
 struct GoldenHost {
     engine_time_frozen: bool,
     events: Vec<(u8, i64, i64)>,
     scripted: Vec<(i32, u32, ScriptedBody)>,
+    collide_events: Vec<CollideEvent>,
+    scripted_collide: Vec<(i32, u32, ScriptedCollideBody)>,
 }
 
 // The event ids (the generator's `GameLogicHooks::Ev`).
@@ -236,6 +281,45 @@ impl KernelHost for GoldenHost {
         }
         outcome
     }
+
+    fn on_collide_module(
+        &mut self,
+        id: i32,
+        module: u32,
+        other: i32,
+        loc: &Coord3,
+        normal: &Coord3,
+    ) {
+        self.collide_events.push(CollideEvent {
+            obj: id,
+            other,
+            module: module as i32,
+            loc: *loc,
+            normal: *normal,
+        });
+    }
+
+    fn run_collide(
+        &mut self,
+        id: i32,
+        module: u32,
+        _other: i32,
+        _loc: &Coord3,
+        _normal: &Coord3,
+    ) -> CollideOutcome {
+        let body = self
+            .scripted_collide
+            .iter()
+            .find(|(s_obj, s_mod, _)| *s_obj == id && *s_mod == module)
+            .map(|(_, _, body)| *body);
+        let mut outcome = CollideOutcome::default();
+        if let Some(body) = body {
+            outcome.absorb = body.absorb;
+            outcome.destroy = body.destroy;
+            outcome.unregister = body.unregister;
+        }
+        outcome
+    }
 }
 
 impl Harness {
@@ -252,6 +336,8 @@ impl Harness {
                 engine_time_frozen: false,
                 events: Vec::new(),
                 scripted: Vec::new(),
+                collide_events: Vec::new(),
+                scripted_collide: Vec::new(),
             },
             out: String::new(),
         }
@@ -273,6 +359,7 @@ impl Harness {
         pos: (f32, f32),
         angle: f32,
         phases: &[SleepyUpdatePhase],
+        colliders: usize,
     ) -> i32 {
         let spec = ObjectSpec {
             geometry,
@@ -287,6 +374,7 @@ impl Harness {
                         .and_then(|w| if w >= 0 { Some(w as u32) } else { None }),
                 })
                 .collect(),
+            colliders,
             position: rzh_sim::types::Coord3 {
                 x: pos.0,
                 y: pos.1,
@@ -502,6 +590,94 @@ impl Harness {
             self.line(&l);
         }
     }
+
+    /// The generator's `dumpCollideEvents` (the collide-module dispatch
+    /// stream, in dispatch order, with the loc and normal bits).
+    fn dump_collide_events(&mut self) {
+        let mut lines = Vec::new();
+        let count = self.host.collide_events.len();
+        lines.push(format!("collideevents {count}"));
+        for e in std::mem::take(&mut self.host.collide_events) {
+            lines.push(format!(
+                "cv o{} o{} m{} loc={:08x},{:08x},{:08x} nrm={:08x},{:08x},{:08x}",
+                e.obj,
+                e.other,
+                e.module,
+                e.loc.x.to_bits(),
+                e.loc.y.to_bits(),
+                e.loc.z.to_bits(),
+                e.normal.x.to_bits(),
+                e.normal.y.to_bits(),
+                e.normal.z.to_bits()
+            ));
+        }
+        for l in lines {
+            self.line(&l);
+        }
+    }
+
+    /// The generator's `createObject` with the full position (the collide
+    /// corpora's z-carrying objects; no update modules, no wakes).
+    fn create_colliding(
+        &mut self,
+        geometry: GeometryInfo,
+        immobile: bool,
+        pos: (f32, f32, f32),
+        colliders: usize,
+    ) -> i32 {
+        let spec = ObjectSpec {
+            geometry,
+            immobile,
+            modules: Vec::new(),
+            colliders,
+            position: Coord3 {
+                x: pos.0,
+                y: pos.1,
+                z: pos.2,
+            },
+            orientation: 0.0,
+        };
+        self.kernel.create_object(&spec, &mut self.host)
+    }
+
+    /// The generator's `CollideModuleT` scripting: the absorb.
+    fn script_collide_absorb(&mut self, obj: i32, module: u32) {
+        self.host.scripted_collide.push((
+            obj,
+            module,
+            ScriptedCollideBody {
+                absorb: true,
+                destroy: None,
+                unregister: None,
+            },
+        ));
+    }
+
+    /// The generator's `CollideModuleT` scripting: the destroy request.
+    fn script_collide_destroy(&mut self, obj: i32, module: u32, victim: i32) {
+        self.host.scripted_collide.push((
+            obj,
+            module,
+            ScriptedCollideBody {
+                absorb: false,
+                destroy: Some(victim),
+                unregister: None,
+            },
+        ));
+    }
+
+    /// The generator's `CollideModuleT` scripting: the unregister request.
+    fn script_collide_unregister(&mut self, obj: i32, module: u32, victim: i32) {
+        self.host.scripted_collide.push((
+            obj,
+            module,
+            ScriptedCollideBody {
+                absorb: false,
+                destroy: None,
+                unregister: Some(victim),
+            },
+        ));
+    }
 }
 
 /// The `Objects::partition` accessor (the harness side).
@@ -513,6 +689,13 @@ impl PartitionOf for Objects {
     fn partition_of(&self, id: i32) -> &rzh_sim::partition::PartitionData {
         self.get(id).partition.as_ref().expect("partition data")
     }
+}
+
+/// The `theCollideTestProcs` matrix entry `(this, that)` — the original's
+/// `(geom - GEOMETRY_FIRST) * GEOMETRY_NUM_TYPES + (that - GEOMETRY_FIRST)`
+/// indexing, kept legible at the one-off call sites.
+fn matrix_proc(this: usize, that: usize) -> rzh_sim::collide::CollideTestProc {
+    COLLIDE_TEST_PROCS[this * 3 + that]
 }
 
 fn f32b(x: f32) -> u32 {
@@ -559,9 +742,9 @@ fn corpus_ids(h: &mut Harness) {
     h.line(&format!("nextid {}", h.kernel.logic.next_obj_id));
     // the init reset (GameLogic::init: m_nextObjID = 1)
     h.kernel.logic.set_object_id_counter(1);
-    let a = h.create_object(g, false, 0, &[], (0.0, 0.0), 0.0, &[]);
-    let b = h.create_object(g, false, 0, &[], (0.0, 0.0), 0.0, &[]);
-    let c = h.create_object(g, false, 0, &[], (0.0, 0.0), 0.0, &[]);
+    let a = h.create_object(g, false, 0, &[], (0.0, 0.0), 0.0, &[], 0);
+    let b = h.create_object(g, false, 0, &[], (0.0, 0.0), 0.0, &[], 0);
+    let c = h.create_object(g, false, 0, &[], (0.0, 0.0), 0.0, &[], 0);
     h.line(&format!("ids {a} {b} {c}"));
     // destroy b (frame 0), then allocate — no reuse
     h.kernel.destroy_object(b, &mut h.host);
@@ -593,7 +776,7 @@ fn corpus_ids(h: &mut Harness) {
 fn corpus_frame(h: &mut Harness) {
     h.line("corpus kernel_frame");
     let g = geom(GeometryType::Sphere, true, 1.0, 1.0, 1.0);
-    h.create_object(g, false, 1, &[], (0.0, 0.0), 0.0, &[]);
+    h.create_object(g, false, 1, &[], (0.0, 0.0), 0.0, &[], 0);
 
     // a plain frame: the full ordered walk
     h.kernel.pre_update();
@@ -638,9 +821,9 @@ fn corpus_sched_basic(h: &mut Harness) {
     let g = geom(GeometryType::Sphere, true, 1.0, 1.0, 1.0);
 
     // object born at frame 0: the modules' initial wake clamps to 1
-    let a = h.create_object(g, false, 2, &[], (0.0, 0.0), 0.0, &[]);
+    let a = h.create_object(g, false, 2, &[], (0.0, 0.0), 0.0, &[], 0);
     // object born with constructor wakes (the not-in-list path)
-    let b = h.create_object(g, false, 2, &[3, 5], (0.0, 0.0), 0.0, &[]);
+    let b = h.create_object(g, false, 2, &[3, 5], (0.0, 0.0), 0.0, &[], 0);
     h.dump_heap();
 
     h.script_sleep(a, 0, 1);
@@ -662,7 +845,7 @@ fn corpus_sched_ties(h: &mut Harness) {
     h.line("corpus sched_ties");
     let g = geom(GeometryType::Sphere, true, 1.0, 1.0, 1.0);
 
-    let a = h.create_object(g, false, 5, &[], (0.0, 0.0), 0.0, &[]);
+    let a = h.create_object(g, false, 5, &[], (0.0, 0.0), 0.0, &[], 0);
     h.dump_heap();
     for m in 0..5 {
         h.script_sleep(a, m, 2);
@@ -689,7 +872,7 @@ fn corpus_sched_phases(h: &mut Harness) {
         SleepyUpdatePhase::Normal,
         SleepyUpdatePhase::Physics,
     ];
-    let a = h.create_object(g, false, 4, &[], (0.0, 0.0), 0.0, &phases);
+    let a = h.create_object(g, false, 4, &[], (0.0, 0.0), 0.0, &phases, 0);
     for m in 0..4 {
         h.script_sleep(a, m, 5);
     }
@@ -709,7 +892,7 @@ fn corpus_sched_phases(h: &mut Harness) {
 fn corpus_sched_awaken(h: &mut Harness) {
     h.line("corpus sched_awaken");
     let g = geom(GeometryType::Sphere, true, 1.0, 1.0, 1.0);
-    let a = h.create_object(g, false, 3, &[], (0.0, 0.0), 0.0, &[]);
+    let a = h.create_object(g, false, 3, &[], (0.0, 0.0), 0.0, &[], 0);
     for m in 0..3 {
         h.script_sleep(a, m, 10);
     }
@@ -779,7 +962,7 @@ fn corpus_sched_awaken(h: &mut Harness) {
 fn corpus_sched_disabled(h: &mut Harness) {
     h.line("corpus sched_disabled");
     let g = geom(GeometryType::Sphere, true, 1.0, 1.0, 1.0);
-    let a = h.create_object(g, false, 2, &[1, 1], (50.0, 50.0), 0.0, &[]);
+    let a = h.create_object(g, false, 2, &[1, 1], (50.0, 50.0), 0.0, &[], 0);
     h.script_sleep(a, 0, 4);
     h.script_sleep(a, 1, 4);
     // module 1 processes EMP-disabled objects; module 0 processes nothing
@@ -833,9 +1016,9 @@ fn corpus_sched_destroy(h: &mut Harness) {
     h.line("corpus sched_destroy");
     let g = geom(GeometryType::Sphere, true, 1.0, 1.0, 1.0);
 
-    let a = h.create_object(g, false, 3, &[], (50.0, 50.0), 0.0, &[]);
-    let b = h.create_object(g, false, 3, &[], (60.0, 60.0), 0.0, &[]);
-    let c = h.create_object(g, false, 3, &[], (70.0, 70.0), 0.0, &[]);
+    let a = h.create_object(g, false, 3, &[], (50.0, 50.0), 0.0, &[], 0);
+    let b = h.create_object(g, false, 3, &[], (60.0, 60.0), 0.0, &[], 0);
+    let c = h.create_object(g, false, 3, &[], (70.0, 70.0), 0.0, &[], 0);
     for obj in [a, b, c] {
         for m in 0..3 {
             h.script_sleep(obj, m, 100);
@@ -870,7 +1053,7 @@ fn corpus_sched_destroy(h: &mut Harness) {
 fn corpus_sched_destroy_cap(h: &mut Harness) {
     h.line("corpus sched_destroy_cap");
     let g = geom(GeometryType::Sphere, true, 0.0, 0.0, 0.0);
-    let a = h.create_object(g, false, 256, &[], (50.0, 50.0), 0.0, &[]);
+    let a = h.create_object(g, false, 256, &[], (50.0, 50.0), 0.0, &[], 0);
     for m in 0..256 {
         h.script_sleep(a, m, 100);
     }
@@ -885,8 +1068,8 @@ fn corpus_sched_destroy_cap(h: &mut Harness) {
 fn corpus_sched_loadpost(h: &mut Harness) {
     h.line("corpus sched_loadpost");
     let g = geom(GeometryType::Sphere, true, 1.0, 1.0, 1.0);
-    let a = h.create_object(g, false, 3, &[], (50.0, 50.0), 0.0, &[]);
-    let b = h.create_object(g, false, 2, &[], (60.0, 60.0), 0.0, &[]);
+    let a = h.create_object(g, false, 3, &[], (50.0, 50.0), 0.0, &[], 0);
+    let b = h.create_object(g, false, 2, &[], (60.0, 60.0), 0.0, &[], 0);
     // run a few frames to shuffle the heap (the default sleep-1 bodies)
     for _ in 0..3 {
         h.update();
@@ -1005,8 +1188,11 @@ fn corpus_part_small(h: &mut Harness) {
         (51.0, 52.0),
         0.0,
         &[],
+        0,
     );
-    h.kernel.pm.update(&mut h.kernel.objects, &mut h.host);
+    h.kernel
+        .pm
+        .update(&mut h.kernel.objects, &mut h.kernel.logic, &mut h.host);
     h.dump_partition();
 
     // straddling a corner: four cells
@@ -1018,8 +1204,11 @@ fn corpus_part_small(h: &mut Harness) {
         (50.0, 50.0),
         0.0,
         &[],
+        0,
     );
-    h.kernel.pm.update(&mut h.kernel.objects, &mut h.host);
+    h.kernel
+        .pm
+        .update(&mut h.kernel.objects, &mut h.kernel.logic, &mut h.host);
     h.dump_partition();
 
     // the truncation: a small radius beyond the half-cell clamps down
@@ -1031,8 +1220,11 @@ fn corpus_part_small(h: &mut Harness) {
         (25.0, 25.0),
         0.0,
         &[],
+        0,
     );
-    h.kernel.pm.update(&mut h.kernel.objects, &mut h.host);
+    h.kernel
+        .pm
+        .update(&mut h.kernel.objects, &mut h.kernel.logic, &mut h.host);
     h.dump_partition();
 
     // off-grid center: the cells clip at the boundary
@@ -1044,8 +1236,11 @@ fn corpus_part_small(h: &mut Harness) {
         (1.0, 1.0),
         0.0,
         &[],
+        0,
     );
-    h.kernel.pm.update(&mut h.kernel.objects, &mut h.host);
+    h.kernel
+        .pm
+        .update(&mut h.kernel.objects, &mut h.kernel.logic, &mut h.host);
     h.dump_partition();
     h.line("end");
 }
@@ -1061,8 +1256,11 @@ fn corpus_part_circle(h: &mut Harness) {
         (55.0, 55.0),
         0.0,
         &[],
+        0,
     );
-    h.kernel.pm.update(&mut h.kernel.objects, &mut h.host);
+    h.kernel
+        .pm
+        .update(&mut h.kernel.objects, &mut h.kernel.logic, &mut h.host);
     h.dump_partition();
 
     // an exact boundary touch: distance == radius → strict < fails
@@ -1074,8 +1272,11 @@ fn corpus_part_circle(h: &mut Harness) {
         (50.0, 55.0),
         0.0,
         &[],
+        0,
     );
-    h.kernel.pm.update(&mut h.kernel.objects, &mut h.host);
+    h.kernel
+        .pm
+        .update(&mut h.kernel.objects, &mut h.kernel.logic, &mut h.host);
     h.dump_partition();
 
     // a mid radius spanning several cells, plus off-grid clipping
@@ -1087,8 +1288,11 @@ fn corpus_part_circle(h: &mut Harness) {
         (17.0, 13.0),
         0.0,
         &[],
+        0,
     );
-    h.kernel.pm.update(&mut h.kernel.objects, &mut h.host);
+    h.kernel
+        .pm
+        .update(&mut h.kernel.objects, &mut h.kernel.logic, &mut h.host);
     h.dump_partition();
 
     // a big radius (>= 20: the Stubbjax bugfix range)
@@ -1100,8 +1304,11 @@ fn corpus_part_circle(h: &mut Harness) {
         (50.0, 50.0),
         0.0,
         &[],
+        0,
     );
-    h.kernel.pm.update(&mut h.kernel.objects, &mut h.host);
+    h.kernel
+        .pm
+        .update(&mut h.kernel.objects, &mut h.kernel.logic, &mut h.host);
     h.dump_partition();
     h.line("end");
 }
@@ -1117,8 +1324,11 @@ fn corpus_part_rect(h: &mut Harness) {
         (55.0, 55.0),
         0.0,
         &[],
+        0,
     );
-    h.kernel.pm.update(&mut h.kernel.objects, &mut h.host);
+    h.kernel
+        .pm
+        .update(&mut h.kernel.objects, &mut h.kernel.logic, &mut h.host);
     h.dump_partition();
 
     // rotated 45 degrees
@@ -1130,8 +1340,11 @@ fn corpus_part_rect(h: &mut Harness) {
         (50.0, 50.0),
         std::f32::consts::FRAC_PI_4,
         &[],
+        0,
     );
-    h.kernel.pm.update(&mut h.kernel.objects, &mut h.host);
+    h.kernel
+        .pm
+        .update(&mut h.kernel.objects, &mut h.kernel.logic, &mut h.host);
     h.dump_partition();
 
     // a tiny box: one step per axis → exactly the center cell
@@ -1143,8 +1356,11 @@ fn corpus_part_rect(h: &mut Harness) {
         (55.0, 55.0),
         0.0,
         &[],
+        0,
     );
-    h.kernel.pm.update(&mut h.kernel.objects, &mut h.host);
+    h.kernel
+        .pm
+        .update(&mut h.kernel.objects, &mut h.kernel.logic, &mut h.host);
     h.dump_partition();
 
     // a degenerate box: halfsize 0 → zero steps → no cells at all
@@ -1156,8 +1372,11 @@ fn corpus_part_rect(h: &mut Harness) {
         (55.0, 55.0),
         0.0,
         &[],
+        0,
     );
-    h.kernel.pm.update(&mut h.kernel.objects, &mut h.host);
+    h.kernel
+        .pm
+        .update(&mut h.kernel.objects, &mut h.kernel.logic, &mut h.host);
     h.dump_partition();
 
     // a long thin rotated box spanning the grid edge
@@ -1169,8 +1388,11 @@ fn corpus_part_rect(h: &mut Harness) {
         (12.0, 12.0),
         0.3,
         &[],
+        0,
     );
-    h.kernel.pm.update(&mut h.kernel.objects, &mut h.host);
+    h.kernel
+        .pm
+        .update(&mut h.kernel.objects, &mut h.kernel.logic, &mut h.host);
     h.dump_partition();
 
     // halfsize just over a step multiple (the fudge)
@@ -1182,8 +1404,11 @@ fn corpus_part_rect(h: &mut Harness) {
         (65.0, 65.0),
         0.0,
         &[],
+        0,
     );
-    h.kernel.pm.update(&mut h.kernel.objects, &mut h.host);
+    h.kernel
+        .pm
+        .update(&mut h.kernel.objects, &mut h.kernel.logic, &mut h.host);
     h.dump_partition();
     h.line("end");
 }
@@ -1191,8 +1416,8 @@ fn corpus_part_rect(h: &mut Harness) {
 fn corpus_part_dirty(h: &mut Harness) {
     h.line("corpus part_dirty");
     let g = geom(GeometryType::Sphere, false, 1.0, 3.0, 3.0);
-    let a = h.create_object(g, false, 0, &[], (55.0, 55.0), 0.0, &[]);
-    let b = h.create_object(g, false, 0, &[], (35.0, 35.0), 0.0, &[]);
+    let a = h.create_object(g, false, 0, &[], (55.0, 55.0), 0.0, &[], 0);
+    let b = h.create_object(g, false, 0, &[], (35.0, 35.0), 0.0, &[], 0);
     h.dump_partition(); // both dirty, LIFO order
 
     // the half-update path: makeDirty(false) on a clean module
@@ -1204,7 +1429,9 @@ fn corpus_part_dirty(h: &mut Harness) {
     h.dump_partition();
 
     // the refresh: LIFO processing (b then a)
-    h.kernel.pm.update(&mut h.kernel.objects, &mut h.host);
+    h.kernel
+        .pm
+        .update(&mut h.kernel.objects, &mut h.kernel.logic, &mut h.host);
     h.dump_events();
     h.dump_partition();
 
@@ -1212,7 +1439,9 @@ fn corpus_part_dirty(h: &mut Harness) {
     h.kernel.pm.make_dirty(&mut h.kernel.objects, a, true);
     h.kernel.pm.make_dirty(&mut h.kernel.objects, a, true);
     h.dump_partition();
-    h.kernel.pm.update(&mut h.kernel.objects, &mut h.host);
+    h.kernel
+        .pm
+        .update(&mut h.kernel.objects, &mut h.kernel.logic, &mut h.host);
 
     // movement thresholds: below 0.01 no dirty; above it dirty
     let old = h.kernel.objects.get(a).position;
@@ -1239,7 +1468,9 @@ fn corpus_part_dirty(h: &mut Harness) {
         i32::from(!h.kernel.pm.dirty_modules.is_empty())
     ));
     // the angle threshold
-    h.kernel.pm.update(&mut h.kernel.objects, &mut h.host);
+    h.kernel
+        .pm
+        .update(&mut h.kernel.objects, &mut h.kernel.logic, &mut h.host);
     let old = h.kernel.objects.get(a).position;
     h.kernel.objects.get_mut(a).orientation = 0.005;
     h.kernel.react_to_transform_change(a, old, 0.0);
@@ -1253,7 +1484,9 @@ fn corpus_part_dirty(h: &mut Harness) {
         "dirty-after-angle {}",
         i32::from(!h.kernel.pm.dirty_modules.is_empty())
     ));
-    h.kernel.pm.update(&mut h.kernel.objects, &mut h.host);
+    h.kernel
+        .pm
+        .update(&mut h.kernel.objects, &mut h.kernel.logic, &mut h.host);
     h.dump_partition();
 
     // setGeometryInfo's unregister/re-register refresh
@@ -1261,7 +1494,9 @@ fn corpus_part_dirty(h: &mut Harness) {
     h.kernel.pm.unregister_object(&mut h.kernel.objects, a);
     h.kernel.pm.register_object(&mut h.kernel.objects, a);
     h.dump_partition();
-    h.kernel.pm.update(&mut h.kernel.objects, &mut h.host);
+    h.kernel
+        .pm
+        .update(&mut h.kernel.objects, &mut h.kernel.logic, &mut h.host);
     h.dump_partition();
     h.line(&format!(
         "cellchg {} {}",
@@ -1275,13 +1510,15 @@ fn corpus_part_contact(h: &mut Harness) {
     h.line("corpus part_contact");
     let g = geom(GeometryType::Sphere, false, 1.0, 6.0, 6.0);
     // three overlapping movers + one immobile structure + one far away
-    h.create_object(g, false, 0, &[], (50.0, 50.0), 0.0, &[]);
-    h.create_object(g, false, 0, &[], (52.0, 52.0), 0.0, &[]);
-    h.create_object(g, false, 0, &[], (60.0, 60.0), 0.0, &[]);
-    h.create_object(g, true, 0, &[], (50.0, 50.0), 0.0, &[]);
-    h.create_object(g, false, 0, &[], (90.0, 90.0), 0.0, &[]);
+    h.create_object(g, false, 0, &[], (50.0, 50.0), 0.0, &[], 0);
+    h.create_object(g, false, 0, &[], (52.0, 52.0), 0.0, &[], 0);
+    h.create_object(g, false, 0, &[], (60.0, 60.0), 0.0, &[], 0);
+    h.create_object(g, true, 0, &[], (50.0, 50.0), 0.0, &[], 0);
+    h.create_object(g, false, 0, &[], (90.0, 90.0), 0.0, &[], 0);
 
-    h.kernel.pm.update(&mut h.kernel.objects, &mut h.host);
+    h.kernel
+        .pm
+        .update(&mut h.kernel.objects, &mut h.kernel.logic, &mut h.host);
     h.dump_contacts();
     h.dump_partition();
 
@@ -1295,7 +1532,9 @@ fn corpus_part_contact(h: &mut Harness) {
     };
     h.kernel
         .react_to_transform_change(b, old, h.kernel.objects.get(b).orientation);
-    h.kernel.pm.update(&mut h.kernel.objects, &mut h.host);
+    h.kernel
+        .pm
+        .update(&mut h.kernel.objects, &mut h.kernel.logic, &mut h.host);
     h.dump_contacts();
     h.dump_partition();
     h.line("end");
@@ -1304,8 +1543,8 @@ fn corpus_part_contact(h: &mut Harness) {
 fn corpus_part_register(h: &mut Harness) {
     h.line("corpus part_register");
     let g = geom(GeometryType::Sphere, false, 1.0, 3.0, 3.0);
-    let a = h.create_object(g, false, 0, &[], (55.0, 55.0), 0.0, &[]);
-    let b = h.create_object(g, false, 0, &[], (35.0, 35.0), 0.0, &[]);
+    let a = h.create_object(g, false, 0, &[], (55.0, 55.0), 0.0, &[], 0);
+    let b = h.create_object(g, false, 0, &[], (35.0, 35.0), 0.0, &[], 0);
     h.dump_partition();
 
     // the double-register refusal (the master list is the observable)
@@ -1327,18 +1566,558 @@ fn corpus_part_register(h: &mut Harness) {
     h.line("end");
 }
 
+// ============================================================================
+// The collide corpora (the generator's, one for one).
+// ============================================================================
+
+/// `corpus collide_matrix`: the collide-test family over crafted geometry
+/// pairs — the 3x3 matrix (the boolean through `geomCollidesWithGeom`,
+/// the loc/normal bits through the proc table), the null-cinfo guard, the
+/// sphere-sphere touch boundary and the coincident zero-normal, the
+/// closeEnough preflight with its unwritten loc/normal, the rect-circle
+/// square promotion (both orders), the sphere-slice cases, and the z-gate
+/// families (the below-extent asymmetry between `collidesWith` and
+/// `geomCollidesWithGeom`, the boundary, the KINDOF_NO_COLLIDE refusal).
+fn corpus_collide_matrix(h: &mut Harness) {
+    h.line("corpus collide_matrix");
+
+    // the three geometry flavors: sphere (r=10), cylinder (r=10, h=8),
+    // box (10x6, h=8)
+    let sphere = geom(GeometryType::Sphere, false, 10.0, 10.0, 10.0);
+    let cyl = geom(GeometryType::Cylinder, false, 8.0, 10.0, 10.0);
+    let bx = geom(GeometryType::Box, false, 8.0, 10.0, 6.0);
+    let geoms = [sphere, cyl, bx];
+
+    // (a) the 3x3 matrix at an overlapping offset (the second geom rotated
+    // 0.3 rad), through geomCollidesWithGeom — the boolean
+    let p1 = Coord3 {
+        x: 100.0,
+        y: 100.0,
+        z: 0.0,
+    };
+    let p2 = Coord3 {
+        x: 104.0,
+        y: 100.0,
+        z: 0.0,
+    };
+    for (i, gi) in geoms.iter().enumerate() {
+        for (j, gj) in geoms.iter().enumerate() {
+            let res = geom_collides_with_geom(&p1, gi, 0.0, &p2, gj, 0.3);
+            h.line(&format!("m {i} {j} {}", i32::from(res)));
+        }
+    }
+    // ... and at a miss offset
+    let p3 = Coord3 {
+        x: 140.0,
+        y: 100.0,
+        z: 0.0,
+    };
+    for (i, gi) in geoms.iter().enumerate() {
+        for (j, gj) in geoms.iter().enumerate() {
+            let res = geom_collides_with_geom(&p1, gi, 0.0, &p3, gj, 0.3);
+            h.line(&format!("miss {i} {j} {}", i32::from(res)));
+        }
+    }
+
+    // (b) the same matrix through the proc table directly, with the cinfo —
+    // the float observables (loc and normal)
+    for (i, gi) in geoms.iter().enumerate() {
+        for (j, gj) in geoms.iter().enumerate() {
+            let a = CollideInfo::new(p1, *gi, 0.0);
+            let b = CollideInfo::new(p2, *gj, 0.3);
+            let mut cinfo = CollideLocAndNormal::default();
+            let res = COLLIDE_TEST_PROCS[i * 3 + j](&a, &b, Some(&mut cinfo));
+            h.line(&format!(
+                "d {i} {j} {} loc={:08x},{:08x},{:08x} nrm={:08x},{:08x},{:08x}",
+                i32::from(res),
+                cinfo.loc.x.to_bits(),
+                cinfo.loc.y.to_bits(),
+                cinfo.loc.z.to_bits(),
+                cinfo.normal.x.to_bits(),
+                cinfo.normal.y.to_bits(),
+                cinfo.normal.z.to_bits()
+            ));
+        }
+    }
+
+    // (c) the null-cinfo guard: every proc takes a null cinfo fine
+    {
+        let a = CollideInfo::new(p1, sphere, 0.0);
+        let b = CollideInfo::new(p2, sphere, 0.0);
+        let res = COLLIDE_TEST_PROCS[0](&a, &b, None);
+        h.line(&format!("nullcinfo {}", i32::from(res)));
+    }
+
+    // (d) the sphere-sphere touch boundary: dist == r1+r2 (the <=) and
+    // the step past it; plus the coincident spheres (the normalize
+    // zero-guard leaves the normal zero)
+    {
+        let s15 = geom(GeometryType::Sphere, false, 15.0, 15.0, 15.0);
+        let a = CollideInfo::new(
+            Coord3 {
+                x: 0.0,
+                y: 0.0,
+                z: 0.0,
+            },
+            s15,
+            0.0,
+        );
+        let b = CollideInfo::new(
+            Coord3 {
+                x: 30.0,
+                y: 0.0,
+                z: 0.0,
+            },
+            s15,
+            0.0,
+        );
+        let mut cinfo = CollideLocAndNormal::default();
+        let res = COLLIDE_TEST_PROCS[0](&a, &b, Some(&mut cinfo));
+        h.line(&format!(
+            "touch {} loc={:08x},{:08x},{:08x} nrm={:08x},{:08x},{:08x}",
+            i32::from(res),
+            cinfo.loc.x.to_bits(),
+            cinfo.loc.y.to_bits(),
+            cinfo.loc.z.to_bits(),
+            cinfo.normal.x.to_bits(),
+            cinfo.normal.y.to_bits(),
+            cinfo.normal.z.to_bits()
+        ));
+        let c = CollideInfo::new(
+            Coord3 {
+                x: 30.1,
+                y: 0.0,
+                z: 0.0,
+            },
+            s15,
+            0.0,
+        );
+        let past = COLLIDE_TEST_PROCS[0](&a, &c, None);
+        h.line(&format!("past {}", i32::from(past)));
+        let z = CollideInfo::new(
+            Coord3 {
+                x: 0.0,
+                y: 0.0,
+                z: 0.0,
+            },
+            s15,
+            0.0,
+        );
+        let mut cz = CollideLocAndNormal::default();
+        let resz = COLLIDE_TEST_PROCS[0](&a, &z, Some(&mut cz));
+        h.line(&format!(
+            "coincident {} loc={:08x},{:08x},{:08x} nrm={:08x},{:08x},{:08x}",
+            i32::from(resz),
+            cz.loc.x.to_bits(),
+            cz.loc.y.to_bits(),
+            cz.loc.z.to_bits(),
+            cz.normal.x.to_bits(),
+            cz.normal.y.to_bits(),
+            cz.normal.z.to_bits()
+        ));
+    }
+
+    // (e) the closeEnough preflight: a thin 10x1 box rotated 90 degrees
+    // versus an unrotated 10x6 box, centers 0.9 apart — every corner of
+    // either misses the other's frame (the plate's corners stand 10 off
+    // the box's minor axis; the box's corners stand 9.1 off the plate's
+    // minor axis), so the rect test says false; the minRadius=1 preflight
+    // (0.9^2 < 1^2) forces the true — with loc.x/y and the normal left
+    // unwritten (the pinned zero), loc.z the side-to-side average
+    {
+        let plate = geom(GeometryType::Box, false, 8.0, 10.0, 1.0);
+        let boxg = geom(GeometryType::Box, false, 8.0, 10.0, 6.0);
+        let a = CollideInfo::new(
+            Coord3 {
+                x: 50.0,
+                y: 50.0,
+                z: 0.0,
+            },
+            plate,
+            std::f32::consts::FRAC_PI_2,
+        );
+        let c = CollideInfo::new(
+            Coord3 {
+                x: 50.9,
+                y: 50.0,
+                z: 0.0,
+            },
+            boxg,
+            0.0,
+        );
+        let mut cinfo = CollideLocAndNormal::default();
+        let res = COLLIDE_TEST_PROCS[8](&a, &c, Some(&mut cinfo)); // Box_Box
+        h.line(&format!(
+            "closeenough {} loc={:08x},{:08x},{:08x} nrm={:08x},{:08x},{:08x}",
+            i32::from(res),
+            cinfo.loc.x.to_bits(),
+            cinfo.loc.y.to_bits(),
+            cinfo.loc.z.to_bits(),
+            cinfo.normal.x.to_bits(),
+            cinfo.normal.y.to_bits(),
+            cinfo.normal.z.to_bits()
+        ));
+        // the same pair one step further apart: the preflight misses too,
+        // and the rect test still says false
+        let c2 = CollideInfo::new(
+            Coord3 {
+                x: 51.1,
+                y: 50.0,
+                z: 0.0,
+            },
+            boxg,
+            0.0,
+        );
+        let toofar = COLLIDE_TEST_PROCS[8](&a, &c2, None);
+        h.line(&format!("toofar {}", i32::from(toofar)));
+        // and through geomCollidesWithGeom (the z-gate passes at z=0, so
+        // the same verdict)
+        let ce_geom = geom_collides_with_geom(
+            &a.position,
+            &plate,
+            std::f32::consts::FRAC_PI_2,
+            &c.position,
+            &boxg,
+            0.0,
+        );
+        h.line(&format!("closeenough-geom {}", i32::from(ce_geom)));
+    }
+
+    // (f) the rect-circle square promotion: a cylinder r=5 diagonal from an
+    // unrotated 10x6 box — the true circle misses (the closest box corner
+    // is sqrt(3.5^2+4.5^2) > 5 away) but the promoted 10x10 square's
+    // corner cap catches the box corner. Both orders (the flipped normal
+    // of the Circle_Rect wrapper).
+    {
+        let small = geom(GeometryType::Cylinder, false, 8.0, 5.0, 5.0);
+        let boxg = geom(GeometryType::Box, false, 8.0, 10.0, 6.0);
+        let cyl_i = CollideInfo::new(
+            Coord3 {
+                x: 63.5,
+                y: 60.5,
+                z: 0.0,
+            },
+            small,
+            0.0,
+        );
+        let box_i = CollideInfo::new(
+            Coord3 {
+                x: 50.0,
+                y: 50.0,
+                z: 0.0,
+            },
+            boxg,
+            0.0,
+        );
+        let mut c1 = CollideLocAndNormal::default();
+        let r1 = matrix_proc(1, 2)(&cyl_i, &box_i, Some(&mut c1)); // Cylinder_Box
+        h.line(&format!(
+            "promo-cyl-box {} loc={:08x},{:08x},{:08x} nrm={:08x},{:08x},{:08x}",
+            i32::from(r1),
+            c1.loc.x.to_bits(),
+            c1.loc.y.to_bits(),
+            c1.loc.z.to_bits(),
+            c1.normal.x.to_bits(),
+            c1.normal.y.to_bits(),
+            c1.normal.z.to_bits()
+        ));
+        let mut c2 = CollideLocAndNormal::default();
+        let r2 = matrix_proc(2, 1)(&box_i, &cyl_i, Some(&mut c2)); // Box_Cylinder
+        h.line(&format!(
+            "promo-box-cyl {} loc={:08x},{:08x},{:08x} nrm={:08x},{:08x},{:08x}",
+            i32::from(r2),
+            c2.loc.x.to_bits(),
+            c2.loc.y.to_bits(),
+            c2.loc.z.to_bits(),
+            c2.normal.x.to_bits(),
+            c2.normal.y.to_bits(),
+            c2.normal.z.to_bits()
+        ));
+        // the true circle would miss: the same cylinder moved past the
+        // box — both the circle and the promoted square miss
+        let far = CollideInfo::new(
+            Coord3 {
+                x: 66.0,
+                y: 63.0,
+                z: 0.0,
+            },
+            small,
+            0.0,
+        );
+        let promo_far = matrix_proc(1, 2)(&far, &box_i, None);
+        h.line(&format!("promo-far {}", i32::from(promo_far)));
+    }
+
+    // (g) the sphere-slice cases of z_collideTest_Sphere_Nonsphere: a
+    // sphere above (2b) and below (2a) the nonsphere, within radius of its
+    // top/bottom — the slice radius sqrt(r^2 - dz^2) decides
+    {
+        let sph = geom(GeometryType::Sphere, false, 10.0, 10.0, 10.0);
+        let small = geom(GeometryType::Cylinder, false, 8.0, 6.0, 6.0);
+        // 2b: sphere center z=15 above the cylinder top (z=8), 7 within
+        // the radius 10 → slice radius sqrt(100-49)≈7.14; xy distance 6.5
+        // → collides (6.5 <= 7.14+6); at 14 it does not
+        let above = CollideInfo::new(
+            Coord3 {
+                x: 0.0,
+                y: 0.0,
+                z: 15.0,
+            },
+            sph,
+            0.0,
+        );
+        let cyl_i = CollideInfo::new(
+            Coord3 {
+                x: 6.5,
+                y: 0.0,
+                z: 0.0,
+            },
+            small,
+            0.0,
+        );
+        let mut c1 = CollideLocAndNormal::default();
+        let r1 = matrix_proc(0, 1)(&above, &cyl_i, Some(&mut c1)); // Sphere_Cylinder
+        h.line(&format!(
+            "slice-above {} loc={:08x},{:08x},{:08x} nrm={:08x},{:08x},{:08x}",
+            i32::from(r1),
+            c1.loc.x.to_bits(),
+            c1.loc.y.to_bits(),
+            c1.loc.z.to_bits(),
+            c1.normal.x.to_bits(),
+            c1.normal.y.to_bits(),
+            c1.normal.z.to_bits()
+        ));
+        let far_c = CollideInfo::new(
+            Coord3 {
+                x: 14.0,
+                y: 0.0,
+                z: 0.0,
+            },
+            small,
+            0.0,
+        );
+        let slice_above_far = matrix_proc(0, 1)(&above, &far_c, None);
+        h.line(&format!("slice-above-far {}", i32::from(slice_above_far)));
+        // 2a: sphere center z=-5 below the cylinder bottom (z=0), 5 within
+        // the radius 10 → slice radius sqrt(100-25)≈8.66; xy distance 7
+        let below = CollideInfo::new(
+            Coord3 {
+                x: 0.0,
+                y: 0.0,
+                z: -5.0,
+            },
+            sph,
+            0.0,
+        );
+        let cyl2 = CollideInfo::new(
+            Coord3 {
+                x: 7.0,
+                y: 0.0,
+                z: 0.0,
+            },
+            small,
+            0.0,
+        );
+        let mut c2 = CollideLocAndNormal::default();
+        let r2 = matrix_proc(0, 1)(&below, &cyl2, Some(&mut c2));
+        h.line(&format!(
+            "slice-below {} loc={:08x},{:08x},{:08x} nrm={:08x},{:08x},{:08x}",
+            i32::from(r2),
+            c2.loc.x.to_bits(),
+            c2.loc.y.to_bits(),
+            c2.loc.z.to_bits(),
+            c2.normal.x.to_bits(),
+            c2.normal.y.to_bits(),
+            c2.normal.z.to_bits()
+        ));
+        // the reversed order (Cylinder_Sphere): the same path with the
+        // flipped normal
+        let mut c3 = CollideLocAndNormal::default();
+        let r3 = matrix_proc(1, 0)(&cyl2, &below, Some(&mut c3));
+        h.line(&format!(
+            "slice-rev {} loc={:08x},{:08x},{:08x} nrm={:08x},{:08x},{:08x}",
+            i32::from(r3),
+            c3.loc.x.to_bits(),
+            c3.loc.y.to_bits(),
+            c3.loc.z.to_bits(),
+            c3.normal.x.to_bits(),
+            c3.normal.y.to_bits(),
+            c3.normal.z.to_bits()
+        ));
+    }
+
+    // (h) the z-gates. collidesWith (the object path, with the
+    // getMaxHeightBelowPosition extents) vs geomCollidesWithGeom (the
+    // raw-z gate — narrower). The sphere-pair below-extent asymmetry: two
+    // spheres r=10 at z=5 and z=-6, xy 3 apart — collidesWith's gate
+    // passes (thisBot=-5 <= thatTop=4), geomCollidesWithGeom's does not
+    // (this.z=5 > thatTop=4). Also the collidesWith boundary itself:
+    // sphere z=18 vs cylinder h=8 (thisBot=8 == thatTop=8 passes; z=18.5
+    // does not).
+    {
+        let sph = geom(GeometryType::Sphere, false, 10.0, 10.0, 10.0);
+        let s1 = h.create_colliding(sph, false, (10.0, 10.0, 5.0), 0);
+        let s2 = h.create_colliding(sph, false, (13.0, 10.0, -6.0), 0);
+        let asym_collides = rzh_sim::collide::collides_with(&h.kernel.objects, s1, s2).is_some();
+        h.line(&format!("asym-collides {}", i32::from(asym_collides)));
+        let p1 = h.kernel.objects.get(s1).position;
+        let p2 = h.kernel.objects.get(s2).position;
+        let asym_geom = geom_collides_with_geom(&p1, &sph, 0.0, &p2, &sph, 0.0);
+        h.line(&format!("asym-geom {}", i32::from(asym_geom)));
+        let asym_geom_rev = geom_collides_with_geom(&p2, &sph, 0.0, &p1, &sph, 0.0);
+        h.line(&format!("asym-geom-rev {}", i32::from(asym_geom_rev)));
+
+        let cy = geom(GeometryType::Cylinder, false, 8.0, 6.0, 6.0);
+        let s3 = h.create_colliding(sph, false, (30.0, 10.0, 18.0), 0);
+        let cyl_o = h.create_colliding(cy, false, (31.0, 10.0, 0.0), 0);
+        let zbound = rzh_sim::collide::collides_with(&h.kernel.objects, s3, cyl_o).is_some();
+        h.line(&format!("zbound {}", i32::from(zbound)));
+        let s4 = h.create_colliding(sph, false, (40.0, 10.0, 18.5), 0);
+        let cyl_o2 = h.create_colliding(cy, false, (41.0, 10.0, 0.0), 0);
+        let zbound_past = rzh_sim::collide::collides_with(&h.kernel.objects, s4, cyl_o2).is_some();
+        h.line(&format!("zbound-past {}", i32::from(zbound_past)));
+        // the KINDOF_NO_COLLIDE refusal (either side)
+        let nc = h.create_colliding(sph, false, (50.0, 10.0, 0.0), 0);
+        let plain = h.create_colliding(sph, false, (52.0, 10.0, 0.0), 0);
+        h.kernel.objects.get_mut(nc).kindof |= 1 << KINDOF_NO_COLLIDE_BIT;
+        let nocol = rzh_sim::collide::collides_with(&h.kernel.objects, nc, plain).is_some();
+        h.line(&format!("nocol {}", i32::from(nocol)));
+        let nocol_rev = rzh_sim::collide::collides_with(&h.kernel.objects, plain, nc).is_some();
+        h.line(&format!("nocol-rev {}", i32::from(nocol_rev)));
+    }
+    h.line("end");
+}
+
+/// `corpus collide_process`: `processContactList` through the store — the
+/// dispatch order with the flipped normal, the steady-state re-dirty, the
+/// NO_COLLISIONS pre-gate, the mid-walk absorb break, the
+/// destroyed-absorb (the skipped second call and the refused re-dirty),
+/// the unregister mid-processing (the nulled later pairs), the immobile
+/// re-dirty refusal, and the z-miss pair.
+fn corpus_collide_process(h: &mut Harness) {
+    h.line("corpus collide_process");
+    let sph = geom(GeometryType::Sphere, false, 6.0, 6.0, 6.0);
+
+    // (a) the dispatch order and the flipped normal: two overlapping
+    // spheres, two plain colliders each
+    let a = h.create_colliding(sph, false, (50.0, 50.0, 0.0), 2);
+    let b = h.create_colliding(sph, false, (52.0, 52.0, 0.0), 2);
+    h.kernel
+        .pm
+        .update(&mut h.kernel.objects, &mut h.kernel.logic, &mut h.host);
+    h.dump_contacts();
+    h.dump_collide_events();
+    h.dump_partition();
+
+    // (b) the steady state: the re-dirtied pair re-processes every frame
+    h.kernel
+        .pm
+        .update(&mut h.kernel.objects, &mut h.kernel.logic, &mut h.host);
+    h.dump_contacts();
+    h.dump_collide_events();
+
+    // (c) the NO_COLLISIONS pre-gate: the pair is still collected, no
+    // dispatch
+    h.kernel.objects.get_mut(b).status |= 1 << OBJECT_STATUS_NO_COLLISIONS_BIT;
+    h.kernel
+        .pm
+        .update(&mut h.kernel.objects, &mut h.kernel.logic, &mut h.host);
+    h.dump_contacts();
+    h.dump_collide_events();
+
+    // (d) the mid-walk absorb: a's first collider sets the bit — a's
+    // second is skipped, b's walk is unaffected; the NEXT update's
+    // pre-gate refuses the pair. (The pair must be re-dirtied first: the
+    // pre-gate refusal of part (c) left both clean.)
+    h.kernel.objects.get_mut(b).status &= !(1 << OBJECT_STATUS_NO_COLLISIONS_BIT);
+    h.kernel.pm.make_dirty(&mut h.kernel.objects, a, true);
+    h.kernel.pm.make_dirty(&mut h.kernel.objects, b, true);
+    h.script_collide_absorb(a, 0);
+    h.kernel
+        .pm
+        .update(&mut h.kernel.objects, &mut h.kernel.logic, &mut h.host);
+    h.dump_collide_events();
+    h.kernel
+        .pm
+        .update(&mut h.kernel.objects, &mut h.kernel.logic, &mut h.host);
+    h.dump_collide_events();
+    h.dump_partition();
+    h.kernel.objects.get_mut(a).status &= !(1 << OBJECT_STATUS_NO_COLLISIONS_BIT);
+
+    // (e) the destroyed-absorb: c's first collider destroys e during the
+    // FIRST dispatch — e's onCollide is skipped (the isDestroyed gate),
+    // e's re-dirty is refused; the destroy list processes at the corpus's
+    // hand. (The first update after registration collects the pair from
+    // the first-registered object's walk, so the pair is (c, e) — c
+    // dispatches first.)
+    let c = h.create_colliding(sph, false, (20.0, 50.0, 0.0), 1);
+    let e = h.create_colliding(sph, false, (22.0, 52.0, 0.0), 1);
+    h.script_collide_destroy(c, 0, e);
+    h.kernel
+        .pm
+        .update(&mut h.kernel.objects, &mut h.kernel.logic, &mut h.host);
+    h.dump_collide_events();
+    h.dump_registry();
+    h.dump_partition();
+    h.kernel.process_destroy_list(&mut h.host);
+    h.dump_partition();
+
+    // (f) the unregister mid-processing: g's first collider unregisters h
+    // during the (f,g) pair's dispatch — removeSpecificPartitionData nulls
+    // the later (h,g) and (h,f) nodes, and the walk skips them. h stays a
+    // live object with no partition data (its re-dirty is refused)
+    let _f = h.create_colliding(sph, false, (20.0, 20.0, 0.0), 1);
+    let g = h.create_colliding(sph, false, (25.0, 25.0, 0.0), 1);
+    let hobj = h.create_colliding(sph, false, (30.0, 30.0, 0.0), 1);
+    h.script_collide_unregister(g, 0, hobj);
+    h.kernel
+        .pm
+        .update(&mut h.kernel.objects, &mut h.kernel.logic, &mut h.host);
+    h.dump_contacts();
+    h.dump_collide_events();
+    h.dump_registry();
+    h.dump_partition();
+
+    // (g) the immobile re-dirty refusal: a mobile-immobile pair — both
+    // dispatch, only the mobile side re-dirties (the steady state below
+    // collects the pair through the mobile side alone)
+    let _mob = h.create_colliding(sph, false, (70.0, 70.0, 0.0), 1);
+    let _imm = h.create_colliding(sph, true, (72.0, 72.0, 0.0), 1);
+    h.kernel
+        .pm
+        .update(&mut h.kernel.objects, &mut h.kernel.logic, &mut h.host);
+    h.dump_collide_events();
+    h.dump_partition();
+    h.kernel
+        .pm
+        .update(&mut h.kernel.objects, &mut h.kernel.logic, &mut h.host);
+    h.dump_contacts();
+    h.dump_collide_events();
+
+    // (h) the z-miss: xy-overlapping but z-disjoint — the pair is
+    // collected (the cells are 2d), the collide test refuses
+    h.create_colliding(sph, false, (80.0, 80.0, 0.0), 1);
+    h.create_colliding(sph, false, (82.0, 82.0, 50.0), 1);
+    h.kernel
+        .pm
+        .update(&mut h.kernel.objects, &mut h.kernel.logic, &mut h.host);
+    h.dump_contacts();
+    h.dump_collide_events();
+    h.line("end");
+}
+
 fn corpus_roundtrip(h: &mut Harness) {
     h.line("corpus kernel_roundtrip");
     let g = geom(GeometryType::Sphere, true, 1.0, 2.5, 2.5);
     let big = geom(GeometryType::Box, false, 1.0, 8.0, 6.0);
 
     // a small mover with a module (waking every 2 frames)
-    let a = h.create_object(g, false, 1, &[], (51.0, 51.0), 0.0, &[]);
+    let a = h.create_object(g, false, 1, &[], (51.0, 51.0), 0.0, &[], 0);
     h.script_sleep(a, 0, 2);
     // a big rotated immobile structure
-    h.create_object(big, true, 0, &[], (35.0, 35.0), 0.4, &[]);
+    h.create_object(big, true, 0, &[], (35.0, 35.0), 0.4, &[], 0);
     // a far mover with a module (every frame)
-    let c = h.create_object(g, false, 1, &[], (90.0, 12.0), 0.0, &[]);
+    let c = h.create_object(g, false, 1, &[], (90.0, 12.0), 0.0, &[], 0);
     h.script_sleep(c, 0, 1);
 
     for _ in 0..5 {
@@ -1373,7 +2152,7 @@ fn corpus_roundtrip(h: &mut Harness) {
 #[test]
 fn kernel_golden() {
     let mut all = String::new();
-    let corpora: [fn(&mut Harness); 19] = [
+    let corpora: [fn(&mut Harness); 21] = [
         corpus_ids,
         corpus_frame,
         corpus_sched_basic,
@@ -1392,6 +2171,8 @@ fn kernel_golden() {
         corpus_part_dirty,
         corpus_part_contact,
         corpus_part_register,
+        corpus_collide_matrix,
+        corpus_collide_process,
         corpus_roundtrip,
     ];
     for corpus in corpora {

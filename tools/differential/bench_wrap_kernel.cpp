@@ -40,8 +40,8 @@
 #define BENCH_FRAMES 180
 
 // The authoring-time lockstep checksums (the Rust bench asserts the same).
-#define FRAME_LOOP_CHECKSUM 16055563144769613296ULL
-#define DISPATCH_CHECKSUM 14539779273077219143ULL
+#define FRAME_LOOP_CHECKSUM 16055563144769613415ULL
+#define DISPATCH_CHECKSUM 14539779273077219524ULL
 
 // The final-state checksum (the same formula the Rust bench computes).
 static uint64_t kernel_checksum(World &w)

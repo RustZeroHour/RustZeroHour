@@ -729,9 +729,10 @@ is now specified in [`docs/TRACE_FORMAT_V1.md`](TRACE_FORMAT_V1.md).
 
 ### Phase 3: Deterministic headless simulation (XXL) — **status: started (2026-11-08)**
 
-`rzh-sim` exists with the WP1 kernel's first slice done to the Phase 2
-standard: the **frame loop, the object model's registry half and the
-partition manager's spatial store** — GameLogic.cpp's `update()` (the
+`rzh-sim` exists with the WP1 kernel's first two slices done to the
+Phase 2 standard: the **frame loop, the object model's registry half,
+the partition manager's spatial store and the contact list's
+processing** — GameLogic.cpp's `update()` (the
 ordered subsystem walk — the frame hand-off, the script engine, the
 time-freeze gate, the terrain, the recorder/CRC position, the command
 list, the sleepy updates, the AI, the build assistant, the partition
@@ -782,13 +783,57 @@ mixed roundtrip), a 256-case heap-invariant property test, and the
 §6 budget comparison within (0.77x / 0.70x — docs/benchmarks.md; the
 monomorphic host/arena and the bucket-table dedup it took recorded in
 [ADR-004](adr/004-sim-kernel-architecture.md), the sim-architecture
-decision the plan required before Phase 3). The **next slice** per WP
-order: the contact list's `processContactList` — the collide-test
-family (`geomCollidesWithGeom`, the rect/circle/sphere/cylinder/box
-matrix over `CollideInfo`) and the CollideModule dispatch — building
-on the pair collection this slice pins; then the partition query
-family (`getClosestObjects`, `iterateObjectsInRange`, the
-`SimpleObjectIterator`) that the AI and weapon targeting consume.
+decision the plan required before Phase 3).
+
+The **second slice** (the plan's "next" from the first): the contact
+list's `processContactList` — the collide-test family
+(`geomCollidesWithGeom`, the rect/circle/sphere/cylinder/box matrix
+over `CollideInfo`) and the CollideModule dispatch — building on the
+pair collection the first slice pins. `PartitionManager.cpp`'s
+collide-test family is transcribed whole: `CollideInfo` /
+`CollideLocAndNormal`, `rectToFourPoints` and
+`testRotatedPointsAgainstRect` (the inverse rotation with
+`WWMath::Fabs`, the sphere branch of the minor-radius selection — the
+promoted square keeps its SPHERE type), the `xy_collideTest` quartet
+(`Rect_Circle`'s square promotion — `setMinorRadius(majorRadius)` —
+deferring to `Rect_Rect`; `Circle_Rect` the same with the flipped
+normal, whose z becomes the bit-visible `-0.0`), the
+`z_collideTest_Sphere_Nonsphere` slice cases (the sphere-slice radius
+`sqrt(r² - dz²)` above and below the nonsphere) and
+`z_collideTest_Nonsphere_Nonsphere` (the `minRadius`-squared
+`closeEnough` preflight whose true path leaves `loc.x/y` and the
+normal unwritten — the original hands its **uninitialized stack
+local** into `Object::onCollide` there; the transcription and the port
+pin the zero, the stated deviation), the nine procs and
+`theCollideTestProcs` (`(this - FIRST) * NUM_TYPES + (that - FIRST)`);
+`PartitionData::collidesWith` (the `KINDOF_NO_COLLIDE` refusal — bit
+27 of the Zero Hour build's kindof table, `ALLOW_SURRENDER` off — and
+the z-gate with the `getMaxHeightBelowPosition` extents) and
+`geomCollidesWithGeom` (the standalone whose z-gate **ignores the
+below-extents** — narrower than `collidesWith`'s, the sphere-pair
+asymmetry the corpora pin in both orders); and
+`processContactList` itself over `Object.cpp`'s `onCollide` walk (the
+per-module `OBJECT_STATUS_NO_COLLISIONS` re-check with its mid-walk
+break): the null-node skip, the flipped-normal second call gated by
+both sides' `isDestroyed`, the node nulling before the dispatch, the
+`removeSpecificPartitionData` null-only cleanup the mid-processing
+unregister drives, and the `makeDirty(false)` re-dirty family with its
+destroyed / unregistered / IMMOBILE refusals (the collision
+steady-state: colliding pairs re-process every frame, by design). The
+corpora grew to 21 (two new: the collide matrix — the 3x3 loc/normal
+bits, the touch boundary and the coincident zero-normal, the
+preflight's unwritten loc/normal, the square-promotion corner cap a
+true circle misses, the slice radii, the z-gate asymmetries — and the
+processing corpus — the dispatch order, the gates, the absorbed and
+destroyed second calls, the nulled later pairs, the immobile
+refusal), plus a 256-case result-symmetry / unit-normal property test
+in `tests/collide_props.rs`. The re-pinned bench checksums carry the
+steady-state churn; the budget comparison re-measured within
+(0.52x / 0.35x — docs/benchmarks.md). The **next slice** per WP
+order: the partition query family (`getClosestObjects`,
+`iterateObjectsInRange`, the `SimpleObjectIterator`) that the AI and
+weapon targeting consume; then the players/teams/relationships block
+of WP1's remainder.
 
 Work packages, in order. Develop by **vertical slices**, not by subsystem:
 

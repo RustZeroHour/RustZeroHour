@@ -1,23 +1,33 @@
 //! The partition manager's spatial store — the cell grid, the per-object
-//! coverage and the dirty-module refresh.
+//! coverage, the dirty-module refresh and the contact list's processing
+//! (the collide-test family's entry).
 //!
 //! Origin: `PartitionManager.cpp` / `PartitionManager.h` at baseline
 //! 571a7c5 — `init` (the cell-size clamp, the double-division
 //! `cellSizeInv`, the zero-extent patch, the CEIL cell counts),
 //! `shutdown`, `update` (the dirty-module refresh with its LIFO
 //! processing, the update-cells / collision-check gates, the
-//! KINDOF_IMMOBILE collision refusal and the contact-list pair
-//! collection), `registerObject` / `unRegisterObject` (the master-list
-//! prepend, the double-register refusal), `PartitionData`
+//! KINDOF_IMMOBILE collision refusal, the contact-list pair collection
+//! and `processContactList` — the [`crate::collide`] family and the
+//! `Object::onCollide` dispatch), `registerObject` / `unRegisterObject`
+//! (the master-list prepend, the double-register refusal), `PartitionData`
 //! (`calcMaxCoiForShape`, `allocCoiArray` / `freeCoiArray`,
 //! `makeDirty`'s status upgrades, `removeAllTouchedCells`,
 //! `addSubPixToCoverage`'s rescan, `updateCellsTouched` with
 //! `doSmallFill`, `doCircleFillPrecise` — the non-retail Stubbjax
 //! 29/01/2026 branch — and `doRectFill`, the last-cell change hook and
 //! the shroudedness invalidation), `CellAndObjectIntersection`'s
-//! coverage (the cell-list prepend and ordered unlink) and
+//! coverage (the cell-list prepend and ordered unlink),
 //! `PartitionContactList::addToContactList` (the `hash2ints` symmetric
-//! bucket hash, the either-order dedup, the LIFO pair list).
+//! bucket hash, the either-order dedup, the LIFO pair list),
+//! `removeSpecificPartitionData` (the null-only mid-processing
+//! cleanup) and `processContactList` (the null-node skip, the
+//! `friend_collidesWith` call, the OBJECT_STATUS_NO_COLLISIONS gates,
+//! the node nulling before the dispatch, the flipped-normal second
+//! call gated by both sides' `isDestroyed`, and the `makeDirty(false)`
+//! re-dirty family with its destroyed / unregistered / IMMOBILE
+//! refusals) — over `Object.cpp`'s `onCollide` (the per-module
+//! NO_COLLISIONS re-check with its mid-walk break).
 //!
 //! Structural deviations, behaviour-preserving (stated per plan §3.3
 //! rule 2):
@@ -28,12 +38,18 @@
 //!   head-at-front order;
 //! - the `PartitionData` lives inside its object (the C++ pools it
 //!   separately with a back-pointer — the handle is the object id);
-//! - the contact list's 5381-bucket hash is replaced by the exact
-//!   either-order membership scan it accelerates (the dedup result is
-//!   identical);
+//! - the contact list's 5381-bucket hash is the exact symmetric bucket
+//!   walk; the nodes become a `Vec` of `Option` pairs in insertion
+//!   order (the C++'s LIFO linked list walked front-to-back is the
+//!   reverse insertion order, and the mid-processing nullings leave the
+//!   nodes in place — the walk's `continue` skips them either way);
+//! - the `TheContactList` global (the mid-processing
+//!   `removeSpecificPartitionData` hook of `detachFromObject`) becomes
+//!   the explicit `&mut ContactList` the processing threads — plan
+//!   §3.3 rule 5's "no global mutable state";
 //! - ghost objects (the fog-memory half of `unRegisterObject`), the
-//!   shroud/threat/value cell state beyond the ctor defaults, and
-//!   `processContactList`'s collide-test family are later slices.
+//!   shroud/threat/value cell state beyond the ctor defaults, and the
+//!   spatial queries are later slices.
 //!
 //! The float paths run on the Hoffesommer conversions
 //! ([`crate::fastmath`]) and the pinned GameMath trig
@@ -47,9 +63,10 @@ use std::collections::VecDeque;
 use rzh_math::gmath::{cosf, sinf};
 use rzh_math::scalar::sqrt;
 
+use crate::collide;
 use crate::fastmath::{real_to_int_ceil, real_to_int_floor};
-use crate::logic::{KernelHost, Objects};
-use crate::types::{GeometryType, MAX_PLAYER_COUNT, ObjectID, ObjectShroudStatus};
+use crate::logic::{GameLogic, KernelHost, Objects};
+use crate::types::{Coord3, GeometryType, MAX_PLAYER_COUNT, ObjectID, ObjectShroudStatus};
 
 /// `ShroudLevel` (PartitionManager.h): the per-cell, per-player counters.
 /// Defaults are "passive shroud" — 1, 0. The looker/shrouder state
@@ -170,10 +187,16 @@ impl Region2 {
 ///
 /// The dedup is the original's exact structure: the symmetric
 /// `hash2ints` bucket hash (5381 sockets, chained), so "already noted
-/// in either order" is the bucket walk — not a linear scan.
+/// in either order" is the bucket walk — not a linear scan. The nodes
+/// carry `Option` ids: the processing nulls the node it is dispatching
+/// (the original's "so we won't be tempted to use 'em"), and
+/// `remove_specific` — the `unRegisterObject` mid-processing hook —
+/// nulls every node that refers to the departing object (the original's
+/// verbatim null-only walk).
 pub(crate) struct ContactList {
-    /// The pairs in add order; reversed at collection end.
-    pairs: Vec<(ObjectID, ObjectID)>,
+    /// The nodes in add order; the original's LIFO list walks them in
+    /// reverse (the head is the last added).
+    nodes: Vec<(Option<ObjectID>, Option<ObjectID>)>,
     /// `m_contactHash[SOCKET_COUNT]`: the bucket heads (node indices,
     /// `u32::MAX` = empty).
     sockets: Vec<u32>,
@@ -186,7 +209,7 @@ impl ContactList {
     /// the original's memset).
     pub(crate) fn new() -> Self {
         Self {
-            pairs: Vec::new(),
+            nodes: Vec::new(),
             sockets: vec![u32::MAX; crate::types::CONTACT_LIST_SOCKET_COUNT],
             chain: Vec::new(),
         }
@@ -207,8 +230,8 @@ impl ContactList {
         // make sure given hit has not already been recorded
         let mut node = self.sockets[hash_value];
         while node != u32::MAX {
-            let (a, b) = self.pairs[node as usize];
-            if (a == obj && b == other) || (a == other && b == obj) {
+            let (a, b) = self.nodes[node as usize];
+            if (a == Some(obj) && b == Some(other)) || (a == Some(other) && b == Some(obj)) {
                 // already noted
                 return;
             }
@@ -217,10 +240,180 @@ impl ContactList {
 
         // new hit: add to hash table (the bucket prepend) and to the
         // pair list
-        let idx = self.pairs.len() as u32;
-        self.pairs.push((obj, other));
+        let idx = self.nodes.len() as u32;
+        self.nodes.push((Some(obj), Some(other)));
         self.chain.push(self.sockets[hash_value]);
         self.sockets[hash_value] = idx;
+    }
+
+    /// The pairs in contact-list order (the LIFO walk — reversed add
+    /// order), captured before the processing nulls any node.
+    pub(crate) fn contact_pairs(&self) -> Vec<(ObjectID, ObjectID)> {
+        self.nodes
+            .iter()
+            .rev()
+            .map(|(a, b)| {
+                (
+                    a.unwrap_or(crate::types::INVALID_ID),
+                    b.unwrap_or(crate::types::INVALID_ID),
+                )
+            })
+            .collect()
+    }
+
+    /// `removeSpecificPartitionData`: null every contact that refers to
+    /// the given object (the `detachFromObject` mid-processing path —
+    /// the original's verbatim "set the pointers to null"; the nodes
+    /// stay in the list and the hash, and the processing walk skips
+    /// them).
+    pub(crate) fn remove_specific(&mut self, id: ObjectID) {
+        for (a, b) in &mut self.nodes {
+            if *a == Some(id) || *b == Some(id) {
+                *a = None;
+                *b = None;
+            }
+        }
+    }
+
+    /// `processContactList`: process all pairs in the contact list —
+    /// first, determine if they truly collide, based on their geometry
+    /// (the [`collide`] family); if so, call the collide actions for
+    /// each object in the pair (the `Object::onCollide` dispatch) and
+    /// re-dirty the survivors. The `GameLogic` is the destroy path the
+    /// collide bodies drive; the `TheContactList` global the original's
+    /// `detachFromObject` consults is the explicit `self` here.
+    pub(crate) fn process(
+        &mut self,
+        pm: &mut PartitionManager,
+        objects: &mut Objects,
+        logic: &mut GameLogic,
+        host: &mut dyn KernelHost,
+    ) {
+        // the LIFO contact-list order: the list head is the last node
+        // added, so the walk is the reverse insertion order
+        for i in (0..self.nodes.len()).rev() {
+            let (Some(obj), Some(other)) = self.nodes[i] else {
+                // (the null nodes: already-dispatched pairs, and the
+                // mid-processing removals)
+                continue;
+            };
+
+            // we know that their partitions overlap; determine if they REALLY collide
+            // before proceeding...
+            let Some(mut cinfo) = collide::collides_with(objects, obj, other) else {
+                continue;
+            };
+
+            if objects.get(obj).is_no_collisions() || objects.get(other).is_no_collisions() {
+                continue;
+            }
+
+            // (the DEBUG_ASSERTCRASH about two immobile things is debug-only — dropped)
+
+            // the onCollide() calls can remove the object(s) from the partition mgr,
+            // thus destroying the partitiondata for 'em. go ahead and null these out here
+            // so we won't be tempted to use 'em (since they might be bogus).
+            self.nodes[i] = (None, None);
+
+            // obj->onCollide(other, loc, normal)
+            object_on_collide(
+                self,
+                pm,
+                objects,
+                logic,
+                host,
+                obj,
+                other,
+                &cinfo.loc,
+                &cinfo.normal,
+            );
+            // flipCoord3D(&cinfo.normal)
+            cinfo.normal.x = -cinfo.normal.x;
+            cinfo.normal.y = -cinfo.normal.y;
+            cinfo.normal.z = -cinfo.normal.z;
+
+            //Before checking the "other" case, make sure that the previous collision didn't
+            //absorb him. This becomes a conflict for pilots giving veterancy to transports
+            //and pilots entering transports. Both would occur if these isDestroyed checks
+            //were missing.
+            if !objects.get(obj).is_destroyed() && !objects.get(other).is_destroyed() {
+                object_on_collide(
+                    self,
+                    pm,
+                    objects,
+                    logic,
+                    host,
+                    other,
+                    obj,
+                    &cinfo.loc,
+                    &cinfo.normal,
+                );
+            }
+
+            // NOTE: it is VERY IMPORTANT (for performance reasons) to not re-dirty immobile things.
+            //
+            // NOTE also that we re-get partitiondata from the object, since it might have been
+            // removed from the partition system by the onCollide call...
+            if !objects.get(obj).is_destroyed()
+                && objects.get(obj).partition.is_some()
+                && !objects.get(obj).is_kind_of_immobile()
+            {
+                pm.make_dirty(objects, obj, false);
+            }
+            if !objects.get(other).is_destroyed()
+                && objects.get(other).partition.is_some()
+                && !objects.get(other).is_kind_of_immobile()
+            {
+                pm.make_dirty(objects, other, false);
+            }
+        }
+    }
+}
+
+/// `Object::onCollide` (Object.cpp): walk the behavior list, dispatch
+/// every module whose `getCollide()` returns non-null, re-checking
+/// `OBJECT_STATUS_NO_COLLISIONS` each time thru the loop (a collide
+/// module may set it mid-walk — the break). The non-collide behaviors
+/// contribute nothing observable, so the walk is over the collide slots
+/// only.
+// (the parameter list is the original's verbatim — the pair, the driver
+// state and the collision site)
+#[allow(clippy::too_many_arguments)]
+fn object_on_collide(
+    ct_list: &mut ContactList,
+    pm: &mut PartitionManager,
+    objects: &mut Objects,
+    logic: &mut GameLogic,
+    host: &mut dyn KernelHost,
+    id: ObjectID,
+    other: ObjectID,
+    loc: &Coord3,
+    normal: &Coord3,
+) {
+    let count = objects.get(id).colliders;
+    for m in 0..count {
+        // check each time thru the loop, in case a collide module sets it
+        if objects.get(id).is_no_collisions() {
+            break;
+        }
+
+        host.on_collide_module(id, m as u32, other, loc, normal);
+
+        // the scripted module body (the corpus's three effects, applied
+        // in this order: the absorb, the destroy, the unregister)
+        let outcome = host.run_collide(id, m as u32, other, loc, normal);
+        if outcome.absorb {
+            objects.get_mut(id).status |= 1 << crate::types::OBJECT_STATUS_NO_COLLISIONS_BIT;
+        }
+        if let Some(victim) = outcome.destroy {
+            logic.destroy_object(objects, host, victim);
+        }
+        if let Some(victim) = outcome.unregister {
+            // detachFromObject's TheContactList cleanup (the null-only
+            // walk), then the unregister itself
+            ct_list.remove_specific(victim);
+            pm.unregister_object(objects, victim);
+        }
     }
 }
 
@@ -772,8 +965,16 @@ impl PartitionManager {
     /// `update`: the dirty refresh. The LIFO worklist pops until empty;
     /// each module updates its coverage if flagged and contributes
     /// collision candidates if it is not immobile. The pairs land in
-    /// [`Self::last_contacts`] in contact-list order.
-    pub fn update(&mut self, objects: &mut Objects, host: &mut impl KernelHost) {
+    /// [`Self::last_contacts`] in contact-list order, then the contact
+    /// list processes — the collide-test family and the `onCollide`
+    /// dispatch (whose re-dirty family can leave modules dirty for the
+    /// next frame).
+    pub fn update(
+        &mut self,
+        objects: &mut Objects,
+        logic: &mut GameLogic,
+        host: &mut impl KernelHost,
+    ) {
         if !self.updated_since_last_reset {
             self.updated_since_last_reset = true;
         }
@@ -802,10 +1003,14 @@ impl PartitionManager {
             }
         }
 
-        // (processContactList — the collide-test family — is the
-        // collision slice; the pair collection is this slice's dump)
-        ct_list.pairs.reverse(); // the LIFO contact-list order
-        self.last_contacts = ct_list.pairs;
+        // the pair collection, in contact-list order (captured before the
+        // processing nulls the nodes — the dump observable)
+        self.last_contacts = ct_list.contact_pairs();
+
+        // the contact list's processing: the collide-test family and the
+        // CollideModule dispatch (the collision slice)
+        ct_list.process(self, objects, logic, host);
+
         // (processPendingUndoShroudRevealQueue is the shroud slice)
     }
 }
