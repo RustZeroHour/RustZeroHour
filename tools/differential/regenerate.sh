@@ -450,4 +450,31 @@ echo "compiling gen_font_golden.cpp ..."
 "$CXX" -o "$BUILD_DIR/gen_font_golden" "$BUILD_DIR/gen_font_golden.o"
 "$BUILD_DIR/gen_font_golden" "$REPO_ROOT/crates/rzh-formats/tests/golden/font.txt"
 echo "wrote crates/rzh-formats/tests/golden/font.txt"
+
+# --- kernel golden dump: the Phase 3 WP1 game-logic kernel transcription
+# (GameLogic.cpp's frame loop and object registry — the ordered subsystem
+# walk, the ID counter, the destroy list's two-pass sleepy erase, the
+# loadPostProcess compaction and heap rebuild; the sleepy-update
+# scheduler with its packed frame+phase priority heap and the awaken
+# refusal family; Object.cpp's disabled mask and movement thresholds;
+# PartitionManager.cpp's spatial store — the grid, the COI coverage with
+# the small/precise-circle/rect fills over the BaseFunctions.h
+# conversions, the dirty-module refresh and the contact-pair collection)
+# over hand-built id/frame/scheduler/destroy/disabled/grid/fill/dirty/
+# contact/register/roundtrip corpora. The generator links the pinned
+# GameMath sources for gm_sinf / gm_cosf / gm_sqrtf, like
+# gen_hanim_golden.cpp (the deterministic-math build's trig entry points).
+echo "compiling gen_kernel_golden.cpp against the pin ..."
+for src in $PIN_SOURCES; do
+    obj="$BUILD_DIR/$(basename "$src").o"
+    if [ ! -f "$obj" ]; then
+        "$CC" -O2 $PIN_CFLAGS -DBUILD_WITH_INTRINSICS -c -o "$obj" "$src"
+    fi
+done
+mkdir -p "$REPO_ROOT/crates/rzh-sim/tests/golden"
+"$CXX" -O2 -std=c++17 -Wall -Wextra -Werror -ffp-contract=off \
+    -c -o "$BUILD_DIR/gen_kernel_golden.o" "$SCRIPT_DIR/gen_kernel_golden.cpp"
+"$CXX" -o "$BUILD_DIR/gen_kernel_golden" "$BUILD_DIR/gen_kernel_golden.o" "$BUILD_DIR"/*.c.o -lm
+"$BUILD_DIR/gen_kernel_golden" "$REPO_ROOT/crates/rzh-sim/tests/golden/kernel.txt"
+echo "wrote crates/rzh-sim/tests/golden/kernel.txt"
 echo "now run: cargo test --workspace"

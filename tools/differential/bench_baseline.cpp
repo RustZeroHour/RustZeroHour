@@ -151,6 +151,14 @@ std::uint64_t bench_mapscripts_parse(const uint8_t *data, size_t len);
 long bench_wnd_materialize(uint8_t *out, size_t cap);
 std::uint64_t bench_wnd_parse(const uint8_t *data, size_t len);
 long bench_font_materialize(uint8_t *out, size_t cap);
+
+// The game-logic kernel wrapper (bench_wrap_kernel.cpp): the Phase 3
+// WP1 frame loop over the mixed corpus and the sleepy dispatch alone.
+void *bench_kernel_build();
+std::uint64_t bench_kernel_frame_loop(void *world);
+std::uint64_t bench_kernel_dispatch(void *world);
+void bench_kernel_teardown(void *world);
+int bench_kernel_verify();
 std::uint64_t bench_font_parse(const uint8_t *data, size_t len);
 unsigned bench_dds_parse(const uint8_t *data, size_t len);
 long bench_dds_convert_materialize(uint8_t *out, size_t cap);
@@ -883,6 +891,25 @@ int main(int argc, char **argv)
                 report("font/parse_x131k", measure_ns([] {}, [&] {
                         return bench_font_parse(bytes.data(), bytes.size());
                 }), (double)total);
+        }
+
+        // --- game-logic kernel (the Phase 3 WP1 frame loop) ------------------------------
+        {
+                // the lockstep check: the corpus is deterministic, so the
+                // checksums must equal the Rust bench's pinned values
+                if (!bench_kernel_verify())
+                {
+                        fprintf(stderr, "error: kernel bench checksum mismatch against the Rust pin\n");
+                        exit(1);
+                }
+                report("kernel/frame_loop_x180",
+                        measure_ns_ctx([] { return bench_kernel_build(); },
+                                [](void *world) { return bench_kernel_frame_loop(world); },
+                                bench_kernel_teardown));
+                report("kernel/dispatch_x180",
+                        measure_ns_ctx([] { return bench_kernel_build(); },
+                                [](void *world) { return bench_kernel_dispatch(world); },
+                                bench_kernel_teardown));
         }
 
         // --- dds textures ---------------------------------------------------------------

@@ -171,6 +171,16 @@ EAC_DIR="$REPO_ROOT/Core/Libraries/Source/Compression/EAC"
     -c -o "$BUILD_DIR/bench_wrap_wnd.o" "$SCRIPT_DIR/bench_wrap_wnd.cpp"
 "$CXX" -O2 -std=c++17 -Wall -Wextra -Werror -ffp-contract=off \
     -c -o "$BUILD_DIR/bench_wrap_font.o" "$SCRIPT_DIR/bench_wrap_font.cpp"
+# the kernel wrapper links the pinned GameMath sources like the golden
+# generator (the deterministic trig the rect fill drives)
+for src in $PIN_SOURCES; do
+    obj="$BUILD_DIR/$(basename "$src").o"
+    if [ ! -f "$obj" ]; then
+        "$CC" -O2 $PIN_CFLAGS -DBUILD_WITH_INTRINSICS -c -o "$obj" "$src"
+    fi
+done
+"$CXX" -O2 -std=c++17 -Wall -Wextra -Werror -ffp-contract=off \
+    -c -o "$BUILD_DIR/bench_wrap_kernel.o" "$SCRIPT_DIR/bench_wrap_kernel.cpp"
 "$CXX" -O2 -std=c++17 -Wall -Wextra -Werror -ffp-contract=off \
     -c -o "$BUILD_DIR/bench_baseline.o" "$SCRIPT_DIR/bench_baseline.cpp"
 
@@ -199,6 +209,7 @@ EAC_DIR="$REPO_ROOT/Core/Libraries/Source/Compression/EAC"
     "$BUILD_DIR/bench_wrap_mapscripts.o" \
     "$BUILD_DIR/bench_wrap_wnd.o" \
     "$BUILD_DIR/bench_wrap_font.o" \
+    "$BUILD_DIR/bench_wrap_kernel.o" \
     "$BUILD_DIR/refdecode.o" \
     "$BUILD_DIR/refencode.o" \
     "$BUILD_DIR"/*.c.o -lm

@@ -169,7 +169,7 @@ crates/
   rzh-ini         INI lexer/parser + derive-based schema layer
   rzh-formats     W3D, map, TGA/DDS, CSF, WND, ... (parsing only)
   rzh-data        typed game data (templates, weapons, armor, locomotors, ...)
-  rzh-sim         deterministic simulation (no I/O, no rendering, no threads)
+  rzh-sim         deterministic simulation (no I/O, no rendering, no threads) — exists (the WP1 kernel core: the frame loop, the object registry, the sleepy scheduler, the spatial store)
   rzh-replay      command streams, snapshots, trace tools, legacy .rep import
   rzh-client      drawables, camera, selection, view-side logic
   rzh-render      wgpu renderer
@@ -727,7 +727,68 @@ is now specified in [`docs/TRACE_FORMAT_V1.md`](TRACE_FORMAT_V1.md).
 - **Exit (M1 "Data loads"):** the whole Zero Hour data set loads with no errors; dumps match the
   C++ oracle on sampled files (P0).
 
-### Phase 3: Deterministic headless simulation (XXL)
+### Phase 3: Deterministic headless simulation (XXL) — **status: started (2026-11-08)**
+
+`rzh-sim` exists with the WP1 kernel's first slice done to the Phase 2
+standard: the **frame loop, the object model's registry half and the
+partition manager's spatial store** — GameLogic.cpp's `update()` (the
+ordered subsystem walk — the frame hand-off, the script engine, the
+time-freeze gate, the terrain, the recorder/CRC position, the command
+list, the sleepy updates, the AI, the build assistant, the partition
+refresh, the destroy list, the command-list reset, the stores, the
+disabled-status sweep and the frame increment — the yet-unported
+bodies as ordered [`KernelHost`] hooks whose call ORDER the corpora
+pin) and `preUpdate()` (the pause-frame transition);
+`allocateObjectID` (the counter scheme, pinned from the INVALID_ID
+birth through the 0x7fffffff wrap), `registerObject` (the list
+prepend, the ID lookup and the initial sleepy wake — `getFrame() == 0`
+becomes 1), `destroyObject`/`processDestroyList` (the two-pass sleepy
+erase with its MAX_SUO = 256 cap — the boundary pinned, the
+beyond-cap dangling stated as a contract — the destroy-during-destroy
+same-pass append, the ~Object partition unregister) and
+`loadPostProcess` (the max+1 ID compaction and the flat-push
+bottom-up heapify); the **sleepy-update scheduler** — the packed
+`m_nextCallFrameAndPhase` priority (frame << 2 | phase, the
+UPDATE_SLEEP_FOREVER saturation, the phase re-derived from the
+module's override), the min-heap with its index stamps (the pristine
+non-unrolled rebalanceChild; the equal-priority TIE ORDER the heap
+array itself decides, pinned by the array dumps), the awaken refusal
+family (the easy return, the "already awake at now+1" case, the
+not-in-list initialization) and `frameToSleepTime`; Object.cpp's
+kernel state (the disabled mask's `frame > now` write, the sweep's
+`now >= tillFrame` re-enable, reactToTransformChange's 0.01
+thresholds, setGeometryInfo's re-register); and
+PartitionManager.cpp's **spatial store** — init (the cell-size clamp,
+the double-division inverse, the zero-extent patch, the CEIL counts —
+the f32-0.1 drift pinned), worldToCell/worldToCellDist over
+BaseFunctions.h's Hoffesommer conversions (the SIGNED-mask arithmetic
+shift the golden corpora pin), the COI coverage
+(calcMaxCoiForShape's bounds, doSmallFill's half-cell truncation,
+doCircleFillPrecise's strict boundary — the non-retail Stubbjax
+branch — doRectFill's half-step fudge and rotated walk, the
+addSubPixToCoverage rescan), the dirty-module refresh (the LIFO
+worklist, makeDirty's status upgrades, the KINDOF_IMMOBILE collision
+refusal, the contact-pair collection with the 5381-socket `hash2ints`
+dedup) and register/unRegisterObject (the master-list prepend, the
+refusals). The frame constants are verified: WWSyncPerSecond = 30,
+the WP1 "to verify" item resolved. Transcribed in
+`tools/differential/gen_kernel_golden.cpp` and ported as `rzh-sim`
+over `rzh-math` (the pinned GameMath trig), with 19 golden corpora
+(1,765 lines: the id scheme, the frame ordering, the scheduler family,
+the disabled gates, the destroy flows and the cap boundary, the
+loadpost rebuild, the grid math, all three fills with their boundary
+and degenerate cases, the dirty-list family, the contact pairs and a
+mixed roundtrip), a 256-case heap-invariant property test, and the
+§6 budget comparison within (0.77x / 0.70x — docs/benchmarks.md; the
+monomorphic host/arena and the bucket-table dedup it took recorded in
+[ADR-004](adr/004-sim-kernel-architecture.md), the sim-architecture
+decision the plan required before Phase 3). The **next slice** per WP
+order: the contact list's `processContactList` — the collide-test
+family (`geomCollidesWithGeom`, the rect/circle/sphere/cylinder/box
+matrix over `CollideInfo`) and the CollideModule dispatch — building
+on the pair collection this slice pins; then the partition query
+family (`getClosestObjects`, `iterateObjectsInRange`, the
+`SimpleObjectIterator`) that the AI and weapon targeting consume.
 
 Work packages, in order. Develop by **vertical slices**, not by subsystem:
 

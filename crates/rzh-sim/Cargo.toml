@@ -1,0 +1,116 @@
+# rzh-sim: the deterministic headless simulation kernel for RustZeroHour.
+#
+# Ported from (baseline 571a7c5, Zero Hour configuration):
+#   GeneralsMD/Code/GameEngine/Source/GameLogic/System/GameLogic.cpp
+#                                                     (the frame loop:
+#                                                     GameLogic::update's
+#                                                     ordered subsystem walk,
+#                                                     preUpdate's pause-frame
+#                                                     transition, the object
+#                                                     registry — allocateObjectID,
+#                                                     registerObject, destroyObject,
+#                                                     processDestroyList with its
+#                                                     two-pass sleepy erase and
+#                                                     the destroy-during-destroy
+#                                                     same-pass append, and
+#                                                     loadPostProcess's ID
+#                                                     compaction and heap rebuild)
+#   GeneralsMD/Code/GameEngine/Include/GameLogic/GameLogic.h
+#                                                     (the kernel's state half)
+#   GeneralsMD/Code/GameEngine/Source/GameLogic/Object/Update/UpdateModule.cpp
+#   GeneralsMD/Code/GameEngine/Include/GameLogic/Module/UpdateModule.h
+#                                                     (the sleepy-update
+#                                                     scheduler: the packed
+#                                                     m_nextCallFrameAndPhase
+#                                                     priority with its
+#                                                     UPDATE_SLEEP_FOREVER
+#                                                     saturation, setWakeFrame,
+#                                                     frameToSleepTime)
+#   GeneralsMD/Code/GameEngine/Source/GameLogic/Object/Object.cpp
+#                                                     (the kernel's object
+#                                                     state: setDisabledUntil's
+#                                                     frame > now mask write,
+#                                                     checkDisabledStatus's
+#                                                     now >= tillFrame re-enable,
+#                                                     reactToTransformChange's
+#                                                     0.01 position/angle
+#                                                     thresholds, setGeometryInfo's
+#                                                     unregister/re-register)
+#   GeneralsMD/Code/GameEngine/Source/GameLogic/Object/PartitionManager.cpp
+#   GeneralsMD/Code/GameEngine/Include/GameLogic/PartitionManager.h
+#                                                     (the spatial store: the
+#                                                     cell grid, the COI coverage
+#                                                     with calcMaxCoiForShape,
+#                                                     doSmallFill, doCircleFillPrecise
+#                                                     and doRectFill, the dirty
+#                                                     -module refresh with its
+#                                                     LIFO order and contact
+#                                                     -pair collection, register/
+#                                                     unRegisterObject)
+#   GeneralsMD/Code/GameEngine/Source/Common/Thing/ThingFactory.cpp
+#                                                     (the newObject shape the
+#                                                     corpus creation mirrors)
+#   Core/Libraries/Source/Lib/Include/Lib/BaseFunctions.h
+#                                                     (fast_float_trunc/floor/
+#                                                     ceil — the Hoffesommer bit
+#                                                     tricks — and the
+#                                                     REAL_TO_INT_CEIL/FLOOR
+#                                                     composites of the Zero Hour
+#                                                     non-retail build)
+#   Core/Libraries/Source/Lib/Trig.cpp               (Cos/Sin — the gm_cosf/
+#                                                     gm_sinf deterministic
+#                                                     branches, supplied by
+#                                                     rzh-math's pinned GameMath
+#                                                     port)
+#   Core/GameEngine/Include/Common/GameCommon.h,
+#   Core/Libraries/Source/WWVegas/WWLib/WWCommon.h    (WWSyncPerSecond = 30 and
+#                                                     the derived frame reals)
+#   Core/GameEngine/Include/Common/GameType.h         (ObjectID, INVALID_ID)
+#   Core/GameEngine/Include/Common/DisabledTypes.h    (the 13 disabled types)
+#   Core/GameEngine/Include/Common/Geometry.h         (GeometryType)
+#   Core/GameEngine/Include/Common/KindOf.h           (the IMMOBILE bit the
+#                                                     store consults)
+#
+# Original: Copyright 2025 Electronic Arts Inc.
+# Rust port Copyright 2026 the RustZeroHour contributors.
+#
+# This crate is stage C of the migration plan (§3.4, "Sim"): the Phase 3
+# WP1 kernel. It is deterministic, single-threaded, I/O-free and
+# rendering-free by construction (plan §3.3 rules 5-7): no unsafe, no
+# wall-clock, no HashMap iteration, objects referenced by ID. The sleepy
+# update ordering, the ID allocation, the destroy-list semantics and the
+# partition coverage are pinned byte-exactly (P0 for the discrete state)
+# against tools/differential/gen_kernel_golden.cpp — the C++
+# transcription of the same paths.
+
+[package]
+name = "rzh-sim"
+description = "Zero Hour deterministic simulation kernel: the frame loop, the object registry with its sleepy-update scheduler, and the partition-manager spatial store"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+keywords = ["gamedev", "rts", "zerohour", "simulation", "deterministic"]
+categories = ["game-development"]
+readme = "README.md"
+
+[lints]
+workspace = true
+
+[dependencies]
+# The deterministic math crate: the pinned GameMath trig (gm_sinf/gm_cosf)
+# the rect fill drives and the correctly-rounded sqrt the COI bounds use
+# (ADR-001: bit-identical to the pin, so the crate stays pure Rust).
+rzh-math = { path = "../rzh-math", version = "0.1.0" }
+
+[dev-dependencies]
+proptest = { workspace = true }
+criterion = { workspace = true }
+
+# §6 discipline: every ported unit gets a benchmark compared against the
+# C++ baseline (tools/differential/bench_baseline.sh, docs/benchmarks.md).
+# Run with `cargo bench -p rzh-sim`.
+[[bench]]
+name = "rzh_sim"
+harness = false

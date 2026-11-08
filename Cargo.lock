@@ -382,6 +382,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "rzh-sim"
+version = "0.1.0"
+dependencies = [
+ "criterion",
+ "proptest",
+ "rzh-math",
+]
+
+[[package]]
 name = "rzh-util"
 version = "0.1.0"
 dependencies = [

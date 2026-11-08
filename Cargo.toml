@@ -12,6 +12,7 @@ members = [
     "crates/rzh-ini",
     "crates/rzh-log",
     "crates/rzh-math",
+    "crates/rzh-sim",
     "crates/rzh-util",
     "crates/rzh-vfs",
 ]
