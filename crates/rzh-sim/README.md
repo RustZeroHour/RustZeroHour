@@ -44,11 +44,23 @@ provenance list), the crate owns:
   linked-list mergesort, the `PartitionFilter` framework with the
   wouldCollide / kindOf / alive / onMap / sameMapStatus filters, the
   potential-collision slop query, and the vector / distance /
-  goal-distance / relative-angle measures.
+  goal-distance / relative-angle measures;
+- the **players/teams/relationships block** — the 16-slot player
+  registry with its `newGame` lifecycle (the local-selection
+  precedence, the enemies/allies assignment, the default teams, the
+  slot bookkeeping), the team factory with its `std::map`-ordered
+  prototype registry, the `++id` allocation scheme and the
+  singleton-reuse / auto-create / duplicate-name-refusal family, the
+  two-level relationship override chain (player → team → owner) with
+  the defector gates, the `Object::setTeam` member-list choreography
+  with its `isPlayerActive` refusal, and `Team::updateState`'s state
+  half — the created latch, the destroy-threshold compute, the
+  enemy-sighted partition query and the empty-team removal sweep — plus
+  the same-player / relationship / on-team query filters over it all.
 
 Parity is golden-pinned against
 `tools/differential/gen_kernel_golden.cpp` — a verbatim C++
-transcription of the same paths — through 24 corpora covering the id
+transcription of the same paths — through 31 corpora covering the id
 scheme, the frame ordering, the scheduler family, the disabled gates,
 the destroy flows, the grid math, all three fills, the dirty-list
 family, the contact pairs, the collide matrix (the loc/normal bits,
@@ -60,13 +72,25 @@ walk's early exit / exact-boundary refusal / same-cell tie /
 boundary-measure shrunk and clamped pairs / filter refusals / the
 four measures and the relative angles, and the iterators' insertion
 order, tie stability in all four sorted orders, master-list walk and
-potential-collision gate) and a mixed roundtrip
-(`tests/golden/kernel.txt`, 2,571 lines), plus a 256-case
-result-symmetry / unit-normal property test (`tests/collide_props.rs`)
-and a 256-case query property suite (`tests/query_props.rs` — the
-sorted drains' monotonicity and tie stability, the range query's
-set-exactness vs the brute force, and the rings' partition of the
-offset space).
+potential-collision gate), the players/teams/relationships block (the
+neutral birth and the interning order, the newGame precedence ladder
+and the asymmetric relation assignment, the factory's id scheme and
+refusal family, the relationship override chain and the removal
+family, the defector gates, the mask queries' peeling and exhaustion,
+the member choreography with the isPlayerActive refusal and the
+capture pair, the updateState latches and thresholds with the
+enemy-sighted query, the empty-team sweep and the clear()'s
+map-pre-emptied contrast, the stale relations surviving reset) and a
+mixed roundtrip (`tests/golden/kernel.txt`, 3,554 lines), plus a
+256-case result-symmetry / unit-normal property test
+(`tests/collide_props.rs`), a 256-case query property suite
+(`tests/query_props.rs` — the sorted drains' monotonicity and tie
+stability, the range query's set-exactness vs the brute force, and
+the rings' partition of the offset space) and a players property
+suite (`tests/players_props.rs` — the relationship chain's totality
+against a brute-force reference, the team-level precedence, the
+mask-query agreement, the interning injectivity, the team-id
+monotonicity and the member-list conservation).
 
 Deterministic by construction (plan §3.3): `#![forbid(unsafe_code)]`,
 single-threaded, no I/O, no wall-clock, no `HashMap` iteration, `f32`
@@ -74,6 +98,6 @@ with the original's operation order, objects referenced by id.
 
 The subsystem bodies (script engine, terrain, commands, AI, economy)
 and the module framework are later slices; they plug in through the
-`KernelHost` trait whose call order the kernel pins. The
-players/teams/relationships block (and the filters reading it) is the
-next slice.
+`KernelHost` trait whose call order the kernel pins. WP1's remainder
+after the players/teams/relationships block: the money/energy/ranks/
+sciences block and the GameMessage command processing.

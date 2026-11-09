@@ -20,6 +20,14 @@
 //!   boundary-2d measure behind an on-map filter) and the
 //!   near-to-far-sorted range iterator drained to exhaustion, the
 //!   checksum folding every id and distance bit.
+//! - `kernel/players_x300`: 300 mixed players/teams operations over the
+//!   settled corpus — a third the relationship-to-mask sweeps (all five
+//!   players, the flag combos keyed by the iteration), a third the
+//!   relationship chains (twelve object pairs through the defector
+//!   gates, the team overrides and the owning players' maps), a third
+//!   the full `updateTeamStates` walk (the state half with the
+//!   enemy-sighted partition queries), the checksum folding every
+//!   verdict, mask and team-state word.
 //!
 //! Both benches assert the final-state checksum (the heap array's packed
 //! priorities in order, the object list's coverage and cell-change
@@ -77,8 +85,8 @@ fn build_corpus(cell_size: f32, extents: (f32, f32, f32, f32)) -> (Kernel, Bench
         hi_x: extents.2,
         hi_y: extents.3,
     };
-    let mut kernel = Kernel::with_grid(cell_size, region);
     let mut host = BenchHost { sleeps: Vec::new() };
+    let mut kernel = Kernel::with_grid(cell_size, region, &mut host);
 
     for i in 0..BENCH_OBJECTS as i32 {
         let geometry = match i % 4 {
@@ -266,6 +274,7 @@ fn run_queries(kernel: &mut Kernel) -> u64 {
             0 => {
                 let (id, dist, _) = kernel.pm.get_closest_object_from_position(
                     &mut kernel.objects,
+                    &kernel.players,
                     pos,
                     45.0,
                     DistanceCalculationType::FromCenter2d,
@@ -282,6 +291,7 @@ fn run_queries(kernel: &mut Kernel) -> u64 {
                 let filters: [&dyn PartitionFilter; 1] = [&on_map];
                 let (id, dist, _) = kernel.pm.get_closest_object_from_position(
                     &mut kernel.objects,
+                    &kernel.players,
                     pos,
                     60.0,
                     DistanceCalculationType::FromBoundingsphere2d,
@@ -296,6 +306,7 @@ fn run_queries(kernel: &mut Kernel) -> u64 {
             _ => {
                 let mut it = kernel.pm.iterate_objects_in_range_from_position(
                     &mut kernel.objects,
+                    &kernel.players,
                     pos,
                     35.0,
                     DistanceCalculationType::FromCenter2d,
@@ -344,5 +355,190 @@ fn bench_query(c: &mut Criterion) {
     });
 }
 
-criterion_group!(benches, bench_frame_loop, bench_dispatch, bench_query);
+/// The players/teams block's checksum (pinned at authoring time against
+/// the C++ wrapper — both sides build the identical corpus).
+const PLAYERS_CHECKSUM: u64 = 10_479_098_065_696_129_437;
+
+/// The players corpus: the 4-side world (the enemies/allies assignment
+/// included) with the 120 objects distributed over the default teams
+/// (every fifth object to its player's squad instead), the vision
+/// ranges and AI bits set, settled by one full update.
+fn players_corpus() -> (Kernel, BenchHost) {
+    let (mut kernel, mut host) = build_corpus(10.0, (0.0, 0.0, 300.0, 300.0));
+
+    // the distilled sides: four players, the first the human and the
+    // local one; p1→p2 enemies, p3→p1 allies
+    let sides = rzh_sim::players::SidesSpec {
+        sides: vec![
+            rzh_sim::players::SideSpec {
+                player_name: String::new(),
+                ..Default::default()
+            },
+            rzh_sim::players::SideSpec {
+                player_name: "p1".to_string(),
+                is_human: true,
+                enemies: vec!["p2".to_string()],
+                ..Default::default()
+            },
+            rzh_sim::players::SideSpec {
+                player_name: "p2".to_string(),
+                ..Default::default()
+            },
+            rzh_sim::players::SideSpec {
+                player_name: "p3".to_string(),
+                allies: vec!["p1".to_string()],
+                ..Default::default()
+            },
+        ],
+        teams: {
+            let mut teams = vec![rzh_sim::players::TeamSpec {
+                name: "team".to_string(),
+                owner: String::new(),
+                singleton: true,
+                ..Default::default()
+            }];
+            for p in 1..=3 {
+                teams.push(rzh_sim::players::TeamSpec {
+                    name: format!("teamp{p}"),
+                    owner: format!("p{p}"),
+                    singleton: true,
+                    ..Default::default()
+                });
+            }
+            for p in 1..=3 {
+                teams.push(rzh_sim::players::TeamSpec {
+                    name: format!("p{p}squad"),
+                    owner: format!("p{p}"),
+                    singleton: false,
+                    ..Default::default()
+                });
+            }
+            teams
+        },
+        has_game_info: false,
+        game_info: Default::default(),
+    };
+    kernel
+        .players
+        .new_game(&sides, &mut kernel.objects, &mut host);
+
+    // the team distribution: object i belongs to player (i % 3) + 1's
+    // default team, every fifth to that player's squad instead
+    let default_teams: Vec<u32> = (1..=3)
+        .map(|p| kernel.players.list.players[p].default_team)
+        .collect();
+    let squads: Vec<u32> = (1..=3)
+        .map(|p| {
+            kernel
+                .players
+                .create_team(&format!("p{p}squad"), &mut host)
+                .unwrap()
+        })
+        .collect();
+    for i in 1..=BENCH_OBJECTS {
+        let player = (i % 3) + 1;
+        let team = if i % 5 == 0 {
+            squads[player - 1]
+        } else {
+            default_teams[player - 1]
+        };
+        kernel
+            .players
+            .set_team(&mut kernel.objects, i as i32, Some(team), &mut host);
+        let obj = kernel.objects.get_mut(i as i32);
+        obj.vision_range = 5.0 + ((i % 7) as f32);
+        obj.has_ai = (i % 3) != 0;
+        obj.ai_idle = (i % 2) == 0;
+    }
+
+    kernel.update(&mut host); // the settle: the COI coverage the queries walk
+    (kernel, host)
+}
+
+/// The timed body: 300 mixed players/teams operations (the C++
+/// wrapper's bench_kernel_players, formula for formula).
+fn run_players(kernel: &mut Kernel, host: &mut BenchHost) -> u64 {
+    use rzh_sim::types::{ALLOW_ALLIES, ALLOW_ENEMIES, ALLOW_NEUTRAL, ALLOW_SAME_PLAYER};
+
+    let mut sum: u64 = 1_000_003;
+    for i in 0..300u64 {
+        match i % 3 {
+            0 => {
+                // the relationship-to-mask sweeps: all five players, the
+                // flag combo keyed by the iteration
+                let same = if (i & 1) != 0 { ALLOW_SAME_PLAYER } else { 0 };
+                let flags: u32 = ALLOW_ALLIES | ALLOW_ENEMIES | ALLOW_NEUTRAL | same;
+                for p in 0..5i32 {
+                    let mask = kernel.players.get_players_with_relationship(p, flags);
+                    sum = sum.wrapping_mul(31).wrapping_add(u64::from(mask));
+                }
+            }
+            1 => {
+                // the relationship chains: twelve object pairs
+                for k in 0..12u64 {
+                    let a = ((i * 7 + k * 13) % 120 + 1) as i32;
+                    let b = ((i * 11 + k * 29) % 120 + 1) as i32;
+                    let r = kernel
+                        .players
+                        .object_get_relationship(&kernel.objects, a, b);
+                    sum = sum.wrapping_mul(31).wrapping_add(r.bits() as u64);
+                    let ta = kernel.objects.get(a).team;
+                    let tb = kernel.objects.get(b).team;
+                    let tr = kernel.players.team_get_relationship(ta, tb);
+                    sum = sum.wrapping_mul(31).wrapping_add(tr.bits() as u64);
+                }
+            }
+            _ => {
+                // the full updateTeamStates walk (the state half with
+                // the enemy-sighted partition queries), then the fold
+                kernel
+                    .players
+                    .update_team_states(&mut kernel.objects, &mut kernel.pm, host);
+                let mut team_fold: u64 = 0;
+                for slot in kernel.players.factory.map.values() {
+                    if let Some(proto) = kernel.players.factory.protos[*slot].as_ref() {
+                        for &ts in proto.instances.iter().rev() {
+                            if let Some(t) = kernel.players.factory.teams[ts].as_ref() {
+                                team_fold = team_fold
+                                    .wrapping_mul(31)
+                                    .wrapping_add(u64::from(t.id))
+                                    .wrapping_mul(31)
+                                    .wrapping_add(t.state.cur_units as u64)
+                                    .wrapping_mul(31)
+                                    .wrapping_add(u64::from(t.state.see_enemy));
+                            }
+                        }
+                    }
+                }
+                sum = sum.wrapping_mul(31).wrapping_add(team_fold);
+            }
+        }
+    }
+    sum
+}
+
+fn bench_players(c: &mut Criterion) {
+    // the authoring-time lockstep check: the corpus and the operation
+    // stream are deterministic, so the checksum is too (the C++ wrapper
+    // asserts the same value)
+    let (mut kernel, mut host) = players_corpus();
+    let expected = run_players(&mut kernel, &mut host);
+    assert_eq!(expected, PLAYERS_CHECKSUM, "re-pin PLAYERS_CHECKSUM");
+
+    c.bench_function("kernel/players_x300", |b| {
+        b.iter_batched(
+            players_corpus,
+            |(mut kernel, mut host)| run_players(&mut kernel, &mut host),
+            BatchSize::PerIteration,
+        )
+    });
+}
+
+criterion_group!(
+    benches,
+    bench_frame_loop,
+    bench_dispatch,
+    bench_query,
+    bench_players
+);
 criterion_main!(benches);

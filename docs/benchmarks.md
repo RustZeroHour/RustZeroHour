@@ -606,7 +606,7 @@ now reads: container 0.62–0.99x, height map 0.53–0.77x, blend tiles
 1.08x, sides 0.98x, layouts 0.37x, fonts 0.23x — all within the §6
 threshold.
 
-#### The game-logic kernel (`kernel/frame_loop_x180`, `kernel/dispatch_x180`, `kernel/query_x300`)
+#### The game-logic kernel (`kernel/frame_loop_x180`, `kernel/dispatch_x180`, `kernel/query_x300`, `kernel/players_x300`)
 
 The Phase 3 opener: the WP1 kernel — the frame loop's full walk and the
 sleepy dispatch, since the collide slice also the contact list's
@@ -640,6 +640,7 @@ same setup and flags as the Phase 2 numbers.
 | `kernel/frame_loop_x180` | 13.02 ms | 24.83 ms | 0.52x | within |
 | `kernel/dispatch_x180` | 6.44 ms | 18.61 ms | 0.35x | within |
 | `kernel/query_x300` | 154.09 µs | 759.98 µs | 0.20x | within |
+| `kernel/players_x300` | 138.29 µs | 186.72 µs | 0.74x | within |
 
 The query slice adds the third comparison: 300 mixed spatial queries
 over the same formula corpus settled by one full update (a third
@@ -655,6 +656,27 @@ scans pay O(N) per candidate — the transcription's own bookkeeping,
 not the original's (the retail `PartitionManager.cpp` resolves through
 intrusive pointers; a faithful-C++ baseline would sit between the
 two).
+
+The players/teams/relationships slice adds the fourth comparison: 300
+mixed players/teams operations over the same settled corpus, promoted to
+the 4-side world (the distilled sides with the enemies/allies
+assignment, the standard singleton default teams plus one non-singleton
+squad per player, the 120 objects distributed over them — every fifth to
+its player's squad — with the vision ranges and AI bits the
+enemy-sighted walk reads): a third the relationship-to-mask sweeps (all
+five players, the flag combos keyed by the iteration), a third the
+relationship chains (twelve object pairs through the defector gates,
+the team overrides and the owning players' maps), a third the full
+`updateTeamStates` walk (the state half with the enemy-sighted
+partition queries — the slice's own filter set), the checksum folding
+every verdict, mask and team-state word, 10,479,098,065,696,129,437 on
+both sides. Measured 2026-11-09, same setup and flags as above. The
+Rust advantage is the arena-and-BTreeMap shape again: the id and
+registry lookups the relationship chain resolves per candidate are
+O(log n) / arena-indexed while the transcription's `teamByID` /
+`findPlayerWithNameKey` linear scans pay O(N) — the transcription's own
+bookkeeping, not the original's (the retail `Team.cpp` resolves through
+intrusive pointers; a faithful-C++ baseline would sit between the two).
 
 Two structural choices the budget run itself surfaced and paid for,
 before any number was recorded: the host and module-arena surfaces are

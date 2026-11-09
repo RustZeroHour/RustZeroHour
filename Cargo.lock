@@ -388,6 +388,7 @@ dependencies = [
  "criterion",
  "proptest",
  "rzh-math",
+ "rzh-util",
 ]
 
 [[package]]

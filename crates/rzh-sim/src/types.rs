@@ -13,9 +13,20 @@
 //! `GeneralsMD/Code/GameEngine/Include/GameLogic/Module/UpdateModule.h`
 //! (UpdateSleepTime, SleepyUpdatePhase),
 //! `GeneralsMD/Code/GameEngine/Include/GameLogic/PartitionManager.h`
-//! (HUGE_DIST, DistanceCalculationType) and
+//! (HUGE_DIST, DistanceCalculationType),
 //! `GeneralsMD/Code/GameEngine/Include/GameLogic/ObjectIter.h`
-//! (IterOrderType) — at baseline 571a7c5.
+//! (IterOrderType),
+//! `Core/GameEngine/Include/Common/GameCommon.h` (the `Relationship`
+//! enum with `TheRelationShipNames`, `PlayerMaskType` /
+//! `PLAYERMASK_ALL`, `PlayerType`),
+//! `GeneralsMD/Code/GameEngine/Include/Common/PlayerList.h`
+//! (`AllowPlayerRelationship`),
+//! `GeneralsMD/Code/GameEngine/Include/Common/Player.h`
+//! (`PLAYER_INDEX_INVALID`),
+//! `GeneralsMD/Code/GameEngine/Include/Common/Team.h` (`TeamID` /
+//! `TeamPrototypeID` with their invalids) and
+//! `Core/GameEngine/Include/GameNetwork/NetworkDefs.h` (`MAX_SLOTS`) —
+//! at baseline 571a7c5.
 //!
 //! Original: Copyright 2025 Electronic Arts Inc.
 //! Rust port Copyright 2026 the RustZeroHour contributors.
@@ -549,3 +560,110 @@ pub const OBJECT_PRIVATE_EFFECTIVELY_DEAD_BIT: u32 = 0;
 /// `OFF_MAP` (Object.h: "set to true if I am known to be OFF the current
 /// map").
 pub const OBJECT_PRIVATE_OFF_MAP_BIT: u32 = 3;
+
+/// `UNDETECTED_DEFECTOR` (Object.h: `1 << 1` of `m_privateStatus` — "set
+/// to true when I defect from my team; set to false when I attack
+/// anything or when time runs out"). The relationship chain's defector
+/// gates consult it; the setters are the defect/capture paths' (a later
+/// slice; the corpora program the bit).
+pub const OBJECT_PRIVATE_UNDETECTED_DEFECTOR_BIT: u32 = 1;
+
+/// `Relationship` (GameCommon.h): the alliance state between teams and
+/// players. Keep `TheRelationShipNames` in sync —
+/// [`RELATIONSHIP_NAMES`].
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, PartialOrd, Ord)]
+#[repr(i32)]
+pub enum Relationship {
+    /// `ENEMIES` = 0.
+    Enemies = 0,
+    /// `NEUTRAL` = 1 (the default verdict of every unresolved chain).
+    #[default]
+    Neutral = 1,
+    /// `ALLIES` = 2.
+    Allies = 2,
+}
+
+impl Relationship {
+    /// The wire value (the C++ enum ordinals).
+    #[must_use]
+    pub fn bits(self) -> i32 {
+        self as i32
+    }
+
+    /// `TheRelationShipNames` (GameCommon.cpp), in enum order.
+    #[must_use]
+    pub fn name(self) -> &'static str {
+        RELATIONSHIP_NAMES[self as usize]
+    }
+}
+
+/// `TheRelationShipNames` (GameCommon.cpp).
+pub const RELATIONSHIP_NAMES: [&str; 3] = ["Enemies", "Neutral", "Allies"];
+
+/// `PlayerMaskType` (GameCommon.h): the 16-player mask word
+/// (`MAX_PLAYER_COUNT <= 16` fits an `UnsignedShort`).
+pub type PlayerMaskType = u16;
+
+/// `PLAYERMASK_ALL` (GameCommon.h).
+pub const PLAYERMASK_ALL: PlayerMaskType = 0xffff;
+
+/// `PLAYERMASK_NONE` (GameCommon.h).
+pub const PLAYERMASK_NONE: PlayerMaskType = 0x0000;
+
+/// `PLAYER_INDEX_INVALID` (Player.h): `-1` — the relation maps' clear-all
+/// key and the invalid-player sentinel.
+pub const PLAYER_INDEX_INVALID: i32 = -1;
+
+/// `AllowPlayerRelationship` (PlayerList.h): the
+/// `getPlayersWithRelationship` selector bits — a DIFFERENT flag set from
+/// the partition filter's relationship allows (which key on
+/// `1 << Relationship`).
+pub const ALLOW_SAME_PLAYER: u32 = 0x01;
+
+/// `ALLOW_ALLIES` (PlayerList.h).
+pub const ALLOW_ALLIES: u32 = 0x02;
+
+/// `ALLOW_ENEMIES` (PlayerList.h).
+pub const ALLOW_ENEMIES: u32 = 0x04;
+
+/// `ALLOW_NEUTRAL` (PlayerList.h).
+pub const ALLOW_NEUTRAL: u32 = 0x08;
+
+/// `TeamID` (Team.h): the team-instance word; `0` is
+/// [`TEAM_ID_INVALID`] — the factories' `++m_uniqueTeamID`
+/// pre-increments hand out ids from 1, so no live team ever carries 0.
+pub type TeamID = u32;
+
+/// `TEAM_ID_INVALID` (Team.h): `#define TEAM_ID_INVALID 0`.
+pub const TEAM_ID_INVALID: TeamID = 0;
+
+/// `TeamPrototypeID` (Team.h): the prototype word; `0` is invalid, ids
+/// from 1.
+pub type TeamProtoID = u32;
+
+/// `TEAM_PROTOTYPE_ID_INVALID` (Team.h): `#define
+/// TEAM_PROTOTYPE_ID_INVALID 0`.
+pub const TEAM_PROTO_ID_INVALID: TeamProtoID = 0;
+
+/// `PlayerType` (GameCommon.h): `PLAYER_HUMAN`, `PLAYER_COMPUTER`.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+#[repr(i32)]
+pub enum PlayerType {
+    /// `PLAYER_HUMAN` = 0: human-controlled.
+    Human = 0,
+    /// `PLAYER_COMPUTER` = 1: computer-controlled (the birth default).
+    #[default]
+    Computer = 1,
+}
+
+impl PlayerType {
+    /// The wire value (the C++ enum ordinals).
+    #[must_use]
+    pub fn bits(self) -> i32 {
+        self as i32
+    }
+}
+
+/// `MAX_SLOTS` (NetworkDefs.h): `MAX_PLAYER + 1` = 8 — the slot
+/// bookkeeping bound.
+pub const MAX_SLOTS: usize = 8;

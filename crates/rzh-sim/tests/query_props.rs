@@ -75,6 +75,7 @@ fn build_world(
     seed_objs: Vec<(GeometryInfo, Coord3, f32, f32)>,
     angle_source: f32,
 ) -> (Kernel, PropHost) {
+    let mut host = PropHost;
     let mut kernel = Kernel::with_grid(
         10.0,
         Region2 {
@@ -83,8 +84,8 @@ fn build_world(
             hi_x: 100.0,
             hi_y: 100.0,
         },
+        &mut host,
     );
-    let mut host = PropHost;
     for (geometry_ref, pos_ref, _, angle_ref) in &seed_objs {
         let spec = ObjectSpec {
             geometry: *geometry_ref,
@@ -139,6 +140,7 @@ proptest! {
         let (mut kernel, mut host) = build_world(objects, 0.0);
         let mut fastest = kernel.pm.iterate_objects_in_range_from_position(
             &mut kernel.objects,
+            &kernel.players,
             query_pos,
             max_dist,
             DistanceCalculationType::FromCenter2d,
@@ -149,6 +151,7 @@ proptest! {
 
         let mut near = kernel.pm.iterate_objects_in_range_from_position(
             &mut kernel.objects,
+            &kernel.players,
             query_pos,
             max_dist,
             DistanceCalculationType::FromCenter2d,
@@ -162,6 +165,7 @@ proptest! {
 
         let mut far = kernel.pm.iterate_objects_in_range_from_position(
             &mut kernel.objects,
+            &kernel.players,
             query_pos,
             max_dist,
             DistanceCalculationType::FromCenter2d,
@@ -198,6 +202,7 @@ proptest! {
         let cost_of = |id: i32| costs[(id - 1) as usize];
         let mut cheap = kernel.pm.iterate_objects_in_range_from_position(
             &mut kernel.objects,
+            &kernel.players,
             query_pos,
             max_dist,
             DistanceCalculationType::FromCenter2d,
@@ -210,6 +215,7 @@ proptest! {
         }
         let mut exp = kernel.pm.iterate_objects_in_range_from_position(
             &mut kernel.objects,
+            &kernel.players,
             query_pos,
             max_dist,
             DistanceCalculationType::FromCenter2d,
@@ -264,6 +270,7 @@ proptest! {
         // center-2d numerics)
         let mut iter = kernel.pm.iterate_objects_in_range_from_position(
             &mut kernel.objects,
+            &kernel.players,
             query_pos,
             max_dist,
             DistanceCalculationType::FromCenter2d,
@@ -283,6 +290,7 @@ proptest! {
         // and never closer than the set's minimum
         let (id, dist, _vec) = kernel.pm.get_closest_object_from_position(
             &mut kernel.objects,
+            &kernel.players,
             query_pos,
             max_dist,
             DistanceCalculationType::FromCenter2d,
@@ -312,6 +320,7 @@ proptest! {
         w in 1.0f32..80.0,
         h in 1.0f32..80.0,
     ) {
+        let mut host = PropHost;
         let kernel = Kernel::with_grid(
             cell_size,
             Region2 {
@@ -320,6 +329,7 @@ proptest! {
                 hi_x: w,
                 hi_y: h,
             },
+            &mut host,
         );
         let pm = &kernel.pm;
         let cx = pm.cell_count_x;

@@ -197,6 +197,42 @@ pub trait KernelHost {
     fn run_update(&mut self, id: ObjectID, module: u32) -> UpdateOutcome {
         UpdateOutcome::default()
     }
+
+    /// `Player::update`'s body position (the AI update, the team
+    /// generic-script walk, the energy sabotage check, the academy
+    /// stats, the retaliation-mode posting, the tunnel heal and the
+    /// money income bucket are the AI, script-engine, economy and
+    /// client slices' — the 16-slot walk's position is the pinned
+    /// observable).
+    fn on_player_update(&mut self, player: usize) {}
+
+    /// `Player::becomingLocalPlayer`'s transition (the client body — the
+    /// team color, the garrison recalc, the disguiser colors — is the
+    /// client phase's).
+    fn on_becoming_local_player(&mut self, player: usize, yes: bool) {}
+
+    /// `Player::becomingTeamMember`'s transition (the energy adjust, the
+    /// capture bonus, the battle plans and the idle-worker UI are the
+    /// economy and client slices').
+    fn on_becoming_team_member(&mut self, obj: ObjectID, player: usize, yes: bool) {}
+
+    /// `Object::onCapture`'s call (the module notifications — contain,
+    /// body, experience — are the module framework's; the player pair
+    /// can name the SAME player, the original fires on any team
+    /// change).
+    fn on_capture(&mut self, obj: ObjectID, old_player: usize, new_player: usize) {}
+
+    /// One of `Team::updateState`'s script runs (the run itself is the
+    /// script engine's — WP7).
+    fn on_team_script(&mut self, team: crate::types::TeamID, kind: crate::players::TeamScriptKind) {
+    }
+
+    /// `createInactiveTeam`'s production-condition `executeActions` (the
+    /// script engine's).
+    fn on_production_script(&mut self, proto: crate::types::TeamProtoID) {}
+
+    /// `~Team`'s `notifyOfTeamDestruction` (the script engine's).
+    fn on_team_destroyed(&mut self, team: crate::types::TeamID) {}
 }
 
 /// The kernel's object: the registry state, the scheduler's modules and
@@ -242,6 +278,19 @@ pub struct Object {
     pub partition: Option<PartitionData>,
     /// `onPartitionCellChange()` invocations.
     pub cell_change_count: i32,
+    /// `m_team` (Object.cpp — the `Team*` as its id; `TEAM_ID_INVALID` =
+    /// no team; the `setTeam` family in [`crate::players`] maintains
+    /// it).
+    pub team: crate::types::TeamID,
+    /// `getVisionRange()` — the template's vision (the rzh-data object
+    /// model's; the corpora program the value — the enemy-sighted walk
+    /// reads it).
+    pub vision_range: f32,
+    /// `getAIUpdateInterface() != null` (the AI update's existence — the
+    /// onIdle walk's gate; the module itself is the module framework's).
+    pub has_ai: bool,
+    /// `AIUpdateInterface::isIdle()`.
+    pub ai_idle: bool,
 }
 
 impl Object {
@@ -279,6 +328,14 @@ impl Object {
     #[must_use]
     pub fn is_off_map(&self) -> bool {
         (self.private_status & (1 << crate::types::OBJECT_PRIVATE_OFF_MAP_BIT)) != 0
+    }
+
+    /// `getIsUndetectedDefector()` (Object.h: the UNDETECTED_DEFECTOR
+    /// private bit — the relationship chain's defector gates read it;
+    /// the setters are the defect/capture paths', a later slice).
+    #[must_use]
+    pub fn is_undetected_defector(&self) -> bool {
+        (self.private_status & (1 << crate::types::OBJECT_PRIVATE_UNDETECTED_DEFECTOR_BIT)) != 0
     }
 
     /// `isKindOfMulti(mustBeSet, mustBeClear)` (Thing.cpp → the
@@ -336,6 +393,17 @@ impl Objects {
     #[must_use]
     pub fn try_get(&self, id: ObjectID) -> Option<&Object> {
         self.slots.get(id as usize).and_then(|s| s.as_ref())
+    }
+
+    /// The live ids in slot order (the arena walk — the corpus surface;
+    /// ids never collide so the order is the id order).
+    #[must_use]
+    pub fn slot_ids(&self) -> Vec<ObjectID> {
+        self.slots
+            .iter()
+            .enumerate()
+            .filter_map(|(i, s)| s.as_ref().map(|_| i as ObjectID))
+            .collect()
     }
 
     /// The object's partition data (panics when unregistered — the
@@ -718,8 +786,9 @@ pub struct UpdateModuleSpec {
     pub ctor_wake: Option<u32>,
 }
 
-/// The kernel: the logic, the object arena and the partition manager in
-/// one explicit context (plan §3.3 rule 5 — no global state).
+/// The kernel: the logic, the object arena, the partition manager and
+/// the players/teams block in one explicit context (plan §3.3 rule 5 —
+/// no global state).
 #[derive(Debug, Default)]
 pub struct Kernel {
     /// The game-logic state.
@@ -728,17 +797,27 @@ pub struct Kernel {
     pub objects: Objects,
     /// The partition manager.
     pub pm: PartitionManager,
+    /// The players/teams/relationships block (`ThePlayerList` +
+    /// `TheTeamFactory` + the name-key interning). Pre-`init` until
+    /// [`Kernel::with_grid`] runs — construct through it, not `Default`.
+    pub players: crate::players::Players,
 }
 
 impl Kernel {
-    /// A kernel with the partition grid built (`GameLogic::init`'s
-    /// `m_nextObjID = 1` reset included — the ctor's INVALID_ID start
-    /// would hand out id 0, which no real object ever carries).
-    #[must_use]
-    pub fn with_grid(partition_cell_size: f32, world_extents: Region2) -> Self {
+    /// A kernel with the partition grid built and the players inited
+    /// (`GameLogic::init`'s `m_nextObjID = 1` reset included — the
+    /// ctor's INVALID_ID start would hand out id 0, which no real
+    /// object ever carries; `PlayerList::init`'s birth transitions ride
+    /// the host).
+    pub fn with_grid(
+        partition_cell_size: f32,
+        world_extents: Region2,
+        host: &mut dyn KernelHost,
+    ) -> Self {
         let mut kernel = Self::default();
         kernel.logic.next_obj_id = 1;
         kernel.pm.init(partition_cell_size, world_extents);
+        kernel.players.init(host);
         kernel
     }
 
@@ -770,6 +849,10 @@ impl Kernel {
             colliders: spec.colliders,
             partition: None,
             cell_change_count: 0,
+            team: crate::types::TEAM_ID_INVALID,
+            vision_range: 0.0,
+            has_ai: false,
+            ai_idle: false,
         };
         self.objects.put(obj);
 

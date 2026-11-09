@@ -233,6 +233,7 @@
 #include <cstdlib>
 #include <cstring>
 #include <memory>
+#include <string>
 #include <vector>
 
 // The pinned GameMath sources (TheSuperHackers/GameMath @ 59f7ccd4)
@@ -318,6 +319,13 @@ static inline long REAL_TO_INT_FLOOR(float x) { return fast_float2long_round(fas
 enum {
     MAX_PLAYER_COUNT = 16,
 };
+// Team.h: the team-id word and its invalid (both factories' ++m_uniqueXXX
+// pre-increments hand out ids from 1, so no live team ever carries 0).
+typedef unsigned TeamIDT;
+static const TeamIDT TEAM_ID_T_INVALID = 0;
+// Object.h: UNDETECTED_DEFECTOR = (1 << 1) of m_privateStatus (set by the
+// defector paths — a later slice; the corpora program the bit).
+static const unsigned OBJECT_PRIVATE_UNDETECTED_DEFECTOR_BIT = 1;
 enum {
     NEVER = 0,
     FOREVER = 0x3fffffff, // (we use 0x3fffffff so that we can add offsets and not overflow...)
@@ -663,6 +671,10 @@ struct ObjectT {
     std::vector<CollideModuleT> m_colliders; // the behavior list's collide modules (onCollide's walk)
     int m_partitionData = INVALID_ID; // the object-id handle of the PartitionData
     int m_cellChangeCount = 0;        // onPartitionCellChange() invocations
+    TeamIDT m_team = TEAM_ID_T_INVALID; // m_team (the Team* handle; 0 = no team)
+    float m_visionRange = 0.0f;       // getVisionRange() (the template's vision; the corpus programs it)
+    bool m_hasAi = false;             // getAIUpdateInterface() != null (the AI update's existence)
+    bool m_aiIdle = false;            // AIUpdateInterface::isIdle()
 
     bool isKindOfImmobile() const { return (m_kindof & (1u << KINDOF_IMMOBILE_BIT)) != 0; }
     bool isKindOfNoCollide() const { return (m_kindof & (1u << KINDOF_NO_COLLIDE_BIT)) != 0; }
@@ -670,6 +682,8 @@ struct ObjectT {
     bool isNoCollisions() const { return (m_status & (1u << OBJECT_STATUS_NO_COLLISIONS_BIT)) != 0; }
     bool isEffectivelyDead() const { return (m_privateStatus & (1u << OBJECT_PRIVATE_EFFECTIVELY_DEAD_BIT)) != 0; }
     bool isOffMap() const { return (m_privateStatus & (1u << OBJECT_PRIVATE_OFF_MAP_BIT)) != 0; }
+    // Object.h: getIsUndetectedDefector — BitIsSet(m_privateStatus, UNDETECTED_DEFECTOR).
+    bool getIsUndetectedDefector() const { return (m_privateStatus & (1u << OBJECT_PRIVATE_UNDETECTED_DEFECTOR_BIT)) != 0; }
 
     // Thing::isKindOfMulti (Thing.cpp → the template's kindof bits; the
     // transcription keeps the bits on the object): every must-be-set bit
@@ -985,6 +999,29 @@ struct GameLogicHooks {
     {
         m_collideEvents.push_back({obj, other, module, loc, normal});
     }
+
+    // The players/teams event stream: one 4-int entry per hook the block's
+    // choreography fires (the bodies themselves are later slices — the
+// positions and arguments of the CALLS are the pinned observables).
+    std::vector<std::array<int, 4>> m_teamEvents;
+    enum TeamEv {
+        TEV_PLAYER_UPDATE,  // Player::update's body position (a = player index)
+        TEV_LOCAL,          // becomingLocalPlayer (a = player, b = 0/1)
+        TEV_TEAM_MEMBER,    // becomingTeamMember (a = object, b = player, c = 0/1)
+        TEV_CAPTURE,        // Object::onCapture (a = object, b = old player, c = new player)
+        TEV_TEAM_SCRIPT,    // a script run (a = team id, b = the ScriptKind)
+        TEV_TEAM_DESTROYED, // notifyOfTeamDestruction (a = team id)
+    };
+    enum ScriptKind {
+        SCRIPT_ON_CREATE = 0,
+        SCRIPT_ON_DESTROYED = 1,
+        SCRIPT_ON_IDLE = 2,
+        SCRIPT_ON_ENEMY_SIGHTED = 3,
+        SCRIPT_ON_ALL_CLEAR = 4,
+        SCRIPT_ON_UNIT_DESTROYED = 5,
+        SCRIPT_PRODUCTION_CONDITION = 6, // createInactiveTeam's executeActions
+    };
+    void tev(int e, int a = -1, int b = -1, int c = -1) { m_teamEvents.push_back({e, a, b, c}); }
 };
 
 // ============================================================================
@@ -2401,16 +2438,518 @@ void GameLogicT::friend_awakenUpdateModule(ObjectT *obj, UpdateModuleT *u, unsig
 }
 
 // ============================================================================
+// The players/teams/relationships block (WP1's remainder, the fourth slice) —
+// PlayerList.cpp, Player.cpp's kernel half, Team.cpp's TeamFactory/Team/
+// TeamPrototype state machine, Object.cpp's setTeam family, and the
+// PartitionManager.cpp filters over the state (SamePlayer / Relationship /
+// AcceptOnTeam) — verbatim, distilled inputs.
+//
+// The input distillation (the map's SidesList dicts become plain specs; the
+// real dict parse is rzh-formats' sides-list slice, already ported):
+//   SideSpec  = playerName, playerIsHuman, multiplayerIsLocal, the
+//               PlayerTemplate's observer bit, the enemies/allies token
+//               lists.
+//   TeamSpec  = teamName, teamOwner, teamIsSingleton, the TeamTemplateInfo
+//               fields updateState consults (the six script names and the
+//               destroyedThreshold real), and the production-condition pair
+//               (the executeActions flag, the condition name and whether the
+//               script engine's catalog holds it).
+//   GameInfo  = the occupied slot indices (assignSlotIndices walks
+//               "player%d" names against them).
+// Everything else the dicts carry (factions, build lists, skirmish script
+// duplication, waypoints, attitudes, max instances, ...) is the data/AI/
+// script-engine slices' and is stated in the header, not modelled.
+//
+// The name-key interning (NameKeyGenerator.cpp) is transcribed because the
+// prototype map's std::map<NameKeyType,...> ITERATION ORDER — the
+// findTeamByID / teamAboutToBeDeleted / clear() walks — is keyed on the
+// interning ordinals (first-interned order among the map's names; the real
+// global generator's catalog is shared with data loading, but the relative
+// order of the map's own names is what any closed corpus observes).
+// ============================================================================
+
+// GameCommon.h: ENEMIES, NEUTRAL, ALLIES (keep TheRelationShipNames in sync).
+enum RelationshipT {
+    R_ENEMIES = 0,
+    R_NEUTRAL = 1,
+    R_ALLIES = 2,
+};
+static const char *relationshipName(RelationshipT r)
+{
+    // TheRelationShipNames (GameCommon.cpp), in enum order.
+    static const char *names[3] = { "Enemies", "Neutral", "Allies" };
+    return names[r];
+}
+
+// GameCommon.h: the player-mask word (16 players fit an UnsignedShort).
+typedef unsigned short PlayerMaskT;
+static const PlayerMaskT PLAYERMASK_ALL_T = 0xffff;
+static const PlayerMaskT PLAYERMASK_NONE_T = 0x0000;
+
+// Player.h: PLAYER_INDEX_INVALID (-1; the relation maps' clear-all key).
+static const int PLAYER_INDEX_INVALID = -1;
+
+// PlayerList.h: AllowPlayerRelationship — the getPlayersWithRelationship
+// selector bits (a DIFFERENT flag set from PartitionFilterRelationship's).
+enum AllowPlayerRelationshipT {
+    ALLOW_SAME_PLAYER_T = 0x01,
+    ALLOW_ALLIES_T = 0x02,
+    ALLOW_ENEMIES_T = 0x04,
+    ALLOW_NEUTRAL_T = 0x08,
+};
+
+// Team.h: the prototype-id word and its invalid.
+typedef unsigned TeamProtoIDT;
+static const TeamProtoIDT TEAM_PROTO_ID_T_INVALID = 0;
+
+// GameCommon.h: PLAYER_HUMAN, PLAYER_COMPUTER.
+enum PlayerTypeT { PLAYER_HUMAN_T = 0, PLAYER_COMPUTER_T = 1 };
+
+// NetworkDefs.h: MAX_PLAYER = 7, MAX_SLOTS = MAX_PLAYER + 1 = 8.
+static const int MAX_SLOTS_T = 8;
+
+// NameKeyGenerator.cpp: calcHashForString — hash * 33 + byte over the raw
+// bytes (NUL-terminated in the original; the transcription takes a length).
+static inline unsigned calcHashForStringT(const char *p, size_t len)
+{
+    unsigned result = 0;
+    for (size_t i = 0; i < len; ++i)
+        result = (result << 5) + result + (unsigned char)p[i];
+    return result;
+}
+
+// NameKeyGenerator.cpp: SOCKET_COUNT = 45007 ("prime, and not close to a
+// power of 2").
+static const unsigned NAMEKEY_SOCKET_COUNT = 45007;
+
+// NameKeyGenerator: nameToKey — the socket walk (strcmp equality) and
+// createNameKey (the prepend into the socket chain, the sequential key from
+// m_nextID — init() sets 1). Only nameToKey is transcribed: the players
+// block never interns case-insensitively.
+struct NameKeyGenT {
+    unsigned m_nextID = 1; // init()'s reset (the ctor's NAMEKEY_INVALID state never serves)
+    // socket -> the bucket indices in that socket's chain (the prepend
+    // puts the newest first; the equality walk's result never depends on it).
+    std::vector<std::vector<unsigned>> m_sockets;
+    // The buckets: the name and its key (index + 1 = the key — the original
+    // news Bucket and stores m_key; the arena index carries it here).
+    std::vector<std::pair<std::string, unsigned>> m_buckets;
+
+    NameKeyGenT() { m_sockets.resize(NAMEKEY_SOCKET_COUNT); }
+
+    // NameKeyType (the 24-bit id; 0 = NAMEKEY_INVALID).
+    unsigned nameToKey(const std::string &name)
+    {
+        const unsigned hash = calcHashForStringT(name.data(), name.size()) % NAMEKEY_SOCKET_COUNT;
+        // do we have it already?
+        for (unsigned b : m_sockets[hash]) {
+            if (name.compare(m_buckets[b].first) == 0)
+                return m_buckets[b].second;
+        }
+        // nope, guess not. let's allocate it.
+        m_buckets.emplace_back(name, m_nextID++);
+        m_sockets[hash].push_back((unsigned)(m_buckets.size() - 1));
+        return m_buckets.back().second;
+    }
+};
+
+// The distilled SidesList (see the block header).
+struct SideSpecT {
+    std::string playerName; // empty = the neutral side ("it's neutral, which we've already done")
+    bool isHuman = false;   // TheKey_playerIsHuman
+    bool multiplayerIsLocal = false; // TheKey_multiplayerIsLocal
+    bool observer = false;  // the PlayerTemplate's isObserver() (distilled)
+    std::vector<std::string> enemies; // TheKey_playerEnemies' token list
+    std::vector<std::string> allies;  // TheKey_playerAllies' token list
+};
+
+// The distilled team dict (TeamTemplateInfo's updateState-relevant half).
+struct TeamSpecT {
+    std::string name;   // TheKey_teamName
+    std::string owner;  // TheKey_teamOwner
+    bool singleton = false; // TheKey_teamIsSingleton
+    std::string scriptOnCreate;       // TheKey_teamOnCreateScript
+    std::string scriptOnDestroyed;    // TheKey_teamOnDestroyedScript
+    std::string scriptOnIdle;         // TheKey_teamOnIdleScript
+    std::string scriptOnEnemySighted; // TheKey_teamEnemySightedScript
+    std::string scriptOnAllClear;     // TheKey_teamAllClearScript
+    std::string scriptOnUnitDestroyed; // TheKey_teamOnUnitDestroyedScript
+    float destroyedThreshold = 0.0f;  // TheKey_teamDestroyedThreshold
+    bool executeActions = false;      // TheKey_teamExecutesActionsOnCreate
+    std::string productionCondition;  // TheKey_teamProductionCondition
+    bool productionScriptExists = false; // findScriptByName's verdict (the catalog is the script slice's)
+};
+
+// The distilled GameInfo (assignSlotIndices' occupied-slot walk).
+struct GameInfoSpecT {
+    std::vector<int> occupiedSlots; // the occupied slot indices (isOccupied())
+};
+
+// The corpora's spec builders (full-field initializers; the aggregate
+// brace-elision would trip -Werror=missing-field-initializers).
+static TeamSpecT teamSpec(const std::string &name, const std::string &owner, bool singleton)
+{
+    TeamSpecT t;
+    t.name = name;
+    t.owner = owner;
+    t.singleton = singleton;
+    return t;
+}
+static SideSpecT sideSpec(const std::string &name, bool isHuman, bool mpLocal, bool observer,
+                          const std::vector<std::string> &enemies = {},
+                          const std::vector<std::string> &allies = {})
+{
+    SideSpecT s;
+    s.playerName = name;
+    s.isHuman = isHuman;
+    s.multiplayerIsLocal = mpLocal;
+    s.observer = observer;
+    s.enemies = enemies;
+    s.allies = allies;
+    return s;
+}
+
+struct SidesSpecT {
+    std::vector<SideSpecT> sides;
+    std::vector<TeamSpecT> teams;
+    bool hasGameInfo = false; // TheGameInfo != nullptr
+    GameInfoSpecT gameInfo;
+};
+
+struct TeamProtoT;
+struct TeamT;
+
+// Player.cpp's kernel half (the relation maps, the identity, the team list).
+// The maps are std::hash_map in the original but are only ever PROBED by key
+// here (find / operator[] / erase) — never iterated — so the transcription
+// uses sorted vectors and dumps them in key order (a stated, order-free
+// model: no observable depends on the hash_map's bucket order).
+struct PlayerT {
+    int m_playerIndex = 0;
+    std::string m_playerName;
+    unsigned m_playerNameKey = 0; // NAMEKEY_INVALID
+    PlayerTypeT m_playerType = PLAYER_COMPUTER_T;
+    bool m_observer = false;
+    bool m_isPlayerDead = false;
+
+    // the relation maps (PlayerRelationMapType / TeamRelationMapType),
+    // sorted by key
+    std::vector<std::pair<int, RelationshipT>> m_playerRelations;
+    std::vector<std::pair<TeamIDT, RelationshipT>> m_teamRelations;
+
+    TeamIDT m_defaultTeam = TEAM_ID_T_INVALID; // m_defaultTeam (Team* -> id handle)
+    std::vector<TeamProtoT *> m_playerTeamPrototypes; // push_back order (addTeamToList)
+
+    // ---- the relation-map primitives (probed, sorted by key) ----
+    const RelationshipT *findPlayerRelation(int playerIndex) const
+    {
+        for (const auto &kv : m_playerRelations)
+            if (kv.first == playerIndex)
+                return &kv.second;
+        return nullptr;
+    }
+    const RelationshipT *findTeamRelation(TeamIDT teamID) const
+    {
+        for (const auto &kv : m_teamRelations)
+            if (kv.first == teamID)
+                return &kv.second;
+        return nullptr;
+    }
+    void setPlayerRelationEntry(int playerIndex, RelationshipT r) // m_map[k] = r
+    {
+        for (auto &kv : m_playerRelations)
+            if (kv.first == playerIndex) { kv.second = r; return; }
+        m_playerRelations.push_back({playerIndex, r});
+        std::sort(m_playerRelations.begin(), m_playerRelations.end(),
+                  [](const std::pair<int, RelationshipT> &a, const std::pair<int, RelationshipT> &b) { return a.first < b.first; });
+    }
+    void setTeamRelationEntry(TeamIDT teamID, RelationshipT r)
+    {
+        for (auto &kv : m_teamRelations)
+            if (kv.first == teamID) { kv.second = r; return; }
+        m_teamRelations.push_back({teamID, r});
+        std::sort(m_teamRelations.begin(), m_teamRelations.end(),
+                  [](const std::pair<TeamIDT, RelationshipT> &a, const std::pair<TeamIDT, RelationshipT> &b) { return a.first < b.first; });
+    }
+    bool erasePlayerRelation(int playerIndex)
+    {
+        for (size_t i = 0; i < m_playerRelations.size(); ++i)
+            if (m_playerRelations[i].first == playerIndex) { m_playerRelations.erase(m_playerRelations.begin() + (long)i); return true; }
+        return false;
+    }
+    bool eraseTeamRelation(TeamIDT teamID)
+    {
+        for (size_t i = 0; i < m_teamRelations.size(); ++i)
+            if (m_teamRelations[i].first == teamID) { m_teamRelations.erase(m_teamRelations.begin() + (long)i); return true; }
+        return false;
+    }
+
+    // Player::isPlayerActive: alive and not observer.
+    bool isPlayerActive() const { return !m_observer && !m_isPlayerDead; }
+
+    // ---- the declared-later surface (defined after the World) ----
+    void addTeamToList(TeamProtoT *team);
+    void removeTeamFromList(TeamProtoT *team);
+    void preTeamDestroy(const TeamT *team);
+    void setDefaultTeam(World *w);
+    void updateTeamStates(World *w);
+    void update(World *w);
+    void newMap(World *w);
+    void setPlayerType(PlayerTypeT t, bool skirmish);
+    void init(bool hasTemplate, World *w);
+};
+
+// Team.cpp's TeamPrototype: the owning player, the singleton flag, the
+// template info and the team instances (the DLINK prepend list — pushed to
+// the back and iterated reverse: newest first).
+struct TeamProtoT {
+    TeamProtoIDT m_id = TEAM_PROTO_ID_T_INVALID;
+    struct TeamFactoryT *m_factory = nullptr;
+    std::string m_name;
+    unsigned m_nameKey = 0;
+    PlayerT *m_owningPlayer = nullptr;
+    enum { TEAM_SINGLETON = 1 };
+    unsigned m_flags = 0;
+    const TeamSpecT *m_template = nullptr; // the distilled TeamTemplateInfo
+
+    std::vector<struct TeamT *> m_instances; // prepend order: back = head
+
+    TeamProtoT(TeamFactoryT *tf, const std::string &name, PlayerT *ownerPlayer,
+               bool isSingleton, const TeamSpecT *d, TeamProtoIDT id, unsigned nameKey);
+
+    bool getIsSingleton() const { return (m_flags & TEAM_SINGLETON) != 0; }
+    TeamT *getFirstItemIn_TeamInstanceList() const
+    {
+        return m_instances.empty() ? nullptr : m_instances.back();
+    }
+    bool isInList_TeamInstanceList(const TeamT *t) const
+    {
+        for (const TeamT *x : m_instances)
+            if (x == t)
+                return true;
+        return false;
+    }
+    void prependTo_TeamInstanceList(TeamT *t) { m_instances.push_back(t); }
+    void removeFrom_TeamInstanceList(TeamT *t)
+    {
+        for (size_t i = 0; i < m_instances.size(); ++i)
+            if (m_instances[i] == t) { m_instances.erase(m_instances.begin() + (long)i); return; }
+    }
+    // the DLINK iterator's order: head first = reverse of the push_backs
+    const std::vector<TeamT *> &instancesInListOrder() const
+    {
+        // (the dumpers and walks read this reversed; the vector itself keeps
+        // push order so the back is the head)
+        return m_instances;
+    }
+};
+
+// Team.cpp's Team: the runtime state, the override relation maps and the
+// member list (the DLINK prepend — back = head, iterated reverse).
+struct TeamT {
+    TeamIDT m_id = TEAM_ID_T_INVALID;
+    TeamProtoT *m_proto = nullptr;
+    bool m_enteredOrExited = false;
+    bool m_active = false;
+    bool m_seeEnemy = false;
+    bool m_prevSeeEnemy = false;
+    bool m_checkEnemySighted = false;
+    bool m_isRecruitablitySet = false;
+    bool m_isRecruitable = false;
+    int m_destroyThreshold = 0;
+    int m_curUnits = 0;
+    bool m_wasIdle = false;
+    bool m_created = false;
+
+    // the override relation maps (TeamRelationMapType / PlayerRelationMapType),
+    // sorted by key (probed only — see PlayerT's note)
+    std::vector<std::pair<TeamIDT, RelationshipT>> m_teamRelations;
+    std::vector<std::pair<int, RelationshipT>> m_playerRelations;
+
+    std::vector<ObjectT *> m_members; // prepend order: back = head
+
+    // ---- the same probed-map primitives ----
+    const RelationshipT *findTeamRelation(TeamIDT teamID) const
+    {
+        for (const auto &kv : m_teamRelations)
+            if (kv.first == teamID)
+                return &kv.second;
+        return nullptr;
+    }
+    const RelationshipT *findPlayerRelation(int playerIndex) const
+    {
+        for (const auto &kv : m_playerRelations)
+            if (kv.first == playerIndex)
+                return &kv.second;
+        return nullptr;
+    }
+    void setTeamRelationEntry(TeamIDT teamID, RelationshipT r)
+    {
+        for (auto &kv : m_teamRelations)
+            if (kv.first == teamID) { kv.second = r; return; }
+        m_teamRelations.push_back({teamID, r});
+        std::sort(m_teamRelations.begin(), m_teamRelations.end(),
+                  [](const std::pair<TeamIDT, RelationshipT> &a, const std::pair<TeamIDT, RelationshipT> &b) { return a.first < b.first; });
+    }
+    void setPlayerRelationEntry(int playerIndex, RelationshipT r)
+    {
+        for (auto &kv : m_playerRelations)
+            if (kv.first == playerIndex) { kv.second = r; return; }
+        m_playerRelations.push_back({playerIndex, r});
+        std::sort(m_playerRelations.begin(), m_playerRelations.end(),
+                  [](const std::pair<int, RelationshipT> &a, const std::pair<int, RelationshipT> &b) { return a.first < b.first; });
+    }
+    bool eraseTeamRelation(TeamIDT teamID)
+    {
+        for (size_t i = 0; i < m_teamRelations.size(); ++i)
+            if (m_teamRelations[i].first == teamID) { m_teamRelations.erase(m_teamRelations.begin() + (long)i); return true; }
+        return false;
+    }
+    bool erasePlayerRelation(int playerIndex)
+    {
+        for (size_t i = 0; i < m_playerRelations.size(); ++i)
+            if (m_playerRelations[i].first == playerIndex) { m_playerRelations.erase(m_playerRelations.begin() + (long)i); return true; }
+        return false;
+    }
+
+    // ---- the member-list primitives (the DLINK prepend) ----
+    ObjectT *getFirstItemIn_TeamMemberList() const { return m_members.empty() ? nullptr : m_members.back(); }
+    bool isInList_TeamMemberList(const ObjectT *o) const
+    {
+        for (const ObjectT *x : m_members)
+            if (x == o)
+                return true;
+        return false;
+    }
+    void prependTo_TeamMemberList(ObjectT *o) { m_members.push_back(o); }
+    void removeFrom_TeamMemberList(ObjectT *o)
+    {
+        for (size_t i = 0; i < m_members.size(); ++i)
+            if (m_members[i] == o) { m_members.erase(m_members.begin() + (long)i); return; }
+    }
+
+    TeamIDT getID() const { return m_id; }
+    TeamProtoT *getPrototype() const { return m_proto; }
+
+    // ---- the declared-later surface ----
+    void setActive();
+    void setOverrideTeamRelationship(TeamIDT teamID, RelationshipT r);
+    bool removeOverrideTeamRelationship(TeamIDT teamID);
+    void setOverridePlayerRelationship(int playerIndex, RelationshipT r);
+    bool removeOverridePlayerRelationship(int playerIndex);
+    void setControllingPlayer(PlayerT *newController, World *w);
+    void notifyTeamOfObjectDeath(World *w);
+    bool isActive() const;
+};
+
+// Team.cpp's TeamFactory: the std::map<NameKeyType, TeamPrototype*> (ordered
+// by key — the interning ordinals), the unique-id counters.
+struct TeamFactoryT {
+    // std::map's iteration order is the KEY order (the interning ordinals):
+    // a sorted vector of (key, proto) keeps the walk faithful.
+    std::vector<std::pair<unsigned, TeamProtoT *>> m_prototypes;
+    TeamProtoIDT m_uniqueTeamPrototypeID = TEAM_PROTO_ID_T_INVALID;
+    TeamIDT m_uniqueTeamID = TEAM_ID_T_INVALID;
+    std::vector<TeamT *> m_arena; // every TeamT ever created (the destructor's delete choreography owns the lifetime)
+
+    TeamFactoryT() = default;
+    // (no ~TeamFactory: the Worlds leak by design — see World's note; the
+    // original's dtor is the clear() choreography the corpora drive directly)
+
+    // ---- the declared-later surface ----
+    void addTeamPrototypeToList(TeamProtoT *team);
+    void removeTeamPrototypeFromList(TeamProtoT *team);
+    TeamProtoT *findTeamPrototype(const std::string &name, World *w);
+    TeamProtoT *findTeamPrototypeByID(TeamProtoIDT id);
+    TeamT *findTeamByID(TeamIDT teamID);
+    TeamT *createInactiveTeam(const std::string &name, World *w);
+    TeamT *createTeam(const std::string &name, World *w);
+    TeamT *createTeamOnPrototype(TeamProtoT *prototype, World *w);
+    TeamT *findTeam(const std::string &name, World *w);
+    void teamAboutToBeDeleted(TeamT *team, World *w);
+    void clear(World *w);
+    void init(World *w);
+    void reset(World *w);
+    void initFromSides(const SidesSpecT &sides, World *w);
+    void initTeam(const std::string &name, const std::string &owner, bool isSingleton,
+                  const TeamSpecT *d, World *w);
+
+    TeamProtoT *findTeamProtoByKey(unsigned key) const
+    {
+        for (const auto &kv : m_prototypes)
+            if (kv.first == key)
+                return kv.second;
+        return nullptr;
+    }
+    // the std::map iteration order (ascending key)
+    const std::vector<std::pair<unsigned, TeamProtoT *>> &prototypesInMapOrder() const { return m_prototypes; }
+};
+
+// PlayerList.cpp's PlayerList: the 16 pre-created players, the count, the
+// local player and the slot bookkeeping.
+struct PlayerListT {
+    PlayerT *m_local = nullptr;
+    int m_playerCount = 0;
+    PlayerT *m_players[MAX_PLAYER_COUNT];
+    int m_slotIndices[MAX_PLAYER_COUNT];
+    int m_slotToPlayerIndices[MAX_SLOTS_T];
+
+    PlayerT *getNeutralPlayer() { return m_players[0]; }
+    PlayerT *getNthPlayer(int i)
+    {
+        if (i < 0 || i >= MAX_PLAYER_COUNT)
+            return nullptr;
+        return m_players[i];
+    }
+    PlayerT *findPlayerWithNameKey(unsigned key, World *w) const;
+};
+
+// ============================================================================
 // The World: the driver's singletons (TheGameLogic / ThePartitionManager /
 // the object table), the scripted module bodies and the corpus commands.
 // ============================================================================
 struct World {
     GameLogicT logic;
     PartitionManagerT pm;
+    PlayerListT playerList;
+    TeamFactoryT teamFactory;
+    NameKeyGenT nameKeys;
+    bool m_networkPresent = false; // TheNetwork != null (the newGame local-selection gate)
     GameLogicHooks hooks;
     std::vector<std::unique_ptr<ObjectT>> objects; // the arena (ids never reused)
 
-    World() { pm.m_world = this; }
+    World()
+    {
+        pm.m_world = this;
+        // PlayerList's ctor: "we only allocate a few of these, so don't
+        // bother pooling 'em" — the 16 players are pre-created, then init().
+        for (int i = 0; i < MAX_PLAYER_COUNT; ++i) {
+            playerList.m_players[i] = new PlayerT();
+            playerList.m_players[i]->m_playerIndex = i;
+        }
+        playerListInit();
+    }
+    // (no ~World: the corpora leak each World by design — freshWorld news
+    // one and never deletes, matching the generator's existing lifetime)
+
+    // ---- the players/teams block's World surface (defined later) ----
+    void playerListInit();
+    void playerListReset();
+    void playerListSetLocalPlayer(PlayerT *player);
+    void playerListTeamAboutToBeDeleted(TeamT *team);
+    void playerListUpdate();
+    void playerListNewMap();
+    void playerListUpdateTeamStates();
+    TeamT *playerListValidateTeam(const std::string &owner);
+    PlayerT *playerListGetPlayerFromMask(PlayerMaskT mask);
+    PlayerT *playerListGetEachPlayerFromMask(PlayerMaskT &maskToAdjust);
+    PlayerMaskT playerListGetPlayersWithRelationship(int srcPlayerIndex, unsigned allowedRelationships);
+    void playerListNewGame(const SidesSpecT &sides);
+    void playerListSetSlotIndex(int playerIndex, int slotIndex);
+    int playerListGetSlotIndex(int playerIndex) const;
+    int playerListGetPlayerIndexFromSlotIndex(int slotIndex) const;
+    PlayerT *playerListGetPlayerFromSlotIndex(int slotIndex) const;
+    void playerListAssignSlotIndices(const GameInfoSpecT &gameInfo);
 
     ObjectT *object(int id)
     {
@@ -3797,6 +4336,1274 @@ static const char *evName(int e)
     }
 }
 
+// ============================================================================
+// The players/teams/relationships block's methods (defined after the World —
+// the same forward-definition dance the collide family uses).
+// ============================================================================
+
+// The free-function forwards the block's own order needs.
+static void teamUpdateState(TeamT *t, World *w);
+static void protoUpdateState(TeamProtoT *tp, World *w);
+
+// ---- the players/teams partition filters (PartitionManager.cpp). The flag
+// set is (1 << ALLIES / 1 << ENEMIES / 1 << NEUTRAL) — the (m_flags & (1<<r))
+// test of PartitionFilterRelationship::allow.
+struct PartitionFilterRelationshipT : PartitionFilterT {
+    const ObjectT *m_obj;
+    int m_flags;
+    enum RelationshipAllowTypes {
+        F_ALLOW_ALLIES = (1 << R_ALLIES),
+        F_ALLOW_ENEMIES = (1 << R_ENEMIES),
+        F_ALLOW_NEUTRAL = (1 << R_NEUTRAL),
+    };
+    PartitionFilterRelationshipT(const ObjectT *obj, int flags = F_ALLOW_ENEMIES) : m_obj(obj), m_flags(flags) {}
+    bool allow(ObjectT *objOther) override;
+};
+
+// PartitionFilterSamePlayer (PartitionManager.cpp).
+struct PartitionFilterSamePlayerT : PartitionFilterT {
+    const PlayerT *m_player;
+    PartitionFilterSamePlayerT(const PlayerT *player) : m_player(player) {}
+    bool allow(ObjectT *objOther) override;
+};
+
+// PartitionFilterAcceptOnTeam (PartitionManager.cpp).
+struct PartitionFilterAcceptOnTeamT : PartitionFilterT {
+    const TeamT *m_team;
+    PartitionFilterAcceptOnTeamT(const TeamT *team) : m_team(team) {}
+    bool allow(ObjectT *objOther) override;
+};
+
+// TeamPrototype's ctor (Team.cpp): the factory registration, the owner's
+// team list. The name key is interned by the CALLER (initTeam) — the map
+// registration inside reads it.
+TeamProtoT::TeamProtoT(TeamFactoryT *tf, const std::string &name, PlayerT *ownerPlayer,
+                       bool isSingleton, const TeamSpecT *d, TeamProtoIDT id, unsigned nameKey)
+    : m_id(id), m_factory(tf), m_name(name), m_nameKey(nameKey), m_owningPlayer(ownerPlayer),
+      m_flags(isSingleton ? TeamProtoT::TEAM_SINGLETON : 0), m_template(d)
+{
+    if (m_factory)
+        m_factory->addTeamPrototypeToList(this);
+    if (m_owningPlayer)
+        m_owningPlayer->addTeamToList(this);
+}
+
+// ---- the World's player/team handle plumbing (Team*/Player* → handles) ----
+
+static TeamT *teamByID(World *w, TeamIDT id)
+{
+    if (id == TEAM_ID_T_INVALID)
+        return nullptr;
+    for (TeamT *t : w->teamFactory.m_arena)
+        if (t->m_id == id)
+            return t;
+    return nullptr; // (a deleted team's id — the corpus never resolves one)
+}
+
+// PlayerT::setPlayerRelationship (Player.cpp): note that this creates the
+// entry if it doesn't exist.
+void playerSetPlayerRelationship(PlayerT *p, PlayerT *that, RelationshipT r)
+{
+    if (that != nullptr)
+        p->setPlayerRelationEntry(that->m_playerIndex, r);
+}
+
+// PlayerT::removePlayerRelationship (Player.cpp): the null form clears the
+// whole map; the empty map refuses.
+bool playerRemovePlayerRelationship(PlayerT *p, PlayerT *that)
+{
+    if (!p->m_playerRelations.empty()) {
+        if (that == nullptr) {
+            p->m_playerRelations.clear();
+            return true;
+        }
+        return p->erasePlayerRelation(that->m_playerIndex);
+    }
+    return false;
+}
+
+// PlayerT::setTeamRelationship / removeTeamRelationship (Player.cpp).
+void playerSetTeamRelationship(PlayerT *p, TeamT *that, RelationshipT r)
+{
+    if (that != nullptr)
+        p->setTeamRelationEntry(that->getID(), r);
+}
+bool playerRemoveTeamRelationship(PlayerT *p, TeamT *that)
+{
+    if (!p->m_teamRelations.empty()) {
+        if (that == nullptr) {
+            p->m_teamRelations.clear();
+            return true;
+        }
+        return p->eraseTeamRelation(that->getID());
+    }
+    return false;
+}
+
+// PlayerT::getRelationship(const Team*) (Player.cpp): the team-override
+// first, then that team's controlling player's entry, then NEUTRAL.
+static RelationshipT playerGetRelationship(const PlayerT *p, const TeamT *that, World *w)
+{
+    if (that) {
+        // do we have an override for that particular team? if so, return it.
+        if (!p->m_teamRelations.empty()) {
+            const RelationshipT *it = p->findTeamRelation(that->getID());
+            if (it)
+                return *it;
+        }
+        // hummm... well, do we have something for that team's player?
+        if (!p->m_playerRelations.empty()) {
+            const PlayerT *thatPlayer = that->getPrototype() ? that->getPrototype()->m_owningPlayer : nullptr;
+            if (thatPlayer != nullptr) {
+                const RelationshipT *it = p->findPlayerRelation(thatPlayer->m_playerIndex);
+                if (it)
+                    return *it;
+            }
+        }
+    }
+    (void)w;
+    return R_NEUTRAL;
+}
+
+// TeamT::getRelationship(const Team*) (Team.cpp): the team-override, then
+// the player-override, then our controlling player's view.
+static RelationshipT teamGetRelationship(const TeamT *t, const TeamT *that, World *w)
+{
+    // do we have an override for that particular team? if so, return it.
+    if (!t->m_teamRelations.empty() && that != nullptr) {
+        const RelationshipT *it = t->findTeamRelation(that->getID());
+        if (it)
+            return *it;
+    }
+    // hummm... well, do we have an override for that team's player?
+    if (!t->m_playerRelations.empty() && that != nullptr) {
+        const PlayerT *thatPlayer = that->getPrototype() ? that->getPrototype()->m_owningPlayer : nullptr;
+        if (thatPlayer != nullptr) {
+            const RelationshipT *it = t->findPlayerRelation(thatPlayer->m_playerIndex);
+            if (it)
+                return *it;
+        }
+    }
+    // nope -- go with our Player's view on the matter.
+    return playerGetRelationship(t->getPrototype()->m_owningPlayer, that, w);
+}
+
+// Object::getRelationship (Object.cpp): the defector gates, then the team
+// chain.
+static RelationshipT objectGetRelationship(const ObjectT *obj, const ObjectT *that, World *w)
+{
+    const TeamT *myTeam = teamByID(w, obj->m_team);
+
+    if (myTeam && that) {
+        if (obj->getIsUndetectedDefector()) {
+            return R_NEUTRAL; // so my AI does not give away my position by auto acquire
+        }
+        if (that->getIsUndetectedDefector()) {
+            return R_ALLIES; // so I treat undetecteddefectors like they were my very own
+        }
+        return teamGetRelationship(myTeam, teamByID(w, that->m_team), w);
+    }
+    return R_NEUTRAL;
+}
+
+// Object::getControllingPlayer (Object.h): m_team->getControllingPlayer().
+static PlayerT *objectControllingPlayer(const ObjectT *obj, World *w)
+{
+    const TeamT *t = teamByID(w, obj->m_team);
+    if (!t || !t->getPrototype())
+        return nullptr;
+    return t->getPrototype()->m_owningPlayer;
+}
+
+// Player::becomingTeamMember (Player.cpp): the energy/money/battle-plan/UI
+// bodies are the economy and client slices' — the CALL is the pinned
+// observable (the object, the player, the direction).
+static void playerBecomingTeamMember(PlayerT *p, ObjectT *obj, bool yes, World *w)
+{
+    (void)p;
+    if (!obj)
+        return;
+    w->hooks.tev(GameLogicHooks::TEV_TEAM_MEMBER, obj->m_id, p ? p->m_playerIndex : -1, yes ? 1 : 0);
+}
+
+// Object::setOrRestoreTeam (Object.cpp): the member-list swap with the
+// becomingTeamMember calls and the onCapture hook.
+static void objectSetOrRestoreTeam(ObjectT *obj, TeamT *team, bool restoring, World *w)
+{
+    // don't do anything if the team hasn't changed (the pointer compare is
+    // the id compare: ids are unique and never reused)
+    if (obj->m_team == (team ? team->getID() : TEAM_ID_T_INVALID))
+        return;
+    TeamT *oldTeam = teamByID(w, obj->m_team);
+
+    // Before Switch //////////////////////////
+    if (oldTeam) {
+        if (oldTeam->isInList_TeamMemberList(obj)) {
+            oldTeam->removeFrom_TeamMemberList(obj);
+            playerBecomingTeamMember(oldTeam->getPrototype()->m_owningPlayer, obj, false, w);
+        }
+    }
+
+    // Switch //////////////////////////
+    obj->m_team = team ? team->getID() : TEAM_ID_T_INVALID;
+
+    // After Switch //////////////////////////
+    if (team) {
+        if (!team->isInList_TeamMemberList(obj)) {
+            team->prependTo_TeamMemberList(obj);
+            playerBecomingTeamMember(team->getPrototype()->m_owningPlayer, obj, true, w);
+        }
+        // (now, adjust the attitude of the unit to its new team — the AI
+        // update's setAttitude / attack priority; the AI slice's. The
+        // drawable's changedTeam is the client's.)
+    }
+
+    // This can't just go in ::defect, because some things just do setTeam...
+    // And it needs to happen after the switch.
+    if (oldTeam && team && !restoring) {
+        // obj->onCapture(oldTeam's player, team's player) — the body is the
+        // module framework's (contain, body, experience notifications); the
+        // hook pins the call and its player pair.
+        w->hooks.tev(GameLogicHooks::TEV_CAPTURE, obj->m_id,
+                     oldTeam->getPrototype()->m_owningPlayer ? oldTeam->getPrototype()->m_owningPlayer->m_playerIndex : -1,
+                     team->getPrototype()->m_owningPlayer ? team->getPrototype()->m_owningPlayer->m_playerIndex : -1);
+    }
+    // (the radar resort and TheInGameUI's objectChangedTeam are the
+    // client's — stated, not modelled)
+}
+
+// Object::setTeam (Object.cpp): the isPlayerActive refusal, then the
+// temporary-team path.
+static void objectSetTeam(ObjectT *obj, TeamT *team, World *w)
+{
+    // In order to prevent spawning useful units for a player after he dies, we
+    // just assign objects to the neutral player if we try to misbehave.
+    if (team && !team->getPrototype()->m_owningPlayer->isPlayerActive())
+        team = teamByID(w, w->playerList.getNeutralPlayer()->m_defaultTeam);
+
+    // setTemporaryTeam(team) → setOrRestoreTeam(team, restoring=false)
+    objectSetOrRestoreTeam(obj, team, false, w);
+    // (m_originalTeamName = m_team ? m_team->getName() : "" — display state,
+    // not dumped)
+}
+
+// ---- TeamFactory (Team.cpp) -------------------------------------------------
+
+// TeamFactory::addTeamPrototypeToList: the duplicate refusal ("already
+// exists... skipping") — the std::map insert semantics.
+void TeamFactoryT::addTeamPrototypeToList(TeamProtoT *team)
+{
+    // (the key is the ctor-time interning of the name; the caller has
+    // already interned it — the transcription stores it on the proto)
+    unsigned nk = team->m_nameKey;
+    for (const auto &kv : m_prototypes) {
+        if (kv.first == nk) {
+            // DEBUG_ASSERTCRASH((*it).second==team, ...) — the release build skips
+            return; // already present
+        }
+    }
+    // (std::map's operator[] insert — the sorted insert keeps the KEY order)
+    m_prototypes.push_back({nk, team});
+    std::sort(m_prototypes.begin(), m_prototypes.end(),
+              [](const std::pair<unsigned, TeamProtoT *> &a, const std::pair<unsigned, TeamProtoT *> &b) { return a.first < b.first; });
+}
+
+void TeamFactoryT::removeTeamPrototypeFromList(TeamProtoT *team)
+{
+    unsigned nk = team->m_nameKey;
+    for (size_t i = 0; i < m_prototypes.size(); ++i) {
+        if (m_prototypes[i].first == nk) {
+            m_prototypes.erase(m_prototypes.begin() + (long)i);
+            return;
+        }
+    }
+}
+
+TeamProtoT *TeamFactoryT::findTeamPrototype(const std::string &name, World *w)
+{
+    unsigned nk = w->nameKeys.nameToKey(name);
+    return findTeamProtoByKey(nk);
+}
+
+// TeamFactory::findTeamPrototypeByID: the map walk (key order).
+TeamProtoT *TeamFactoryT::findTeamPrototypeByID(TeamProtoIDT id)
+{
+    for (const auto &kv : m_prototypes) {
+        TeamProtoT *prototype = kv.second;
+        if (prototype->m_id == id)
+            return prototype;
+    }
+    return nullptr; // not found
+}
+
+// TeamPrototype::findTeamByID: the instance-list walk (newest first).
+static TeamT *protoFindTeamByID(TeamProtoT *tp, TeamIDT teamID)
+{
+    for (auto it = tp->m_instances.rbegin(); it != tp->m_instances.rend(); ++it) {
+        if ((*it)->getID() == teamID)
+            return *it;
+    }
+    return nullptr;
+}
+
+// TeamFactory::findTeamByID: the prototype-map walk (key order), each
+// prototype's instance list.
+TeamT *TeamFactoryT::findTeamByID(TeamIDT teamID)
+{
+    // simple case
+    if (teamID == TEAM_ID_T_INVALID)
+        return nullptr;
+    // search all prototypes for the matching team ID
+    for (const auto &kv : m_prototypes) {
+        TeamT *team = protoFindTeamByID(kv.second, teamID);
+        if (team)
+            return team;
+    }
+    return nullptr;
+}
+
+// Team's ctor (Team.cpp): the state birth, the instance-list prepend, the
+// checkEnemySighted derivation.
+static TeamT *teamNew(TeamFactoryT *tf, TeamProtoT *proto, TeamIDT id, World *w)
+{
+    (void)w;
+    TeamT *t = new TeamT();
+    tf->m_arena.push_back(t);
+    t->m_id = id;
+    t->m_proto = proto;
+    if (proto) {
+        proto->prependTo_TeamInstanceList(t);
+        const TeamSpecT *info = proto->m_template;
+        if (info && (!info->scriptOnAllClear.empty() || !info->scriptOnEnemySighted.empty())) {
+            t->m_checkEnemySighted = true; // Only keep track of enemy sighted if there is a script that cares.
+        }
+        // (TheScriptEngine->AppendDebugMessage("%s - creating team instance.")
+        // — debug-log only, not modelled)
+    }
+    return t;
+}
+
+// createInactiveTeam's executeActions block (the production-condition
+// script run): findScriptByName + friend_executeAction.
+static void protoRunProductionCondition(TeamProtoT *tp, World *w)
+{
+    if (tp->m_template && tp->m_template->executeActions) {
+        // const Script *script = TheScriptEngine->findScriptByName(condition)
+        if (!tp->m_template->productionCondition.empty() && tp->m_template->productionScriptExists) {
+            // friend_executeAction(script->getAction()) — the proto's id
+            // carries the team the production belongs to (the instance is
+            // born or reused around this call)
+            w->hooks.tev(GameLogicHooks::TEV_TEAM_SCRIPT, -1,
+                         GameLogicHooks::SCRIPT_PRODUCTION_CONDITION, (int)tp->m_id);
+        }
+    }
+}
+
+// TeamFactory::createInactiveTeam (Team.cpp).
+TeamT *TeamFactoryT::createInactiveTeam(const std::string &name, World *w)
+{
+    TeamProtoT *tp = findTeamPrototype(name, w);
+    if (!tp) {
+        // DEBUG_CRASH(("Team prototype '%s' does not exist"))
+        return nullptr;
+    }
+
+    TeamT *t = nullptr;
+    if (tp->getIsSingleton()) {
+        t = tp->getFirstItemIn_TeamInstanceList();
+        if (t) {
+            protoRunProductionCondition(tp, w);
+            return t;
+        }
+    }
+
+    t = teamNew(this, tp, ++m_uniqueTeamID, w);
+    protoRunProductionCondition(tp, w);
+    return t;
+}
+
+// TeamFactory::createTeam.
+TeamT *TeamFactoryT::createTeam(const std::string &name, World *w)
+{
+    TeamT *t = createInactiveTeam(name, w);
+    if (t)
+        t->setActive();
+    return t;
+}
+
+// TeamFactory::createTeamOnPrototype.
+TeamT *TeamFactoryT::createTeamOnPrototype(TeamProtoT *prototype, World *w)
+{
+    if (prototype == nullptr)
+        return nullptr; // (throw ERROR_BAD_ARG)
+
+    TeamT *t = nullptr;
+    if (prototype->getIsSingleton()) {
+        t = prototype->getFirstItemIn_TeamInstanceList();
+        if (t)
+            return t;
+    }
+    t = teamNew(this, prototype, ++m_uniqueTeamID, w);
+    t->setActive();
+    return t;
+}
+
+// TeamFactory::findTeam (Team.cpp): the auto-create of a non-singleton's
+// first instance.
+TeamT *TeamFactoryT::findTeam(const std::string &name, World *w)
+{
+    TeamProtoT *tp = findTeamPrototype(name, w);
+    if (tp) {
+        TeamT *t = tp->getFirstItemIn_TeamInstanceList();
+        if (t == nullptr && !tp->getIsSingleton()) {
+            t = createInactiveTeam(name, w);
+        }
+        return t;
+    }
+    return nullptr;
+}
+
+// TeamPrototype::teamAboutToBeDeleted: every remaining instance drops its
+// override for the dying team's id.
+static void protoTeamAboutToBeDeleted(TeamProtoT *tp, TeamT *team)
+{
+    for (auto it = tp->m_instances.rbegin(); it != tp->m_instances.rend(); ++it) {
+        // iter.cur()->removeOverrideTeamRelationship(team ? team->getID() : TEAM_ID_INVALID)
+        (*it)->removeOverrideTeamRelationship(team ? team->getID() : TEAM_ID_T_INVALID);
+    }
+}
+
+// TeamFactory::teamAboutToBeDeleted (Team.cpp): the prototype walk (map
+// order), then the player walk. During clear() the map is ALREADY EMPTY
+// (the copy-then-clear dance) — the prototype half is a no-op there and
+// only the player half runs; the corpora pin the contrast.
+void TeamFactoryT::teamAboutToBeDeleted(TeamT *team, World *w)
+{
+    for (const auto &kv : m_prototypes) {
+        protoTeamAboutToBeDeleted(kv.second, team);
+    }
+    // (the original checks the global here: "if (ThePlayerList)" — always
+    // true once the world exists)
+    w->playerListTeamAboutToBeDeleted(team);
+}
+
+// ~Team (Team.cpp): the notifyOfTeamDestruction hook, the players'
+// preTeamDestroy walk, the member detach, the instance-list removal.
+static void teamDelete(TeamT *t, World *w)
+{
+    // TheScriptEngine->notifyOfTeamDestruction(this)
+    w->hooks.tev(GameLogicHooks::TEV_TEAM_DESTROYED, (int)t->getID());
+
+    // Tell the players a team is going away.
+    for (int i = 0; i < w->playerList.m_playerCount; i++) {
+        PlayerT *plyr = w->playerList.getNthPlayer(i);
+        if (plyr) {
+            plyr->preTeamDestroy(t);
+        }
+    }
+
+    ObjectT *tm;
+    while ((tm = t->getFirstItemIn_TeamMemberList()) != nullptr) {
+        // tm->setTeam(nullptr) — the full path (the detach walk fires the
+        // becomingTeamMember(false) transitions)
+        objectSetTeam(tm, nullptr, w);
+    }
+
+    if (t->m_proto && t->m_proto->isInList_TeamInstanceList(t))
+        t->m_proto->removeFrom_TeamInstanceList(t);
+
+    // (the relation maps and the xfer member-id list are destructors' — no
+    // observable)
+    for (size_t i = 0; i < w->teamFactory.m_arena.size(); ++i) {
+        if (w->teamFactory.m_arena[i] == t) {
+            w->teamFactory.m_arena.erase(w->teamFactory.m_arena.begin() + (long)i);
+            break;
+        }
+    }
+    delete t;
+}
+
+// deleteTeamCallback (Team.cpp): the per-team deletion the prototype's
+// removeAll walks.
+static void deleteTeamCallback(TeamT *o, World *w)
+{
+    if (o) {
+        w->teamFactory.teamAboutToBeDeleted(o, w);
+        teamDelete(o, w);
+    }
+}
+
+// TeamFactory::clear (Team.cpp): the map copy, the empty, the ordered
+// destruction (key order; each prototype's instances newest-first).
+void TeamFactoryT::clear(World *w)
+{
+    // must remove it from the map before deleting the TeamProto, since
+    // the TeamProto will try to remove itself from the list when it goes away
+    std::vector<std::pair<unsigned, TeamProtoT *>> tmp = m_prototypes;
+    m_prototypes.clear();
+    for (auto &kv : tmp) {
+        // ~TeamPrototype: removeAll_TeamInstanceList(deleteTeamCallback),
+        // the owner's removeTeamFromList, the factory's
+        // removeTeamPrototypeFromList (a no-op — the map is already empty)
+        TeamProtoT *tp = kv.second;
+        while (!tp->m_instances.empty()) {
+            TeamT *t = tp->m_instances.back();
+            tp->m_instances.pop_back();
+            deleteTeamCallback(t, w);
+        }
+        if (tp->m_owningPlayer)
+            tp->m_owningPlayer->removeTeamFromList(tp);
+        delete tp;
+    }
+}
+
+// TeamFactory::init / reset / update.
+void TeamFactoryT::init(World *w) { clear(w); }
+void TeamFactoryT::reset(World *w)
+{
+    m_uniqueTeamPrototypeID = TEAM_PROTO_ID_T_INVALID;
+    m_uniqueTeamID = TEAM_ID_T_INVALID;
+    clear(w);
+}
+
+// TeamFactory::initFromSides (Team.cpp).
+void TeamFactoryT::initFromSides(const SidesSpecT &sides, World *w)
+{
+    clear(w);
+    // create the teams we need.
+    for (const TeamSpecT &t : sides.teams) {
+        initTeam(t.name, t.owner, t.singleton, &t, w);
+    }
+}
+
+// TeamFactory::initTeam (Team.cpp): the owner lookup with the neutral
+// fallback, the prototype creation, the singleton instance.
+void TeamFactoryT::initTeam(const std::string &name, const std::string &owner, bool isSingleton,
+                            const TeamSpecT *d, World *w)
+{
+    PlayerT *pOwner = w->playerList.findPlayerWithNameKey(w->nameKeys.nameToKey(owner), w);
+    if (!pOwner)
+        pOwner = w->playerList.getNeutralPlayer();
+    unsigned nk = w->nameKeys.nameToKey(name);
+    TeamProtoT *tp = new TeamProtoT(this, name, pOwner, isSingleton, d, ++m_uniqueTeamPrototypeID, nk);
+    if (isSingleton) {
+        // Create the singleton team.
+        createInactiveTeam(name, w);
+    }
+    (void)tp;
+}
+
+// ---- PlayerT's team-list plumbing (Player.cpp) -------------------------------
+
+// Player::addTeamToList: the dedup scan, the push_back.
+void PlayerT::addTeamToList(TeamProtoT *team)
+{
+    for (const TeamProtoT *t : m_playerTeamPrototypes) {
+        if (team == t)
+            return; // already present
+    }
+    m_playerTeamPrototypes.push_back(team);
+}
+
+// Player::removeTeamFromList: the first-match erase.
+void PlayerT::removeTeamFromList(TeamProtoT *team)
+{
+    for (size_t i = 0; i < m_playerTeamPrototypes.size(); ++i) {
+        if (m_playerTeamPrototypes[i] == team) {
+            m_playerTeamPrototypes.erase(m_playerTeamPrototypes.begin() + (long)i);
+            return;
+        }
+    }
+}
+
+// Player::preTeamDestroy: the AI notification (stated) and the default-team
+// nulling (TheSuperHackers @bugfix Mauller/Xezon 03/05/2025).
+void PlayerT::preTeamDestroy(const TeamT *team)
+{
+    // (m_ai->aiPreTeamDestroy(team) — the AI slice's)
+    if (m_defaultTeam == (team ? team->getID() : TEAM_ID_T_INVALID))
+        m_defaultTeam = TEAM_ID_T_INVALID;
+}
+
+// Player::setDefaultTeam (Player.cpp): the "team" + playerName concat, the
+// findTeam, the setActive.
+void PlayerT::setDefaultTeam(World *w)
+{
+    std::string tname = "team";
+    tname += m_playerName;
+    TeamT *dt = w->teamFactory.findTeam(tname, w);
+    if (dt) {
+        m_defaultTeam = dt->getID();
+        dt->setActive();
+    }
+    // (DEBUG_ASSERTCRASH(dt, ("no team")) — the release build continues with
+    // the null default team; the corpora pin the missing-prototype path)
+}
+
+// Player::updateTeamStates: the prototype walk (push_back order).
+void PlayerT::updateTeamStates(World *w)
+{
+    for (TeamProtoT *tp : m_playerTeamPrototypes) {
+        protoUpdateState(tp, w);
+    }
+}
+
+// Player::update (Player.cpp): the AI/team-scripts/energy/academy/money
+// bodies are later slices — the single hook pins the 16-slot walk's
+// position (TheAI->UPDATE calls ThePlayerList->UPDATE from AI.cpp:363).
+void PlayerT::update(World *w)
+{
+    // (m_ai->update(); the team generic-script walk; the power-sabotage
+    // check; getAcademyStats()->update(); the retaliation-mode posting; the
+    // tunnel heal; m_money.updateIncomeBucket() — the AI, script-engine,
+    // economy and client slices' bodies)
+    w->hooks.tev(GameLogicHooks::TEV_PLAYER_UPDATE, m_playerIndex);
+}
+
+// Player::newMap: the AI's newMap — stated (the AI slice's).
+void PlayerT::newMap(World *w) { (void)w; }
+
+// Player::setPlayerType (Player.cpp): the type write (the AI instance
+// lifecycle — create/delete — is the AI slice's, stated).
+void PlayerT::setPlayerType(PlayerTypeT t, bool skirmish)
+{
+    m_playerType = t;
+    (void)skirmish;
+    // (deleteInstance(m_ai); PLAYER_COMPUTER creates AISkirmishPlayer or
+    // AIPlayer — the AI slice's)
+}
+
+// Player::init (Player.cpp), the kernel half: the neutral branch verbatim,
+// the template branch distilled (the side/color/money/template fields are
+// the rzh-data money block's).
+void PlayerT::init(bool hasTemplate, World *w)
+{
+    m_isPlayerDead = false;
+    m_observer = false;
+    m_defaultTeam = TEAM_ID_T_INVALID;
+    // (the squads, selection, tunnel system, build lists, upgrade lists,
+    // rank/sciences, energy, stats, retaliation — the money/energy/ranks/
+    // sciences block and the client's)
+
+    if (hasTemplate) {
+        // the pt branch: the names cleared, PLAYER_COMPUTER, the observer
+        // bits from the template (the money/side/color halves stated)
+        m_playerName.clear();
+        m_playerNameKey = 0; // NAMEKEY_INVALID
+        m_playerType = PLAYER_COMPUTER_T;
+    } else {
+        // no player template? must be the neutral player!
+        m_playerName.clear();
+        m_playerNameKey = w->nameKeys.nameToKey("");
+        m_playerType = PLAYER_COMPUTER_T;
+
+        // neutral is always "allied" with self -- this is the only thing ever allied with neutral!
+        playerSetPlayerRelationship(this, this, R_ALLIES);
+    }
+    // NOTE (the pinned quirk): the relation maps are NOT cleared here — they
+    // are born in the ctor and die in the dtor only, so entries survive
+    // PlayerList::reset()/init() within a process lifetime. newGame's
+    // assignment walk overwrites the entries the new sides name; the rest
+    // stay stale. The corpora pin this.
+}
+
+// PlayerList::init (PlayerList.cpp).
+void World::playerListInit()
+{
+    playerList.m_playerCount = 1;
+    playerList.m_players[0]->init(false, this);
+
+    for (int i = 1; i < MAX_PLAYER_COUNT; i++)
+        playerList.m_players[i]->init(false, this);
+
+    std::fill(playerList.m_slotIndices, playerList.m_slotIndices + MAX_PLAYER_COUNT, -1);
+    std::fill(playerList.m_slotToPlayerIndices, playerList.m_slotToPlayerIndices + MAX_SLOTS_T, -1);
+
+    // call setLocalPlayer so that becomingLocalPlayer() gets called appropriately
+    playerListSetLocalPlayer(playerList.m_players[0]);
+}
+
+// PlayerList::reset (PlayerList.cpp): the AI delete walk (stated), the
+// factory clear, the init.
+void World::playerListReset()
+{
+    // for (int i = 0; i < MAX_PLAYER_COUNT; i++)
+    //     m_players[i]->deletePlayerAI();   — the AI slice's (no observable)
+    teamFactory.clear(this);
+    playerListInit();
+}
+
+// Player::becomingLocalPlayer: the client body (team color, garrison
+// recalc, disguiser colors) is the client phase's — the transition calls
+// are the pinned observable.
+static void playerBecomingLocalPlayer(PlayerT *p, bool yes, World *w)
+{
+    w->hooks.tev(GameLogicHooks::TEV_LOCAL, p->m_playerIndex, yes ? 1 : 0);
+}
+
+// PlayerList::setLocalPlayer (PlayerList.cpp).
+void World::playerListSetLocalPlayer(PlayerT *player)
+{
+    // can't set local player to null -- if you try, you get neutral.
+    if (player == nullptr) {
+        player = playerList.getNeutralPlayer();
+    }
+
+    if (player != playerList.m_local) {
+        // m_local can be null the very first time we call this.
+        if (playerList.m_local)
+            playerBecomingLocalPlayer(playerList.m_local, false, this);
+        playerList.m_local = player;
+        playerBecomingLocalPlayer(player, true, this);
+    }
+}
+
+// PlayerList::findPlayerWithNameKey (PlayerList.cpp): the count-bounded
+// walk.
+PlayerT *PlayerListT::findPlayerWithNameKey(unsigned key, World *w) const
+{
+    (void)w;
+    for (int i = 0; i < m_playerCount; i++) {
+        if (m_players[i]->m_playerNameKey == key) {
+            return m_players[i];
+        }
+    }
+    return nullptr;
+}
+
+// PlayerList::update (PlayerList.cpp): ALL 16 slots (not the count!) — the
+// pinned quirk.
+void World::playerListUpdate()
+{
+    for (int i = 0; i < MAX_PLAYER_COUNT; i++) {
+        playerList.m_players[i]->update(this);
+    }
+}
+
+// PlayerList::newMap (PlayerList.cpp).
+void World::playerListNewMap()
+{
+    for (int i = 0; i < MAX_PLAYER_COUNT; i++) {
+        playerList.m_players[i]->newMap(this);
+    }
+}
+
+// PlayerList::teamAboutToBeDeleted (PlayerList.cpp).
+void World::playerListTeamAboutToBeDeleted(TeamT *team)
+{
+    for (int i = 0; i < MAX_PLAYER_COUNT; i++) {
+        playerRemoveTeamRelationship(playerList.m_players[i], team);
+    }
+}
+
+// PlayerList::updateTeamStates (PlayerList.cpp).
+void World::playerListUpdateTeamStates()
+{
+    for (int i = 0; i < MAX_PLAYER_COUNT; i++) {
+        playerList.m_players[i]->updateTeamStates(this);
+    }
+}
+
+// PlayerList::validateTeam (PlayerList.cpp).
+TeamT *World::playerListValidateTeam(const std::string &owner)
+{
+    // owner could be a player or team. first, check team names.
+    TeamT *t = teamFactory.findTeam(owner, this);
+    if (!t) {
+        // DEBUG_CRASH(("no team or player named %s could be found!"))
+        t = teamByID(this, playerList.getNeutralPlayer()->m_defaultTeam);
+    }
+    return t;
+}
+
+// PlayerList::getPlayerFromMask (PlayerList.cpp): the exact-equality scan.
+PlayerT *World::playerListGetPlayerFromMask(PlayerMaskT mask)
+{
+    PlayerT *player = nullptr;
+    for (int i = 0; i < MAX_PLAYER_COUNT; i++) {
+        player = playerList.getNthPlayer(i);
+        if (player && (PlayerMaskT)(1u << player->m_playerIndex) == mask)
+            return player;
+    }
+    // DEBUG_CRASH(("Player does not exist for mask")) — the release build
+    // returns the null
+    return nullptr; // mask not found
+}
+
+// PlayerList::getEachPlayerFromMask (PlayerList.cpp): the peeling walk.
+PlayerT *World::playerListGetEachPlayerFromMask(PlayerMaskT &maskToAdjust)
+{
+    PlayerT *player = nullptr;
+    for (int i = 0; i < MAX_PLAYER_COUNT; i++) {
+        player = playerList.getNthPlayer(i);
+        if (player && (maskToAdjust & (PlayerMaskT)(1u << player->m_playerIndex)) != 0) {
+            maskToAdjust = (PlayerMaskT)(maskToAdjust & ~(PlayerMaskT)(1u << player->m_playerIndex));
+            return player;
+        }
+    }
+    // DEBUG_CRASH(("No players found that contain any matching masks."))
+    maskToAdjust = 0;
+    return nullptr; // mask not found
+}
+
+// PlayerList::getPlayersWithRelationship (PlayerList.cpp): the
+// relationship-to-mask query.
+PlayerMaskT World::playerListGetPlayersWithRelationship(int srcPlayerIndex, unsigned allowedRelationships)
+{
+    PlayerMaskT retVal = PLAYERMASK_NONE_T;
+
+    if (allowedRelationships == 0)
+        return retVal;
+
+    PlayerT *srcPlayer = playerList.getNthPlayer(srcPlayerIndex);
+    if (!srcPlayer)
+        return retVal;
+
+    if ((allowedRelationships & ALLOW_SAME_PLAYER_T) != 0)
+        retVal |= (PlayerMaskT)(1u << srcPlayer->m_playerIndex);
+
+    for (int i = 0; i < playerList.m_playerCount; ++i) {
+        PlayerT *player = playerList.getNthPlayer(i);
+        if (!player)
+            continue;
+
+        if (player == srcPlayer)
+            continue;
+
+        switch (playerGetRelationship(srcPlayer, teamByID(this, player->m_defaultTeam), this)) {
+        case R_ENEMIES:
+            if ((allowedRelationships & ALLOW_ENEMIES_T) != 0)
+                retVal |= (PlayerMaskT)(1u << player->m_playerIndex);
+            break;
+        case R_ALLIES:
+            if ((allowedRelationships & ALLOW_ALLIES_T) != 0)
+                retVal |= (PlayerMaskT)(1u << player->m_playerIndex);
+            break;
+        case R_NEUTRAL:
+            if ((allowedRelationships & ALLOW_NEUTRAL_T) != 0)
+                retVal |= (PlayerMaskT)(1u << player->m_playerIndex);
+            break;
+        }
+    }
+
+    return retVal;
+}
+
+// PlayerList::newGame (PlayerList.cpp), the distilled form.
+void World::playerListNewGame(const SidesSpecT &sides)
+{
+    playerListReset();
+
+    // ok, now create the rest of players we need.
+    bool setLocal = false;
+    for (size_t i = 0; i < sides.sides.size(); i++) {
+        const SideSpecT &sd = sides.sides[i];
+        if (sd.playerName.empty())
+            continue; // it's neutral, which we've already done, so skip it.
+
+        PlayerT *p = playerList.m_players[playerList.m_playerCount++];
+        // initFromDict, distilled: init(pt) with a template, the name, the
+        // type (the skirmish script duplication is the script-engine
+        // slice's, stated)
+        p->init(true, this);
+        p->m_playerName = sd.playerName;
+        p->m_playerNameKey = nameKeys.nameToKey(sd.playerName);
+        p->m_observer = sd.observer;
+        p->m_isPlayerDead = sd.observer; // observers are dead
+        if (sd.isHuman)
+            p->setPlayerType(PLAYER_HUMAN_T, false);
+        else
+            p->setPlayerType(PLAYER_COMPUTER_T, false);
+
+        // Multiplayer override
+        if (sd.multiplayerIsLocal) {
+            playerListSetLocalPlayer(p);
+            setLocal = true;
+        }
+
+        if (!setLocal && !m_networkPresent && sd.isHuman) {
+            playerListSetLocalPlayer(p);
+            setLocal = true;
+        }
+
+        // (Set the build list — the economy slice's, stated)
+    }
+
+    if (!setLocal) {
+        for (size_t i = 0; i < sides.sides.size(); i++) {
+            PlayerT *p = playerList.getNthPlayer((int)i);
+            if (p != playerList.getNeutralPlayer()) {
+                p->setPlayerType(PLAYER_HUMAN_T, false);
+                playerListSetLocalPlayer(p);
+                setLocal = true;
+                break;
+            }
+        }
+    }
+
+    // must reset teams *after* creating players.
+    teamFactory.initFromSides(sides, this);
+
+    for (size_t i = 0; i < sides.sides.size(); i++) {
+        const SideSpecT &sd = sides.sides[i];
+        PlayerT *p = playerList.findPlayerWithNameKey(nameKeys.nameToKey(sd.playerName), this);
+
+        for (const std::string &tok : sd.enemies) {
+            PlayerT *p2 = playerList.findPlayerWithNameKey(nameKeys.nameToKey(tok), this);
+            if (p2) {
+                playerSetPlayerRelationship(p, p2, R_ENEMIES);
+            } else {
+                // DEBUG_LOG(("unknown enemy %s")) — stated
+            }
+        }
+
+        for (const std::string &tok : sd.allies) {
+            PlayerT *p2 = playerList.findPlayerWithNameKey(nameKeys.nameToKey(tok), this);
+            if (p2) {
+                playerSetPlayerRelationship(p, p2, R_ALLIES);
+            } else {
+                // DEBUG_LOG(("unknown ally %s")) — stated
+            }
+        }
+
+        // finally, make sure self & neutral are correct.
+        playerSetPlayerRelationship(p, p, R_ALLIES);
+        if (p != playerList.getNeutralPlayer())
+            playerSetPlayerRelationship(p, playerList.getNeutralPlayer(), R_NEUTRAL);
+
+        p->setDefaultTeam(this);
+    }
+
+    if (sides.hasGameInfo) {
+        playerListAssignSlotIndices(sides.gameInfo);
+    }
+}
+
+// PlayerList::setSlotIndex / getSlotIndex / getPlayerIndexFromSlotIndex /
+// getPlayerFromSlotIndex (PlayerList.cpp).
+void World::playerListSetSlotIndex(int playerIndex, int slotIndex)
+{
+    if (playerIndex >= 0 && playerIndex < MAX_PLAYER_COUNT) {
+        const int oldSlotIndex = playerList.m_slotIndices[playerIndex];
+        if (oldSlotIndex >= 0 && oldSlotIndex < MAX_SLOTS_T) {
+            playerList.m_slotToPlayerIndices[oldSlotIndex] = -1;
+        }
+        playerList.m_slotIndices[playerIndex] = slotIndex;
+        if (slotIndex >= 0 && slotIndex < MAX_SLOTS_T) {
+            playerList.m_slotToPlayerIndices[slotIndex] = playerIndex;
+        }
+    }
+}
+
+int World::playerListGetSlotIndex(int playerIndex) const
+{
+    if (playerIndex >= 0 && playerIndex < MAX_PLAYER_COUNT) {
+        return playerList.m_slotIndices[playerIndex];
+    }
+    return -1;
+}
+
+int World::playerListGetPlayerIndexFromSlotIndex(int slotIndex) const
+{
+    if (slotIndex >= 0 && slotIndex < MAX_SLOTS_T) {
+        return playerList.m_slotToPlayerIndices[slotIndex];
+    }
+    return -1;
+}
+
+PlayerT *World::playerListGetPlayerFromSlotIndex(int slotIndex) const
+{
+    const int playerIndex = playerListGetPlayerIndexFromSlotIndex(slotIndex);
+    if (playerIndex >= 0 && playerIndex < playerList.m_playerCount) {
+        return playerList.m_players[playerIndex];
+    }
+    return nullptr;
+}
+
+// PlayerList::assignSlotIndices (PlayerList.cpp): the "player%d" walk over
+// the occupied slots.
+void World::playerListAssignSlotIndices(const GameInfoSpecT &gameInfo)
+{
+    for (int slotIdx : gameInfo.occupiedSlots) {
+        if (slotIdx < 0 || slotIdx >= MAX_SLOTS_T)
+            continue; // (the const-slot bounds the walk guards)
+        char playerName[32];
+        snprintf(playerName, sizeof(playerName), "player%d", slotIdx);
+        if (PlayerT *player = playerList.findPlayerWithNameKey(nameKeys.nameToKey(playerName), this)) {
+            playerListSetSlotIndex(player->m_playerIndex, slotIdx);
+        }
+    }
+}
+
+// ---- Team's own surface (Team.cpp) -------------------------------------------
+
+// Team::setActive (Team.h inline).
+void TeamT::setActive()
+{
+    if (!m_active) {
+        m_created = true;
+        m_active = true;
+    }
+}
+
+// Team::setOverrideTeamRelationship / removeOverrideTeamRelationship /
+// setOverridePlayerRelationship / removeOverridePlayerRelationship.
+void TeamT::setOverrideTeamRelationship(TeamIDT teamID, RelationshipT r)
+{
+    if (teamID != TEAM_ID_T_INVALID) {
+        // note that this creates the entry if it doesn't exist.
+        setTeamRelationEntry(teamID, r);
+    }
+}
+bool TeamT::removeOverrideTeamRelationship(TeamIDT teamID)
+{
+    if (!m_teamRelations.empty()) {
+        if (teamID == TEAM_ID_T_INVALID) {
+            m_teamRelations.clear();
+            return true;
+        }
+        return eraseTeamRelation(teamID);
+    }
+    return false;
+}
+void TeamT::setOverridePlayerRelationship(int playerIndex, RelationshipT r)
+{
+    if (playerIndex != PLAYER_INDEX_INVALID) {
+        // note that this creates the entry if it doesn't exist.
+        setPlayerRelationEntry(playerIndex, r);
+    }
+}
+bool TeamT::removeOverridePlayerRelationship(int playerIndex)
+{
+    if (!m_playerRelations.empty()) {
+        if (playerIndex == PLAYER_INDEX_INVALID) {
+            m_playerRelations.clear();
+            return true;
+        }
+        return erasePlayerRelation(playerIndex);
+    }
+    return false;
+}
+
+// Team::setControllingPlayer (Team.cpp): the prototype's owner move (the
+// member onCapture walk — xezon 07/12/2025 — is folded into the per-object
+// setTeam path the corpora drive; this form moves the prototype's owner).
+void TeamT::setControllingPlayer(PlayerT *newController, World *w)
+{
+    // nullptr is not allowed, but is caught by TeamPrototype::setControllingPlayer()
+    if (!newController)
+        return;
+    PlayerT *oldOwner = m_proto->m_owningPlayer;
+
+    if (m_proto->m_owningPlayer)
+        m_proto->m_owningPlayer->removeTeamFromList(m_proto);
+    m_proto->m_owningPlayer = newController;
+    // impossible to get here with a nullptr pointer.
+    m_proto->m_owningPlayer->addTeamToList(m_proto);
+
+    // The units' onCapture(oldOwner, newController) — the RETAIL_COMPATIBLE
+    // branch's handle_partitionCellMaintenance is dropped (rule 1); the
+    // non-retail walk notifies every member. The module bodies are the
+    // module framework's; the hook pins the calls.
+    for (auto it = m_members.rbegin(); it != m_members.rend(); ++it) {
+        ObjectT *obj = *it;
+        if (!obj)
+            continue;
+        w->hooks.tev(GameLogicHooks::TEV_CAPTURE, obj->m_id,
+                     oldOwner ? oldOwner->m_playerIndex : -1, newController->m_playerIndex);
+    }
+}
+
+// Team::notifyTeamOfObjectDeath (Team.cpp): the unit-destroyed script gate.
+void TeamT::notifyTeamOfObjectDeath(World *w)
+{
+    const TeamSpecT *pInfo = m_proto->m_template;
+    if (!pInfo) {
+        return;
+    }
+    if (pInfo->scriptOnUnitDestroyed.empty()) {
+        return;
+    }
+    // TheScriptEngine->runScript(pInfo->m_scriptOnUnitDestroyed, this)
+    w->hooks.tev(GameLogicHooks::TEV_TEAM_SCRIPT, (int)m_id, GameLogicHooks::SCRIPT_ON_UNIT_DESTROYED);
+}
+
+// TeamPrototype::updateState (Team.cpp): the instance walk, then the
+// empty-team removal sweep (the runtime team deletion — deleteTeam's
+// comment: "the team itself will be deleted in updateState").
+void protoUpdateState(TeamProtoT *tp, World *w)
+{
+    for (auto it = tp->m_instances.rbegin(); it != tp->m_instances.rend(); ++it) {
+        teamUpdateState(*it, w);
+    }
+    /* remove empty teams. */
+    bool done = false;
+    while (!done) {
+        done = true;
+        for (auto it = tp->m_instances.rbegin(); it != tp->m_instances.rend(); ++it) {
+            TeamT *t = *it;
+            if (t->getFirstItemIn_TeamMemberList() == nullptr) {
+                // Team has no members.
+                if (tp->getIsSingleton()) {
+                    continue; // Don't delete singleton teams, even if they are empty.
+                }
+                if (t->getPrototype()->m_owningPlayer && t->getPrototype()->m_owningPlayer->m_defaultTeam == t->getID()) {
+                    // This is the player's default team, so don't remove it.
+                    continue;
+                }
+                // don't delete inactive teams - they are under construction
+                if (t->isActive() == false) {
+                    continue;
+                }
+                // So remove it
+                w->teamFactory.teamAboutToBeDeleted(t, w);
+                teamDelete(t, w);
+                done = false;
+                break; // Not sure what state the iterator is in after deleting a member of the list. jba
+            }
+        }
+    }
+}
+
+bool TeamT::isActive() const { return m_active; }
+
+// Team::updateState (Team.cpp) — the state half: the enteredOrExited reset,
+// the active gate, the created latch, the destroy-threshold compute, the
+// enemy-sighted partition query, the onDestroyed trigger with its -1 latch,
+// and the onIdle wasIdle latch. The script RUNS are hooks.
+void teamUpdateState(TeamT *t, World *w)
+{
+    t->m_enteredOrExited = false;
+    if (!t->m_active) {
+        return;
+    }
+    const TeamSpecT *pInfo = t->m_proto->m_template;
+    if (t->m_created) {
+        t->m_created = false;
+        // Run the on create script, if any.
+        if (!pInfo->scriptOnCreate.empty()) {
+            w->hooks.tev(GameLogicHooks::TEV_TEAM_SCRIPT, (int)t->getID(), GameLogicHooks::SCRIPT_ON_CREATE);
+        }
+
+        // Set up info for the onDestroyed script, if needed.
+        if (!pInfo->scriptOnDestroyed.empty()) {
+            for (auto it = t->m_members.rbegin(); it != t->m_members.rend(); ++it) {
+                t->m_curUnits++;
+            }
+            // Int = Int - (Int * Real): the promoted float product, the
+            // truncating assignment back.
+            t->m_destroyThreshold = (int)((float)t->m_curUnits - ((float)t->m_curUnits * pInfo->destroyedThreshold));
+            if (t->m_destroyThreshold > t->m_curUnits - 1)
+                t->m_destroyThreshold = t->m_curUnits - 1;
+            if (t->m_destroyThreshold < 0)
+                t->m_destroyThreshold = 0;
+        }
+    }
+
+    // Do enemy sighted/on clear checks.
+    if (t->m_checkEnemySighted) {
+        t->m_prevSeeEnemy = t->m_seeEnemy;
+        t->m_seeEnemy = false;
+        bool anyAliveInTeam = false; // If we're all dead, don't do all clear.
+        // only consider enemies.
+        for (auto it = t->m_members.rbegin(); it != t->m_members.rend(); ++it) {
+            ObjectT *member = *it;
+            if (member->isEffectivelyDead())
+                continue;
+
+            PartitionFilterRelationshipT filterTeam(member);
+            // and only stuff that is not dead
+            PartitionFilterAliveT filterAlive;
+            PartitionFilterSameMapStatusT filterMapStatus(member);
+
+            PartitionFilterT *filters[] = { &filterTeam, &filterAlive, &filterMapStatus, nullptr };
+            float visionRange = member->m_visionRange;
+            anyAliveInTeam = true;
+            ObjectT *pObj = w->pm.getClosestObject(member, visionRange, FROM_CENTER_2D, filters, nullptr, nullptr);
+            if (pObj) {
+                t->m_seeEnemy = true;
+                break;
+            }
+        }
+        if (anyAliveInTeam) {
+            if (t->m_prevSeeEnemy != t->m_seeEnemy) {
+                if (t->m_seeEnemy) {
+                    // fire onEnemySighted
+                    w->hooks.tev(GameLogicHooks::TEV_TEAM_SCRIPT, (int)t->getID(), GameLogicHooks::SCRIPT_ON_ENEMY_SIGHTED);
+                } else {
+                    // fire on all clear.
+                    w->hooks.tev(GameLogicHooks::TEV_TEAM_SCRIPT, (int)t->getID(), GameLogicHooks::SCRIPT_ON_ALL_CLEAR);
+                }
+            }
+        }
+    }
+
+    // Do onDestroyed checks.
+    if (!pInfo->scriptOnDestroyed.empty()) {
+        int prevUnits = t->m_curUnits;
+        t->m_curUnits = 0;
+        for (auto it = t->m_members.rbegin(); it != t->m_members.rend(); ++it) {
+            if ((*it)->isEffectivelyDead())
+                continue;
+            t->m_curUnits++;
+        }
+        if (t->m_curUnits != prevUnits && t->m_curUnits <= t->m_destroyThreshold) {
+            w->hooks.tev(GameLogicHooks::TEV_TEAM_SCRIPT, (int)t->getID(), GameLogicHooks::SCRIPT_ON_DESTROYED);
+            t->m_destroyThreshold = -1; // don't trigger again.
+        }
+    }
+
+    // Do onIdle checks.
+    if (!pInfo->scriptOnIdle.empty()) {
+        bool isIdle = true;
+        bool anyAliveInTeam = false; // If we're all dead, don't do all clear.
+        for (auto it = t->m_members.rbegin(); it != t->m_members.rend(); ++it) {
+            if ((*it)->isEffectivelyDead()) {
+                continue;
+            }
+            if (!(*it)->m_hasAi)
+                continue;
+            anyAliveInTeam = true;
+            if (!(*it)->m_aiIdle) {
+                isIdle = false;
+            }
+        }
+        if (anyAliveInTeam && isIdle && t->m_wasIdle) {
+            w->hooks.tev(GameLogicHooks::TEV_TEAM_SCRIPT, (int)t->getID(), GameLogicHooks::SCRIPT_ON_IDLE);
+        }
+        t->m_wasIdle = isIdle;
+    }
+}
+
+// ---- the players/teams partition filters' allow bodies (PartitionManager.cpp) --
+
+// PartitionFilterRelationship::allow (PartitionManager.cpp).
+bool PartitionFilterRelationshipT::allow(ObjectT *objOther)
+{
+    RelationshipT r = objectGetRelationship(m_obj, objOther, g_queryWorld);
+
+    if ((m_flags & (1 << r)) != 0)
+        return true;
+
+    return false;
+}
+
+// PartitionFilterSamePlayer::allow (PartitionManager.cpp).
+bool PartitionFilterSamePlayerT::allow(ObjectT *objOther)
+{
+    if (m_player == objectControllingPlayer(objOther, g_queryWorld))
+        return true;
+
+    return false;
+}
+
+// PartitionFilterAcceptOnTeam::allow (PartitionManager.cpp).
+bool PartitionFilterAcceptOnTeamT::allow(ObjectT *objOther)
+{
+    // objOther is guaranteed to be non-null, so we don't need to check (srj)
+    return (objOther->m_team == (m_team ? m_team->getID() : TEAM_ID_T_INVALID));
+}
+
 struct Dumper {
     FILE *out;
 
@@ -3910,6 +5717,125 @@ static void dumpCollideEvents(Dumper &d, World &w)
                f32bits(e.m_normal.x), f32bits(e.m_normal.y), f32bits(e.m_normal.z));
     }
     w.hooks.m_collideEvents.clear();
+}
+
+// The players/teams event stream (drained at every dump point, like the
+// collide stream).
+static const char *tevName(int e)
+{
+    switch (e) {
+    case GameLogicHooks::TEV_PLAYER_UPDATE: return "pupdate";
+    case GameLogicHooks::TEV_LOCAL: return "local";
+    case GameLogicHooks::TEV_TEAM_MEMBER: return "teammember";
+    case GameLogicHooks::TEV_CAPTURE: return "capture";
+    case GameLogicHooks::TEV_TEAM_SCRIPT: return "script";
+    case GameLogicHooks::TEV_TEAM_DESTROYED: return "teamdestroyed";
+    default: return "?";
+    }
+}
+static const char *scriptKindName(int k)
+{
+    switch (k) {
+    case GameLogicHooks::SCRIPT_ON_CREATE: return "oncreate";
+    case GameLogicHooks::SCRIPT_ON_DESTROYED: return "ondestroyed";
+    case GameLogicHooks::SCRIPT_ON_IDLE: return "onidle";
+    case GameLogicHooks::SCRIPT_ON_ENEMY_SIGHTED: return "onenemysighted";
+    case GameLogicHooks::SCRIPT_ON_ALL_CLEAR: return "onallclear";
+    case GameLogicHooks::SCRIPT_ON_UNIT_DESTROYED: return "onunitdestroyed";
+    case GameLogicHooks::SCRIPT_PRODUCTION_CONDITION: return "production";
+    default: return "?";
+    }
+}
+static void dumpTeamEvents(Dumper &d, World &w)
+{
+    d.line("teamevents %d", (int)w.hooks.m_teamEvents.size());
+    for (auto &e : w.hooks.m_teamEvents) {
+        // uniform: the four ints (the script events' 3rd field names the
+        // kind; the production event's 4th is the prototype id)
+        if (e[0] == GameLogicHooks::TEV_TEAM_SCRIPT)
+            d.line("tv script %d %s %d", e[1], scriptKindName(e[2]), e[3]);
+        else
+            d.line("tv %s %d %d %d", tevName(e[0]), e[1], e[2], e[3]);
+    }
+    w.hooks.m_teamEvents.clear();
+}
+
+// The player list state: the count, the local player, every slot (all 16 —
+// the uncreated slots' birth state is pinned), the relation maps in key
+// order (the hash_map's bucket order is never observable — probed only),
+// the default team, the team-prototype list and the slot bookkeeping.
+static void dumpPlayers(Dumper &d, World &w)
+{
+    d.line("players count=%d local=%d", w.playerList.m_playerCount,
+           w.playerList.m_local ? w.playerList.m_local->m_playerIndex : -1);
+    for (int i = 0; i < MAX_PLAYER_COUNT; i++) {
+        PlayerT *p = w.playerList.m_players[i];
+        d.line("pl %d name=%s key=%u type=%d dead=%d obs=%d act=%d dflt=%u slot=%d npr=%d",
+               i, p->m_playerName.c_str(), p->m_playerNameKey, (int)p->m_playerType,
+               p->m_isPlayerDead ? 1 : 0, p->m_observer ? 1 : 0, p->isPlayerActive() ? 1 : 0,
+               p->m_defaultTeam, w.playerListGetSlotIndex(i), (int)p->m_playerTeamPrototypes.size());
+        for (const auto &kv : p->m_playerRelations)
+            d.line("pr %d->%d %s", i, kv.first, relationshipName(kv.second));
+        for (const auto &kv : p->m_teamRelations)
+            d.line("tr %d->t%u %s", i, kv.first, relationshipName(kv.second));
+        for (size_t j = 0; j < p->m_playerTeamPrototypes.size(); ++j)
+            d.line("pt %d %d tp%u", i, (int)j, p->m_playerTeamPrototypes[j]->m_id);
+    }
+    // the slot bookkeeping
+    for (int s = 0; s < MAX_SLOTS_T; s++)
+        d.line("slot %d p%d", s, w.playerList.m_slotToPlayerIndices[s]);
+}
+
+// The team factory state: the unique-id counters, the prototype map in KEY
+// order (the std::map walk every factory iteration uses), each prototype's
+// template flags, and each live team's state + members (newest first).
+static void dumpTeams(Dumper &d, World &w)
+{
+    d.line("teams nextproto=%u nextid=%u protos=%zu",
+           w.teamFactory.m_uniqueTeamPrototypeID, w.teamFactory.m_uniqueTeamID,
+           w.teamFactory.m_prototypes.size());
+    for (const auto &kv : w.teamFactory.prototypesInMapOrder()) {
+        TeamProtoT *tp = kv.second;
+        const TeamSpecT *info = tp->m_template;
+        d.line("tp %u name=%s key=%u owner=%d single=%d inst=%zu",
+               tp->m_id, tp->m_name.c_str(), kv.first,
+               tp->m_owningPlayer ? tp->m_owningPlayer->m_playerIndex : -1,
+               tp->getIsSingleton() ? 1 : 0, tp->m_instances.size());
+        if (info) {
+            d.line("tpi %u oc=%d od=%d oi=%d oes=%d oac=%d oud=%d thr=%08x ea=%d pc=%s pe=%d",
+                   tp->m_id, !info->scriptOnCreate.empty(), !info->scriptOnDestroyed.empty(),
+                   !info->scriptOnIdle.empty(), !info->scriptOnEnemySighted.empty(),
+                   !info->scriptOnAllClear.empty(), !info->scriptOnUnitDestroyed.empty(),
+                   f32bits(info->destroyedThreshold), info->executeActions ? 1 : 0,
+                   info->productionCondition.c_str(), info->productionScriptExists ? 1 : 0);
+        }
+        // the instance list order (newest first)
+        for (auto it = tp->m_instances.rbegin(); it != tp->m_instances.rend(); ++it) {
+            TeamT *t = *it;
+            d.line("t %u tp%u act=%d cre=%d eo=%d see=%d psee=%d chk=%d cur=%d thr=%d idle=%d mem=%zu",
+                   t->getID(), t->m_proto->m_id, t->m_active ? 1 : 0, t->m_created ? 1 : 0,
+                   t->m_enteredOrExited ? 1 : 0, t->m_seeEnemy ? 1 : 0, t->m_prevSeeEnemy ? 1 : 0,
+                   t->m_checkEnemySighted ? 1 : 0, t->m_curUnits, t->m_destroyThreshold,
+                   t->m_wasIdle ? 1 : 0, t->m_members.size());
+            for (const auto &kv2 : t->m_teamRelations)
+                d.line("tot t%u->t%u %s", t->getID(), kv2.first, relationshipName(kv2.second));
+            for (const auto &kv2 : t->m_playerRelations)
+                d.line("top t%u->%d %s", t->getID(), kv2.first, relationshipName(kv2.second));
+            for (auto mit = t->m_members.rbegin(); mit != t->m_members.rend(); ++mit)
+                d.line("mem t%u o%d", t->getID(), (*mit)->m_id);
+        }
+    }
+}
+
+// The object→team attachment state (the arena order).
+static void dumpObjectTeams(Dumper &d, World &w)
+{
+    d.line("objteams %d", (int)w.objects.size());
+    for (auto &o : w.objects)
+        d.line("ot o%d t%u ctrl=%d vis=%08x ai=%d/%d",
+               o->m_id, o->m_team,
+               objectControllingPlayer(o.get(), &w) ? objectControllingPlayer(o.get(), &w)->m_playerIndex : -1,
+               f32bits(o->m_visionRange), o->m_hasAi ? 1 : 0, o->m_aiIdle ? 1 : 0);
 }
 
 // ============================================================================
@@ -4861,6 +6787,627 @@ static void corpusCollideProcess(Dumper &d)
 }
 
 // --- kernel_roundtrip: a mixed run — the whole kernel through several frames -------
+// --- players_lifecycle: the ctor/init scheme, the neutral birth, the
+// interning, the update walk's 16-slot quirk, the reset's stale relations --
+static void corpusPlayersLifecycle(Dumper &d)
+{
+    d.line("corpus players_lifecycle");
+    World &w = freshWorld(10.0f, Region2DT{0, 0, 100, 100});
+
+    // the birth state: count 1, local 0 (the becomingLocalPlayer(0,true)
+    // transition), the neutral self-relation, the empty-string key, the
+    // -1 slot arrays
+    dumpPlayers(d, w);
+    dumpTeamEvents(d, w);
+
+    // the name-key interning: the sequential ordinals, the case
+    // sensitivity, the re-intern of the same name (sequenced — the
+    // printf argument order is unspecified in C++)
+    unsigned nkA = w.nameKeys.nameToKey("player1");
+    unsigned nkB = w.nameKeys.nameToKey("player2");
+    unsigned nkCap = w.nameKeys.nameToKey("Player1");
+    unsigned nkA2 = w.nameKeys.nameToKey("player1");
+    d.line("nk empty=%u", w.nameKeys.nameToKey(""));
+    d.line("nk a=%u b=%u A=%u a2=%u players=%u", nkA, nkB, nkCap, nkA2, nkA2);
+
+    // the 16-slot update walk (the count is 1 — every slot updates anyway)
+    w.playerListUpdate();
+    dumpTeamEvents(d, w);
+
+    // getNthPlayer's bounds refusal
+    d.line("nth %d %d", w.playerList.getNthPlayer(-1) ? 1 : 0, w.playerList.getNthPlayer(MAX_PLAYER_COUNT) ? 1 : 0);
+
+    // the stale-relation quirk: relations set on a player, then reset() —
+    // the maps survive init (they are born in the ctor and die in the dtor)
+    PlayerT *p1 = w.playerList.getNthPlayer(1);
+    PlayerT *p2 = w.playerList.getNthPlayer(2);
+    playerSetPlayerRelationship(p1, p2, R_ENEMIES);
+    playerSetTeamRelationship(p1, teamNew(&w.teamFactory, nullptr, 77, &w), R_ALLIES);
+    d.line("setrel");
+    dumpPlayers(d, w);
+    w.playerListReset();
+    d.line("afterreset");
+    dumpPlayers(d, w);
+    dumpTeamEvents(d, w);
+
+    // setLocalPlayer's transitions and the null refusal (null → neutral)
+    w.playerListSetLocalPlayer(w.playerList.getNthPlayer(3));
+    w.playerListSetLocalPlayer(nullptr);
+    dumpTeamEvents(d, w);
+    dumpPlayers(d, w);
+}
+
+// --- players_newgame: the sides walk, the local-selection precedence, the
+// enemies/allies assignment, the default teams, the slots -------------
+static void corpusPlayersNewGame(Dumper &d)
+{
+    d.line("corpus players_newgame");
+    {
+        // a 4-side map: neutral, a human, two computers; the multiplayer
+        // local flag on a LATER side beats the earlier human
+        World &w = freshWorld(10.0f, Region2DT{0, 0, 100, 100});
+        SidesSpecT sides;
+        sides.sides.push_back(SideSpecT{}); // the neutral side (empty name)
+        sides.sides.push_back(sideSpec("america", true, false, false, {"china"}, {}));
+        sides.sides.push_back(sideSpec("china", false, false, false, {}, {"america"}));
+        sides.sides.push_back(sideSpec("gla", false, true, false, {"america", "china", "nosuch"}, {}));
+        // the standard team singletons the default teams resolve through
+        sides.teams.push_back(teamSpec("team", "neutral", true));
+        sides.teams.push_back(teamSpec("teamamerica", "america", true));
+        sides.teams.push_back(teamSpec("teamchina", "china", true));
+        // the multiplayer slot indices (player0..player3 names are what
+        // assignSlotIndices probes — our names miss, pinning the miss)
+        sides.hasGameInfo = true;
+        sides.gameInfo.occupiedSlots = {0, 2, 3};
+
+        w.playerListNewGame(sides);
+        dumpPlayers(d, w);
+        dumpTeams(d, w);
+        dumpTeamEvents(d, w);
+
+        // the local-selection precedence: the multiplayerIsLocal side (gla,
+        // player 3) won over the earlier human (america, player 1)
+        d.line("local %d", w.playerList.m_local->m_playerIndex);
+
+        // the asymmetric relations: america→china ENEMIES, china→america
+        // ALLIES (the walk assigns per side, no symmetry)
+        d.line("rel a->c %s c->a %s a->g %s g->a %s",
+               relationshipName(playerGetRelationship(w.playerList.getNthPlayer(1),
+                                                      teamByID(&w, w.playerList.getNthPlayer(2)->m_defaultTeam), &w)),
+               relationshipName(playerGetRelationship(w.playerList.getNthPlayer(2),
+                                                      teamByID(&w, w.playerList.getNthPlayer(1)->m_defaultTeam), &w)),
+               relationshipName(playerGetRelationship(w.playerList.getNthPlayer(1),
+                                                      teamByID(&w, w.playerList.getNthPlayer(3)->m_defaultTeam), &w)),
+               relationshipName(playerGetRelationship(w.playerList.getNthPlayer(3),
+                                                      teamByID(&w, w.playerList.getNthPlayer(1)->m_defaultTeam), &w)));
+
+        // the slot lookups (the "player%d" probe missed our names)
+        d.line("slots %d %d %d %d", w.playerListGetSlotIndex(1), w.playerListGetSlotIndex(2),
+               w.playerListGetPlayerIndexFromSlotIndex(0), w.playerListGetPlayerIndexFromSlotIndex(4));
+    }
+    {
+        // the same map with the network present: no human wins, the
+        // multiplayerIsLocal flag is the only local source
+        World &w = freshWorld(10.0f, Region2DT{0, 0, 100, 100});
+        w.m_networkPresent = true;
+        SidesSpecT sides;
+        sides.sides.push_back(SideSpecT{});
+        sides.sides.push_back(sideSpec("america", true, false, false, {}, {}));
+        sides.sides.push_back(sideSpec("china", false, true, false, {}, {}));
+        w.playerListNewGame(sides);
+        d.line("netlocal %d", w.playerList.m_local->m_playerIndex);
+        dumpTeamEvents(d, w);
+    }
+    {
+        // no local at all (all computers, no network): the fallback forces
+        // the first non-neutral player HUMAN and local; and a neutral side
+        // with enemies of its own (the second loop processes the neutral
+        // player too — its enemies assignment lands)
+        World &w = freshWorld(10.0f, Region2DT{0, 0, 100, 100});
+        SidesSpecT sides;
+        SideSpecT neutralSide;
+        neutralSide.enemies = {"america"};
+        sides.sides.push_back(neutralSide);
+        sides.sides.push_back(sideSpec("america", false, false, false, {}, {}));
+        sides.teams.push_back(teamSpec("team", "neutral", true));
+        w.playerListNewGame(sides);
+        d.line("forcedlocal %d type0=%d type1=%d", w.playerList.m_local->m_playerIndex,
+               (int)w.playerList.getNthPlayer(0)->m_playerType, (int)w.playerList.getNthPlayer(1)->m_playerType);
+        dumpPlayers(d, w);
+        dumpTeamEvents(d, w);
+    }
+    {
+        // the missing default-team prototype: setDefaultTeam's null path
+        // (the release build continues; the default team stays 0)
+        World &w = freshWorld(10.0f, Region2DT{0, 0, 100, 100});
+        SidesSpecT sides;
+        sides.sides.push_back(SideSpecT{});
+        sides.sides.push_back(sideSpec("america", true, false, false, {}, {}));
+        // no teams at all
+        w.playerListNewGame(sides);
+        d.line("nodefault %u", w.playerList.getNthPlayer(1)->m_defaultTeam);
+    }
+}
+
+// --- teams_factory: the id scheme, the singleton reuse, the auto-create,
+// the duplicate-name refusal, the map order -----------------------
+static void corpusTeamsFactory(Dumper &d)
+{
+    d.line("corpus teams_factory");
+    World &w = freshWorld(10.0f, Region2DT{0, 0, 100, 100});
+    SidesSpecT sides;
+    sides.sides.push_back(SideSpecT{});
+    sides.sides.push_back(sideSpec("america", true, false, false, {}, {}));
+    sides.sides.push_back(sideSpec("china", false, false, false, {}, {}));
+
+    // the team list: the standard singletons, a non-singleton, a duplicate
+    // name (the release refusal — the prototype exists in the owner's list
+    // but not the map), an unknown owner (the neutral fallback), and an
+    // executeActions production condition that exists / doesn't
+    TeamSpecT squad;
+    squad.name = "americaSquad";
+    squad.owner = "america";
+    squad.singleton = false;
+    squad.scriptOnDestroyed = "sd";
+    squad.destroyedThreshold = 0.5f;
+    sides.teams.push_back(teamSpec("team", "neutral", true));
+    sides.teams.push_back(teamSpec("teamamerica", "america", true));
+    sides.teams.push_back(teamSpec("teamchina", "china", true));
+    sides.teams.push_back(squad);
+    sides.teams.push_back(teamSpec("teamamerica", "china", true)); // the duplicate name
+    sides.teams.push_back(teamSpec("stray", "nosuchplayer", true));
+    TeamSpecT prod;
+    prod.name = "prodteam";
+    prod.owner = "china";
+    prod.singleton = false;
+    prod.executeActions = true;
+    prod.productionCondition = "condA";
+    prod.productionScriptExists = true;
+    sides.teams.push_back(prod);
+    TeamSpecT prodMiss;
+    prodMiss.name = "prodmiss";
+    prodMiss.owner = "china";
+    prodMiss.singleton = true;
+    prodMiss.executeActions = true;
+    prodMiss.productionCondition = "condB";
+    prodMiss.productionScriptExists = false;
+    sides.teams.push_back(prodMiss);
+
+    w.playerListNewGame(sides);
+    dumpTeams(d, w);
+    dumpTeamEvents(d, w);
+
+    // the ++id scheme and the singleton reuse: createTeam on a singleton
+    // returns the SAME instance (no new id); createInactiveTeam ditto
+    TeamT *ta = w.teamFactory.createTeam("teamamerica", &w);
+    TeamT *tb = w.teamFactory.createInactiveTeam("teamamerica", &w);
+    d.line("singleton %u %u", ta->getID(), tb->getID());
+
+    // the non-singleton auto-create of findTeam, and the explicit creates
+    TeamT *s1 = w.teamFactory.findTeam("americaSquad", &w);
+    d.line("find1 %u act=%d", s1->getID(), s1->m_active ? 1 : 0);
+    TeamT *s2 = w.teamFactory.createTeam("americaSquad", &w);
+    TeamT *s3 = w.teamFactory.createTeam("americaSquad", &w);
+    d.line("creates %u %u", s2->getID(), s3->getID());
+    TeamT *s4 = w.teamFactory.findTeam("americaSquad", &w);
+    d.line("find2 %u", s4->getID());
+
+    // createTeamOnPrototype: the singleton's reuse and the null refusal
+    TeamProtoT *tpA = w.teamFactory.findTeamPrototype("teamamerica", &w);
+    TeamT *c1 = w.teamFactory.createTeamOnPrototype(tpA, &w);
+    d.line("onproto %u null=%d", c1->getID(), w.teamFactory.createTeamOnPrototype(nullptr, &w) ? 1 : 0);
+
+    // the unknown prototype refusal
+    d.line("unknown %d %d", w.teamFactory.createInactiveTeam("nosuch", &w) ? 1 : 0,
+           w.teamFactory.findTeam("nosuch", &w) ? 1 : 0);
+
+    // findTeamByID: the prototype-map walk order (key order — the
+    // interning order of the names), the INVALID refusal
+    d.line("byid t1=%u t2=%u t0=%d",
+           w.teamFactory.findTeamByID(1)->getID(), w.teamFactory.findTeamByID(2)->getID(),
+           w.teamFactory.findTeamByID(TEAM_ID_T_INVALID) ? 1 : 0);
+    // findTeamPrototypeByID: the map walk
+    d.line("protobyid 1=%s 2=%s 99=%d",
+           w.teamFactory.findTeamPrototypeByID(1)->m_name.c_str(),
+           w.teamFactory.findTeamPrototypeByID(2)->m_name.c_str(),
+           w.teamFactory.findTeamPrototypeByID(99) ? 1 : 0);
+
+    dumpTeams(d, w);
+    dumpTeamEvents(d, w);
+}
+
+// --- relationships: the override chain, the precedence ladder, the removal
+// family, the defector gates, the setControllingPlayer move ------------
+static void corpusRelationships(Dumper &d)
+{
+    d.line("corpus relationships");
+    World &w = freshWorld(10.0f, Region2DT{0, 0, 200, 200});
+    SidesSpecT sides;
+    sides.sides.push_back(SideSpecT{});
+    sides.sides.push_back(sideSpec("america", true, false, false, {}, {}));
+    sides.sides.push_back(sideSpec("china", false, false, false, {}, {}));
+    sides.sides.push_back(sideSpec("gla", false, false, false, {}, {}));
+    sides.teams.push_back(teamSpec("team", "neutral", true));
+    sides.teams.push_back(teamSpec("teamamerica", "america", true));
+    sides.teams.push_back(teamSpec("teamchina", "china", true));
+    sides.teams.push_back(teamSpec("teamgla", "gla", true));
+    sides.teams.push_back(teamSpec("americaSquad", "america", false));
+    sides.teams.push_back(teamSpec("chinaSquad", "china", false));
+    w.playerListNewGame(sides);
+    dumpTeamEvents(d, w);
+
+    PlayerT *a = w.playerList.getNthPlayer(1);
+    PlayerT *c = w.playerList.getNthPlayer(2);
+    PlayerT *g = w.playerList.getNthPlayer(3);
+    TeamT *ta = w.teamFactory.findTeam("teamamerica", &w);
+    TeamT *tc = w.teamFactory.findTeam("teamchina", &w);
+    TeamT *tg = w.teamFactory.findTeam("teamgla", &w);
+    TeamT *sa = w.teamFactory.createTeam("americaSquad", &w);
+    TeamT *sc = w.teamFactory.createTeam("chinaSquad", &w);
+
+    // the ladder: player→team (through the default team), the team override,
+    // the player override on the team, the owning player's view
+    playerSetPlayerRelationship(a, c, R_ENEMIES);
+    d.line("l0 %s", relationshipName(playerGetRelationship(a, tc, &w)));
+    playerSetTeamRelationship(a, tc, R_ALLIES);
+    d.line("l1 %s", relationshipName(playerGetRelationship(a, tc, &w)));
+    playerSetTeamRelationship(a, tg, R_NEUTRAL);
+    d.line("l2 %s", relationshipName(playerGetRelationship(a, tg, &w)));
+    // the team-level chain: team override > team's player override > owner
+    d.line("t0 %s", relationshipName(teamGetRelationship(sa, sc, &w)));
+    sa->setOverrideTeamRelationship(sc->getID(), R_ALLIES);
+    d.line("t1 %s", relationshipName(teamGetRelationship(sa, sc, &w)));
+    sa->setOverridePlayerRelationship(c->m_playerIndex, R_NEUTRAL);
+    d.line("t2 %s", relationshipName(teamGetRelationship(sa, sc, &w)));
+    sa->removeOverrideTeamRelationship(sc->getID());
+    d.line("t3 %s", relationshipName(teamGetRelationship(sa, sc, &w)));
+    // the other team's side (asymmetry)
+    d.line("t4 %s", relationshipName(teamGetRelationship(sc, sa, &w)));
+
+    // the null-Team forms: NEUTRAL (the `if (that)` guard)
+    d.line("n0 %s %s", relationshipName(playerGetRelationship(a, nullptr, &w)),
+           relationshipName(teamGetRelationship(sa, nullptr, &w)));
+
+    // the removal family: the empty-map refusal, the miss, the null
+    // clear-alls, the INVALID clear-alls on the team overrides
+    PlayerT *n = w.playerList.getNeutralPlayer();
+    d.line("r0 %d", playerRemovePlayerRelationship(n, c) ? 1 : 0);
+    d.line("r1 %d", playerRemovePlayerRelationship(a, g) ? 1 : 0);
+    d.line("r2 %d", playerRemoveTeamRelationship(a, nullptr) ? 1 : 0);
+    d.line("r3 %d", playerRemovePlayerRelationship(a, nullptr) ? 1 : 0);
+    d.line("r4 %d %d", sa->removeOverrideTeamRelationship(TEAM_ID_T_INVALID) ? 1 : 0,
+           sa->removeOverridePlayerRelationship(PLAYER_INDEX_INVALID) ? 1 : 0);
+    d.line("r5 %d", sa->removeOverrideTeamRelationship(999) ? 1 : 0);
+    d.line("r6 %s", relationshipName(teamGetRelationship(sa, sc, &w)));
+    dumpPlayers(d, w);
+    dumpTeams(d, w);
+
+    // Object::getRelationship: the defector gates over the object chain
+    // (re-establish the base enemy so each gate's verdict differs)
+    playerSetPlayerRelationship(a, c, R_ENEMIES);
+    GeometryInfoT sph{GEOMETRY_SPHERE, true, 1, 1, 1};
+    ObjectT *oa = w.createObject(sph, false, 0, {}, Coord3D{50.0f, 50.0f, 0.0f});
+    ObjectT *oc = w.createObject(sph, false, 0, {}, Coord3D{60.0f, 50.0f, 0.0f});
+    objectSetTeam(oa, ta, &w);
+    objectSetTeam(oc, tc, &w);
+    d.line("d0 %s", relationshipName(objectGetRelationship(oa, oc, &w)));
+    oa->m_privateStatus |= (1u << OBJECT_PRIVATE_UNDETECTED_DEFECTOR_BIT);
+    d.line("d1 %s", relationshipName(objectGetRelationship(oa, oc, &w)));
+    oa->m_privateStatus &= ~(1u << OBJECT_PRIVATE_UNDETECTED_DEFECTOR_BIT);
+    oc->m_privateStatus |= (1u << OBJECT_PRIVATE_UNDETECTED_DEFECTOR_BIT);
+    d.line("d2 %s", relationshipName(objectGetRelationship(oa, oc, &w)));
+    oc->m_privateStatus &= ~(1u << OBJECT_PRIVATE_UNDETECTED_DEFECTOR_BIT);
+    // a teamless source: NEUTRAL regardless
+    ObjectT *onull = w.createObject(sph, false, 0, {}, Coord3D{70.0f, 50.0f, 0.0f});
+    d.line("d3 %s", relationshipName(objectGetRelationship(onull, oc, &w)));
+
+    // setControllingPlayer: the prototype's owner move, the lists, the
+    // member capture events, and the null refusal
+    objectSetTeam(oa, sa, &w);
+    dumpTeamEvents(d, w);
+    sa->setControllingPlayer(c, &w);
+    d.line("ctrl %d", sa->getPrototype()->m_owningPlayer->m_playerIndex);
+    dumpTeamEvents(d, w);
+    sa->setControllingPlayer(nullptr, &w);
+    d.line("ctrlnull %d", sa->getPrototype()->m_owningPlayer->m_playerIndex);
+    dumpPlayers(d, w);
+    dumpTeams(d, w);
+    dumpObjectTeams(d, w);
+}
+
+// --- players_masks: getPlayerFromMask, the getEachPlayerFromMask peeling,
+// getPlayersWithRelationship -------------------------------
+static void corpusPlayersMasks(Dumper &d)
+{
+    d.line("corpus players_masks");
+    World &w = freshWorld(10.0f, Region2DT{0, 0, 100, 100});
+    SidesSpecT sides;
+    sides.sides.push_back(SideSpecT{});
+    sides.sides.push_back(sideSpec("america", true, false, false, {"china"}, {"gla"}));
+    sides.sides.push_back(sideSpec("china", false, false, false, {}, {}));
+    sides.sides.push_back(sideSpec("gla", false, false, false, {}, {}));
+    sides.sides.push_back(sideSpec("observer", false, false, true, {}, {}));
+    sides.teams.push_back(teamSpec("team", "neutral", true));
+    sides.teams.push_back(teamSpec("teamamerica", "america", true));
+    sides.teams.push_back(teamSpec("teamchina", "china", true));
+    sides.teams.push_back(teamSpec("teamgla", "gla", true));
+    sides.teams.push_back(teamSpec("teamobserver", "observer", true));
+    w.playerListNewGame(sides);
+    dumpTeamEvents(d, w);
+
+    // getPlayerFromMask: the hit and the two misses (an unused bit and the
+    // multi-bit mask — exact equality only)
+    d.line("m0 %d", w.playerListGetPlayerFromMask((PlayerMaskT)(1u << 2))->m_playerIndex);
+    d.line("m1 %d %d", w.playerListGetPlayerFromMask((PlayerMaskT)(1u << 9)) ? 1 : 0,
+           w.playerListGetPlayerFromMask((PlayerMaskT)0x0006) ? 1 : 0);
+
+    // the peeling walk: index order, the mask erasure, the exhaustion
+    // (mask zeroed + null)
+    PlayerMaskT peel = (PlayerMaskT)0x000e; // players 1, 2, 3
+    for (int i = 0; i < 5; i++) {
+        PlayerT *p = w.playerListGetEachPlayerFromMask(peel);
+        d.line("peel %d %d %04x", i, p ? p->m_playerIndex : -1, peel);
+    }
+    // a mask with bits no player carries: the exhaustion zeroes it
+    PlayerMaskT dead = (PlayerMaskT)0x8000;
+    PlayerT *p = w.playerListGetEachPlayerFromMask(dead);
+    d.line("peeldead %d %04x", p ? p->m_playerIndex : -1, dead);
+
+    // getPlayersWithRelationship: the selector combos, the invalid src, the
+    // zero-flags early exit, the observer's dead flag (still a player with
+    // a mask — relationship NEUTRAL toward everyone)
+    unsigned SAME = ALLOW_SAME_PLAYER_T, AL = ALLOW_ALLIES_T, EN = ALLOW_ENEMIES_T, NE = ALLOW_NEUTRAL_T;
+    d.line("g0 %04x", w.playerListGetPlayersWithRelationship(1, SAME | AL));
+    d.line("g1 %04x", w.playerListGetPlayersWithRelationship(1, EN));
+    d.line("g2 %04x", w.playerListGetPlayersWithRelationship(1, NE));
+    d.line("g3 %04x", w.playerListGetPlayersWithRelationship(1, SAME | AL | EN | NE));
+    d.line("g4 %04x", w.playerListGetPlayersWithRelationship(1, 0));
+    d.line("g5 %04x", w.playerListGetPlayersWithRelationship(-1, SAME | EN));
+    d.line("g6 %04x", w.playerListGetPlayersWithRelationship(99, SAME | EN));
+    d.line("g7 %04x", w.playerListGetPlayersWithRelationship(0, SAME | NE));
+    d.line("g8 %04x", w.playerListGetPlayersWithRelationship(4, SAME | NE | AL | EN));
+    dumpPlayers(d, w);
+}
+
+// --- team_members: the setTeam paths, the member-list choreography,
+// updateState's latches and thresholds, the empty-team sweep ---------
+static void corpusTeamMembers(Dumper &d)
+{
+    d.line("corpus team_members");
+    World &w = freshWorld(10.0f, Region2DT{0, 0, 200, 200});
+    SidesSpecT sides;
+    sides.sides.push_back(SideSpecT{});
+    sides.sides.push_back(sideSpec("america", true, false, false, {"china"}, {}));
+    sides.sides.push_back(sideSpec("china", false, false, false, {"america"}, {}));
+    sides.sides.push_back(sideSpec("dead", false, false, false, {}, {}));
+
+    // the squad template with every script + a 0.4 threshold
+    TeamSpecT squad;
+    squad.name = "americaSquad";
+    squad.owner = "america";
+    squad.singleton = false;
+    squad.scriptOnCreate = "oc1";
+    squad.scriptOnDestroyed = "od1";
+    squad.scriptOnIdle = "oi1";
+    squad.scriptOnEnemySighted = "oes1";
+    squad.scriptOnAllClear = "oac1";
+    squad.scriptOnUnitDestroyed = "oud1";
+    squad.destroyedThreshold = 0.4f;
+    sides.teams.push_back(teamSpec("team", "neutral", true));
+    sides.teams.push_back(teamSpec("teamamerica", "america", true));
+    sides.teams.push_back(teamSpec("teamchina", "china", true));
+    sides.teams.push_back(teamSpec("teamdead", "dead", true));
+    sides.teams.push_back(squad);
+    w.playerListNewGame(sides);
+    dumpTeamEvents(d, w);
+
+    PlayerT *a = w.playerList.getNthPlayer(1);
+    PlayerT *dead = w.playerList.getNthPlayer(3);
+    dead->m_isPlayerDead = true; // kill the player (the isPlayerActive gate)
+    TeamT *ta = w.teamFactory.findTeam("teamamerica", &w);
+    TeamT *sa = w.teamFactory.createTeam("americaSquad", &w); // active, 0 members
+    TeamT *td = w.teamFactory.findTeam("teamdead", &w);
+
+    GeometryInfoT sph{GEOMETRY_SPHERE, true, 1, 1, 1};
+    ObjectT *o1 = w.createObject(sph, false, 0, {}, Coord3D{50.0f, 50.0f, 0.0f});
+    ObjectT *o2 = w.createObject(sph, false, 0, {}, Coord3D{52.0f, 50.0f, 0.0f});
+    ObjectT *o3 = w.createObject(sph, false, 0, {}, Coord3D{54.0f, 50.0f, 0.0f});
+    ObjectT *o4 = w.createObject(sph, false, 0, {}, Coord3D{56.0f, 50.0f, 0.0f});
+    o1->m_visionRange = 8.0f;
+    o2->m_visionRange = 8.0f;
+    o3->m_visionRange = 8.0f;
+    o4->m_visionRange = 8.0f;
+    o1->m_hasAi = true;
+    o2->m_hasAi = true;
+    o3->m_hasAi = true;
+    o1->m_aiIdle = true; // the onIdle latch: warm on the first update, fire on the second
+    o2->m_aiIdle = true;
+
+    // the isPlayerActive refusal: assigning to the dead player's team
+    // redirects to the NEUTRAL player's default team
+    objectSetTeam(o1, td, &w);
+    d.line("refused o1 t%u", o1->m_team);
+    dumpTeamEvents(d, w);
+
+    // the member choreography: the prepend order, the transitions, the
+    // same-team no-op, the capture on a cross-player move
+    objectSetTeam(o1, sa, &w);
+    objectSetTeam(o2, sa, &w);
+    objectSetTeam(o2, sa, &w); // no-op (the unchanged-team guard)
+    dumpTeams(d, w);
+    dumpTeamEvents(d, w);
+
+    // updateState #1: the created latch (the onCreate script, the threshold
+    // compute over 2 members: 2 - 2*0.4 = 1.2 → 1), the enemy-sighted check
+    // (the china default team is empty — nothing to see... wait, o4 below)
+    ObjectT *o5 = w.createObject(sph, false, 0, {}, Coord3D{57.0f, 50.0f, 0.0f});
+    o5->m_visionRange = 8.0f;
+    TeamT *tc = w.teamFactory.findTeam("teamchina", &w);
+    objectSetTeam(o5, tc, &w);
+    w.pm.update(&w.hooks); // settle the store before the queries
+    w.playerListUpdateTeamStates();
+    dumpTeams(d, w);
+    dumpTeamEvents(d, w);
+
+    // updateState #2: the enemy sighted (o1 sees o5 at distance 7 < 8), the
+    // onIdle latch warming (wasIdle false → no fire), then the all-clear
+    // path after o5's death
+    w.playerListUpdateTeamStates();
+    dumpTeams(d, w);
+    dumpTeamEvents(d, w);
+    o5->m_privateStatus |= (1u << OBJECT_PRIVATE_EFFECTIVELY_DEAD_BIT);
+    w.playerListUpdateTeamStates();
+    dumpTeams(d, w);
+    dumpTeamEvents(d, w);
+
+    // the onDestroyed trigger: mark o1/o2 dead → curUnits 0 ≤ threshold 1
+    // fires, the -1 latch refuses the second fire; notifyTeamOfObjectDeath
+    // on a unit death
+    o1->m_privateStatus |= (1u << OBJECT_PRIVATE_EFFECTIVELY_DEAD_BIT);
+    sa->notifyTeamOfObjectDeath(&w);
+    o2->m_privateStatus |= (1u << OBJECT_PRIVATE_EFFECTIVELY_DEAD_BIT);
+    w.playerListUpdateTeamStates();
+    w.playerListUpdateTeamStates();
+    dumpTeams(d, w);
+    dumpTeamEvents(d, w);
+
+    // the detach choreography: the swap back to the default team (the
+    // capture event with the players), the null detach
+    objectSetTeam(o3, sa, &w);
+    objectSetTeam(o3, ta, &w);
+    objectSetTeam(o3, nullptr, &w);
+    dumpObjectTeams(d, w);
+    dumpTeamEvents(d, w);
+
+    // the empty-team sweep: sa is active and memberless (o1/o2 dead still
+    // occupy the list? no — the dead stay members; detach them first),
+    // then the sweep deletes sa (non-singleton, not a default team,
+    // active, empty) — with the preTeamDestroy walk, the override cleanup
+    // on the remaining teams and the player relation cleanup
+    objectSetTeam(o1, nullptr, &w);
+    objectSetTeam(o2, nullptr, &w);
+    w.playerListUpdateTeamStates();
+    dumpTeams(d, w);
+    dumpTeamEvents(d, w);
+
+    // a player-owning default team is spared by the sweep (the singleton
+    // refusal and the default-team refusal): the inactive non-singleton is
+    // spared too
+    TeamT *s2 = w.teamFactory.createInactiveTeam("americaSquad", &w);
+    w.playerListUpdateTeamStates();
+    dumpTeams(d, w);
+    (void)s2;
+    (void)a;
+}
+
+// --- players_roundtrip: the integration corpus — objects on teams, the
+// filters over the player state, the local switch, validateTeam -------
+static void corpusPlayersRoundtrip(Dumper &d)
+{
+    d.line("corpus players_roundtrip");
+    World &w = freshWorld(10.0f, Region2DT{0, 0, 200, 200});
+    SidesSpecT sides;
+    sides.sides.push_back(SideSpecT{});
+    sides.sides.push_back(sideSpec("america", true, false, false, {"china"}, {}));
+    sides.sides.push_back(sideSpec("china", false, false, false, {"america"}, {}));
+    sides.sides.push_back(sideSpec("gla", false, false, false, {"america", "china"}, {}));
+    sides.teams.push_back(teamSpec("team", "neutral", true));
+    sides.teams.push_back(teamSpec("teamamerica", "america", true));
+    sides.teams.push_back(teamSpec("teamchina", "china", true));
+    sides.teams.push_back(teamSpec("teamgla", "gla", true));
+    sides.teams.push_back(teamSpec("americaSquad", "america", false));
+    w.playerListNewGame(sides);
+    dumpTeamEvents(d, w);
+
+    TeamT *ta = w.teamFactory.findTeam("teamamerica", &w);
+    TeamT *tc = w.teamFactory.findTeam("teamchina", &w);
+    TeamT *tg = w.teamFactory.findTeam("teamgla", &w);
+    TeamT *sa = w.teamFactory.createTeam("americaSquad", &w);
+
+    // the objects: three american (two on the default team, one on the
+    // squad), two chinese, one gla, one neutral
+    GeometryInfoT sph{GEOMETRY_SPHERE, true, 1, 1, 1};
+    ObjectT *objs[7];
+    for (int i = 0; i < 7; i++)
+        objs[i] = w.createObject(sph, false, 0, {}, Coord3D{40.0f + 4.0f * i, 50.0f, 0.0f});
+    objectSetTeam(objs[0], ta, &w);
+    objectSetTeam(objs[1], ta, &w);
+    objectSetTeam(objs[2], sa, &w);
+    objectSetTeam(objs[3], tc, &w);
+    objectSetTeam(objs[4], tc, &w);
+    objectSetTeam(objs[5], tg, &w);
+    objectSetTeam(objs[6], w.teamFactory.findTeam("team", &w), &w);
+    dumpObjectTeams(d, w);
+    dumpTeamEvents(d, w);
+
+    w.pm.update(&w.hooks); // settle the store
+
+    // the filters over the player state: SamePlayer, Relationship
+    // (each direction), AcceptOnTeam — over a range query around a1
+    {
+        PartitionFilterSamePlayerT samePlayer(w.playerList.getNthPlayer(1));
+        PartitionFilterRelationshipT allies(objs[0], PartitionFilterRelationshipT::F_ALLOW_ALLIES);
+        PartitionFilterRelationshipT enemies(objs[0], PartitionFilterRelationshipT::F_ALLOW_ENEMIES);
+        PartitionFilterRelationshipT neutral(objs[0], PartitionFilterRelationshipT::F_ALLOW_NEUTRAL);
+        PartitionFilterAcceptOnTeamT onTeam(sa);
+
+        PartitionFilterT *fs1[] = { &samePlayer, nullptr };
+        PartitionFilterT *fs2[] = { &allies, nullptr };
+        PartitionFilterT *fs3[] = { &enemies, nullptr };
+        PartitionFilterT *fs4[] = { &neutral, nullptr };
+        PartitionFilterT *fs5[] = { &onTeam, nullptr };
+
+        float dist;
+        Coord3D vec;
+        ObjectT *hit;
+
+        // the same-player query: a1, a2 (a3 is on the squad team — same
+        // controlling player, so it passes too)
+        hit = w.pm.getClosestObject(objs[0], 100.0f, FROM_CENTER_2D, fs1, &dist, &vec);
+        d.line("q same %s d=%08x", hit ? "hit" : "miss", f32bits(dist));
+        // the allies-of-a1 query: america considers gla+china enemies —
+        // only the same-player and neutral objects pass
+        hit = w.pm.getClosestObject(objs[0], 100.0f, FROM_CENTER_2D, fs2, &dist, &vec);
+        d.line("q allies %s d=%08x", hit ? "hit" : "miss", f32bits(dist));
+        // the enemies query: the chinese/gla objects
+        hit = w.pm.getClosestObject(objs[0], 100.0f, FROM_CENTER_2D, fs3, &dist, &vec);
+        d.line("q enemies %s o%d d=%08x", hit ? "hit" : "miss", hit ? hit->m_id : -1, f32bits(dist));
+        // the neutral query: the neutral object
+        hit = w.pm.getClosestObject(objs[0], 100.0f, FROM_CENTER_2D, fs4, &dist, &vec);
+        d.line("q neutral %s o%d d=%08x", hit ? "hit" : "miss", hit ? hit->m_id : -1, f32bits(dist));
+        // the on-team query: the squad member
+        hit = w.pm.getClosestObject(objs[0], 100.0f, FROM_CENTER_2D, fs5, &dist, &vec);
+        d.line("q onteam %s o%d d=%08x", hit ? "hit" : "miss", hit ? hit->m_id : -1, f32bits(dist));
+
+        // the enemy-sighted path over the squad (the team updateState query
+        // with the same filters): a3 sees the chinese pair
+        objs[2]->m_visionRange = 12.0f;
+        w.playerListUpdateTeamStates();
+        dumpTeams(d, w);
+        dumpTeamEvents(d, w);
+    }
+
+    // the local switch: the transitions fire; validateTeam resolves the
+    // name (auto-creating the non-singleton) and falls back to the neutral
+    // default team on a miss
+    w.playerListSetLocalPlayer(w.playerList.getNthPlayer(2));
+    d.line("v0 %u", w.playerListValidateTeam("americaSquad")->getID());
+    d.line("v1 %u", w.playerListValidateTeam("nosuchteam")->getID());
+    d.line("v2 %u", w.playerListValidateTeam("teamchina")->getID());
+    dumpTeamEvents(d, w);
+    dumpPlayers(d, w);
+
+    // the stale-relation reset over a populated world: the factory clear
+    // walks the prototypes in key order (the map pre-emptied — only the
+    // player half of teamAboutToBeDeleted runs), the player↔player
+    // relations survive
+    w.playerListReset();
+    dumpPlayers(d, w);
+    dumpTeams(d, w);
+    dumpTeamEvents(d, w);
+    dumpObjectTeams(d, w);
+}
+
 static void corpusRoundtrip(Dumper &d)
 {
     d.line("corpus kernel_roundtrip");
@@ -5363,6 +7910,13 @@ int main(int argc, char **argv)
     corpusQueryRadiusVec(d);
     corpusQueryClosest(d);
     corpusQueryIterate(d);
+    corpusPlayersLifecycle(d);
+    corpusPlayersNewGame(d);
+    corpusTeamsFactory(d);
+    corpusRelationships(d);
+    corpusPlayersMasks(d);
+    corpusTeamMembers(d);
+    corpusPlayersRoundtrip(d);
     corpusRoundtrip(d);
 
     fclose(out);

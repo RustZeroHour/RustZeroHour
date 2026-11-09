@@ -69,19 +69,53 @@ use rzh_sim::logic::{
     CollideOutcome, Kernel, KernelHost, ObjectSpec, Objects, UpdateModuleSpec, UpdateOutcome,
 };
 use rzh_sim::partition::Region2;
+use rzh_sim::players::{GameInfoSpec, SideSpec, SidesSpec, TeamSpec};
 use rzh_sim::query::{
-    PartitionFilter, PartitionFilterAcceptByKindOf, PartitionFilterAlive, PartitionFilterOnMap,
-    PartitionFilterRejectByKindOf, PartitionFilterSameMapStatus, SimpleObjectIterator,
+    PartitionFilter, PartitionFilterAcceptByKindOf, PartitionFilterAcceptOnTeam,
+    PartitionFilterAlive, PartitionFilterOnMap, PartitionFilterRejectByKindOf,
+    PartitionFilterRelationship, PartitionFilterSameMapStatus, PartitionFilterSamePlayer,
+    RELATIONSHIP_FILTER_ALLOW_ALLIES, RELATIONSHIP_FILTER_ALLOW_ENEMIES,
+    RELATIONSHIP_FILTER_ALLOW_NEUTRAL, SimpleObjectIterator,
 };
 use rzh_sim::scheduler::ModuleArena;
 use rzh_sim::types::{
     Coord3, DisabledMask, DisabledType, FOREVER, GeometryInfo, GeometryType, INVALID_ID,
     KINDOF_NO_COLLIDE_BIT, LOGICFRAMES_PER_MSEC_REAL, LOGICFRAMES_PER_SECOND,
     LOGICFRAMES_PER_SECONDS_REAL, MSEC_PER_LOGICFRAME_REAL, OBJECT_PRIVATE_EFFECTIVELY_DEAD_BIT,
-    OBJECT_PRIVATE_OFF_MAP_BIT, OBJECT_STATUS_NO_COLLISIONS_BIT, SECONDS_PER_LOGICFRAME_REAL,
-    SleepyUpdatePhase, UPDATE_SLEEP_FOREVER, UPDATE_SLEEP_NONE, WW_SYNC_MILLISECONDS,
+    OBJECT_PRIVATE_OFF_MAP_BIT, OBJECT_STATUS_NO_COLLISIONS_BIT, Relationship,
+    SECONDS_PER_LOGICFRAME_REAL, SleepyUpdatePhase, UPDATE_SLEEP_FOREVER, UPDATE_SLEEP_NONE,
+    WW_SYNC_MILLISECONDS,
 };
 use rzh_sim::types::{DistanceCalculationType, IterOrderType};
+
+/// The generator's `sideSpec` builder.
+fn side_spec(
+    name: &str,
+    is_human: bool,
+    mp_local: bool,
+    observer: bool,
+    enemies: &[&str],
+    allies: &[&str],
+) -> SideSpec {
+    SideSpec {
+        player_name: name.to_string(),
+        is_human,
+        multiplayer_is_local: mp_local,
+        observer,
+        enemies: enemies.iter().map(|s| s.to_string()).collect(),
+        allies: allies.iter().map(|s| s.to_string()).collect(),
+    }
+}
+
+/// The generator's `teamSpec` builder.
+fn team_spec(name: &str, owner: &str, singleton: bool) -> TeamSpec {
+    TeamSpec {
+        name: name.to_string(),
+        owner: owner.to_string(),
+        singleton,
+        ..TeamSpec::default()
+    }
+}
 
 /// The corpus driver: the generator's `World` (the logic, the partition
 /// manager, the object arena) plus its dump string.
@@ -127,6 +161,9 @@ struct GoldenHost {
     scripted: Vec<(i32, u32, ScriptedBody)>,
     collide_events: Vec<CollideEvent>,
     scripted_collide: Vec<(i32, u32, ScriptedCollideBody)>,
+    /// The players/teams event stream (the generator's `m_teamEvents`:
+    /// the 4-int entries, uniform).
+    team_events: Vec<[i64; 4]>,
 }
 
 // The event ids (the generator's `GameLogicHooks::Ev`).
@@ -151,6 +188,31 @@ const EV_STARTNEWGAME: u8 = 17;
 const EV_OBJ_CREATED: u8 = 18;
 const EV_OBJ_DESTROYED: u8 = 19;
 const EV_CELL_CHANGE: u8 = 20;
+
+// The team-event ids (the generator's `GameLogicHooks::TeamEv`).
+const TEV_PLAYER_UPDATE: i64 = 0;
+const TEV_LOCAL: i64 = 1;
+const TEV_TEAM_MEMBER: i64 = 2;
+const TEV_CAPTURE: i64 = 3;
+const TEV_TEAM_SCRIPT: i64 = 4;
+const TEV_TEAM_DESTROYED: i64 = 5;
+
+#[allow(clippy::trivially_copy_pass_by_ref)]
+fn tev_name(e: i64) -> &'static str {
+    match e {
+        TEV_PLAYER_UPDATE => "pupdate",
+        TEV_LOCAL => "local",
+        TEV_TEAM_MEMBER => "teammember",
+        TEV_CAPTURE => "capture",
+        TEV_TEAM_SCRIPT => "script",
+        TEV_TEAM_DESTROYED => "teamdestroyed",
+        _ => "?",
+    }
+}
+
+fn script_kind_bits(kind: rzh_sim::players::TeamScriptKind) -> i64 {
+    kind as i64
+}
 
 fn ev_name(e: u8) -> &'static str {
     match e {
@@ -325,6 +387,53 @@ impl KernelHost for GoldenHost {
         }
         outcome
     }
+
+    fn on_player_update(&mut self, player: usize) {
+        self.team_events
+            .push([TEV_PLAYER_UPDATE, player as i64, -1, -1]);
+    }
+
+    fn on_becoming_local_player(&mut self, player: usize, yes: bool) {
+        self.team_events
+            .push([TEV_LOCAL, player as i64, i64::from(yes), -1]);
+    }
+
+    fn on_becoming_team_member(&mut self, obj: i32, player: usize, yes: bool) {
+        self.team_events.push([
+            TEV_TEAM_MEMBER,
+            i64::from(obj),
+            player as i64,
+            i64::from(yes),
+        ]);
+    }
+
+    fn on_capture(&mut self, obj: i32, old_player: usize, new_player: usize) {
+        self.team_events.push([
+            TEV_CAPTURE,
+            i64::from(obj),
+            old_player as i64,
+            new_player as i64,
+        ]);
+    }
+
+    fn on_team_script(&mut self, team: u32, kind: rzh_sim::players::TeamScriptKind) {
+        self.team_events
+            .push([TEV_TEAM_SCRIPT, i64::from(team), script_kind_bits(kind), -1]);
+    }
+
+    fn on_production_script(&mut self, proto: u32) {
+        self.team_events.push([
+            TEV_TEAM_SCRIPT,
+            -1,
+            6, // SCRIPT_PRODUCTION_CONDITION
+            i64::from(proto),
+        ]);
+    }
+
+    fn on_team_destroyed(&mut self, team: u32) {
+        self.team_events
+            .push([TEV_TEAM_DESTROYED, i64::from(team), -1, -1]);
+    }
 }
 
 impl Harness {
@@ -335,15 +444,18 @@ impl Harness {
             hi_x: extents.2,
             hi_y: extents.3,
         };
+        let mut host = GoldenHost {
+            engine_time_frozen: false,
+            events: Vec::new(),
+            scripted: Vec::new(),
+            collide_events: Vec::new(),
+            scripted_collide: Vec::new(),
+            team_events: Vec::new(),
+        };
+        let kernel = Kernel::with_grid(cell_size, region, &mut host);
         Self {
-            kernel: Kernel::with_grid(cell_size, region),
-            host: GoldenHost {
-                engine_time_frozen: false,
-                events: Vec::new(),
-                scripted: Vec::new(),
-                collide_events: Vec::new(),
-                scripted_collide: Vec::new(),
-            },
+            kernel,
+            host,
             out: String::new(),
         }
     }
@@ -693,20 +805,203 @@ impl Harness {
             hi_x: extents.2,
             hi_y: extents.3,
         };
-        self.kernel = Kernel::with_grid(cell_size, region);
         self.host = GoldenHost {
             engine_time_frozen: false,
             events: Vec::new(),
             scripted: Vec::new(),
             collide_events: Vec::new(),
             scripted_collide: Vec::new(),
+            team_events: Vec::new(),
         };
+        self.kernel = Kernel::with_grid(cell_size, region, &mut self.host);
     }
 
     /// The generator's z-carrying, angle-carrying object creation (no
     /// update modules, no colliders — the query corpora's objects).
     fn create_query_obj(&mut self, geometry: GeometryInfo, pos: (f32, f32, f32)) -> i32 {
         self.create_query_obj_angle(geometry, pos, 0.0)
+    }
+
+    // ---- the players/teams block's dump helpers (the generator's
+    // dumpTeamEvents / dumpPlayers / dumpTeams / dumpObjectTeams). ----
+
+    /// `dumpTeamEvents`: the uniform 4-int entries (the script events
+    /// name their kind; the production event's 4th is the prototype id).
+    fn dump_team_events(&mut self) {
+        let n = self.host.team_events.len();
+        self.line(&format!("teamevents {n}"));
+        let events = std::mem::take(&mut self.host.team_events);
+        for e in &events {
+            if e[0] == TEV_TEAM_SCRIPT {
+                // the kind ordinal → the name (the generator's
+                // scriptKindName)
+                let kind = match e[2] {
+                    0 => "oncreate",
+                    1 => "ondestroyed",
+                    2 => "onidle",
+                    3 => "onenemysighted",
+                    4 => "onallclear",
+                    5 => "onunitdestroyed",
+                    _ => "production",
+                };
+                self.line(&format!("tv script {} {} {}", e[1], kind, e[3]));
+            } else {
+                self.line(&format!("tv {} {} {} {}", tev_name(e[0]), e[1], e[2], e[3]));
+            }
+        }
+    }
+
+    /// `dumpPlayers`: the count, the local player, every slot (all 16),
+    /// the relation maps in key order, the default team, the prototype
+    /// list and the slot bookkeeping.
+    fn dump_players(&mut self) {
+        // (the kernel read and the output buffer are disjoint fields, so
+        // both borrows coexist)
+        let players = &self.kernel.players;
+        let out = &mut self.out;
+        let count = players.list.count;
+        let local = players.list.local.map(|p| p as i32).unwrap_or(-1);
+        let _ = writeln!(out, "players count={count} local={local}");
+        for i in 0..rzh_sim::types::MAX_PLAYER_COUNT {
+            let p = &players.list.players[i];
+            let _ = writeln!(
+                out,
+                "pl {} name={} key={} type={} dead={} obs={} act={} dflt={} slot={} npr={}",
+                i,
+                p.name,
+                p.name_key.ordinal(),
+                p.player_type.bits(),
+                i32::from(p.is_player_dead),
+                i32::from(p.observer),
+                i32::from(p.is_player_active()),
+                p.default_team,
+                players.get_slot_index(i),
+                p.team_prototypes.len()
+            );
+            for (&k, &r) in &p.player_relations {
+                let _ = writeln!(out, "pr {i}->{k} {}", r.name());
+            }
+            for (&k, &r) in &p.team_relations {
+                let _ = writeln!(out, "tr {i}->t{k} {}", r.name());
+            }
+            for (j, &slot) in p.team_prototypes.iter().enumerate() {
+                let proto_id = players.factory.protos[slot]
+                    .as_ref()
+                    .map(|tp| tp.id)
+                    .unwrap_or(0);
+                let _ = writeln!(out, "pt {i} {j} tp{proto_id}");
+            }
+        }
+        for s in 0..rzh_sim::types::MAX_SLOTS {
+            let _ = writeln!(
+                out,
+                "slot {s} p{}",
+                players.get_player_index_from_slot_index(s as i32)
+            );
+        }
+    }
+
+    /// `dumpTeams`: the unique-id counters, the prototype map in KEY
+    /// order, each prototype's template flags, and each live team's
+    /// state + members (newest first).
+    fn dump_teams(&mut self) {
+        let players = &self.kernel.players;
+        let out = &mut self.out;
+        let _ = writeln!(
+            out,
+            "teams nextproto={} nextid={} protos={}",
+            players.factory.unique_team_proto_id,
+            players.factory.unique_team_id,
+            players.factory.map.len()
+        );
+        for (&key, &slot) in &players.factory.map {
+            let tp = players.factory.protos[slot].as_ref().expect("live proto");
+            let _ = writeln!(
+                out,
+                "tp {} name={} key={} owner={} single={} inst={}",
+                tp.id,
+                tp.name,
+                key.ordinal(),
+                tp.owner,
+                i32::from(tp.singleton),
+                tp.instances.len()
+            );
+            let info = &tp.template_;
+            let _ = writeln!(
+                out,
+                "tpi {} oc={} od={} oi={} oes={} oac={} oud={} thr={:08x} ea={} pc={} pe={}",
+                tp.id,
+                i32::from(!info.script_on_create.is_empty()),
+                i32::from(!info.script_on_destroyed.is_empty()),
+                i32::from(!info.script_on_idle.is_empty()),
+                i32::from(!info.script_on_enemy_sighted.is_empty()),
+                i32::from(!info.script_on_all_clear.is_empty()),
+                i32::from(!info.script_on_unit_destroyed.is_empty()),
+                info.destroyed_threshold.to_bits(),
+                i32::from(info.execute_actions),
+                info.production_condition,
+                i32::from(info.production_script_exists)
+            );
+            for &ts in tp.instances.iter().rev() {
+                let t = players.factory.teams[ts].as_ref().expect("live team");
+                let st = &t.state;
+                let _ = writeln!(
+                    out,
+                    "t {} tp{} act={} cre={} eo={} see={} psee={} chk={} cur={} thr={} idle={} mem={}",
+                    t.id,
+                    players.factory.protos[t.proto]
+                        .as_ref()
+                        .expect("live proto")
+                        .id,
+                    i32::from(st.active),
+                    i32::from(st.created),
+                    i32::from(st.entered_or_exited),
+                    i32::from(st.see_enemy),
+                    i32::from(st.prev_see_enemy),
+                    i32::from(st.check_enemy_sighted),
+                    st.cur_units,
+                    st.destroy_threshold,
+                    i32::from(st.was_idle),
+                    t.members.len()
+                );
+                for (&k, &r) in &t.team_relations {
+                    let _ = writeln!(out, "tot t{}->t{k} {}", t.id, r.name());
+                }
+                for (&k, &r) in &t.player_relations {
+                    let _ = writeln!(out, "top t{}->{k} {}", t.id, r.name());
+                }
+                for &m in t.members.iter().rev() {
+                    let _ = writeln!(out, "mem t{} o{}", t.id, m);
+                }
+            }
+        }
+    }
+
+    /// `dumpObjectTeams`: the object→team attachment state (the arena
+    /// order).
+    fn dump_object_teams(&mut self) {
+        let ids: Vec<i32> = self.kernel.objects.slot_ids();
+        let out = &mut self.out;
+        let _ = writeln!(out, "objteams {}", ids.len());
+        for id in ids {
+            let o = self.kernel.objects.get(id);
+            let ctrl = self
+                .kernel
+                .players
+                .controlling_player_of(&self.kernel.objects, id)
+                .map(|p| p as i32)
+                .unwrap_or(-1);
+            let _ = writeln!(
+                out,
+                "ot o{} t{} ctrl={} vis={:08x} ai={}/{}",
+                o.id,
+                o.team,
+                ctrl,
+                o.vision_range.to_bits(),
+                i32::from(o.has_ai),
+                i32::from(o.ai_idle)
+            );
+        }
     }
 
     fn create_query_obj_angle(
@@ -2205,6 +2500,1180 @@ fn corpus_collide_process(h: &mut Harness) {
     h.line("end");
 }
 
+// --- players_lifecycle: the ctor/init scheme, the neutral birth, the
+// interning, the update walk's 16-slot quirk, the reset's stale relations --
+fn corpus_players_lifecycle(h: &mut Harness) {
+    h.line("corpus players_lifecycle");
+    h.fresh_world(10.0, (0.0, 0.0, 100.0, 100.0));
+
+    // the birth state: count 1, local 0 (the becomingLocalPlayer(0,true)
+    // transition), the neutral self-relation, the empty-string key, the
+    // -1 slot arrays
+    h.dump_players();
+    h.dump_team_events();
+
+    // the name-key interning: the sequential ordinals, the case
+    // sensitivity, the re-intern of the same name
+    let nk_empty = h.kernel.players.name_key("");
+    h.line(&format!("nk empty={}", nk_empty.ordinal()));
+    let nk_a = h.kernel.players.name_key("player1");
+    let nk_b = h.kernel.players.name_key("player2");
+    let nk_cap = h.kernel.players.name_key("Player1");
+    let nk_a2 = h.kernel.players.name_key("player1");
+    let nk_p = h.kernel.players.name_key("player1");
+    h.line(&format!(
+        "nk a={} b={} A={} a2={} players={}",
+        nk_a.ordinal(),
+        nk_b.ordinal(),
+        nk_cap.ordinal(),
+        nk_a2.ordinal(),
+        nk_p.ordinal()
+    ));
+
+    // the 16-slot update walk (the count is 1 — every slot updates anyway)
+    h.kernel.players.update(&mut h.host);
+    h.dump_team_events();
+
+    // getNthPlayer's bounds refusal
+    h.line(&format!(
+        "nth {} {}",
+        i32::from(h.kernel.players.nth_player(-1).is_some()),
+        i32::from(
+            h.kernel
+                .players
+                .nth_player(rzh_sim::types::MAX_PLAYER_COUNT as i32)
+                .is_some()
+        )
+    ));
+
+    // the stale-relation quirk: relations set on a player, then reset() —
+    // the maps survive init (they are born in the ctor and die in the
+    // dtor). The team 77 is born outside the factory's map (the
+    // transcription's raw teamNew) so the relation resolves across the
+    // reset; the Rust mirror drives the same through a bare birth.
+    let team77 = {
+        // the transcription's teamNew(&w.teamFactory, nullptr, 77, &w):
+        // a team with no prototype, id 77, in the arena
+        let players = &mut h.kernel.players;
+        players.factory.teams.push(Some(rzh_sim::players::Team {
+            id: 77,
+            proto: usize::MAX, // no prototype (the transcription's nullptr)
+            state: rzh_sim::players::TeamRuntimeState::default(),
+            team_relations: std::collections::BTreeMap::new(),
+            player_relations: std::collections::BTreeMap::new(),
+            members: Vec::new(),
+            recruitable_set: false,
+            recruitable: false,
+        }));
+        77
+    };
+    {
+        let players = &mut h.kernel.players;
+        players.list.players[1].set_player_relationship(2, Relationship::Enemies);
+        players.list.players[1].set_team_relationship(team77, Relationship::Allies);
+    }
+    h.line("setrel");
+    h.dump_players();
+    h.kernel.players.reset(&mut h.kernel.objects, &mut h.host);
+    h.line("afterreset");
+    h.dump_players();
+    h.dump_team_events();
+
+    // setLocalPlayer's transitions and the null refusal (null → neutral)
+    h.kernel.players.set_local_player(Some(3), &mut h.host);
+    h.kernel.players.set_local_player(None, &mut h.host);
+    h.dump_team_events();
+    h.dump_players();
+}
+
+// --- players_newgame: the sides walk, the local-selection precedence, the
+// enemies/allies assignment, the default teams, the slots -------------
+fn corpus_players_newgame(h: &mut Harness) {
+    h.line("corpus players_newgame");
+    {
+        // a 4-side map: neutral, a human, two computers; the multiplayer
+        // local flag on a LATER side beats the earlier human
+        h.fresh_world(10.0, (0.0, 0.0, 100.0, 100.0));
+        let sides = SidesSpec {
+            sides: vec![
+                side_spec("", false, false, false, &[], &[]), // the neutral side
+                side_spec("america", true, false, false, &["china"], &[]),
+                side_spec("china", false, false, false, &[], &["america"]),
+                side_spec(
+                    "gla",
+                    false,
+                    true,
+                    false,
+                    &["america", "china", "nosuch"],
+                    &[],
+                ),
+            ],
+            teams: vec![
+                team_spec("team", "neutral", true),
+                team_spec("teamamerica", "america", true),
+                team_spec("teamchina", "china", true),
+            ],
+            has_game_info: true,
+            game_info: GameInfoSpec {
+                occupied_slots: vec![0, 2, 3],
+            },
+        };
+
+        h.kernel
+            .players
+            .new_game(&sides, &mut h.kernel.objects, &mut h.host);
+        h.dump_players();
+        h.dump_teams();
+        h.dump_team_events();
+
+        // the local-selection precedence: the multiplayerIsLocal side
+        // (gla, player 3) won over the earlier human (america, player 1)
+        h.line(&format!(
+            "local {}",
+            h.kernel.players.list.local.map(|p| p as i32).unwrap_or(-1)
+        ));
+
+        // the asymmetric relations: america→china ENEMIES, china→america
+        // ALLIES (the walk assigns per side, no symmetry)
+        let rel = |h: &Harness, from: usize, to: usize| {
+            let dt = h.kernel.players.list.players[to].default_team;
+            h.kernel.players.player_get_relationship(from, dt).name()
+        };
+        h.line(&format!(
+            "rel a->c {} c->a {} a->g {} g->a {}",
+            rel(h, 1, 2),
+            rel(h, 2, 1),
+            rel(h, 1, 3),
+            rel(h, 3, 1)
+        ));
+
+        // the slot lookups (the "player%d" probe missed our names)
+        h.line(&format!(
+            "slots {} {} {} {}",
+            h.kernel.players.get_slot_index(1),
+            h.kernel.players.get_slot_index(2),
+            h.kernel.players.get_player_index_from_slot_index(0),
+            h.kernel.players.get_player_index_from_slot_index(4)
+        ));
+    }
+    {
+        // the same map with the network present: no human wins, the
+        // multiplayerIsLocal flag is the only local source
+        h.fresh_world(10.0, (0.0, 0.0, 100.0, 100.0));
+        h.kernel.players.network_present = true;
+        let sides = SidesSpec {
+            sides: vec![
+                side_spec("", false, false, false, &[], &[]),
+                side_spec("america", true, false, false, &[], &[]),
+                side_spec("china", false, true, false, &[], &[]),
+            ],
+            teams: Vec::new(),
+            has_game_info: false,
+            game_info: GameInfoSpec::default(),
+        };
+        h.kernel
+            .players
+            .new_game(&sides, &mut h.kernel.objects, &mut h.host);
+        h.line(&format!(
+            "netlocal {}",
+            h.kernel.players.list.local.map(|p| p as i32).unwrap_or(-1)
+        ));
+        h.dump_team_events();
+    }
+    {
+        // no local at all (all computers, no network): the fallback
+        // forces the first non-neutral player HUMAN and local; and a
+        // neutral side with enemies of its own (the second loop processes
+        // the neutral player too — its enemies assignment lands)
+        h.fresh_world(10.0, (0.0, 0.0, 100.0, 100.0));
+        let sides = SidesSpec {
+            sides: vec![
+                side_spec("", false, false, false, &["america"], &[]),
+                side_spec("america", false, false, false, &[], &[]),
+            ],
+            teams: vec![team_spec("team", "neutral", true)],
+            has_game_info: false,
+            game_info: GameInfoSpec::default(),
+        };
+        h.kernel
+            .players
+            .new_game(&sides, &mut h.kernel.objects, &mut h.host);
+        h.line(&format!(
+            "forcedlocal {} type0={} type1={}",
+            h.kernel.players.list.local.map(|p| p as i32).unwrap_or(-1),
+            h.kernel.players.list.players[0].player_type.bits(),
+            h.kernel.players.list.players[1].player_type.bits()
+        ));
+        h.dump_players();
+        h.dump_team_events();
+    }
+    {
+        // the missing default-team prototype: setDefaultTeam's null path
+        // (the release build continues; the default team stays 0)
+        h.fresh_world(10.0, (0.0, 0.0, 100.0, 100.0));
+        let sides = SidesSpec {
+            sides: vec![
+                side_spec("", false, false, false, &[], &[]),
+                side_spec("america", true, false, false, &[], &[]),
+            ],
+            teams: Vec::new(), // no teams at all
+            has_game_info: false,
+            game_info: GameInfoSpec::default(),
+        };
+        h.kernel
+            .players
+            .new_game(&sides, &mut h.kernel.objects, &mut h.host);
+        h.line(&format!(
+            "nodefault {}",
+            h.kernel.players.list.players[1].default_team
+        ));
+    }
+}
+
+// --- teams_factory: the id scheme, the singleton reuse, the auto-create,
+// the duplicate-name refusal, the map order -----------------------
+fn corpus_teams_factory(h: &mut Harness) {
+    h.line("corpus teams_factory");
+    h.fresh_world(10.0, (0.0, 0.0, 100.0, 100.0));
+    let squad = TeamSpec {
+        script_on_destroyed: "sd".to_string(),
+        destroyed_threshold: 0.5,
+        ..team_spec("americaSquad", "america", false)
+    };
+    let prod = TeamSpec {
+        execute_actions: true,
+        production_condition: "condA".to_string(),
+        production_script_exists: true,
+        ..team_spec("prodteam", "china", false)
+    };
+    let prod_miss = TeamSpec {
+        execute_actions: true,
+        production_condition: "condB".to_string(),
+        production_script_exists: false,
+        ..team_spec("prodmiss", "china", true)
+    };
+    let sides = SidesSpec {
+        sides: vec![
+            side_spec("", false, false, false, &[], &[]),
+            side_spec("america", true, false, false, &[], &[]),
+            side_spec("china", false, false, false, &[], &[]),
+        ],
+        teams: vec![
+            team_spec("team", "neutral", true),
+            team_spec("teamamerica", "america", true),
+            team_spec("teamchina", "china", true),
+            squad,
+            team_spec("teamamerica", "china", true), // the duplicate name
+            team_spec("stray", "nosuchplayer", true),
+            prod,
+            prod_miss,
+        ],
+        has_game_info: false,
+        game_info: GameInfoSpec::default(),
+    };
+
+    h.kernel
+        .players
+        .new_game(&sides, &mut h.kernel.objects, &mut h.host);
+    h.dump_teams();
+    h.dump_team_events();
+
+    // the ++id scheme and the singleton reuse: createTeam on a singleton
+    // returns the SAME instance (no new id); createInactiveTeam ditto
+    let ta = h.kernel.players.create_team("teamamerica", &mut h.host);
+    let tb = h
+        .kernel
+        .players
+        .create_inactive_team("teamamerica", &mut h.host);
+    h.line(&format!(
+        "singleton {} {}",
+        ta.unwrap_or(0),
+        tb.unwrap_or(0)
+    ));
+
+    // the non-singleton auto-create of findTeam, and the explicit creates
+    let s1 = h.kernel.players.find_team("americaSquad", &mut h.host);
+    let s1_active = s1
+        .and_then(|id| {
+            h.kernel
+                .players
+                .factory
+                .teams
+                .iter()
+                .flatten()
+                .find(|t| t.id == id)
+                .map(|t| t.state.active)
+        })
+        .unwrap_or(false);
+    h.line(&format!(
+        "find1 {} act={}",
+        s1.unwrap_or(0),
+        i32::from(s1_active)
+    ));
+    let s2 = h.kernel.players.create_team("americaSquad", &mut h.host);
+    let s3 = h.kernel.players.create_team("americaSquad", &mut h.host);
+    h.line(&format!("creates {} {}", s2.unwrap_or(0), s3.unwrap_or(0)));
+    let s4 = h.kernel.players.find_team("americaSquad", &mut h.host);
+    h.line(&format!("find2 {}", s4.unwrap_or(0)));
+
+    // createTeamOnPrototype: the singleton's reuse and the null refusal
+    let tp_a = h
+        .kernel
+        .players
+        .find_team_prototype_id("teamamerica")
+        .unwrap_or(0);
+    let c1 = h
+        .kernel
+        .players
+        .create_team_on_prototype("teamamerica", &mut h.host);
+    h.line(&format!(
+        "onproto {} null={}",
+        c1.unwrap_or(0),
+        i32::from(tp_a == 0)
+    ));
+
+    // the unknown prototype refusal
+    let unk_create = h
+        .kernel
+        .players
+        .create_inactive_team("nosuch", &mut h.host)
+        .is_some();
+    let unk_find = h.kernel.players.find_team("nosuch", &mut h.host).is_some();
+    h.line(&format!(
+        "unknown {} {}",
+        i32::from(unk_create),
+        i32::from(unk_find)
+    ));
+
+    // findTeamByID: the prototype-map walk order (key order — the
+    // interning order of the names), the INVALID refusal
+    h.line(&format!(
+        "byid t1={} t2={} t0={}",
+        h.kernel.players.find_team_by_id(1).unwrap_or(0),
+        h.kernel.players.find_team_by_id(2).unwrap_or(0),
+        i32::from(h.kernel.players.find_team_by_id(0).is_some())
+    ));
+    // findTeamPrototypeByID: the map walk
+    let pb1 = h
+        .kernel
+        .players
+        .find_team_prototype_by_id(1)
+        .map(|id| {
+            h.kernel
+                .players
+                .factory
+                .protos
+                .iter()
+                .flatten()
+                .find(|p| p.id == id)
+                .map(|p| p.name.clone())
+                .unwrap_or_default()
+        })
+        .unwrap_or_default();
+    let pb2 = h
+        .kernel
+        .players
+        .find_team_prototype_by_id(2)
+        .map(|id| {
+            h.kernel
+                .players
+                .factory
+                .protos
+                .iter()
+                .flatten()
+                .find(|p| p.id == id)
+                .map(|p| p.name.clone())
+                .unwrap_or_default()
+        })
+        .unwrap_or_default();
+    h.line(&format!(
+        "protobyid 1={pb1} 2={pb2} 99={}",
+        i32::from(h.kernel.players.find_team_prototype_by_id(99).is_some())
+    ));
+
+    h.dump_teams();
+    h.dump_team_events();
+}
+
+// --- relationships: the override chain, the precedence ladder, the removal
+// family, the defector gates, the setControllingPlayer move ------------
+fn corpus_relationships(h: &mut Harness) {
+    h.line("corpus relationships");
+    h.fresh_world(10.0, (0.0, 0.0, 200.0, 200.0));
+    let sides = SidesSpec {
+        sides: vec![
+            side_spec("", false, false, false, &[], &[]),
+            side_spec("america", true, false, false, &[], &[]),
+            side_spec("china", false, false, false, &[], &[]),
+            side_spec("gla", false, false, false, &[], &[]),
+        ],
+        teams: vec![
+            team_spec("team", "neutral", true),
+            team_spec("teamamerica", "america", true),
+            team_spec("teamchina", "china", true),
+            team_spec("teamgla", "gla", true),
+            team_spec("americaSquad", "america", false),
+            team_spec("chinaSquad", "china", false),
+        ],
+        has_game_info: false,
+        game_info: GameInfoSpec::default(),
+    };
+    h.kernel
+        .players
+        .new_game(&sides, &mut h.kernel.objects, &mut h.host);
+    h.dump_team_events();
+
+    let ta = h
+        .kernel
+        .players
+        .find_team("teamamerica", &mut h.host)
+        .unwrap();
+    let tc = h
+        .kernel
+        .players
+        .find_team("teamchina", &mut h.host)
+        .unwrap();
+    let tg = h.kernel.players.find_team("teamgla", &mut h.host).unwrap();
+    let sa = h
+        .kernel
+        .players
+        .create_team("americaSquad", &mut h.host)
+        .unwrap();
+    let sc = h
+        .kernel
+        .players
+        .create_team("chinaSquad", &mut h.host)
+        .unwrap();
+
+    // the ladder: player→team (through the default team), the team override,
+    // the player override on the team, the owning player's view
+    let rel_name = |h: &Harness, from: usize, that: u32| -> &'static str {
+        h.kernel.players.player_get_relationship(from, that).name()
+    };
+    h.kernel.players.list.players[1].set_player_relationship(2, Relationship::Enemies);
+    let l0 = rel_name(h, 1, tc);
+    h.line(&format!("l0 {l0}"));
+    h.kernel.players.list.players[1].set_team_relationship(tc, Relationship::Allies);
+    let l1 = rel_name(h, 1, tc);
+    h.line(&format!("l1 {l1}"));
+    h.kernel.players.list.players[1].set_team_relationship(tg, Relationship::Neutral);
+    let l2 = rel_name(h, 1, tg);
+    h.line(&format!("l2 {l2}"));
+    // the team-level chain: team override > team's player override > owner
+    let trel_name = |h: &Harness, team: u32, that: u32| -> &'static str {
+        h.kernel.players.team_get_relationship(team, that).name()
+    };
+    let t0 = trel_name(h, sa, sc);
+    h.line(&format!("t0 {t0}"));
+    {
+        let t = h
+            .kernel
+            .players
+            .factory
+            .teams
+            .iter_mut()
+            .flatten()
+            .find(|t| t.id == sa)
+            .unwrap();
+        t.set_override_team_relationship(sc, Relationship::Allies);
+    }
+    let t1 = trel_name(h, sa, sc);
+    h.line(&format!("t1 {t1}"));
+    {
+        let t = h
+            .kernel
+            .players
+            .factory
+            .teams
+            .iter_mut()
+            .flatten()
+            .find(|t| t.id == sa)
+            .unwrap();
+        t.set_override_player_relationship(2, Relationship::Neutral);
+    }
+    let t2 = trel_name(h, sa, sc);
+    h.line(&format!("t2 {t2}"));
+    {
+        let t = h
+            .kernel
+            .players
+            .factory
+            .teams
+            .iter_mut()
+            .flatten()
+            .find(|t| t.id == sa)
+            .unwrap();
+        let _ = t.remove_override_team_relationship(sc);
+    }
+    let t3 = trel_name(h, sa, sc);
+    h.line(&format!("t3 {t3}"));
+    // the other team's side (asymmetry)
+    let t4 = trel_name(h, sc, sa);
+    h.line(&format!("t4 {t4}"));
+
+    // the null-Team forms: NEUTRAL (the `if (that)` guard)
+    h.line(&format!(
+        "n0 {} {}",
+        h.kernel.players.player_get_relationship(1, 0).name(),
+        h.kernel.players.team_get_relationship(sa, 0).name()
+    ));
+
+    // the removal family: the empty-map refusal, the miss, the null
+    // clear-alls, the INVALID clear-alls on the team overrides
+    let r0 = h.kernel.players.list.players[0].remove_player_relationship(Some(2));
+    let r1 = h.kernel.players.list.players[1].remove_player_relationship(Some(3));
+    let r2 = h.kernel.players.list.players[1].remove_team_relationship(None);
+    let r3 = h.kernel.players.list.players[1].remove_player_relationship(None);
+    let (r4a, r4b) = {
+        let t = h
+            .kernel
+            .players
+            .factory
+            .teams
+            .iter_mut()
+            .flatten()
+            .find(|t| t.id == sa)
+            .unwrap();
+        (
+            t.remove_override_team_relationship(rzh_sim::types::TEAM_ID_INVALID),
+            t.remove_override_player_relationship(rzh_sim::types::PLAYER_INDEX_INVALID),
+        )
+    };
+    let r5 = {
+        let t = h
+            .kernel
+            .players
+            .factory
+            .teams
+            .iter_mut()
+            .flatten()
+            .find(|t| t.id == sa)
+            .unwrap();
+        t.remove_override_team_relationship(999)
+    };
+    h.line(&format!("r0 {}", i32::from(r0)));
+    h.line(&format!("r1 {}", i32::from(r1)));
+    h.line(&format!("r2 {}", i32::from(r2)));
+    h.line(&format!("r3 {}", i32::from(r3)));
+    h.line(&format!("r4 {} {}", i32::from(r4a), i32::from(r4b)));
+    h.line(&format!("r5 {}", i32::from(r5)));
+    let r6 = trel_name(h, sa, sc);
+    h.line(&format!("r6 {r6}"));
+    h.dump_players();
+    h.dump_teams();
+
+    // Object::getRelationship: the defector gates over the object chain
+    // (re-establish the base enemy so each gate's verdict differs)
+    h.kernel.players.list.players[1].set_player_relationship(2, Relationship::Enemies);
+    let sph = GeometryInfo {
+        geom_type: GeometryType::Sphere,
+        is_small: true,
+        height: 1.0,
+        major_radius: 1.0,
+        minor_radius: 1.0,
+    };
+    let oa = h.create_query_obj(sph, (50.0, 50.0, 0.0));
+    let oc = h.create_query_obj(sph, (60.0, 50.0, 0.0));
+    h.kernel
+        .players
+        .set_team(&mut h.kernel.objects, oa, Some(ta), &mut h.host);
+    h.kernel
+        .players
+        .set_team(&mut h.kernel.objects, oc, Some(tc), &mut h.host);
+    let orel = |h: &Harness, a: i32, b: i32| -> &'static str {
+        h.kernel
+            .players
+            .object_get_relationship(&h.kernel.objects, a, b)
+            .name()
+    };
+    let d0 = orel(h, oa, oc);
+    h.line(&format!("d0 {d0}"));
+    h.kernel.objects.get_mut(oa).private_status |=
+        1 << rzh_sim::types::OBJECT_PRIVATE_UNDETECTED_DEFECTOR_BIT;
+    let d1 = orel(h, oa, oc);
+    h.line(&format!("d1 {d1}"));
+    h.kernel.objects.get_mut(oa).private_status &=
+        !(1 << rzh_sim::types::OBJECT_PRIVATE_UNDETECTED_DEFECTOR_BIT);
+    h.kernel.objects.get_mut(oc).private_status |=
+        1 << rzh_sim::types::OBJECT_PRIVATE_UNDETECTED_DEFECTOR_BIT;
+    let d2 = orel(h, oa, oc);
+    h.line(&format!("d2 {d2}"));
+    h.kernel.objects.get_mut(oc).private_status &=
+        !(1 << rzh_sim::types::OBJECT_PRIVATE_UNDETECTED_DEFECTOR_BIT);
+    // a teamless source: NEUTRAL regardless
+    let onull = h.create_query_obj(sph, (70.0, 50.0, 0.0));
+    let d3 = orel(h, onull, oc);
+    h.line(&format!("d3 {d3}"));
+
+    // setControllingPlayer: the prototype's owner move, the lists, the
+    // member capture events, and the null refusal
+    h.kernel
+        .players
+        .set_team(&mut h.kernel.objects, oa, Some(sa), &mut h.host);
+    h.dump_team_events();
+    h.kernel
+        .players
+        .set_controlling_player(sa, Some(2), &mut h.host);
+    let ctrl = h
+        .kernel
+        .players
+        .factory
+        .teams
+        .iter()
+        .flatten()
+        .find(|t| t.id == sa)
+        .and_then(|t| h.kernel.players.factory.protos[t.proto].as_ref())
+        .map(|p| p.owner)
+        .unwrap_or(usize::MAX);
+    h.line(&format!("ctrl {}", ctrl as i32));
+    h.dump_team_events();
+    h.kernel
+        .players
+        .set_controlling_player(sa, None, &mut h.host);
+    let ctrl_null = h
+        .kernel
+        .players
+        .factory
+        .teams
+        .iter()
+        .flatten()
+        .find(|t| t.id == sa)
+        .map(|t| {
+            h.kernel.players.factory.protos[t.proto]
+                .as_ref()
+                .map(|p| p.owner)
+                .unwrap_or(usize::MAX)
+        })
+        .unwrap_or(usize::MAX);
+    h.line(&format!("ctrlnull {}", ctrl_null as i32));
+    h.dump_players();
+    h.dump_teams();
+    h.dump_object_teams();
+}
+
+// --- players_masks: getPlayerFromMask, the getEachPlayerFromMask peeling,
+// getPlayersWithRelationship -------------------------------
+fn corpus_players_masks(h: &mut Harness) {
+    h.line("corpus players_masks");
+    h.fresh_world(10.0, (0.0, 0.0, 100.0, 100.0));
+    let sides = SidesSpec {
+        sides: vec![
+            side_spec("", false, false, false, &[], &[]),
+            side_spec("america", true, false, false, &["china"], &["gla"]),
+            side_spec("china", false, false, false, &[], &[]),
+            side_spec("gla", false, false, false, &[], &[]),
+            side_spec("observer", false, false, true, &[], &[]),
+        ],
+        teams: vec![
+            team_spec("team", "neutral", true),
+            team_spec("teamamerica", "america", true),
+            team_spec("teamchina", "china", true),
+            team_spec("teamgla", "gla", true),
+            team_spec("teamobserver", "observer", true),
+        ],
+        has_game_info: false,
+        game_info: GameInfoSpec::default(),
+    };
+    h.kernel
+        .players
+        .new_game(&sides, &mut h.kernel.objects, &mut h.host);
+    h.dump_team_events();
+
+    // getPlayerFromMask: the hit and the two misses (an unused bit and
+    // the multi-bit mask — exact equality only)
+    h.line(&format!(
+        "m0 {}",
+        h.kernel
+            .players
+            .get_player_from_mask(1u16 << 2)
+            .map(|p| p.index() as i32)
+            .unwrap_or(-1)
+    ));
+    h.line(&format!(
+        "m1 {} {}",
+        i32::from(h.kernel.players.get_player_from_mask(1u16 << 9).is_some()),
+        i32::from(h.kernel.players.get_player_from_mask(0x0006).is_some())
+    ));
+
+    // the peeling walk: index order, the mask erasure, the exhaustion
+    // (mask zeroed + null)
+    let mut peel: rzh_sim::types::PlayerMaskType = 0x000e; // players 1, 2, 3
+    for i in 0..5 {
+        let p = h.kernel.players.get_each_player_from_mask(&mut peel);
+        h.line(&format!(
+            "peel {i} {} {:04x}",
+            p.map(|p| p as i32).unwrap_or(-1),
+            peel
+        ));
+    }
+    // a mask with bits no player carries: the exhaustion zeroes it
+    let mut dead: rzh_sim::types::PlayerMaskType = 0x8000;
+    let p = h.kernel.players.get_each_player_from_mask(&mut dead);
+    h.line(&format!(
+        "peeldead {} {:04x}",
+        p.map(|p| p as i32).unwrap_or(-1),
+        dead
+    ));
+
+    // getPlayersWithRelationship: the selector combos, the invalid src,
+    // the zero-flags early exit, the observer's dead flag (still a player
+    // with a mask — relationship NEUTRAL toward everyone)
+    use rzh_sim::types::{ALLOW_ALLIES, ALLOW_ENEMIES, ALLOW_NEUTRAL, ALLOW_SAME_PLAYER};
+    let same = ALLOW_SAME_PLAYER;
+    let al = ALLOW_ALLIES;
+    let en = ALLOW_ENEMIES;
+    let ne = ALLOW_NEUTRAL;
+    h.line(&format!(
+        "g0 {:04x}",
+        h.kernel.players.get_players_with_relationship(1, same | al)
+    ));
+    h.line(&format!(
+        "g1 {:04x}",
+        h.kernel.players.get_players_with_relationship(1, en)
+    ));
+    h.line(&format!(
+        "g2 {:04x}",
+        h.kernel.players.get_players_with_relationship(1, ne)
+    ));
+    h.line(&format!(
+        "g3 {:04x}",
+        h.kernel
+            .players
+            .get_players_with_relationship(1, same | al | en | ne)
+    ));
+    h.line(&format!(
+        "g4 {:04x}",
+        h.kernel.players.get_players_with_relationship(1, 0)
+    ));
+    h.line(&format!(
+        "g5 {:04x}",
+        h.kernel
+            .players
+            .get_players_with_relationship(-1, same | en)
+    ));
+    h.line(&format!(
+        "g6 {:04x}",
+        h.kernel
+            .players
+            .get_players_with_relationship(99, same | en)
+    ));
+    h.line(&format!(
+        "g7 {:04x}",
+        h.kernel.players.get_players_with_relationship(0, same | ne)
+    ));
+    h.line(&format!(
+        "g8 {:04x}",
+        h.kernel
+            .players
+            .get_players_with_relationship(4, same | ne | al | en)
+    ));
+    h.dump_players();
+}
+
+// --- team_members: the setTeam paths, the member-list choreography,
+// updateState's latches and thresholds, the empty-team sweep ---------
+fn corpus_team_members(h: &mut Harness) {
+    h.line("corpus team_members");
+    h.fresh_world(10.0, (0.0, 0.0, 200.0, 200.0));
+    let squad = TeamSpec {
+        script_on_create: "oc1".to_string(),
+        script_on_destroyed: "od1".to_string(),
+        script_on_idle: "oi1".to_string(),
+        script_on_enemy_sighted: "oes1".to_string(),
+        script_on_all_clear: "oac1".to_string(),
+        script_on_unit_destroyed: "oud1".to_string(),
+        destroyed_threshold: 0.4,
+        ..team_spec("americaSquad", "america", false)
+    };
+    let sides = SidesSpec {
+        sides: vec![
+            side_spec("", false, false, false, &[], &[]),
+            side_spec("america", true, false, false, &["china"], &[]),
+            side_spec("china", false, false, false, &["america"], &[]),
+            side_spec("dead", false, false, false, &[], &[]),
+        ],
+        teams: vec![
+            team_spec("team", "neutral", true),
+            team_spec("teamamerica", "america", true),
+            team_spec("teamchina", "china", true),
+            team_spec("teamdead", "dead", true),
+            squad,
+        ],
+        has_game_info: false,
+        game_info: GameInfoSpec::default(),
+    };
+    h.kernel
+        .players
+        .new_game(&sides, &mut h.kernel.objects, &mut h.host);
+    h.dump_team_events();
+
+    h.kernel.players.list.players[3].is_player_dead = true; // kill the player (the isPlayerActive gate)
+    let ta = h
+        .kernel
+        .players
+        .find_team("teamamerica", &mut h.host)
+        .unwrap();
+    let sa = h
+        .kernel
+        .players
+        .create_team("americaSquad", &mut h.host)
+        .unwrap();
+    let td = h.kernel.players.find_team("teamdead", &mut h.host).unwrap();
+
+    let sph = GeometryInfo {
+        geom_type: GeometryType::Sphere,
+        is_small: true,
+        height: 1.0,
+        major_radius: 1.0,
+        minor_radius: 1.0,
+    };
+    let o1 = h.create_query_obj(sph, (50.0, 50.0, 0.0));
+    let o2 = h.create_query_obj(sph, (52.0, 50.0, 0.0));
+    let o3 = h.create_query_obj(sph, (54.0, 50.0, 0.0));
+    let o4 = h.create_query_obj(sph, (56.0, 50.0, 0.0));
+    for &o in &[o1, o2, o3, o4] {
+        let obj = h.kernel.objects.get_mut(o);
+        obj.vision_range = 8.0;
+    }
+    h.kernel.objects.get_mut(o1).has_ai = true;
+    h.kernel.objects.get_mut(o2).has_ai = true;
+    h.kernel.objects.get_mut(o3).has_ai = true;
+    // the onIdle latch: warm on the first update, fire on the second
+    h.kernel.objects.get_mut(o1).ai_idle = true;
+    h.kernel.objects.get_mut(o2).ai_idle = true;
+
+    // the isPlayerActive refusal: assigning to the dead player's team
+    // redirects to the NEUTRAL player's default team
+    h.kernel
+        .players
+        .set_team(&mut h.kernel.objects, o1, Some(td), &mut h.host);
+    h.line(&format!("refused o1 t{}", h.kernel.objects.get(o1).team));
+    h.dump_team_events();
+
+    // the member choreography: the prepend order, the transitions, the
+    // same-team no-op, the capture on a cross-player move
+    h.kernel
+        .players
+        .set_team(&mut h.kernel.objects, o1, Some(sa), &mut h.host);
+    h.kernel
+        .players
+        .set_team(&mut h.kernel.objects, o2, Some(sa), &mut h.host);
+    h.kernel
+        .players
+        .set_team(&mut h.kernel.objects, o2, Some(sa), &mut h.host); // no-op
+    h.dump_teams();
+    h.dump_team_events();
+
+    // updateState #1: the created latch (the onCreate script, the
+    // threshold compute over 2 members: 2 - 2*0.4 = 1.2 → 1), the
+    // enemy-sighted check against the new chinese object
+    let o5 = h.create_query_obj(sph, (57.0, 50.0, 0.0));
+    h.kernel.objects.get_mut(o5).vision_range = 8.0;
+    let tc = h
+        .kernel
+        .players
+        .find_team("teamchina", &mut h.host)
+        .unwrap();
+    h.kernel
+        .players
+        .set_team(&mut h.kernel.objects, o5, Some(tc), &mut h.host);
+    h.kernel
+        .pm
+        .update(&mut h.kernel.objects, &mut h.kernel.logic, &mut h.host); // settle the store
+    h.kernel
+        .players
+        .update_team_states(&mut h.kernel.objects, &mut h.kernel.pm, &mut h.host);
+    h.dump_teams();
+    h.dump_team_events();
+
+    // updateState #2: the enemy sighted (o1 sees o5 at distance 7 < 8),
+    // the onIdle latch firing, then the all-clear path after o5's death
+    h.kernel
+        .players
+        .update_team_states(&mut h.kernel.objects, &mut h.kernel.pm, &mut h.host);
+    h.dump_teams();
+    h.dump_team_events();
+    h.kernel.objects.get_mut(o5).private_status |=
+        1 << rzh_sim::types::OBJECT_PRIVATE_EFFECTIVELY_DEAD_BIT;
+    h.kernel
+        .players
+        .update_team_states(&mut h.kernel.objects, &mut h.kernel.pm, &mut h.host);
+    h.dump_teams();
+    h.dump_team_events();
+
+    // the onDestroyed trigger: mark o1/o2 dead → curUnits 0 ≤ threshold 1
+    // fires, the -1 latch refuses the second fire;
+    // notifyTeamOfObjectDeath on a unit death
+    h.kernel.objects.get_mut(o1).private_status |=
+        1 << rzh_sim::types::OBJECT_PRIVATE_EFFECTIVELY_DEAD_BIT;
+    h.kernel
+        .players
+        .notify_team_of_object_death(sa, &mut h.host);
+    h.kernel.objects.get_mut(o2).private_status |=
+        1 << rzh_sim::types::OBJECT_PRIVATE_EFFECTIVELY_DEAD_BIT;
+    h.kernel
+        .players
+        .update_team_states(&mut h.kernel.objects, &mut h.kernel.pm, &mut h.host);
+    h.kernel
+        .players
+        .update_team_states(&mut h.kernel.objects, &mut h.kernel.pm, &mut h.host);
+    h.dump_teams();
+    h.dump_team_events();
+
+    // the detach choreography: the swap back to the default team (the
+    // capture event with the players), the null detach
+    h.kernel
+        .players
+        .set_team(&mut h.kernel.objects, o3, Some(sa), &mut h.host);
+    h.kernel
+        .players
+        .set_team(&mut h.kernel.objects, o3, Some(ta), &mut h.host);
+    h.kernel
+        .players
+        .set_team(&mut h.kernel.objects, o3, None, &mut h.host);
+    h.dump_object_teams();
+    h.dump_team_events();
+
+    // the empty-team sweep: detach the (dead) members, then the sweep
+    // deletes sa (non-singleton, not a default team, active, empty) —
+    // with the preTeamDestroy walk, the override cleanup on the remaining
+    // teams and the player relation cleanup
+    h.kernel
+        .players
+        .set_team(&mut h.kernel.objects, o1, None, &mut h.host);
+    h.kernel
+        .players
+        .set_team(&mut h.kernel.objects, o2, None, &mut h.host);
+    h.kernel
+        .players
+        .update_team_states(&mut h.kernel.objects, &mut h.kernel.pm, &mut h.host);
+    h.dump_teams();
+    h.dump_team_events();
+
+    // a player-owning default team is spared by the sweep (the singleton
+    // refusal and the default-team refusal): the inactive non-singleton
+    // is spared too
+    let _s2 = h
+        .kernel
+        .players
+        .create_inactive_team("americaSquad", &mut h.host);
+    h.kernel
+        .players
+        .update_team_states(&mut h.kernel.objects, &mut h.kernel.pm, &mut h.host);
+    h.dump_teams();
+}
+
+// --- players_roundtrip: the integration corpus — objects on teams, the
+// filters over the player state, the local switch, validateTeam -------
+fn corpus_players_roundtrip(h: &mut Harness) {
+    h.line("corpus players_roundtrip");
+    h.fresh_world(10.0, (0.0, 0.0, 200.0, 200.0));
+    let sides = SidesSpec {
+        sides: vec![
+            side_spec("", false, false, false, &[], &[]),
+            side_spec("america", true, false, false, &["china"], &[]),
+            side_spec("china", false, false, false, &["america"], &[]),
+            side_spec("gla", false, false, false, &["america", "china"], &[]),
+        ],
+        teams: vec![
+            team_spec("team", "neutral", true),
+            team_spec("teamamerica", "america", true),
+            team_spec("teamchina", "china", true),
+            team_spec("teamgla", "gla", true),
+            team_spec("americaSquad", "america", false),
+        ],
+        has_game_info: false,
+        game_info: GameInfoSpec::default(),
+    };
+    h.kernel
+        .players
+        .new_game(&sides, &mut h.kernel.objects, &mut h.host);
+    h.dump_team_events();
+
+    let ta = h
+        .kernel
+        .players
+        .find_team("teamamerica", &mut h.host)
+        .unwrap();
+    let tc = h
+        .kernel
+        .players
+        .find_team("teamchina", &mut h.host)
+        .unwrap();
+    let tg = h.kernel.players.find_team("teamgla", &mut h.host).unwrap();
+    let tneutral = h.kernel.players.find_team("team", &mut h.host).unwrap();
+    let sa = h
+        .kernel
+        .players
+        .create_team("americaSquad", &mut h.host)
+        .unwrap();
+
+    // the objects: three american (two on the default team, one on the
+    // squad), two chinese, one gla, one neutral
+    let sph = GeometryInfo {
+        geom_type: GeometryType::Sphere,
+        is_small: true,
+        height: 1.0,
+        major_radius: 1.0,
+        minor_radius: 1.0,
+    };
+    let mut objs = Vec::new();
+    for i in 0..7 {
+        objs.push(h.create_query_obj(sph, (40.0 + 4.0 * (i as f32), 50.0, 0.0)));
+    }
+    h.kernel
+        .players
+        .set_team(&mut h.kernel.objects, objs[0], Some(ta), &mut h.host);
+    h.kernel
+        .players
+        .set_team(&mut h.kernel.objects, objs[1], Some(ta), &mut h.host);
+    h.kernel
+        .players
+        .set_team(&mut h.kernel.objects, objs[2], Some(sa), &mut h.host);
+    h.kernel
+        .players
+        .set_team(&mut h.kernel.objects, objs[3], Some(tc), &mut h.host);
+    h.kernel
+        .players
+        .set_team(&mut h.kernel.objects, objs[4], Some(tc), &mut h.host);
+    h.kernel
+        .players
+        .set_team(&mut h.kernel.objects, objs[5], Some(tg), &mut h.host);
+    h.kernel
+        .players
+        .set_team(&mut h.kernel.objects, objs[6], Some(tneutral), &mut h.host);
+    h.dump_object_teams();
+    h.dump_team_events();
+
+    h.kernel
+        .pm
+        .update(&mut h.kernel.objects, &mut h.kernel.logic, &mut h.host); // settle the store
+
+    // the filters over the player state: SamePlayer, Relationship (each
+    // direction), AcceptOnTeam — over a range query around a1
+    {
+        let same_player = PartitionFilterSamePlayer::new(1);
+        let allies = PartitionFilterRelationship::new(objs[0], RELATIONSHIP_FILTER_ALLOW_ALLIES);
+        let enemies = PartitionFilterRelationship::new(objs[0], RELATIONSHIP_FILTER_ALLOW_ENEMIES);
+        let neutral = PartitionFilterRelationship::new(objs[0], RELATIONSHIP_FILTER_ALLOW_NEUTRAL);
+        let on_team = PartitionFilterAcceptOnTeam::new(sa);
+
+        let fs1: [&dyn PartitionFilter; 1] = [&same_player];
+        let fs2: [&dyn PartitionFilter; 1] = [&allies];
+        let fs3: [&dyn PartitionFilter; 1] = [&enemies];
+        let fs4: [&dyn PartitionFilter; 1] = [&neutral];
+        let fs5: [&dyn PartitionFilter; 1] = [&on_team];
+
+        // the same-player query: a1, a2 (a3 is on the squad team — same
+        // controlling player, so it passes too)
+        let (hit, dist, _) = h.kernel.pm.get_closest_object_from_object(
+            &mut h.kernel.objects,
+            &h.kernel.players,
+            objs[0],
+            100.0,
+            DistanceCalculationType::FromCenter2d,
+            &fs1,
+        );
+        h.line(&format!(
+            "q same {} d={:08x}",
+            if hit.is_some() { "hit" } else { "miss" },
+            dist.to_bits()
+        ));
+        // the allies-of-a1 query: america considers china an enemy — the
+        // same-player objects and (unassigned!) the gla one pass
+        let (hit, dist, _) = h.kernel.pm.get_closest_object_from_object(
+            &mut h.kernel.objects,
+            &h.kernel.players,
+            objs[0],
+            100.0,
+            DistanceCalculationType::FromCenter2d,
+            &fs2,
+        );
+        h.line(&format!(
+            "q allies {} d={:08x}",
+            if hit.is_some() { "hit" } else { "miss" },
+            dist.to_bits()
+        ));
+        // the enemies query: the chinese objects
+        let (hit, dist, _) = h.kernel.pm.get_closest_object_from_object(
+            &mut h.kernel.objects,
+            &h.kernel.players,
+            objs[0],
+            100.0,
+            DistanceCalculationType::FromCenter2d,
+            &fs3,
+        );
+        h.line(&format!(
+            "q enemies {} o{} d={:08x}",
+            if hit.is_some() { "hit" } else { "miss" },
+            hit.unwrap_or(-1),
+            dist.to_bits()
+        ));
+        // the neutral query: the gla (unassigned) and neutral objects
+        let (hit, dist, _) = h.kernel.pm.get_closest_object_from_object(
+            &mut h.kernel.objects,
+            &h.kernel.players,
+            objs[0],
+            100.0,
+            DistanceCalculationType::FromCenter2d,
+            &fs4,
+        );
+        h.line(&format!(
+            "q neutral {} o{} d={:08x}",
+            if hit.is_some() { "hit" } else { "miss" },
+            hit.unwrap_or(-1),
+            dist.to_bits()
+        ));
+        // the on-team query: the squad member
+        let (hit, dist, _) = h.kernel.pm.get_closest_object_from_object(
+            &mut h.kernel.objects,
+            &h.kernel.players,
+            objs[0],
+            100.0,
+            DistanceCalculationType::FromCenter2d,
+            &fs5,
+        );
+        h.line(&format!(
+            "q onteam {} o{} d={:08x}",
+            if hit.is_some() { "hit" } else { "miss" },
+            hit.unwrap_or(-1),
+            dist.to_bits()
+        ));
+
+        // the enemy-sighted path over the squad (the team updateState
+        // query with the same filters): a3 sees the chinese pair
+        h.kernel.objects.get_mut(objs[2]).vision_range = 12.0;
+        h.kernel
+            .players
+            .update_team_states(&mut h.kernel.objects, &mut h.kernel.pm, &mut h.host);
+        h.dump_teams();
+        h.dump_team_events();
+    }
+
+    // the local switch: the transitions fire; validateTeam resolves the
+    // name (auto-creating the non-singleton) and falls back to the
+    // neutral default team on a miss
+    h.kernel.players.set_local_player(Some(2), &mut h.host);
+    let v0 = h.kernel.players.validate_team("americaSquad", &mut h.host);
+    let v1 = h.kernel.players.validate_team("nosuchteam", &mut h.host);
+    let v2 = h.kernel.players.validate_team("teamchina", &mut h.host);
+    h.line(&format!("v0 {v0}"));
+    h.line(&format!("v1 {v1}"));
+    h.line(&format!("v2 {v2}"));
+    h.dump_team_events();
+    h.dump_players();
+
+    // the stale-relation reset over a populated world: the factory clear
+    // walks the prototypes in key order (the map pre-emptied — only the
+    // player half of teamAboutToBeDeleted runs), the player↔player
+    // relations survive
+    h.kernel.players.reset(&mut h.kernel.objects, &mut h.host);
+    h.dump_players();
+    h.dump_teams();
+    h.dump_team_events();
+    h.dump_object_teams();
+}
+
 fn corpus_roundtrip(h: &mut Harness) {
     h.line("corpus kernel_roundtrip");
     let g = geom(GeometryType::Sphere, true, 1.0, 2.5, 2.5);
@@ -2382,6 +3851,7 @@ fn corpus_query_closest(h: &mut Harness) {
     {
         let (o, dist, vec) = h.kernel.pm.get_closest_object_from_object(
             &mut h.kernel.objects,
+            &h.kernel.players,
             a,
             100.0,
             DistanceCalculationType::FromCenter2d,
@@ -2401,6 +3871,7 @@ fn corpus_query_closest(h: &mut Harness) {
     {
         let (o, dist, vec) = h.kernel.pm.get_closest_object_from_position(
             &mut h.kernel.objects,
+            &h.kernel.players,
             Coord3 {
                 x: 50.0,
                 y: 50.0,
@@ -2426,6 +3897,7 @@ fn corpus_query_closest(h: &mut Harness) {
     {
         let (o, dist, vec) = h.kernel.pm.get_closest_object_from_position(
             &mut h.kernel.objects,
+            &h.kernel.players,
             Coord3 {
                 x: 55.0,
                 y: 50.0,
@@ -2451,6 +3923,7 @@ fn corpus_query_closest(h: &mut Harness) {
     {
         let (o, dist, vec) = h.kernel.pm.get_closest_object_from_position(
             &mut h.kernel.objects,
+            &h.kernel.players,
             Coord3 {
                 x: 30.0,
                 y: 25.0,
@@ -2476,6 +3949,7 @@ fn corpus_query_closest(h: &mut Harness) {
     {
         let (o, dist, vec) = h.kernel.pm.get_closest_object_from_position(
             &mut h.kernel.objects,
+            &h.kernel.players,
             Coord3 {
                 x: 70.0,
                 y: 12.0,
@@ -2501,6 +3975,7 @@ fn corpus_query_closest(h: &mut Harness) {
     {
         let (o, dist, vec) = h.kernel.pm.get_closest_object_from_position(
             &mut h.kernel.objects,
+            &h.kernel.players,
             Coord3 {
                 x: 56.0,
                 y: 20.0,
@@ -2526,6 +4001,7 @@ fn corpus_query_closest(h: &mut Harness) {
     {
         let (o, dist, vec) = h.kernel.pm.get_closest_object_from_object(
             &mut h.kernel.objects,
+            &h.kernel.players,
             a,
             100.0,
             DistanceCalculationType::FromBoundingsphere3d,
@@ -2551,6 +4027,7 @@ fn corpus_query_closest(h: &mut Harness) {
                     .pm
                     .get_closest_object_from_position(
                         &mut h.kernel.objects,
+                        &h.kernel.players,
                         Coord3 {
                             x: pos.0,
                             y: pos.1,
@@ -2730,6 +4207,7 @@ fn corpus_query_iterate(h: &mut Harness) {
          -> SimpleObjectIterator {
             h.kernel.pm.iterate_objects_in_range_from_position(
                 &mut h.kernel.objects,
+                &h.kernel.players,
                 pos,
                 max_dist,
                 dc,
@@ -2809,35 +4287,38 @@ fn corpus_query_iterate(h: &mut Harness) {
         // (f) iterateAllObjects: the master-list prepend order (newest
         // first), then the filter refusals over the same walk
         {
-            let mut it = h.kernel.pm.iterate_all_objects(&mut h.kernel.objects, &[]);
+            let mut it =
+                h.kernel
+                    .pm
+                    .iterate_all_objects(&mut h.kernel.objects, &h.kernel.players, &[]);
             h.drain_iter(&mut it, "f all");
         }
         {
             let on_map = PartitionFilterOnMap;
             let alive = PartitionFilterAlive;
             let filters: [&dyn PartitionFilter; 2] = [&on_map, &alive];
-            let mut it = h
-                .kernel
-                .pm
-                .iterate_all_objects(&mut h.kernel.objects, &filters);
+            let mut it =
+                h.kernel
+                    .pm
+                    .iterate_all_objects(&mut h.kernel.objects, &h.kernel.players, &filters);
             h.drain_iter(&mut it, "f onmapalive");
         }
         {
             let accept = PartitionFilterAcceptByKindOf::new(1 << 5, 0);
             let filters: [&dyn PartitionFilter; 1] = [&accept];
-            let mut it = h
-                .kernel
-                .pm
-                .iterate_all_objects(&mut h.kernel.objects, &filters);
+            let mut it =
+                h.kernel
+                    .pm
+                    .iterate_all_objects(&mut h.kernel.objects, &h.kernel.players, &filters);
             h.drain_iter(&mut it, "f accept");
         }
         {
             let reject = PartitionFilterRejectByKindOf::new(1 << 5, 0);
             let filters: [&dyn PartitionFilter; 1] = [&reject];
-            let mut it = h
-                .kernel
-                .pm
-                .iterate_all_objects(&mut h.kernel.objects, &filters);
+            let mut it =
+                h.kernel
+                    .pm
+                    .iterate_all_objects(&mut h.kernel.objects, &h.kernel.players, &filters);
             h.drain_iter(&mut it, "f reject");
         }
         // (g) the from-object form: a excludes itself, everything else
@@ -2845,6 +4326,7 @@ fn corpus_query_iterate(h: &mut Harness) {
         {
             let mut it = h.kernel.pm.iterate_objects_in_range_from_object(
                 &mut h.kernel.objects,
+                &h.kernel.players,
                 a,
                 20.0,
                 DistanceCalculationType::FromCenter2d,
@@ -2890,15 +4372,20 @@ fn corpus_query_iterate(h: &mut Harness) {
             z: 0.0,
         };
         {
-            let mut it =
-                h.kernel
-                    .pm
-                    .iterate_potential_collisions(&mut h.kernel.objects, pos, bx, 0.3, true);
+            let mut it = h.kernel.pm.iterate_potential_collisions(
+                &mut h.kernel.objects,
+                &h.kernel.players,
+                pos,
+                bx,
+                0.3,
+                true,
+            );
             h.drain_iter(&mut it, "i 2d");
         }
         {
             let mut it = h.kernel.pm.iterate_potential_collisions(
                 &mut h.kernel.objects,
+                &h.kernel.players,
                 pos,
                 bx,
                 0.3,
@@ -2915,7 +4402,7 @@ fn corpus_query_iterate(h: &mut Harness) {
 #[test]
 fn kernel_golden() {
     let mut all = String::new();
-    let corpora: [fn(&mut Harness); 24] = [
+    let corpora: [fn(&mut Harness); 31] = [
         corpus_ids,
         corpus_frame,
         corpus_sched_basic,
@@ -2939,6 +4426,13 @@ fn kernel_golden() {
         corpus_query_radiusvec,
         corpus_query_closest,
         corpus_query_iterate,
+        corpus_players_lifecycle,
+        corpus_players_newgame,
+        corpus_teams_factory,
+        corpus_relationships,
+        corpus_players_masks,
+        corpus_team_members,
+        corpus_players_roundtrip,
         corpus_roundtrip,
     ];
     for corpus in corpora {

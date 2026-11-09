@@ -99,6 +99,60 @@
 #                                                     linked-list mergesort with the
 #                                                     five ClumpCompareProcs and
 #                                                     IterOrderType)
+#   GeneralsMD/Code/GameEngine/Source/Common/RTS/PlayerList.cpp
+#                                                     (the players/teams block:
+#                                                     the 16-slot registry with
+#                                                     init/reset/newGame, the
+#                                                     local-player selection, the
+#                                                     mask queries, the slot
+#                                                     bookkeeping, validateTeam,
+#                                                     updateTeamStates)
+#   GeneralsMD/Code/GameEngine/Include/Common/PlayerList.h
+#                                                     (AllowPlayerRelationship)
+#   GeneralsMD/Code/GameEngine/Source/Common/RTS/Player.cpp
+#   GeneralsMD/Code/GameEngine/Include/Common/Player.h
+#                                                     (the kernel half: the
+#                                                     relation maps with the
+#                                                     get/set/remove family and
+#                                                     the two-level chain,
+#                                                     setDefaultTeam,
+#                                                     preTeamDestroy, becomingLocal
+#                                                     Player/becomingTeamMember,
+#                                                     addTeamToList/removeTeamFromList,
+#                                                     isPlayerActive)
+#   GeneralsMD/Code/GameEngine/Source/Common/RTS/Team.cpp
+#   GeneralsMD/Code/GameEngine/Include/Common/Team.h
+#                                                     (the TeamFactory with the
+#                                                     std::map-ordered prototype
+#                                                     registry and the ++id
+#                                                     scheme, TeamPrototype with
+#                                                     the instance list and the
+#                                                     empty-team removal sweep,
+#                                                     Team with the override
+#                                                     relation maps, the member
+#                                                     choreography and
+#                                                     updateState's state half)
+#   GeneralsMD/Code/GameEngine/Source/Common/NameKeyGenerator.cpp
+#   GeneralsMD/Code/GameEngine/Include/Common/NameKeyGenerator.h
+#                                                     (nameToKey — supplied by
+#                                                      rzh-util's exact port; the
+#                                                      prototype registry's
+#                                                      iteration order keys on it)
+#   GeneralsMD/Code/GameEngine/Source/GameLogic/Object/Object.cpp
+#                                                     (the setTeam family: the
+#                                                      isPlayerActive refusal, the
+#                                                      setOrRestoreTeam member
+#                                                      swap, Object::getRelationship
+#                                                      with the defector gates)
+#   GeneralsMD/Code/GameEngine/Include/Common/GameCommon.h
+#                                                     (the Relationship enum,
+#                                                      PlayerMaskType, PlayerType)
+#   Core/GameEngine/Include/GameNetwork/NetworkDefs.h (MAX_SLOTS)
+#   GeneralsMD/Code/GameEngine/Source/GameLogic/Object/PartitionManager.cpp
+#                                                     (the players/teams query
+#                                                      filters: PartitionFilter
+#                                                      SamePlayer / Relationship /
+#                                                      AcceptOnTeam)
 #   GeneralsMD/Code/GameEngine/Source/Common/Thing/Thing.cpp
 #   GeneralsMD/Code/GameEngine/Include/Common/Thing.h
 #                                                     (getUnitDirectionVector2D —
@@ -177,6 +231,10 @@ workspace = true
 # the rect fill drives and the correctly-rounded sqrt the COI bounds use
 # (ADR-001: bit-identical to the pin, so the crate stays pure Rust).
 rzh-math = { path = "../rzh-math", version = "0.1.0" }
+# The name-key interning the player/team registries key on (the
+# prototype map's iteration order is the interning order — the Phase 1
+# exact port).
+rzh-util = { path = "../rzh-util", version = "0.1.0" }
 
 [dev-dependencies]
 proptest = { workspace = true }

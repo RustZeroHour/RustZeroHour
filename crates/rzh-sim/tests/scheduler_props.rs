@@ -152,10 +152,15 @@ fn frame_constants() {
 
 // --- the kernel's ordered walk ------------------------------------------------
 
+/// The no-op host (the kernel birth needs one).
+struct PropHost;
+impl rzh_sim::logic::KernelHost for PropHost {}
+
 #[test]
 fn freeze_gate_stops_before_partition() {
     // the freeze gate returns before the terrain — the host's event
     // order is the observable (the golden corpus pins the full walk)
+    let mut host = PropHost;
     let mut kernel = Kernel::with_grid(
         10.0,
         Region2 {
@@ -164,6 +169,7 @@ fn freeze_gate_stops_before_partition() {
             hi_x: 100.0,
             hi_y: 100.0,
         },
+        &mut host,
     );
     let spec = ObjectSpec {
         modules: vec![UpdateModuleSpec::default()],

@@ -58,7 +58,7 @@ use crate::logic::{Object, Objects};
 use crate::partition::PartitionManager;
 use crate::types::{
     Coord3, DistanceCalculationType, GeometryInfo, HUGE_DIST, HUGE_DIST_SQR, INVALID_ID,
-    IterOrderType, ObjectID,
+    IterOrderType, ObjectID, TeamID,
 };
 
 /// `DistCalcProc` (PartitionManager.cpp): the measure signature — the
@@ -442,15 +442,26 @@ fn the_clump_compare_procs(order: IterOrderType) -> Option<ClumpCompareProc> {
 
 // --- the partition filters (PartitionManager.h / PartitionManager.cpp). ------
 
+/// The filter context: the state the filters read — the object arena
+/// plus the players/teams block (the relationship chain resolves
+/// through it). Bundled so the trait's `allow` stays a single entry
+/// point as later slices add squad/line-of-sight/stealth state.
+pub struct FilterCtx<'a> {
+    /// The object arena.
+    pub objects: &'a Objects,
+    /// The players/teams/relationships block.
+    pub players: &'a crate::players::Players,
+}
+
 /// `PartitionFilter` (PartitionManager.h): the query family's acceptance
 /// test — any object a filter refuses is not iterated. Either the query
 /// source object or the query position is the context; the filter sees
 /// the candidate (the original's virtual hands the `Object*`; the port
-/// hands the arena plus the id so the filters reading *other* objects
-/// (same-map-status) can).
+/// hands the context plus the id so the filters reading *other* state
+/// (same-map-status, the relationship chain) can).
 pub trait PartitionFilter {
     /// `allow(objOther)`.
-    fn allow(&self, objects: &Objects, obj_other: ObjectID) -> bool;
+    fn allow(&self, ctx: &FilterCtx<'_>, obj_other: ObjectID) -> bool;
 }
 
 /// `filtersAllow` (PartitionManager.cpp, the non-profiling build): every
@@ -458,11 +469,11 @@ pub trait PartitionFilter {
 #[must_use]
 pub fn filters_allow(
     filters: &[&dyn PartitionFilter],
-    objects: &Objects,
+    ctx: &FilterCtx<'_>,
     obj_other: ObjectID,
 ) -> bool {
     for filter in filters {
-        if !filter.allow(objects, obj_other) {
+        if !filter.allow(ctx, obj_other) {
             return false;
         }
     }
@@ -501,8 +512,8 @@ impl PartitionFilterWouldCollide {
 }
 
 impl PartitionFilter for PartitionFilterWouldCollide {
-    fn allow(&self, objects: &Objects, obj_other: ObjectID) -> bool {
-        let that = objects.get(obj_other);
+    fn allow(&self, ctx: &FilterCtx<'_>, obj_other: ObjectID) -> bool {
+        let that = ctx.objects.get(obj_other);
         let this_info = CollideInfo::new(self.position, self.geom, self.angle);
         let that_info = CollideInfo::new(that.position, that.geometry, that.orientation);
 
@@ -551,8 +562,8 @@ impl PartitionFilterAcceptByKindOf {
 }
 
 impl PartitionFilter for PartitionFilterAcceptByKindOf {
-    fn allow(&self, objects: &Objects, obj_other: ObjectID) -> bool {
-        objects
+    fn allow(&self, ctx: &FilterCtx<'_>, obj_other: ObjectID) -> bool {
+        ctx.objects
             .get(obj_other)
             .is_kind_of_multi(self.must_be_set, self.must_be_clear)
     }
@@ -580,8 +591,8 @@ impl PartitionFilterRejectByKindOf {
 }
 
 impl PartitionFilter for PartitionFilterRejectByKindOf {
-    fn allow(&self, objects: &Objects, obj_other: ObjectID) -> bool {
-        !objects
+    fn allow(&self, ctx: &FilterCtx<'_>, obj_other: ObjectID) -> bool {
+        !ctx.objects
             .get(obj_other)
             .is_kind_of_multi(self.must_be_set, self.must_be_clear)
     }
@@ -592,8 +603,8 @@ impl PartitionFilter for PartitionFilterRejectByKindOf {
 pub struct PartitionFilterAlive;
 
 impl PartitionFilter for PartitionFilterAlive {
-    fn allow(&self, objects: &Objects, obj_other: ObjectID) -> bool {
-        !objects.get(obj_other).is_effectively_dead()
+    fn allow(&self, ctx: &FilterCtx<'_>, obj_other: ObjectID) -> bool {
+        !ctx.objects.get(obj_other).is_effectively_dead()
     }
 }
 
@@ -602,8 +613,8 @@ impl PartitionFilter for PartitionFilterAlive {
 pub struct PartitionFilterOnMap;
 
 impl PartitionFilter for PartitionFilterOnMap {
-    fn allow(&self, objects: &Objects, obj_other: ObjectID) -> bool {
-        !objects.get(obj_other).is_off_map()
+    fn allow(&self, ctx: &FilterCtx<'_>, obj_other: ObjectID) -> bool {
+        !ctx.objects.get(obj_other).is_off_map()
     }
 }
 
@@ -623,9 +634,95 @@ impl PartitionFilterSameMapStatus {
 }
 
 impl PartitionFilter for PartitionFilterSameMapStatus {
-    fn allow(&self, objects: &Objects, obj_other: ObjectID) -> bool {
+    fn allow(&self, ctx: &FilterCtx<'_>, obj_other: ObjectID) -> bool {
         // objOther is guaranteed to be non-null, so we don't need to check (srj)
-        objects.get(obj_other).is_off_map() == objects.get(self.source).is_off_map()
+        ctx.objects.get(obj_other).is_off_map() == ctx.objects.get(self.source).is_off_map()
+    }
+}
+
+/// `PartitionFilterRelationship`'s `RelationshipAllowTypes`
+/// (PartitionManager.h): `ALLOW_ALLIES = 1 << ALLIES`,
+/// `ALLOW_ENEMIES = 1 << ENEMIES`, `ALLOW_NEUTRAL = 1 << NEUTRAL` — the
+/// `(m_flags & (1 << r))` test's bits (a DIFFERENT flag set from
+/// `AllowPlayerRelationship`, which `getPlayersWithRelationship`
+/// consumes).
+pub const RELATIONSHIP_FILTER_ALLOW_ALLIES: i32 = 1 << 2;
+
+/// `ALLOW_ENEMIES` = `1 << ENEMIES` = 1.
+pub const RELATIONSHIP_FILTER_ALLOW_ENEMIES: i32 = 1 << 0;
+
+/// `ALLOW_NEUTRAL` = `1 << NEUTRAL` = 2.
+pub const RELATIONSHIP_FILTER_ALLOW_NEUTRAL: i32 = 1 << 1;
+
+/// `PartitionFilterRelationship` (PartitionManager.cpp): reject any
+/// objects that don't match the alliance affiliations compared with
+/// `m_obj` — the object-to-object relationship chain (the defector
+/// gates, the team overrides, the owning players' maps).
+#[derive(Debug)]
+pub struct PartitionFilterRelationship {
+    /// `m_obj` (the source object).
+    pub obj: ObjectID,
+    /// `m_flags` — the `ALLOW_*` bits.
+    pub flags: i32,
+}
+
+impl PartitionFilterRelationship {
+    /// The `PartitionFilterRelationship(obj, flags)` constructor.
+    pub fn new(obj: ObjectID, flags: i32) -> Self {
+        Self { obj, flags }
+    }
+}
+
+impl PartitionFilter for PartitionFilterRelationship {
+    fn allow(&self, ctx: &FilterCtx<'_>, obj_other: ObjectID) -> bool {
+        let r = ctx
+            .players
+            .object_get_relationship(ctx.objects, self.obj, obj_other);
+
+        (self.flags & (1 << r.bits())) != 0
+    }
+}
+
+/// `PartitionFilterSamePlayer` (PartitionManager.cpp): reject any
+/// objects that aren't controlled by the same player.
+#[derive(Debug)]
+pub struct PartitionFilterSamePlayer {
+    /// `m_player` (the player index the original's pointer carries).
+    pub player: usize,
+}
+
+impl PartitionFilterSamePlayer {
+    /// The `PartitionFilterSamePlayer(player)` constructor.
+    pub fn new(player: usize) -> Self {
+        Self { player }
+    }
+}
+
+impl PartitionFilter for PartitionFilterSamePlayer {
+    fn allow(&self, ctx: &FilterCtx<'_>, obj_other: ObjectID) -> bool {
+        ctx.players.controlling_player_of(ctx.objects, obj_other) == Some(self.player)
+    }
+}
+
+/// `PartitionFilterAcceptOnTeam` (PartitionManager.cpp): reject any
+/// objects that aren't on the specific team.
+#[derive(Debug)]
+pub struct PartitionFilterAcceptOnTeam {
+    /// `m_team` (the team id the original's pointer carries).
+    pub team: TeamID,
+}
+
+impl PartitionFilterAcceptOnTeam {
+    /// The `PartitionFilterAcceptOnTeam(team)` constructor.
+    pub fn new(team: TeamID) -> Self {
+        Self { team }
+    }
+}
+
+impl PartitionFilter for PartitionFilterAcceptOnTeam {
+    fn allow(&self, ctx: &FilterCtx<'_>, obj_other: ObjectID) -> bool {
+        // objOther is guaranteed to be non-null, so we don't need to check (srj)
+        ctx.objects.get(obj_other).team == self.team
     }
 }
 
@@ -737,6 +834,7 @@ impl PartitionManager {
     pub fn get_closest_objects(
         &mut self,
         objects: &mut Objects,
+        players: &crate::players::Players,
         obj: Option<ObjectID>,
         pos: Option<Coord3>,
         max_dist: f32,
@@ -833,7 +931,11 @@ impl PartitionManager {
                     }
 
                     // check the filters now
-                    if !filters_allow(filters, objects, this_id) {
+                    let ctx = FilterCtx {
+                        objects: &*objects,
+                        players,
+                    };
+                    if !filters_allow(filters, &ctx, this_id) {
                         continue;
                     }
 
@@ -873,6 +975,7 @@ impl PartitionManager {
     pub fn get_closest_object_from_object(
         &mut self,
         objects: &mut Objects,
+        players: &crate::players::Players,
         obj: ObjectID,
         max_dist: f32,
         dc: DistanceCalculationType,
@@ -882,6 +985,7 @@ impl PartitionManager {
         let mut vec = Coord3::default();
         let id = self.get_closest_objects(
             objects,
+            players,
             Some(obj),
             None,
             max_dist,
@@ -899,6 +1003,7 @@ impl PartitionManager {
     pub fn get_closest_object_from_position(
         &mut self,
         objects: &mut Objects,
+        players: &crate::players::Players,
         pos: Coord3,
         max_dist: f32,
         dc: DistanceCalculationType,
@@ -908,6 +1013,7 @@ impl PartitionManager {
         let mut vec = Coord3::default();
         let id = self.get_closest_objects(
             objects,
+            players,
             None,
             Some(pos),
             max_dist,
@@ -1078,9 +1184,11 @@ impl PartitionManager {
 
     /// `iterateObjectsInRange(obj, ...)` — the object form: the fill,
     /// then the sort.
+    #[allow(clippy::too_many_arguments)]
     pub fn iterate_objects_in_range_from_object(
         &mut self,
         objects: &mut Objects,
+        players: &crate::players::Players,
         obj: ObjectID,
         max_dist: f32,
         dc: DistanceCalculationType,
@@ -1091,6 +1199,7 @@ impl PartitionManager {
 
         self.get_closest_objects(
             objects,
+            players,
             Some(obj),
             None,
             max_dist,
@@ -1106,9 +1215,11 @@ impl PartitionManager {
     }
 
     /// `iterateObjectsInRange(pos, ...)` — the position form.
+    #[allow(clippy::too_many_arguments)]
     pub fn iterate_objects_in_range_from_position(
         &mut self,
         objects: &mut Objects,
+        players: &crate::players::Players,
         pos: Coord3,
         max_dist: f32,
         dc: DistanceCalculationType,
@@ -1119,6 +1230,7 @@ impl PartitionManager {
 
         self.get_closest_objects(
             objects,
+            players,
             None,
             Some(pos),
             max_dist,
@@ -1139,6 +1251,7 @@ impl PartitionManager {
     pub fn iterate_potential_collisions(
         &mut self,
         objects: &mut Objects,
+        players: &crate::players::Players,
         pos: Coord3,
         geom: GeometryInfo,
         angle: f32,
@@ -1154,6 +1267,7 @@ impl PartitionManager {
 
         self.get_closest_objects(
             objects,
+            players,
             None,
             Some(pos),
             max_dist,
@@ -1177,13 +1291,18 @@ impl PartitionManager {
     pub fn iterate_all_objects(
         &mut self,
         objects: &mut Objects,
+        players: &crate::players::Players,
         filters: &[&dyn PartitionFilter],
     ) -> SimpleObjectIterator {
         let mut iter = SimpleObjectIterator::new();
 
+        let ctx = FilterCtx {
+            objects: &*objects,
+            players,
+        };
         for &id in &self.module_list {
             // (the null-object guard is the original's dead-module case)
-            if objects.try_get(id).is_some() && filters_allow(filters, objects, id) {
+            if objects.try_get(id).is_some() && filters_allow(filters, &ctx, id) {
                 iter.insert(id, 0.0);
             }
         }

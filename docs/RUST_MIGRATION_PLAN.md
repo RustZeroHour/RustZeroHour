@@ -169,7 +169,7 @@ crates/
   rzh-ini         INI lexer/parser + derive-based schema layer
   rzh-formats     W3D, map, TGA/DDS, CSF, WND, ... (parsing only)
   rzh-data        typed game data (templates, weapons, armor, locomotors, ...)
-  rzh-sim         deterministic simulation (no I/O, no rendering, no threads) — exists (the WP1 kernel core: the frame loop, the object registry, the sleepy scheduler, the spatial store)
+  rzh-sim         deterministic simulation (no I/O, no rendering, no threads) — exists (the WP1 kernel: the frame loop, the object registry, the sleepy scheduler, the spatial store, the collide-test family, the query family, the players/teams/relationships block)
   rzh-replay      command streams, snapshots, trace tools, legacy .rep import
   rzh-client      drawables, camera, selection, view-side logic
   rzh-render      wgpu renderer
@@ -883,8 +883,77 @@ minimum — the early-exit slop modelled — and the rings' partition of
 the offset space). A third bench pins the budget:
 `kernel/query_x300` (300 mixed queries over the settled formula
 corpus, checksum-locked at 1,025,416,407,242,357,139) measured within
-(0.20x — docs/benchmarks.md). The **next slice** per WP order: the
+(0.20x — docs/benchmarks.md).
+
+The **fourth slice** (the third slice's "next"): the
 players/teams/relationships block of WP1's remainder.
+`PlayerList.cpp`, `Player.cpp`'s kernel half, `Team.cpp`'s
+`TeamFactory`/`TeamPrototype`/`Team` state machine and `Object.cpp`'s
+`setTeam` family are transcribed whole, with the name-key interning
+(the prototype registry's `std::map<NameKeyType,...>` iteration order
+— the findTeamByID / teamAboutToBeDeleted / clear walks — is the
+interning order, so `rzh-util`'s exact port drives it), the map's
+`SidesList` dicts distilled to plain specs (the real dict parse is
+`rzh-formats`' sides-list slice). The pinned quirks: the 16-slot
+update walk (every slot updates, not just the count); the
+local-selection precedence (multiplayerIsLocal → the no-network
+human → the forced first non-neutral); the asymmetric per-side
+enemies/allies assignment (and the neutral side's own relations
+landing); the relation maps NOT being cleared by `init` — stale
+entries survive `reset()` within a process lifetime, and the era
+aliasing of team ids after the factory's counter reset; the `++id`
+scheme with the singleton instance reuse, the non-singleton
+auto-create of `findTeam`, the duplicate-name release refusal (the
+orphan prototype leaking in the owner's list) and the unknown-owner
+neutral fallback; the two-level override chain (the team's team-map,
+the team's player-map, the owning player's team-map, the owning
+player's player-map, NEUTRAL) with the null-form clear-alls and the
+INVALID clear-alls; `Object::getRelationship`'s defector gates; the
+`setTeam` choreography — the `isPlayerActive` refusal onto the
+neutral default team, the DLINK prepend orders, the
+`becomingTeamMember` transitions, the `onCapture` call firing even
+for same-player moves; `Team::updateState`'s state half — the created
+latch, the `Int = Int - Int*Real` threshold truncation with its two
+clamps, the enemy-sighted partition query over this slice's own
+relationship filter, the onDestroyed `-1` latch (against onIdle's
+repeat-fire), the empty-team removal sweep (the runtime team
+deletion, with the singleton / default-team / inactive refusals and
+the restart-after-delete iterator dance); the deletion choreography
+(`notifyOfTeamDestruction`, the players' `preTeamDestroy` walk with
+the default-team nulling, the member detach); and `clear()`'s
+copy-then-clear dance — the prototype walk of `teamAboutToBeDeleted`
+sees the ALREADY-EMPTIED map there, so only the player half runs (the
+mid-sweep contrast the corpus pins). The query family's filters over
+the new state arrive with it (`PartitionFilterSamePlayer`,
+`PartitionFilterRelationship` over `Object::getRelationship`,
+`PartitionFilterAcceptOnTeam`) through a broadened filter context (the
+`allow` entry now sees the arena and the players block — the
+locomotor/squad/LOS filters of later slices grow the same context).
+The bodies the slice does not own are counted hooks: `Player::update`
+(a single position event per slot; the AI, team scripts, energy,
+academy and money bodies are their slices'), the script RUNS
+(onCreate/onDestroyed/onIdle/onEnemySighted/onAllClear/onUnitDestroyed
+and the production-condition executeActions), the client halves of
+the transitions, and the script-engine surface (`deleteTeam`,
+`killTeam`, the polygon-trigger family). The corpora grew to 31
+(seven new: the lifecycle and interning; the newGame precedence and
+asymmetric assignment; the factory's id scheme and refusal family;
+the relationship chain with the removal family, the defector gates
+and the `setControllingPlayer` move; the mask queries; the member
+choreography with the updateState latches, thresholds and the
+empty-team sweep; the integration roundtrip — objects on teams, the
+new filters through the query family, the local switch, `validateTeam`
+and the stale-relation reset), plus a players property suite in
+`tests/players_props.rs` (the relationship chain's totality against a
+brute-force reference, the team-level precedence, the mask-query
+agreement, the interning injectivity, the team-id monotonicity and
+the member-list conservation). A fourth bench pins the budget:
+`kernel/players_x300` (300 mixed players/teams operations over the
+settled formula corpus — the mask sweeps, the relationship chains and
+the full `updateTeamStates` walk with the enemy-sighted queries,
+checksum-locked at 10,479,098,065,696,129,437) measured within
+(0.74x — docs/benchmarks.md). The **next slice** per WP order: the
+money/energy/ranks/sciences block of WP1's remainder.
 
 Work packages, in order. Develop by **vertical slices**, not by subsystem:
 
