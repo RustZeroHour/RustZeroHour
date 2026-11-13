@@ -101,11 +101,20 @@ pub const OOSQRT3: f32 = 0.577_350_269;
 /// The game's deterministic build calls `gm_sqrtf` (FreeBSD msun software
 /// square root); msun's `sqrtf`, the system `sqrtf` and Rust's `f32::sqrt`
 /// are all correctly rounded per IEEE-754 and therefore bit-identical
-/// (ADR-001).
+/// (ADR-001) — for the NUMERIC domain. The NaN domain is hardware-defined:
+/// msun's negative-input path computes `(x-x)/(x-x)`, which on the pin's
+/// x86 build yields the x87/SSE default NaN `0xffc00000` (sign bit set —
+/// the golden vectors encode it), while aarch64's invalid-operation NaN is
+/// the positive canonical `0x7fc00000`. The port produces the pin's bits
+/// on every platform.
 #[must_use]
 #[inline]
 pub fn sqrt(x: f32) -> f32 {
-    f32::sqrt(x)
+    if x < 0.0 {
+        f32::from_bits(0xffc0_0000) // the pin's (x-x)/(x-x) on x86
+    } else {
+        f32::sqrt(x)
+    }
 }
 
 /// `WWMath::Inv_Sqrt_Legacy`, deterministic branch: `1 / sqrt(a)`.

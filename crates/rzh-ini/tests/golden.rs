@@ -558,6 +558,14 @@ fn ini_pipeline_matches_cpp_golden_dump() {
     let expected = fs::read(&golden_path)
         .unwrap_or_else(|error| panic!("cannot read {}: {error}", golden_path.display()));
 
+    // Normalize the golden's line endings: a Windows checkout with
+    // core.autocrlf converts the committed LF file to CRLF, which would
+    // fail the byte compare below while every line still matches (the
+    // dump itself is always LF). The normalized bytes are the compare.
+    let expected = String::from_utf8_lossy(&expected)
+        .replace("\r\n", "\n")
+        .into_bytes();
+
     if actual != expected {
         // Print the first divergence to make failures reviewable.
         let actual_text = String::from_utf8_lossy(&actual);
