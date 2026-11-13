@@ -137,8 +137,10 @@ fn the_panic_hook_logs_message_and_location() {
     });
 
     assert!(captured.contains("panic: hook test boom"), "{captured}");
-    // The location line points at this file, like a stack dump would.
-    assert!(captured.contains("tests/macros.rs"), "{captured}");
+    // The location line points at this file, like a stack dump would
+    // (Windows locations carry backslashes — normalize before matching).
+    let captured_norm = captured.replace('\\', "/");
+    assert!(captured_norm.contains("tests/macros.rs"), "{captured}");
     // The backtrace is captured even without RUST_BACKTRACE set.
     assert!(
         captured.contains("panicked at")
