@@ -1,5 +1,8 @@
 //! The players/teams/relationships block — the fourth Phase 3 slice (the
-//! plan's WP1 remainder, next after the query family).
+//! plan's WP1 remainder, next after the query family) — carrying the
+//! money/energy/ranks/sciences state of the fifth slice (the block that
+//! hangs its wallets, power pools, rank ladders and science catalogs on
+//! these player objects).
 //!
 //! Origin: `PlayerList.cpp` (the 16-slot player registry with its
 //! `init`/`reset`/`newGame` lifecycle, the local-player selection, the
@@ -18,6 +21,24 @@
 //! `PartitionManager.cpp`'s player-state filters
 //! (`PartitionFilterSamePlayer`, `PartitionFilterRelationship`,
 //! `PartitionFilterAcceptOnTeam`) — at baseline 571a7c5.
+//!
+//! The fifth slice adds, from the same baseline: `Player.cpp`'s
+//! progression half (the init paths with the zero-wallet starting-cash
+//! deposit, [`Players::reset_rank`]/[`Players::reset_sciences`] with
+//! the double script-notify, [`Players::add_skill_points`] with the
+//! Hoffesommer ceil arithmetic, [`Players::set_rank_level`]'s upgrade
+//! and the lose-everything downgrade, the purchase family's gate chain
+//! — [`Players::attempt_to_purchase_science`] /
+//! [`Players::grant_science`] /
+//! [`Players::is_capable_of_purchasing_science`] — the script
+//! availability choreography, the radar refcounts and
+//! [`Player::update`]'s sabotage expiry), `Money.cpp`'s wallet (see
+//! [`crate::money`]), `Energy.cpp`'s power pool with the brownout
+//! choreography (see [`crate::energy`] and the `energy_*` methods
+//! below), `Science.cpp`'s catalog and `RankInfo.cpp`'s ladder (see
+//! [`crate::sciences`]), and `Player.cpp`'s `onPowerBrownOutChange`
+//! (the radar restriction plus the `DISABLED_UNDERPOWERED` sweep over
+//! every `KINDOF_POWERED` member).
 //!
 //! The name-key interning (`NameKeyGenerator::nameToKey`) comes from
 //! `rzh-util`: the prototype registry's iteration order (the
@@ -40,8 +61,13 @@ use std::collections::BTreeMap;
 
 use rzh_util::namekey::{NameKey, NameKeyGenerator};
 
-use crate::logic::{KernelHost, Objects};
+use crate::energy::Energy;
+use crate::logic::{KernelHost, Objects, set_disabled_until_core};
+use crate::money::Money;
 use crate::partition::PartitionManager;
+use crate::sciences::{
+    RankSpec, SCIENCE_INVALID, ScienceAvailabilityType, ScienceStore, ScienceType,
+};
 use crate::types::*;
 
 // --- the distilled inputs (the map's SidesList dicts). -----------------------
@@ -67,6 +93,15 @@ pub struct SideSpec {
     pub enemies: Vec<String>,
     /// `TheKey_playerAllies`' token list.
     pub allies: Vec<String>,
+    /// the `PlayerTemplate`'s money (`pt->getMoney()->countMoney()` —
+    /// the INI's `StartingCash`); a ZERO wallet takes the game's
+    /// starting-cash deposit (the money block's init path).
+    pub template_cash: u32,
+    /// the `PlayerTemplate`'s `IntrinsicSciences` token list (resolved
+    /// through the name-key interning at `init`).
+    pub intrinsic_sciences: Vec<String>,
+    /// the `PlayerTemplate`'s `IntrinsicSciencePurchasePoints`.
+    pub intrinsic_science_purchase_points: i32,
 }
 
 /// One team of the map's team list (`TeamTemplateInfo`'s
@@ -108,6 +143,9 @@ pub struct TeamSpec {
 pub struct GameInfoSpec {
     /// The occupied slot indices (`GameSlot::isOccupied()`).
     pub occupied_slots: Vec<i32>,
+    /// `TheGameInfo->getStartingCash().countMoney()` — the game's
+    /// starting cash the zero-wallet init deposit reads.
+    pub starting_cash: u32,
 }
 
 /// The distilled `SidesList` + `GameInfo` pair `newGame` consumes.
@@ -121,6 +159,9 @@ pub struct SidesSpec {
     pub has_game_info: bool,
     /// The occupied slots.
     pub game_info: GameInfoSpec,
+    /// `TheGlobalData->m_defaultStartingCash.countMoney()` — the
+    /// no-`GameInfo` fallback of the zero-wallet init deposit.
+    pub default_starting_cash: u32,
 }
 
 // --- the script kinds Team::updateState / notifyTeamOfObjectDeath run. -------
@@ -146,7 +187,9 @@ pub enum TeamScriptKind {
 
 // --- Player (Player.cpp's kernel half). --------------------------------------
 
-/// One player slot: the identity, the relation maps and the team list.
+/// One player slot: the identity, the relation maps, the team list and
+/// the money/energy/ranks/sciences state (the fifth Phase 3 slice's
+/// block).
 ///
 /// The relation maps are `std::hash_map` in the original but are only
 /// ever PROBED by key here (find / insert / erase — never iterated), so
@@ -179,10 +222,61 @@ pub struct Player {
     /// from any later prototype, exactly as the original's leaked
     /// object).
     pub team_prototypes: Vec<usize>,
+    /// `m_money` — Player's current wealth (the money block).
+    pub money: Money,
+    /// `m_energy` — current energy production & consumption.
+    pub energy: Energy,
+    /// `m_rankLevel` — "our RankLevel, 1...n" (0 only between the ctor
+    /// and the first `init`).
+    pub rank_level: i32,
+    /// `m_skillPoints` — our cumulative SkillPoint total.
+    pub skill_points: i32,
+    /// `m_sciencePurchasePoints` — our unspent SciencePurchasePoint
+    /// total.
+    pub science_purchase_points: i32,
+    /// `m_levelUp` — skill points to go up a level (runtime only;
+    /// `INT_MAX` past the ladder's end).
+    pub level_up: i32,
+    /// `m_levelDown` — skill points to go down a level (runtime only).
+    pub level_down: i32,
+    /// `m_sciences` — sciences that we know (either intrinsically or
+    /// via later purchases).
+    pub sciences: Vec<ScienceType>,
+    /// `m_sciencesDisabled` — sciences that we are not permitted to
+    /// purchase "yet". Controlled by mission scripts.
+    pub sciences_disabled: Vec<ScienceType>,
+    /// `m_sciencesHidden` — sciences that aren't shown. Controlled by
+    /// mission scripts.
+    pub sciences_hidden: Vec<ScienceType>,
+    /// the template's `IntrinsicSciences`, resolved at `init` (the
+    /// `m_playerTemplate` reads of `resetSciences`/`resetRank`
+    /// distilled — the template itself is immutable data, so the
+    /// snapshot is exact).
+    pub intrinsic_sciences: Vec<ScienceType>,
+    /// the template's `IntrinsicSciencePurchasePoints` (ditto).
+    pub intrinsic_science_purchase_points: i32,
+    /// `m_skillPointsModifier` — "Multiplied by skill points before
+    /// they are applied".
+    pub skill_points_modifier: f32,
+    /// `m_radarCount` — # of facilities that have a radar under the
+    /// players control.
+    pub radar_count: i32,
+    /// `m_disableProofRadarCount` — # of disable proof radars. "A
+    /// disable proof one will be in both refcounts".
+    pub disable_proof_radar_count: i32,
+    /// `m_radarDisabled` — "The radar is disabled regardless of the
+    /// number of radar objects".
+    pub radar_disabled: bool,
 }
 
 impl Player {
     fn new(index: usize) -> Self {
+        // the Player ctor's defaults (Player.cpp: m_rankLevel = 0,
+        // m_sciencePurchasePoints = 0, m_skillPoints = 0,
+        // m_skillPointsModifier = 1.0f, the radar refcounts zeroed; the
+        // ctor's init(nullptr) — which runs resetRank — is modelled by
+        // the PlayerList init walk, where the stores and the host
+        // notifies exist)
         Self {
             index,
             name: String::new(),
@@ -194,6 +288,22 @@ impl Player {
             team_relations: BTreeMap::new(),
             default_team: TEAM_ID_INVALID,
             team_prototypes: Vec::new(),
+            money: Money::default(),
+            energy: Energy::new(),
+            rank_level: 0,
+            skill_points: 0,
+            science_purchase_points: 0,
+            level_up: 0,
+            level_down: 0,
+            sciences: Vec::new(),
+            sciences_disabled: Vec::new(),
+            sciences_hidden: Vec::new(),
+            intrinsic_sciences: Vec::new(),
+            intrinsic_science_purchase_points: 0,
+            skill_points_modifier: 1.0,
+            radar_count: 0,
+            disable_proof_radar_count: 0,
+            radar_disabled: false,
         }
     }
 
@@ -215,27 +325,178 @@ impl Player {
         !self.observer && !self.is_player_dead
     }
 
-    /// `Player::init`'s neutral branch + the kernel resets (the template
-    /// branch is `new_game`'s distilled [`SideSpec`] walk). NOTE the
-    /// pinned quirk: the relation maps are NOT cleared — they are born
-    /// in the constructor and die in the destructor only, so entries
-    /// survive `reset()`/`init()` within a process lifetime.
-    fn init_neutral(&mut self, name_keys: &mut NameKeyGenerator) {
-        self.is_player_dead = false;
-        self.observer = false;
-        self.default_team = TEAM_ID_INVALID;
-        // (the squads, selection, tunnels, build lists, upgrades, rank,
-        // sciences, energy, stats — the money/energy/ranks/sciences block
-        // and the client's)
+    // ---- the science state half (Player.cpp) --------------------------------
 
-        // no player template? must be the neutral player!
-        self.name.clear();
-        self.name_key = name_keys.name_to_key("");
-        self.player_type = PlayerType::Computer;
+    /// `Player::hasScience` — "return t if the player has the given
+    /// science, either intrinsically, via specialization, or via
+    /// capture."
+    #[must_use]
+    pub fn has_science(&self, t: ScienceType) -> bool {
+        self.sciences.contains(&t)
+    }
 
-        // neutral is always "allied" with self -- this is the only thing ever allied with neutral!
-        self.player_relations
-            .insert(self.index as i32, Relationship::Allies);
+    /// `Player::isScienceDisabled` — "Can't purchase this science
+    /// because of script reasons."
+    #[must_use]
+    pub fn is_science_disabled(&self, t: ScienceType) -> bool {
+        self.sciences_disabled.contains(&t)
+    }
+
+    /// `Player::isScienceHidden` — "This science is effectively hidden
+    /// due to script reasons."
+    #[must_use]
+    pub fn is_science_hidden(&self, t: ScienceType) -> bool {
+        self.sciences_hidden.contains(&t)
+    }
+
+    /// `Player::setScienceAvailability` — "Allows scripts to make
+    /// specific sciences available, hidden, or disabled": the remove
+    /// from both lists, then the one-list re-add (AVAILABLE adds to
+    /// neither — "being available means that the science isn't in one
+    /// of the hidden or disabled vecs").
+    pub fn set_science_availability(&mut self, science: ScienceType, ty: ScienceAvailabilityType) {
+        // First remove it from disabled sciences if it's there.
+        let found_disabled = self.sciences_disabled.iter().position(|&s| s == science);
+        if let Some(pos) = found_disabled {
+            self.sciences_disabled.remove(pos);
+        } else {
+            // If still not found, remove it from hidden sciences if it's there.
+            if let Some(pos) = self.sciences_hidden.iter().position(|&s| s == science) {
+                self.sciences_hidden.remove(pos);
+            }
+        }
+
+        // At this point, this science shouldn't be disabled nor hidden!
+        match ty {
+            ScienceAvailabilityType::Disabled => {
+                // Add science to disabled vec.
+                self.sciences_disabled.push(science);
+            }
+            ScienceAvailabilityType::Hidden => {
+                // Add science to hidden vec.
+                self.sciences_hidden.push(science);
+            }
+            ScienceAvailabilityType::Available | ScienceAvailabilityType::Invalid => {}
+        }
+    }
+
+    /// `Player::addScience` — "give the science. doesn't check prereqs,
+    /// nor charge to purchase points... and for a good reason; if
+    /// public, this could be used to grant sciences that shouldn't be
+    /// directly granted (e.g., SCIENCE_RankX, which should be managed
+    /// via setRankLevel instead)". Returns TRUE if sciences were
+    /// gained/lost.
+    pub fn add_science(&mut self, science: ScienceType, host: &mut dyn KernelHost) -> bool {
+        if self.has_science(science) {
+            return false;
+        }
+
+        self.sciences.push(science);
+
+        // 'wake up' any special powers controlled by, well, stuff — the
+        // team/member/behavior walk finds no special-power modules yet
+        // (the module framework slice's, WP2; TheControlBar's
+        // markUIDirty inside the loop is the client's)
+
+        // notify the script engine
+        host.on_acquired_science(self.index, science);
+
+        true
+    }
+
+    // ---- the rank/points getters (Player.h) ---------------------------------
+
+    /// `getSkillPoints()`.
+    #[must_use]
+    pub fn get_skill_points(&self) -> i32 {
+        self.skill_points
+    }
+
+    /// `getSciencePurchasePoints()`.
+    #[must_use]
+    pub fn get_science_purchase_points(&self) -> i32 {
+        self.science_purchase_points
+    }
+
+    /// `getRankLevel()`.
+    #[must_use]
+    pub fn get_rank_level(&self) -> i32 {
+        self.rank_level
+    }
+
+    /// `getSkillPointsLevelUp()`.
+    #[must_use]
+    pub fn get_skill_points_level_up(&self) -> i32 {
+        self.level_up
+    }
+
+    /// `getSkillPointsLevelDown()`.
+    #[must_use]
+    pub fn get_skill_points_level_down(&self) -> i32 {
+        self.level_down
+    }
+
+    /// `Player::setSkillPointsModifier`.
+    pub fn set_skill_points_modifier(&mut self, exp_mod: f32) {
+        self.skill_points_modifier = exp_mod;
+    }
+
+    /// `Player::getSkillPointsModifier`.
+    #[must_use]
+    pub fn get_skill_points_modifier(&self) -> f32 {
+        self.skill_points_modifier
+    }
+
+    // ---- the radar half (Player.cpp) -----------------------------------------
+
+    /// `Player::hasRadar` — "A positive number of radar producers, plus
+    /// my radar is not disabled."
+    #[must_use]
+    pub fn has_radar(&self) -> bool {
+        if self.radar_disabled && self.disable_proof_radar_count == 0 {
+            return false; // Nope, no matter how many you have, if I say no, you don't have it
+        }
+
+        // Otherwise, check if I actually do have it.
+        self.radar_count > 0
+    }
+
+    /// `Player::addRadar` — "The parameter object has just acquired a
+    /// radar" (the edge sound is gated by `okToPlayRadarEdgeSound`,
+    /// which consults TheVictoryConditions/TheInGameUI — absent from
+    /// the kernel half; the sound is the client's, stated).
+    pub fn add_radar(&mut self, disable_proof: bool) {
+        // increment count
+        self.radar_count += 1;
+
+        if disable_proof {
+            self.disable_proof_radar_count += 1; // Disable proof is also in the normal refcount
+        }
+    }
+
+    /// `Player::removeRadar` — "The parameter object has is taking its
+    /// radar away from the player" (the DEBUG_ASSERTCRASH on the
+    /// underflow is debug-only; the edge sound ditto
+    /// [`Self::add_radar`]'s note).
+    pub fn remove_radar(&mut self, disable_proof: bool) {
+        // decrement count
+        self.radar_count -= 1;
+
+        if disable_proof {
+            self.disable_proof_radar_count -= 1; // Disable proof is also in the normal refcount
+        }
+    }
+
+    /// `Player::disableRadar` — "No matter how many radar producers I
+    /// have, I do not have radar."
+    pub fn disable_radar(&mut self) {
+        self.radar_disabled = true;
+    }
+
+    /// `Player::enableRadar` — "remove the restriction imposed by
+    /// disableRadar."
+    pub fn enable_radar(&mut self) {
+        self.radar_disabled = false;
     }
 
     /// `Player::setPlayerType` (the AI instance lifecycle — create/delete
@@ -546,13 +807,21 @@ impl PlayerList {
 /// The players/teams block: the `PlayerList` and the `TeamFactory` in
 /// one explicit context (plan §3.3 rule 5 — no `ThePlayerList` /
 /// `TheTeamFactory` globals), plus the name-key interning the lookups
-/// key on.
+/// key on and the money/energy/ranks/sciences block's data stores
+/// (`TheScienceStore` / `TheRankInfoStore` — the data catalogs the rank
+/// ladder and the purchase family consult; the load-time override
+/// machinery is the rzh-data loader's, and a `new_game` reset does NOT
+/// clear them, exactly as the original's process-lifetime subsystems).
 #[derive(Debug)]
 pub struct Players {
     /// `ThePlayerList`.
     pub list: PlayerList,
     /// `TheTeamFactory`.
     pub factory: TeamFactory,
+    /// `TheScienceStore`.
+    pub science_store: ScienceStore,
+    /// `TheRankInfoStore`.
+    pub rank_store: crate::sciences::RankStore,
     /// `TheNameKeyGenerator` (the sim's interning context; the real
     /// global's catalog is shared with data loading — the relative order
     /// of this block's own names is the observable).
@@ -591,6 +860,8 @@ impl Players {
                 unique_team_id: TEAM_ID_INVALID,
                 teams: Vec::new(),
             },
+            science_store: ScienceStore::default(),
+            rank_store: crate::sciences::RankStore::default(),
             name_keys: NameKeyGenerator::new(),
             network_present: false,
         }
@@ -780,16 +1051,121 @@ impl Players {
 
     // ---- the lifecycle --------------------------------------------------------
 
+    /// The money/energy/ranks/sciences block's data load: the science
+    /// and rank catalogs (the distilled `Science.ini` / `RankInfo.ini`
+    /// the rzh-data loader would hand over; the load-time override
+    /// machinery and the duplicate/unknown-name throws are its
+    /// contract). The stores are NOT cleared by `reset`/`new_game` —
+    /// process-lifetime data, exactly as the original's subsystems.
+    pub fn load_stores(&mut self, sciences: &[crate::sciences::ScienceSpec], ranks: &[RankSpec]) {
+        let mut keys = std::mem::take(&mut self.name_keys);
+        self.science_store.load(&mut keys, sciences);
+        self.rank_store.load(&mut keys, ranks);
+        self.name_keys = keys;
+    }
+
+    /// `Player::init` — the full body (the common head: the identity
+    /// resets, the radar zeroing, the energy re-init, the skill-point
+    /// modifier; then the template branch — the money copy with the
+    /// zero-wallet starting-cash deposit, the observer bits — or the
+    /// neutral branch; then `resetRank` and the science-availability
+    /// clears). The distilled template is the [`SideSpec`] (`None` =
+    /// the neutral player); `starting_cash` is the resolved
+    /// `TheGameInfo`/`TheGlobalData` figure the zero-wallet deposit
+    /// reads (unused on the neutral branch).
+    ///
+    /// NOTE the pinned quirk (the players slice's): the relation maps
+    /// are NOT cleared — they are born in the constructor and die in
+    /// the destructor only, so entries survive `reset()`/`init()`
+    /// within a process lifetime.
+    fn init_player(
+        &mut self,
+        idx: usize,
+        template: Option<&SideSpec>,
+        starting_cash: u32,
+        host: &mut dyn KernelHost,
+    ) {
+        {
+            let p = &mut self.list.players[idx];
+            p.is_player_dead = false;
+            p.observer = false;
+            p.default_team = TEAM_ID_INVALID;
+            // (the squads, selection, tunnels, build lists, upgrades,
+            // battle plans, stats — the economy and client slices')
+            p.skill_points_modifier = 1.0;
+            p.radar_count = 0;
+            p.disable_proof_radar_count = 0;
+            p.radar_disabled = false;
+            p.energy.init(idx);
+        }
+
+        match template {
+            Some(side) => {
+                // the pt branch (distilled): the money copy — the
+                // template's wallet wholesale (a fresh-parsed template
+                // money is setStartingCash semantics: the amount, the
+                // buckets zeroed) — the index fix, then the zero-wallet
+                // starting-cash deposit (TheSuperHackers @bugfix "Now
+                // correctly deposits the money and fixes its audio and
+                // academy issues" — silent and untracked, but the
+                // academy hook still fires).
+                let intrinsic_sciences: Vec<ScienceType> = side
+                    .intrinsic_sciences
+                    .iter()
+                    .map(|n| self.name_keys.name_to_key(n))
+                    .collect();
+                {
+                    let p = &mut self.list.players[idx];
+                    p.money.set_starting_cash(side.template_cash);
+                    p.money.set_player_index(idx as i32);
+                    if p.money.count_money() == 0 {
+                        p.money.deposit(starting_cash, false, false, host);
+                    }
+                    p.intrinsic_sciences = intrinsic_sciences;
+                    p.intrinsic_science_purchase_points = side.intrinsic_science_purchase_points;
+                    p.name.clear();
+                    p.name_key = NameKey::INVALID;
+                    p.player_type = PlayerType::Computer;
+                    p.observer = side.observer;
+                    p.is_player_dead = side.observer; // observers are dead
+                }
+            }
+            None => {
+                // no player template? must be the neutral player!
+                let name_key = self.name_keys.name_to_key("");
+                let p = &mut self.list.players[idx];
+                p.name.clear();
+                p.name_key = name_key;
+                p.player_type = PlayerType::Computer;
+                // (the neutral branch's m_money.init() — setStartingCash(0);
+                // NOTE the player index is NOT re-set here: a slot that
+                // lived as a template player keeps its Money index across
+                // the reset — the stale-index quirk the corpora pin)
+                p.money.init();
+                p.intrinsic_sciences.clear();
+                p.intrinsic_science_purchase_points = 0;
+
+                // neutral is always "allied" with self -- this is the only thing ever allied with neutral!
+                p.player_relations
+                    .insert(p.index as i32, Relationship::Allies);
+            }
+        }
+
+        // reset rank info (m_generalName's fetch — the client's)
+        self.reset_rank(idx, host);
+        self.list.players[idx].sciences_disabled.clear();
+        self.list.players[idx].sciences_hidden.clear();
+        // (m_specialPowerReadyTimerList.clear() — the special-power slice's)
+    }
+
     /// `PlayerList::init`: count 1, every slot's neutral birth, the slot
     /// arrays, the local player 0 (so `becomingLocalPlayer()` gets
     /// called appropriately — the transitions ride the host).
     pub fn init(&mut self, host: &mut dyn KernelHost) {
         self.list.count = 1;
-        let mut keys = std::mem::take(&mut self.name_keys);
-        for p in &mut self.list.players {
-            p.init_neutral(&mut keys);
+        for i in 0..MAX_PLAYER_COUNT {
+            self.init_player(i, None, 0, host);
         }
-        self.name_keys = keys;
 
         self.list.slot_indices = [-1; MAX_PLAYER_COUNT];
         self.list.slot_to_player = [-1; MAX_SLOTS];
@@ -827,15 +1203,41 @@ impl Players {
 
     /// `PlayerList::update` — ALL 16 slots (not the count!): the pinned
     /// quirk. `TheAI->UPDATE()` calls this from the AI subsystem's
-    /// position (AI.cpp:363).
-    pub fn update(&mut self, host: &mut dyn KernelHost) {
+    /// position (AI.cpp:363). Each player's update runs the real
+    /// sabotage-expiry check and the money bucket rollover around the
+    /// stated bodies (the AI update, the team generic-script walk, the
+    /// academy stats, the retaliation-mode posting and the tunnel heal
+    /// — the position hook's).
+    pub fn update(&mut self, objects: &mut Objects, frame: u32, host: &mut dyn KernelHost) {
         for i in 0..MAX_PLAYER_COUNT {
-            // (m_ai->update(); the team generic-script walk; the
-            // power-sabotage check; the academy stats; the
-            // retaliation-mode posting; the tunnel heal;
-            // m_money.updateIncomeBucket() — the AI, script-engine,
-            // economy and client slices' bodies)
+            // (m_ai->update(); the team generic-script walk — the AI and
+            // script-engine slices' bodies)
+
+            // the power-sabotage expiry check (Player::update's):
+            // "Tells us we're no longer sabotaged" — the strict >, then
+            // the brownout re-derivation.
+            let expired_brownout = {
+                let e = &mut self.list.players[i].energy;
+                if e.get_power_sabotaged_till_frame() != 0
+                    && frame > e.get_power_sabotaged_till_frame()
+                {
+                    e.set_power_sabotaged_till_frame(0);
+                    Some(!e.has_sufficient_power(frame))
+                } else {
+                    None
+                }
+            };
+            if let Some(brown_out) = expired_brownout {
+                self.on_power_brownout_change(objects, i, brown_out, frame);
+            }
+
+            // (the academy stats' update, the local player's
+            // retaliation-mode posting, the tunnel heal — the AI,
+            // script-engine and client slices' bodies)
             host.on_player_update(i);
+
+            // m_money.updateIncomeBucket()
+            self.list.players[i].money.update_income_bucket(frame);
         }
     }
 
@@ -961,6 +1363,14 @@ impl Players {
     ) {
         self.reset(objects, host);
 
+        // the zero-wallet deposit's starting cash: TheGameInfo's figure
+        // when a game is in progress, TheGlobalData's default otherwise
+        let starting_cash = if sides.has_game_info {
+            sides.game_info.starting_cash
+        } else {
+            sides.default_starting_cash
+        };
+
         // ok, now create the rest of players we need.
         let mut set_local = false;
         for side in &sides.sides {
@@ -971,21 +1381,18 @@ impl Players {
             let count = self.list.count;
             self.list.count += 1;
             let idx = count;
+
+            // initFromDict, distilled: init(pt) with the template (the
+            // money/energy/rank init included — the money block's zero
+            // -wallet deposit rides the template branch), then the
+            // name, then the type (the skirmish script duplication is
+            // the script-engine slice's, stated).
+            self.init_player(idx, Some(side), starting_cash, host);
+            let name_key = self.name_keys.name_to_key(&side.player_name);
             {
                 let p = &mut self.list.players[idx];
-                // initFromDict, distilled: init(pt) with a template, the
-                // name, the type (the skirmish script duplication is the
-                // script-engine slice's, stated)
-                p.is_player_dead = false;
-                p.observer = false;
-                p.default_team = TEAM_ID_INVALID;
-                p.name.clear();
-                p.name_key = NameKey::INVALID;
-                p.player_type = PlayerType::Computer;
                 p.name = side.player_name.clone();
-                p.name_key = self.name_keys.name_to_key(&side.player_name);
-                p.observer = side.observer;
-                p.is_player_dead = side.observer; // observers are dead
+                p.name_key = name_key;
                 p.set_player_type(if side.is_human {
                     PlayerType::Human
                 } else {
@@ -1636,6 +2043,598 @@ impl Players {
             .clone();
         for obj in members.iter().rev() {
             host.on_capture(*obj, old_owner, new_controller);
+        }
+    }
+
+    // ---- the ranks/sciences block (Player.cpp's progression half) -------------
+
+    /// `Player::hasPrereqsForScience` — the store delegate over the
+    /// player's science list.
+    #[must_use]
+    pub fn has_prereqs_for_science(&self, player: usize, t: ScienceType) -> bool {
+        self.science_store
+            .player_has_prereqs_for_science(&self.list.players[player].sciences, t)
+    }
+
+    /// `ScienceStore::playerHasRootPrereqsForScience` through the
+    /// player ("this is a subtle call, and should ALMOST NEVER be
+    /// called by external code").
+    #[must_use]
+    pub fn has_root_prereqs_for_science(&self, player: usize, t: ScienceType) -> bool {
+        self.science_store
+            .player_has_root_prereqs_for_science(&self.list.players[player].sciences, t)
+    }
+
+    /// `ScienceStore::getPurchasableSciences` through the player.
+    #[must_use]
+    pub fn get_purchasable_sciences(&self, player: usize) -> (Vec<ScienceType>, Vec<ScienceType>) {
+        self.science_store
+            .get_purchasable_sciences(&self.list.players[player].sciences)
+    }
+
+    /// `ScienceStore::getScienceFromInternalName` — the interning (no
+    /// validation: an unknown name is a key that queries miss).
+    pub fn science_from_name(&mut self, name: &str) -> ScienceType {
+        self.name_keys.name_to_key(name)
+    }
+
+    /// `ScienceStore::getInternalNameForScience` — the reverse
+    /// interning (`SCIENCE_INVALID` and unknown keys read as none).
+    #[must_use]
+    pub fn internal_name_for_science(&self, science: ScienceType) -> Option<&[u8]> {
+        self.name_keys.key_to_name(science)
+    }
+
+    /// `Player::addSkillPoints` — "returns TRUE if the player
+    /// gained/lost levels as a result": the modifier's ceil
+    /// (`REAL_TO_INT_CEIL(m_skillPointsModifier * INT_TO_REAL(delta))`
+    /// of the Zero Hour non-retail build), the point cap (the LOWEST
+    /// point of the cap level, not the highest), then the level-up
+    /// loop over `setRankLevel` (whose `INT_MAX` levelUp sentinel
+    /// terminates it).
+    ///
+    /// The point-cap read (`getRankInfo(levelCap)->m_skillPointsNeeded`)
+    /// null-derefs in the original when the ladder is empty or the
+    /// limit is below 1 — out of contract there (the corpora load a
+    /// ladder first); the port panics with the same meaning.
+    pub fn add_skill_points(
+        &mut self,
+        player: usize,
+        delta: i32,
+        rank_level_limit: i32,
+        host: &mut dyn KernelHost,
+    ) -> bool {
+        let delta = crate::fastmath::real_to_int_ceil(
+            self.list.players[player].skill_points_modifier * (delta as f32),
+        );
+
+        if delta == 0 {
+            return false;
+        }
+
+        let level_cap = rank_level_limit.min(self.rank_store.rank_level_count());
+        // Cap at lowest point of cap level, not highest.
+        let point_cap = self
+            .rank_store
+            .rank_info(level_cap)
+            .expect("addSkillPoints: the ladder covers the level cap (the original null-derefs)")
+            .skill_points_needed;
+
+        let mut level_gained = false;
+        {
+            let p = &mut self.list.players[player];
+            p.skill_points = point_cap.min(p.skill_points + delta);
+        }
+        loop {
+            let (skill_points, level_up, rank_level) = {
+                let p = &self.list.players[player];
+                (p.skill_points, p.level_up, p.rank_level)
+            };
+            if skill_points < level_up {
+                break;
+            }
+            // LevelUp gets increased as a side effect of setRankLevel, and
+            // this won't infinitely loop, because when there are no more
+            // levels to be gained, m_levelUp is set to INT_MAX.
+            self.set_rank_level(player, rank_level + 1, rank_level_limit, host);
+            level_gained = true;
+        }
+
+        level_gained
+    }
+
+    /// `Player::resetSciences` — "reset the sciences to just the
+    /// intrinsic ones from the playertemplate, if any": the wipe, the
+    /// intrinsic assignment, the per-rank grants through `addScience`
+    /// (each firing the script-engine notify), then the tail loop
+    /// notifying EVERY science again — the rank-granted ones twice
+    /// (the double-notify quirk the corpora pin).
+    pub fn reset_sciences(&mut self, player: usize, host: &mut dyn KernelHost) {
+        let intrinsic = self.list.players[player].intrinsic_sciences.clone();
+        let rank_level = self.list.players[player].rank_level;
+        {
+            let p = &mut self.list.players[player];
+            p.sciences.clear();
+            p.sciences.extend(intrinsic.iter().copied());
+        }
+
+        for i in 1..=rank_level {
+            let granted: Vec<ScienceType> = self
+                .rank_store
+                .rank_info(i)
+                .map_or_else(Vec::new, |r| r.sciences_granted.clone());
+            for s in granted {
+                self.list.players[player].add_science(s, host);
+            }
+        }
+
+        let sciences: Vec<ScienceType> = self.list.players[player].sciences.clone();
+        for s in sciences {
+            host.on_acquired_science(player, s);
+        }
+    }
+
+    /// `Player::resetRank` — "reset rank to 1": the level, the points,
+    /// the next-level threshold (`INT_MAX` past the ladder's end), the
+    /// science-purchase points (the template's intrinsic grant plus
+    /// rank 1's), the science wipe and the [`Self::reset_sciences`]
+    /// walk.
+    pub fn reset_rank(&mut self, player: usize, host: &mut dyn KernelHost) {
+        let intrinsic_spp = self.list.players[player].intrinsic_science_purchase_points;
+        let rank1_grant = self
+            .rank_store
+            .rank_info(1)
+            .map_or(0, |r| r.science_purchase_points_granted);
+        let next_needed = self
+            .rank_store
+            .rank_info(2)
+            .map_or(i32::MAX, |r| r.skill_points_needed);
+        {
+            let p = &mut self.list.players[player];
+            p.rank_level = 1;
+            p.skill_points = 0;
+            p.level_up = next_needed;
+            p.level_down = 0;
+            p.sciences.clear();
+            p.science_purchase_points = intrinsic_spp + rank1_grant;
+            // (m_generalName = TheGameText->fetch("SCIENCE:GeneralName") —
+            // the client's)
+        }
+        self.reset_sciences(player, host);
+    }
+
+    /// `Player::setRankLevel` — "returns TRUE if rank level really
+    /// changed": the clamps (the ladder's ends, then the limit), the
+    /// no-change refusal, the downgrade wipe ("when downgrading in
+    /// rank, you lose everything. oh well..." — `resetRank`, which
+    /// drops the level back to 1 so the re-grant walk below re-runs
+    /// the whole range), the per-level grants (the purchase points
+    /// with the negative clamp, the skill-point floor raises, the
+    /// sciences), and the threshold updates.
+    pub fn set_rank_level(
+        &mut self,
+        player: usize,
+        mut new_level: i32,
+        rank_level_limit: i32,
+        host: &mut dyn KernelHost,
+    ) -> bool {
+        if new_level < 1 {
+            new_level = 1;
+        } else if new_level > self.rank_store.rank_level_count() {
+            new_level = self.rank_store.rank_level_count();
+        }
+
+        if new_level > rank_level_limit {
+            new_level = rank_level_limit;
+        }
+
+        if new_level == self.list.players[player].rank_level {
+            return false;
+        }
+
+        // (oldSPP — the deferred UI notification's; the client's)
+        if new_level < self.list.players[player].rank_level {
+            // when downgrading in rank, you lose everything. oh well...
+            self.reset_rank(player, host);
+        }
+
+        // (m_rankLevel is 1 again after the downgrade's resetRank — the
+        // walk re-grants from there, "you lose everything" then rebuild)
+        let cur = self.list.players[player].rank_level;
+        for i in (cur + 1)..=new_level {
+            let info = self.rank_store.rank_info(i).map(|r| {
+                (
+                    r.science_purchase_points_granted,
+                    r.skill_points_needed,
+                    r.sciences_granted.clone(),
+                )
+            });
+            // (DEBUG_ASSERTCRASH(rank, ("rank should never be null
+            // here")) — the clamps guarantee it)
+            if let Some((granted_spp, needed, granted_sciences)) = info {
+                let p = &mut self.list.players[player];
+                // do this directly, so we can defer the UI notification
+                // till the end
+                p.science_purchase_points += granted_spp;
+                if p.science_purchase_points < 0 {
+                    p.science_purchase_points = 0;
+                }
+
+                if p.skill_points < needed {
+                    p.skill_points = needed;
+                }
+
+                for s in granted_sciences {
+                    p.add_science(s, host);
+                }
+
+                p.level_down = needed;
+            }
+        }
+
+        let next_needed = self
+            .rank_store
+            .rank_info(new_level + 1)
+            .map_or(i32::MAX, |r| r.skill_points_needed);
+        {
+            let p = &mut self.list.players[player];
+            p.level_up = next_needed;
+            p.rank_level = new_level;
+        }
+        // (DEBUG_ASSERTCRASH(m_skillPoints >= m_levelDown &&
+        // m_skillPoints < m_levelUp) — debug-only; the EVA level-up
+        // sound, TheControlBar's rank/SPP notifications — the client's)
+
+        true
+    }
+
+    /// `Player::addSciencePurchasePoints` — the add with the negative
+    /// clamp at zero (the deferred ControlBar notification — the
+    /// client's).
+    pub fn add_science_purchase_points(&mut self, player: usize, delta: i32) {
+        let p = &mut self.list.players[player];
+        p.science_purchase_points += delta;
+        if p.science_purchase_points < 0 {
+            p.science_purchase_points = 0;
+        }
+    }
+
+    /// `Player::attemptToPurchaseScience` — "attempt to purchase the
+    /// science, but use prereqs, and charge points": the capability
+    /// gate, the charge, the grant and the academy's points-spent
+    /// hook.
+    pub fn attempt_to_purchase_science(
+        &mut self,
+        player: usize,
+        science: ScienceType,
+        host: &mut dyn KernelHost,
+    ) -> bool {
+        if !self.is_capable_of_purchasing_science(player, science) {
+            // (DEBUG_CRASH(("isCapableOfPurchasingScience: need other
+            // prereqs/points to purchase, request is ignored!")) — stated)
+            return false;
+        }
+
+        let cost = self.science_store.get_science_purchase_cost(science);
+        self.add_science_purchase_points(player, -cost);
+        self.list.players[player].add_science(science, host);
+
+        // getAcademyStats()->recordGeneralsPointsSpent(cost)
+        host.on_academy_points_spent(player, cost);
+
+        // (TheControlBar->markUIDirty() for the local player — the
+        // client's)
+
+        true
+    }
+
+    /// `Player::grantScience` — "grant the science, ignore prereqs &
+    /// charge no points, but still restrict you to purchasable
+    /// sciences".
+    pub fn grant_science(
+        &mut self,
+        player: usize,
+        science: ScienceType,
+        host: &mut dyn KernelHost,
+    ) -> bool {
+        if !self.science_store.is_science_grantable(science) {
+            // (DEBUG_CRASH(("Cannot grant science %s, since it is marked
+            // as nonGrantable.")) — "it's not grantable, so tough, can't
+            // have it, even via this method."; stated)
+            return false;
+        }
+
+        self.list.players[player].add_science(science, host)
+    }
+
+    /// `Player::isCapableOfPurchasingScience` — "return true
+    /// attemptToPurchaseScience() would succeed for this science": the
+    /// invalid refusal, the ownership refusal, the script availability
+    /// gates, the prereq chain and the cost ("purchase cost of zero
+    /// means 'not purchasable!'").
+    #[must_use]
+    pub fn is_capable_of_purchasing_science(&self, player: usize, science: ScienceType) -> bool {
+        if science == SCIENCE_INVALID {
+            return false;
+        }
+
+        let p = &self.list.players[player];
+
+        if p.has_science(science) {
+            return false;
+        }
+
+        if p.is_science_disabled(science) || p.is_science_hidden(science) {
+            return false;
+        }
+
+        if !self
+            .science_store
+            .player_has_prereqs_for_science(&p.sciences, science)
+        {
+            return false;
+        }
+
+        let cost = self.science_store.get_science_purchase_cost(science);
+        if cost == 0 || cost > p.science_purchase_points {
+            return false;
+        }
+
+        true
+    }
+
+    // ---- the energy block (Energy.cpp's mutation choreography) -----------------
+
+    /// `Energy::getProduction` — the sabotage-gated read.
+    #[must_use]
+    pub fn energy_get_production(&self, player: usize, frame: u32) -> i32 {
+        self.list.players[player].energy.get_production(frame)
+    }
+
+    /// `Energy::getConsumption`.
+    #[must_use]
+    pub fn energy_get_consumption(&self, player: usize) -> i32 {
+        self.list.players[player].energy.get_consumption()
+    }
+
+    /// `Energy::hasSufficientPower`.
+    #[must_use]
+    pub fn energy_has_sufficient_power(&self, player: usize, frame: u32) -> bool {
+        self.list.players[player].energy.has_sufficient_power(frame)
+    }
+
+    /// `Energy::getEnergySupplyRatio`.
+    #[must_use]
+    pub fn energy_supply_ratio(&self, player: usize, frame: u32) -> f32 {
+        self.list.players[player]
+            .energy
+            .get_energy_supply_ratio(frame)
+    }
+
+    /// `Energy::setPowerSabotagedTillFrame`.
+    pub fn energy_set_power_sabotaged_till_frame(&mut self, player: usize, frame: u32) {
+        self.list.players[player]
+            .energy
+            .set_power_sabotaged_till_frame(frame);
+    }
+
+    /// `Energy::getPowerSabotagedTillFrame`.
+    #[must_use]
+    pub fn energy_power_sabotaged_till_frame(&self, player: usize) -> u32 {
+        self.list.players[player]
+            .energy
+            .get_power_sabotaged_till_frame()
+    }
+
+    /// `Energy::adjustPower` — "If adding is false, we're supposed to
+    /// be removing this." ("Seems a little odd, however, consumption
+    /// is reversed. Negative power is positive consumption.")
+    pub fn energy_adjust_power(
+        &mut self,
+        objects: &mut Objects,
+        player: usize,
+        power_delta: i32,
+        adding: bool,
+        frame: u32,
+    ) {
+        if power_delta == 0 {
+            return;
+        }
+
+        if power_delta > 0 {
+            if adding {
+                self.energy_add_production(objects, player, power_delta, frame);
+            } else {
+                self.energy_add_production(objects, player, -power_delta, frame);
+            }
+        } else {
+            // Seems a little odd, however, consumption is reversed.
+            // Negative power is positive consumption.
+            if adding {
+                self.energy_add_consumption(objects, player, -power_delta, frame);
+            } else {
+                self.energy_add_consumption(objects, player, power_delta, frame);
+            }
+        }
+    }
+
+    /// `Energy::objectEnteringInfluence` — "new 'obj' will now
+    /// add/subtract from this energy construct" (the template's
+    /// energy production: negative = consumption).
+    pub fn energy_object_entering_influence(
+        &mut self,
+        objects: &mut Objects,
+        player: usize,
+        obj: ObjectID,
+        frame: u32,
+    ) {
+        // sanity (obj == nullptr — the id is live by contract)
+        let energy = objects.get(obj).energy_production;
+
+        // adjust energy
+        if energy < 0 {
+            self.energy_add_consumption(objects, player, -energy, frame);
+        } else if energy > 0 {
+            self.energy_add_production(objects, player, energy, frame);
+        }
+        // (the DEBUG_ASSERTCRASH sanity — the corpora keep the contract)
+    }
+
+    /// `Energy::objectLeavingInfluence` — "'obj' will now no longer
+    /// add/subtrack from this energy construct" (the signs flip: a
+    /// consumer's NEGATIVE production adds negative consumption, a
+    /// producer loses its output).
+    pub fn energy_object_leaving_influence(
+        &mut self,
+        objects: &mut Objects,
+        player: usize,
+        obj: ObjectID,
+        frame: u32,
+    ) {
+        // sanity
+        let energy = objects.get(obj).energy_production;
+
+        // adjust energy
+        if energy < 0 {
+            self.energy_add_consumption(objects, player, energy, frame);
+        } else if energy > 0 {
+            self.energy_add_production(objects, player, -energy, frame);
+        }
+    }
+
+    /// `Energy::addPowerBonus` — "Adds an energy bonus to the player's
+    /// pool of energy when the 'Control Rods' upgrade is made to the
+    /// American Cold Fusion Plant" (the disabled-power-plant
+    /// DEBUG_ASSERTCRASH — stated).
+    pub fn energy_add_power_bonus(
+        &mut self,
+        objects: &mut Objects,
+        player: usize,
+        obj: ObjectID,
+        frame: u32,
+    ) {
+        // sanity (obj == nullptr — the id is live by contract)
+        let bonus = objects.get(obj).energy_bonus;
+        self.energy_add_production(objects, player, bonus, frame);
+    }
+
+    /// `Energy::removePowerBonus` — "Removed an energy bonus" (the
+    /// disabled-power-plant refusal: TheSuperHackers @bugfix Caball009
+    /// 14/11/2025 "Don't remove power bonus for disabled power
+    /// plants", the non-retail branch).
+    pub fn energy_remove_power_bonus(
+        &mut self,
+        objects: &mut Objects,
+        player: usize,
+        obj: ObjectID,
+        frame: u32,
+    ) {
+        // sanity
+        if objects.get(obj).disabled_mask.any() {
+            return;
+        }
+
+        let bonus = objects.get(obj).energy_bonus;
+        self.energy_add_production(objects, player, -bonus, frame);
+    }
+
+    /// `Energy::addProduction` — the write, then the owner's brownout
+    /// re-derivation ("A repeated Brownout signal does nothing bad,
+    /// and we need to handle more than just edge cases. Like low
+    /// power, now even more low power, refresh disable.").
+    fn energy_add_production(
+        &mut self,
+        objects: &mut Objects,
+        player: usize,
+        amt: i32,
+        frame: u32,
+    ) {
+        self.list.players[player].energy.energy_production += amt;
+
+        // (m_owner == nullptr — the pre-init state; unreachable once the
+        // owning Player::init ran, carried faithfully)
+        if self.list.players[player].energy.owner.is_none() {
+            return;
+        }
+
+        let brown_out = !self.list.players[player].energy.has_sufficient_power(frame);
+        self.on_power_brownout_change(objects, player, brown_out, frame);
+    }
+
+    /// `Energy::addConsumption`.
+    fn energy_add_consumption(
+        &mut self,
+        objects: &mut Objects,
+        player: usize,
+        amt: i32,
+        frame: u32,
+    ) {
+        self.list.players[player].energy.energy_consumption += amt;
+
+        if self.list.players[player].energy.owner.is_none() {
+            return;
+        }
+
+        let brown_out = !self.list.players[player].energy.has_sufficient_power(frame);
+        self.on_power_brownout_change(objects, player, brown_out, frame);
+    }
+
+    /// `Player::onPowerBrownOutChange` — "Everything that changes due
+    /// to Player's power supply goes in here": the radar restriction
+    /// and the `doPowerDisable` sweep over the player's objects (the
+    /// team-prototype → instance → member walk, newest first) setting
+    /// or clearing `DISABLED_UNDERPOWERED` on every `KINDOF_POWERED`
+    /// member.
+    fn on_power_brownout_change(
+        &mut self,
+        objects: &mut Objects,
+        player: usize,
+        brown_out: bool,
+        frame: u32,
+    ) {
+        if brown_out {
+            self.list.players[player].disable_radar();
+        } else {
+            // This doesn't give radar necessarily, it just removes the
+            // restriction
+            self.list.players[player].enable_radar();
+        }
+
+        // iterateObjects(doPowerDisable, &brownOut)
+        for &proto_slot in &self.list.players[player].team_prototypes {
+            let Some(proto) = self.factory.protos.get(proto_slot).and_then(|p| p.as_ref()) else {
+                continue;
+            };
+            for ts in proto.instances.iter().rev() {
+                let Some(team) = self.factory.teams.get(*ts).and_then(|t| t.as_ref()) else {
+                    continue;
+                };
+                for &m in team.members.iter().rev() {
+                    // doPowerDisable: the KINDOF_POWERED gate, then the
+                    // UNDERPOWERED set/clear (setDisabled/clearDisabled
+                    // = setDisabledUntil FOREVER/NEVER — the kernel
+                    // half's `frame > now` mask write)
+                    if (objects.get(m).kindof >> KINDOF_POWERED_BIT) & 1 != 0 {
+                        if brown_out {
+                            set_disabled_until_core(
+                                objects,
+                                frame,
+                                m,
+                                DisabledType::Underpowered,
+                                FOREVER,
+                            );
+                        } else {
+                            set_disabled_until_core(
+                                objects,
+                                frame,
+                                m,
+                                DisabledType::Underpowered,
+                                NEVER,
+                            );
+                        }
+                    }
+                }
+            }
         }
     }
 }

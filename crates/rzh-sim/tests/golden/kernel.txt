@@ -2393,37 +2393,37 @@ i 3d count 2
 end
 corpus players_lifecycle
 players count=1 local=0
-pl 0 name= key=1 type=1 dead=0 obs=0 act=1 dflt=0 slot=-1 npr=0
+pl 0 name= key=1 type=1 dead=0 obs=0 act=1 dflt=0 slot=-1 npr=0 cash=0 cpm=0 bkt=0 rank=1 skp=0 spp=0 lup=2147483647 ldn=0 nsci=0:0:0 rad=0,0,0 nrg=0,0,0
 pr 0->0 Allies
-pl 1 name= key=1 type=1 dead=0 obs=0 act=1 dflt=0 slot=-1 npr=0
+pl 1 name= key=1 type=1 dead=0 obs=0 act=1 dflt=0 slot=-1 npr=0 cash=0 cpm=0 bkt=0 rank=1 skp=0 spp=0 lup=2147483647 ldn=0 nsci=0:0:0 rad=0,0,0 nrg=0,0,0
 pr 1->1 Allies
-pl 2 name= key=1 type=1 dead=0 obs=0 act=1 dflt=0 slot=-1 npr=0
+pl 2 name= key=1 type=1 dead=0 obs=0 act=1 dflt=0 slot=-1 npr=0 cash=0 cpm=0 bkt=0 rank=1 skp=0 spp=0 lup=2147483647 ldn=0 nsci=0:0:0 rad=0,0,0 nrg=0,0,0
 pr 2->2 Allies
-pl 3 name= key=1 type=1 dead=0 obs=0 act=1 dflt=0 slot=-1 npr=0
+pl 3 name= key=1 type=1 dead=0 obs=0 act=1 dflt=0 slot=-1 npr=0 cash=0 cpm=0 bkt=0 rank=1 skp=0 spp=0 lup=2147483647 ldn=0 nsci=0:0:0 rad=0,0,0 nrg=0,0,0
 pr 3->3 Allies
-pl 4 name= key=1 type=1 dead=0 obs=0 act=1 dflt=0 slot=-1 npr=0
+pl 4 name= key=1 type=1 dead=0 obs=0 act=1 dflt=0 slot=-1 npr=0 cash=0 cpm=0 bkt=0 rank=1 skp=0 spp=0 lup=2147483647 ldn=0 nsci=0:0:0 rad=0,0,0 nrg=0,0,0
 pr 4->4 Allies
-pl 5 name= key=1 type=1 dead=0 obs=0 act=1 dflt=0 slot=-1 npr=0
+pl 5 name= key=1 type=1 dead=0 obs=0 act=1 dflt=0 slot=-1 npr=0 cash=0 cpm=0 bkt=0 rank=1 skp=0 spp=0 lup=2147483647 ldn=0 nsci=0:0:0 rad=0,0,0 nrg=0,0,0
 pr 5->5 Allies
-pl 6 name= key=1 type=1 dead=0 obs=0 act=1 dflt=0 slot=-1 npr=0
+pl 6 name= key=1 type=1 dead=0 obs=0 act=1 dflt=0 slot=-1 npr=0 cash=0 cpm=0 bkt=0 rank=1 skp=0 spp=0 lup=2147483647 ldn=0 nsci=0:0:0 rad=0,0,0 nrg=0,0,0
 pr 6->6 Allies
-pl 7 name= key=1 type=1 dead=0 obs=0 act=1 dflt=0 slot=-1 npr=0
+pl 7 name= key=1 type=1 dead=0 obs=0 act=1 dflt=0 slot=-1 npr=0 cash=0 cpm=0 bkt=0 rank=1 skp=0 spp=0 lup=2147483647 ldn=0 nsci=0:0:0 rad=0,0,0 nrg=0,0,0
 pr 7->7 Allies
-pl 8 name= key=1 type=1 dead=0 obs=0 act=1 dflt=0 slot=-1 npr=0
+pl 8 name= key=1 type=1 dead=0 obs=0 act=1 dflt=0 slot=-1 npr=0 cash=0 cpm=0 bkt=0 rank=1 skp=0 spp=0 lup=2147483647 ldn=0 nsci=0:0:0 rad=0,0,0 nrg=0,0,0
 pr 8->8 Allies
-pl 9 name= key=1 type=1 dead=0 obs=0 act=1 dflt=0 slot=-1 npr=0
+pl 9 name= key=1 type=1 dead=0 obs=0 act=1 dflt=0 slot=-1 npr=0 cash=0 cpm=0 bkt=0 rank=1 skp=0 spp=0 lup=2147483647 ldn=0 nsci=0:0:0 rad=0,0,0 nrg=0,0,0
 pr 9->9 Allies
-pl 10 name= key=1 type=1 dead=0 obs=0 act=1 dflt=0 slot=-1 npr=0
+pl 10 name= key=1 type=1 dead=0 obs=0 act=1 dflt=0 slot=-1 npr=0 cash=0 cpm=0 bkt=0 rank=1 skp=0 spp=0 lup=2147483647 ldn=0 nsci=0:0:0 rad=0,0,0 nrg=0,0,0
 pr 10->10 Allies
-pl 11 name= key=1 type=1 dead=0 obs=0 act=1 dflt=0 slot=-1 npr=0
+pl 11 name= key=1 type=1 dead=0 obs=0 act=1 dflt=0 slot=-1 npr=0 cash=0 cpm=0 bkt=0 rank=1 skp=0 spp=0 lup=2147483647 ldn=0 nsci=0:0:0 rad=0,0,0 nrg=0,0,0
 pr 11->11 Allies
-pl 12 name= key=1 type=1 dead=0 obs=0 act=1 dflt=0 slot=-1 npr=0
+pl 12 name= key=1 type=1 dead=0 obs=0 act=1 dflt=0 slot=-1 npr=0 cash=0 cpm=0 bkt=0 rank=1 skp=0 spp=0 lup=2147483647 ldn=0 nsci=0:0:0 rad=0,0,0 nrg=0,0,0
 pr 12->12 Allies
-pl 13 name= key=1 type=1 dead=0 obs=0 act=1 dflt=0 slot=-1 npr=0
+pl 13 name= key=1 type=1 dead=0 obs=0 act=1 dflt=0 slot=-1 npr=0 cash=0 cpm=0 bkt=0 rank=1 skp=0 spp=0 lup=2147483647 ldn=0 nsci=0:0:0 rad=0,0,0 nrg=0,0,0
 pr 13->13 Allies
-pl 14 name= key=1 type=1 dead=0 obs=0 act=1 dflt=0 slot=-1 npr=0
+pl 14 name= key=1 type=1 dead=0 obs=0 act=1 dflt=0 slot=-1 npr=0 cash=0 cpm=0 bkt=0 rank=1 skp=0 spp=0 lup=2147483647 ldn=0 nsci=0:0:0 rad=0,0,0 nrg=0,0,0
 pr 14->14 Allies
-pl 15 name= key=1 type=1 dead=0 obs=0 act=1 dflt=0 slot=-1 npr=0
+pl 15 name= key=1 type=1 dead=0 obs=0 act=1 dflt=0 slot=-1 npr=0 cash=0 cpm=0 bkt=0 rank=1 skp=0 spp=0 lup=2147483647 ldn=0 nsci=0:0:0 rad=0,0,0 nrg=0,0,0
 pr 15->15 Allies
 slot 0 p-1
 slot 1 p-1
@@ -2457,39 +2457,39 @@ tv pupdate 15 -1 -1
 nth 0 0
 setrel
 players count=1 local=0
-pl 0 name= key=1 type=1 dead=0 obs=0 act=1 dflt=0 slot=-1 npr=0
+pl 0 name= key=1 type=1 dead=0 obs=0 act=1 dflt=0 slot=-1 npr=0 cash=0 cpm=0 bkt=0 rank=1 skp=0 spp=0 lup=2147483647 ldn=0 nsci=0:0:0 rad=0,0,0 nrg=0,0,0
 pr 0->0 Allies
-pl 1 name= key=1 type=1 dead=0 obs=0 act=1 dflt=0 slot=-1 npr=0
+pl 1 name= key=1 type=1 dead=0 obs=0 act=1 dflt=0 slot=-1 npr=0 cash=0 cpm=0 bkt=0 rank=1 skp=0 spp=0 lup=2147483647 ldn=0 nsci=0:0:0 rad=0,0,0 nrg=0,0,0
 pr 1->1 Allies
 pr 1->2 Enemies
 tr 1->t77 Allies
-pl 2 name= key=1 type=1 dead=0 obs=0 act=1 dflt=0 slot=-1 npr=0
+pl 2 name= key=1 type=1 dead=0 obs=0 act=1 dflt=0 slot=-1 npr=0 cash=0 cpm=0 bkt=0 rank=1 skp=0 spp=0 lup=2147483647 ldn=0 nsci=0:0:0 rad=0,0,0 nrg=0,0,0
 pr 2->2 Allies
-pl 3 name= key=1 type=1 dead=0 obs=0 act=1 dflt=0 slot=-1 npr=0
+pl 3 name= key=1 type=1 dead=0 obs=0 act=1 dflt=0 slot=-1 npr=0 cash=0 cpm=0 bkt=0 rank=1 skp=0 spp=0 lup=2147483647 ldn=0 nsci=0:0:0 rad=0,0,0 nrg=0,0,0
 pr 3->3 Allies
-pl 4 name= key=1 type=1 dead=0 obs=0 act=1 dflt=0 slot=-1 npr=0
+pl 4 name= key=1 type=1 dead=0 obs=0 act=1 dflt=0 slot=-1 npr=0 cash=0 cpm=0 bkt=0 rank=1 skp=0 spp=0 lup=2147483647 ldn=0 nsci=0:0:0 rad=0,0,0 nrg=0,0,0
 pr 4->4 Allies
-pl 5 name= key=1 type=1 dead=0 obs=0 act=1 dflt=0 slot=-1 npr=0
+pl 5 name= key=1 type=1 dead=0 obs=0 act=1 dflt=0 slot=-1 npr=0 cash=0 cpm=0 bkt=0 rank=1 skp=0 spp=0 lup=2147483647 ldn=0 nsci=0:0:0 rad=0,0,0 nrg=0,0,0
 pr 5->5 Allies
-pl 6 name= key=1 type=1 dead=0 obs=0 act=1 dflt=0 slot=-1 npr=0
+pl 6 name= key=1 type=1 dead=0 obs=0 act=1 dflt=0 slot=-1 npr=0 cash=0 cpm=0 bkt=0 rank=1 skp=0 spp=0 lup=2147483647 ldn=0 nsci=0:0:0 rad=0,0,0 nrg=0,0,0
 pr 6->6 Allies
-pl 7 name= key=1 type=1 dead=0 obs=0 act=1 dflt=0 slot=-1 npr=0
+pl 7 name= key=1 type=1 dead=0 obs=0 act=1 dflt=0 slot=-1 npr=0 cash=0 cpm=0 bkt=0 rank=1 skp=0 spp=0 lup=2147483647 ldn=0 nsci=0:0:0 rad=0,0,0 nrg=0,0,0
 pr 7->7 Allies
-pl 8 name= key=1 type=1 dead=0 obs=0 act=1 dflt=0 slot=-1 npr=0
+pl 8 name= key=1 type=1 dead=0 obs=0 act=1 dflt=0 slot=-1 npr=0 cash=0 cpm=0 bkt=0 rank=1 skp=0 spp=0 lup=2147483647 ldn=0 nsci=0:0:0 rad=0,0,0 nrg=0,0,0
 pr 8->8 Allies
-pl 9 name= key=1 type=1 dead=0 obs=0 act=1 dflt=0 slot=-1 npr=0
+pl 9 name= key=1 type=1 dead=0 obs=0 act=1 dflt=0 slot=-1 npr=0 cash=0 cpm=0 bkt=0 rank=1 skp=0 spp=0 lup=2147483647 ldn=0 nsci=0:0:0 rad=0,0,0 nrg=0,0,0
 pr 9->9 Allies
-pl 10 name= key=1 type=1 dead=0 obs=0 act=1 dflt=0 slot=-1 npr=0
+pl 10 name= key=1 type=1 dead=0 obs=0 act=1 dflt=0 slot=-1 npr=0 cash=0 cpm=0 bkt=0 rank=1 skp=0 spp=0 lup=2147483647 ldn=0 nsci=0:0:0 rad=0,0,0 nrg=0,0,0
 pr 10->10 Allies
-pl 11 name= key=1 type=1 dead=0 obs=0 act=1 dflt=0 slot=-1 npr=0
+pl 11 name= key=1 type=1 dead=0 obs=0 act=1 dflt=0 slot=-1 npr=0 cash=0 cpm=0 bkt=0 rank=1 skp=0 spp=0 lup=2147483647 ldn=0 nsci=0:0:0 rad=0,0,0 nrg=0,0,0
 pr 11->11 Allies
-pl 12 name= key=1 type=1 dead=0 obs=0 act=1 dflt=0 slot=-1 npr=0
+pl 12 name= key=1 type=1 dead=0 obs=0 act=1 dflt=0 slot=-1 npr=0 cash=0 cpm=0 bkt=0 rank=1 skp=0 spp=0 lup=2147483647 ldn=0 nsci=0:0:0 rad=0,0,0 nrg=0,0,0
 pr 12->12 Allies
-pl 13 name= key=1 type=1 dead=0 obs=0 act=1 dflt=0 slot=-1 npr=0
+pl 13 name= key=1 type=1 dead=0 obs=0 act=1 dflt=0 slot=-1 npr=0 cash=0 cpm=0 bkt=0 rank=1 skp=0 spp=0 lup=2147483647 ldn=0 nsci=0:0:0 rad=0,0,0 nrg=0,0,0
 pr 13->13 Allies
-pl 14 name= key=1 type=1 dead=0 obs=0 act=1 dflt=0 slot=-1 npr=0
+pl 14 name= key=1 type=1 dead=0 obs=0 act=1 dflt=0 slot=-1 npr=0 cash=0 cpm=0 bkt=0 rank=1 skp=0 spp=0 lup=2147483647 ldn=0 nsci=0:0:0 rad=0,0,0 nrg=0,0,0
 pr 14->14 Allies
-pl 15 name= key=1 type=1 dead=0 obs=0 act=1 dflt=0 slot=-1 npr=0
+pl 15 name= key=1 type=1 dead=0 obs=0 act=1 dflt=0 slot=-1 npr=0 cash=0 cpm=0 bkt=0 rank=1 skp=0 spp=0 lup=2147483647 ldn=0 nsci=0:0:0 rad=0,0,0 nrg=0,0,0
 pr 15->15 Allies
 slot 0 p-1
 slot 1 p-1
@@ -2501,39 +2501,39 @@ slot 6 p-1
 slot 7 p-1
 afterreset
 players count=1 local=0
-pl 0 name= key=1 type=1 dead=0 obs=0 act=1 dflt=0 slot=-1 npr=0
+pl 0 name= key=1 type=1 dead=0 obs=0 act=1 dflt=0 slot=-1 npr=0 cash=0 cpm=0 bkt=0 rank=1 skp=0 spp=0 lup=2147483647 ldn=0 nsci=0:0:0 rad=0,0,0 nrg=0,0,0
 pr 0->0 Allies
-pl 1 name= key=1 type=1 dead=0 obs=0 act=1 dflt=0 slot=-1 npr=0
+pl 1 name= key=1 type=1 dead=0 obs=0 act=1 dflt=0 slot=-1 npr=0 cash=0 cpm=0 bkt=0 rank=1 skp=0 spp=0 lup=2147483647 ldn=0 nsci=0:0:0 rad=0,0,0 nrg=0,0,0
 pr 1->1 Allies
 pr 1->2 Enemies
 tr 1->t77 Allies
-pl 2 name= key=1 type=1 dead=0 obs=0 act=1 dflt=0 slot=-1 npr=0
+pl 2 name= key=1 type=1 dead=0 obs=0 act=1 dflt=0 slot=-1 npr=0 cash=0 cpm=0 bkt=0 rank=1 skp=0 spp=0 lup=2147483647 ldn=0 nsci=0:0:0 rad=0,0,0 nrg=0,0,0
 pr 2->2 Allies
-pl 3 name= key=1 type=1 dead=0 obs=0 act=1 dflt=0 slot=-1 npr=0
+pl 3 name= key=1 type=1 dead=0 obs=0 act=1 dflt=0 slot=-1 npr=0 cash=0 cpm=0 bkt=0 rank=1 skp=0 spp=0 lup=2147483647 ldn=0 nsci=0:0:0 rad=0,0,0 nrg=0,0,0
 pr 3->3 Allies
-pl 4 name= key=1 type=1 dead=0 obs=0 act=1 dflt=0 slot=-1 npr=0
+pl 4 name= key=1 type=1 dead=0 obs=0 act=1 dflt=0 slot=-1 npr=0 cash=0 cpm=0 bkt=0 rank=1 skp=0 spp=0 lup=2147483647 ldn=0 nsci=0:0:0 rad=0,0,0 nrg=0,0,0
 pr 4->4 Allies
-pl 5 name= key=1 type=1 dead=0 obs=0 act=1 dflt=0 slot=-1 npr=0
+pl 5 name= key=1 type=1 dead=0 obs=0 act=1 dflt=0 slot=-1 npr=0 cash=0 cpm=0 bkt=0 rank=1 skp=0 spp=0 lup=2147483647 ldn=0 nsci=0:0:0 rad=0,0,0 nrg=0,0,0
 pr 5->5 Allies
-pl 6 name= key=1 type=1 dead=0 obs=0 act=1 dflt=0 slot=-1 npr=0
+pl 6 name= key=1 type=1 dead=0 obs=0 act=1 dflt=0 slot=-1 npr=0 cash=0 cpm=0 bkt=0 rank=1 skp=0 spp=0 lup=2147483647 ldn=0 nsci=0:0:0 rad=0,0,0 nrg=0,0,0
 pr 6->6 Allies
-pl 7 name= key=1 type=1 dead=0 obs=0 act=1 dflt=0 slot=-1 npr=0
+pl 7 name= key=1 type=1 dead=0 obs=0 act=1 dflt=0 slot=-1 npr=0 cash=0 cpm=0 bkt=0 rank=1 skp=0 spp=0 lup=2147483647 ldn=0 nsci=0:0:0 rad=0,0,0 nrg=0,0,0
 pr 7->7 Allies
-pl 8 name= key=1 type=1 dead=0 obs=0 act=1 dflt=0 slot=-1 npr=0
+pl 8 name= key=1 type=1 dead=0 obs=0 act=1 dflt=0 slot=-1 npr=0 cash=0 cpm=0 bkt=0 rank=1 skp=0 spp=0 lup=2147483647 ldn=0 nsci=0:0:0 rad=0,0,0 nrg=0,0,0
 pr 8->8 Allies
-pl 9 name= key=1 type=1 dead=0 obs=0 act=1 dflt=0 slot=-1 npr=0
+pl 9 name= key=1 type=1 dead=0 obs=0 act=1 dflt=0 slot=-1 npr=0 cash=0 cpm=0 bkt=0 rank=1 skp=0 spp=0 lup=2147483647 ldn=0 nsci=0:0:0 rad=0,0,0 nrg=0,0,0
 pr 9->9 Allies
-pl 10 name= key=1 type=1 dead=0 obs=0 act=1 dflt=0 slot=-1 npr=0
+pl 10 name= key=1 type=1 dead=0 obs=0 act=1 dflt=0 slot=-1 npr=0 cash=0 cpm=0 bkt=0 rank=1 skp=0 spp=0 lup=2147483647 ldn=0 nsci=0:0:0 rad=0,0,0 nrg=0,0,0
 pr 10->10 Allies
-pl 11 name= key=1 type=1 dead=0 obs=0 act=1 dflt=0 slot=-1 npr=0
+pl 11 name= key=1 type=1 dead=0 obs=0 act=1 dflt=0 slot=-1 npr=0 cash=0 cpm=0 bkt=0 rank=1 skp=0 spp=0 lup=2147483647 ldn=0 nsci=0:0:0 rad=0,0,0 nrg=0,0,0
 pr 11->11 Allies
-pl 12 name= key=1 type=1 dead=0 obs=0 act=1 dflt=0 slot=-1 npr=0
+pl 12 name= key=1 type=1 dead=0 obs=0 act=1 dflt=0 slot=-1 npr=0 cash=0 cpm=0 bkt=0 rank=1 skp=0 spp=0 lup=2147483647 ldn=0 nsci=0:0:0 rad=0,0,0 nrg=0,0,0
 pr 12->12 Allies
-pl 13 name= key=1 type=1 dead=0 obs=0 act=1 dflt=0 slot=-1 npr=0
+pl 13 name= key=1 type=1 dead=0 obs=0 act=1 dflt=0 slot=-1 npr=0 cash=0 cpm=0 bkt=0 rank=1 skp=0 spp=0 lup=2147483647 ldn=0 nsci=0:0:0 rad=0,0,0 nrg=0,0,0
 pr 13->13 Allies
-pl 14 name= key=1 type=1 dead=0 obs=0 act=1 dflt=0 slot=-1 npr=0
+pl 14 name= key=1 type=1 dead=0 obs=0 act=1 dflt=0 slot=-1 npr=0 cash=0 cpm=0 bkt=0 rank=1 skp=0 spp=0 lup=2147483647 ldn=0 nsci=0:0:0 rad=0,0,0 nrg=0,0,0
 pr 14->14 Allies
-pl 15 name= key=1 type=1 dead=0 obs=0 act=1 dflt=0 slot=-1 npr=0
+pl 15 name= key=1 type=1 dead=0 obs=0 act=1 dflt=0 slot=-1 npr=0 cash=0 cpm=0 bkt=0 rank=1 skp=0 spp=0 lup=2147483647 ldn=0 nsci=0:0:0 rad=0,0,0 nrg=0,0,0
 pr 15->15 Allies
 slot 0 p-1
 slot 1 p-1
@@ -2550,39 +2550,39 @@ tv local 3 1 -1
 tv local 3 0 -1
 tv local 0 1 -1
 players count=1 local=0
-pl 0 name= key=1 type=1 dead=0 obs=0 act=1 dflt=0 slot=-1 npr=0
+pl 0 name= key=1 type=1 dead=0 obs=0 act=1 dflt=0 slot=-1 npr=0 cash=0 cpm=0 bkt=0 rank=1 skp=0 spp=0 lup=2147483647 ldn=0 nsci=0:0:0 rad=0,0,0 nrg=0,0,0
 pr 0->0 Allies
-pl 1 name= key=1 type=1 dead=0 obs=0 act=1 dflt=0 slot=-1 npr=0
+pl 1 name= key=1 type=1 dead=0 obs=0 act=1 dflt=0 slot=-1 npr=0 cash=0 cpm=0 bkt=0 rank=1 skp=0 spp=0 lup=2147483647 ldn=0 nsci=0:0:0 rad=0,0,0 nrg=0,0,0
 pr 1->1 Allies
 pr 1->2 Enemies
 tr 1->t77 Allies
-pl 2 name= key=1 type=1 dead=0 obs=0 act=1 dflt=0 slot=-1 npr=0
+pl 2 name= key=1 type=1 dead=0 obs=0 act=1 dflt=0 slot=-1 npr=0 cash=0 cpm=0 bkt=0 rank=1 skp=0 spp=0 lup=2147483647 ldn=0 nsci=0:0:0 rad=0,0,0 nrg=0,0,0
 pr 2->2 Allies
-pl 3 name= key=1 type=1 dead=0 obs=0 act=1 dflt=0 slot=-1 npr=0
+pl 3 name= key=1 type=1 dead=0 obs=0 act=1 dflt=0 slot=-1 npr=0 cash=0 cpm=0 bkt=0 rank=1 skp=0 spp=0 lup=2147483647 ldn=0 nsci=0:0:0 rad=0,0,0 nrg=0,0,0
 pr 3->3 Allies
-pl 4 name= key=1 type=1 dead=0 obs=0 act=1 dflt=0 slot=-1 npr=0
+pl 4 name= key=1 type=1 dead=0 obs=0 act=1 dflt=0 slot=-1 npr=0 cash=0 cpm=0 bkt=0 rank=1 skp=0 spp=0 lup=2147483647 ldn=0 nsci=0:0:0 rad=0,0,0 nrg=0,0,0
 pr 4->4 Allies
-pl 5 name= key=1 type=1 dead=0 obs=0 act=1 dflt=0 slot=-1 npr=0
+pl 5 name= key=1 type=1 dead=0 obs=0 act=1 dflt=0 slot=-1 npr=0 cash=0 cpm=0 bkt=0 rank=1 skp=0 spp=0 lup=2147483647 ldn=0 nsci=0:0:0 rad=0,0,0 nrg=0,0,0
 pr 5->5 Allies
-pl 6 name= key=1 type=1 dead=0 obs=0 act=1 dflt=0 slot=-1 npr=0
+pl 6 name= key=1 type=1 dead=0 obs=0 act=1 dflt=0 slot=-1 npr=0 cash=0 cpm=0 bkt=0 rank=1 skp=0 spp=0 lup=2147483647 ldn=0 nsci=0:0:0 rad=0,0,0 nrg=0,0,0
 pr 6->6 Allies
-pl 7 name= key=1 type=1 dead=0 obs=0 act=1 dflt=0 slot=-1 npr=0
+pl 7 name= key=1 type=1 dead=0 obs=0 act=1 dflt=0 slot=-1 npr=0 cash=0 cpm=0 bkt=0 rank=1 skp=0 spp=0 lup=2147483647 ldn=0 nsci=0:0:0 rad=0,0,0 nrg=0,0,0
 pr 7->7 Allies
-pl 8 name= key=1 type=1 dead=0 obs=0 act=1 dflt=0 slot=-1 npr=0
+pl 8 name= key=1 type=1 dead=0 obs=0 act=1 dflt=0 slot=-1 npr=0 cash=0 cpm=0 bkt=0 rank=1 skp=0 spp=0 lup=2147483647 ldn=0 nsci=0:0:0 rad=0,0,0 nrg=0,0,0
 pr 8->8 Allies
-pl 9 name= key=1 type=1 dead=0 obs=0 act=1 dflt=0 slot=-1 npr=0
+pl 9 name= key=1 type=1 dead=0 obs=0 act=1 dflt=0 slot=-1 npr=0 cash=0 cpm=0 bkt=0 rank=1 skp=0 spp=0 lup=2147483647 ldn=0 nsci=0:0:0 rad=0,0,0 nrg=0,0,0
 pr 9->9 Allies
-pl 10 name= key=1 type=1 dead=0 obs=0 act=1 dflt=0 slot=-1 npr=0
+pl 10 name= key=1 type=1 dead=0 obs=0 act=1 dflt=0 slot=-1 npr=0 cash=0 cpm=0 bkt=0 rank=1 skp=0 spp=0 lup=2147483647 ldn=0 nsci=0:0:0 rad=0,0,0 nrg=0,0,0
 pr 10->10 Allies
-pl 11 name= key=1 type=1 dead=0 obs=0 act=1 dflt=0 slot=-1 npr=0
+pl 11 name= key=1 type=1 dead=0 obs=0 act=1 dflt=0 slot=-1 npr=0 cash=0 cpm=0 bkt=0 rank=1 skp=0 spp=0 lup=2147483647 ldn=0 nsci=0:0:0 rad=0,0,0 nrg=0,0,0
 pr 11->11 Allies
-pl 12 name= key=1 type=1 dead=0 obs=0 act=1 dflt=0 slot=-1 npr=0
+pl 12 name= key=1 type=1 dead=0 obs=0 act=1 dflt=0 slot=-1 npr=0 cash=0 cpm=0 bkt=0 rank=1 skp=0 spp=0 lup=2147483647 ldn=0 nsci=0:0:0 rad=0,0,0 nrg=0,0,0
 pr 12->12 Allies
-pl 13 name= key=1 type=1 dead=0 obs=0 act=1 dflt=0 slot=-1 npr=0
+pl 13 name= key=1 type=1 dead=0 obs=0 act=1 dflt=0 slot=-1 npr=0 cash=0 cpm=0 bkt=0 rank=1 skp=0 spp=0 lup=2147483647 ldn=0 nsci=0:0:0 rad=0,0,0 nrg=0,0,0
 pr 13->13 Allies
-pl 14 name= key=1 type=1 dead=0 obs=0 act=1 dflt=0 slot=-1 npr=0
+pl 14 name= key=1 type=1 dead=0 obs=0 act=1 dflt=0 slot=-1 npr=0 cash=0 cpm=0 bkt=0 rank=1 skp=0 spp=0 lup=2147483647 ldn=0 nsci=0:0:0 rad=0,0,0 nrg=0,0,0
 pr 14->14 Allies
-pl 15 name= key=1 type=1 dead=0 obs=0 act=1 dflt=0 slot=-1 npr=0
+pl 15 name= key=1 type=1 dead=0 obs=0 act=1 dflt=0 slot=-1 npr=0 cash=0 cpm=0 bkt=0 rank=1 skp=0 spp=0 lup=2147483647 ldn=0 nsci=0:0:0 rad=0,0,0 nrg=0,0,0
 pr 15->15 Allies
 slot 0 p-1
 slot 1 p-1
@@ -2594,47 +2594,47 @@ slot 6 p-1
 slot 7 p-1
 corpus players_newgame
 players count=4 local=3
-pl 0 name= key=1 type=1 dead=0 obs=0 act=1 dflt=1 slot=-1 npr=1
+pl 0 name= key=1 type=1 dead=0 obs=0 act=1 dflt=1 slot=-1 npr=1 cash=0 cpm=0 bkt=0 rank=1 skp=0 spp=0 lup=2147483647 ldn=0 nsci=0:0:0 rad=0,0,0 nrg=0,0,0
 pr 0->0 Allies
 pt 0 0 tp1
-pl 1 name=america key=2 type=0 dead=0 obs=0 act=1 dflt=2 slot=-1 npr=1
+pl 1 name=america key=2 type=0 dead=0 obs=0 act=1 dflt=2 slot=-1 npr=1 cash=0 cpm=0 bkt=0 rank=1 skp=0 spp=0 lup=2147483647 ldn=0 nsci=0:0:0 rad=0,0,0 nrg=0,0,0
 pr 1->0 Neutral
 pr 1->1 Allies
 pr 1->2 Enemies
 pt 1 0 tp2
-pl 2 name=china key=3 type=1 dead=0 obs=0 act=1 dflt=3 slot=-1 npr=1
+pl 2 name=china key=3 type=1 dead=0 obs=0 act=1 dflt=3 slot=-1 npr=1 cash=0 cpm=0 bkt=0 rank=1 skp=0 spp=0 lup=2147483647 ldn=0 nsci=0:0:0 rad=0,0,0 nrg=0,0,0
 pr 2->0 Neutral
 pr 2->1 Allies
 pr 2->2 Allies
 pt 2 0 tp3
-pl 3 name=gla key=4 type=1 dead=0 obs=0 act=1 dflt=0 slot=-1 npr=0
+pl 3 name=gla key=4 type=1 dead=0 obs=0 act=1 dflt=0 slot=-1 npr=0 cash=0 cpm=0 bkt=0 rank=1 skp=0 spp=0 lup=2147483647 ldn=0 nsci=0:0:0 rad=0,0,0 nrg=0,0,0
 pr 3->0 Neutral
 pr 3->1 Enemies
 pr 3->2 Enemies
 pr 3->3 Allies
-pl 4 name= key=1 type=1 dead=0 obs=0 act=1 dflt=0 slot=-1 npr=0
+pl 4 name= key=1 type=1 dead=0 obs=0 act=1 dflt=0 slot=-1 npr=0 cash=0 cpm=0 bkt=0 rank=1 skp=0 spp=0 lup=2147483647 ldn=0 nsci=0:0:0 rad=0,0,0 nrg=0,0,0
 pr 4->4 Allies
-pl 5 name= key=1 type=1 dead=0 obs=0 act=1 dflt=0 slot=-1 npr=0
+pl 5 name= key=1 type=1 dead=0 obs=0 act=1 dflt=0 slot=-1 npr=0 cash=0 cpm=0 bkt=0 rank=1 skp=0 spp=0 lup=2147483647 ldn=0 nsci=0:0:0 rad=0,0,0 nrg=0,0,0
 pr 5->5 Allies
-pl 6 name= key=1 type=1 dead=0 obs=0 act=1 dflt=0 slot=-1 npr=0
+pl 6 name= key=1 type=1 dead=0 obs=0 act=1 dflt=0 slot=-1 npr=0 cash=0 cpm=0 bkt=0 rank=1 skp=0 spp=0 lup=2147483647 ldn=0 nsci=0:0:0 rad=0,0,0 nrg=0,0,0
 pr 6->6 Allies
-pl 7 name= key=1 type=1 dead=0 obs=0 act=1 dflt=0 slot=-1 npr=0
+pl 7 name= key=1 type=1 dead=0 obs=0 act=1 dflt=0 slot=-1 npr=0 cash=0 cpm=0 bkt=0 rank=1 skp=0 spp=0 lup=2147483647 ldn=0 nsci=0:0:0 rad=0,0,0 nrg=0,0,0
 pr 7->7 Allies
-pl 8 name= key=1 type=1 dead=0 obs=0 act=1 dflt=0 slot=-1 npr=0
+pl 8 name= key=1 type=1 dead=0 obs=0 act=1 dflt=0 slot=-1 npr=0 cash=0 cpm=0 bkt=0 rank=1 skp=0 spp=0 lup=2147483647 ldn=0 nsci=0:0:0 rad=0,0,0 nrg=0,0,0
 pr 8->8 Allies
-pl 9 name= key=1 type=1 dead=0 obs=0 act=1 dflt=0 slot=-1 npr=0
+pl 9 name= key=1 type=1 dead=0 obs=0 act=1 dflt=0 slot=-1 npr=0 cash=0 cpm=0 bkt=0 rank=1 skp=0 spp=0 lup=2147483647 ldn=0 nsci=0:0:0 rad=0,0,0 nrg=0,0,0
 pr 9->9 Allies
-pl 10 name= key=1 type=1 dead=0 obs=0 act=1 dflt=0 slot=-1 npr=0
+pl 10 name= key=1 type=1 dead=0 obs=0 act=1 dflt=0 slot=-1 npr=0 cash=0 cpm=0 bkt=0 rank=1 skp=0 spp=0 lup=2147483647 ldn=0 nsci=0:0:0 rad=0,0,0 nrg=0,0,0
 pr 10->10 Allies
-pl 11 name= key=1 type=1 dead=0 obs=0 act=1 dflt=0 slot=-1 npr=0
+pl 11 name= key=1 type=1 dead=0 obs=0 act=1 dflt=0 slot=-1 npr=0 cash=0 cpm=0 bkt=0 rank=1 skp=0 spp=0 lup=2147483647 ldn=0 nsci=0:0:0 rad=0,0,0 nrg=0,0,0
 pr 11->11 Allies
-pl 12 name= key=1 type=1 dead=0 obs=0 act=1 dflt=0 slot=-1 npr=0
+pl 12 name= key=1 type=1 dead=0 obs=0 act=1 dflt=0 slot=-1 npr=0 cash=0 cpm=0 bkt=0 rank=1 skp=0 spp=0 lup=2147483647 ldn=0 nsci=0:0:0 rad=0,0,0 nrg=0,0,0
 pr 12->12 Allies
-pl 13 name= key=1 type=1 dead=0 obs=0 act=1 dflt=0 slot=-1 npr=0
+pl 13 name= key=1 type=1 dead=0 obs=0 act=1 dflt=0 slot=-1 npr=0 cash=0 cpm=0 bkt=0 rank=1 skp=0 spp=0 lup=2147483647 ldn=0 nsci=0:0:0 rad=0,0,0 nrg=0,0,0
 pr 13->13 Allies
-pl 14 name= key=1 type=1 dead=0 obs=0 act=1 dflt=0 slot=-1 npr=0
+pl 14 name= key=1 type=1 dead=0 obs=0 act=1 dflt=0 slot=-1 npr=0 cash=0 cpm=0 bkt=0 rank=1 skp=0 spp=0 lup=2147483647 ldn=0 nsci=0:0:0 rad=0,0,0 nrg=0,0,0
 pr 14->14 Allies
-pl 15 name= key=1 type=1 dead=0 obs=0 act=1 dflt=0 slot=-1 npr=0
+pl 15 name= key=1 type=1 dead=0 obs=0 act=1 dflt=0 slot=-1 npr=0 cash=0 cpm=0 bkt=0 rank=1 skp=0 spp=0 lup=2147483647 ldn=0 nsci=0:0:0 rad=0,0,0 nrg=0,0,0
 pr 15->15 Allies
 slot 0 p-1
 slot 1 p-1
@@ -2670,40 +2670,40 @@ tv local 0 0 -1
 tv local 2 1 -1
 forcedlocal 1 type0=1 type1=0
 players count=2 local=1
-pl 0 name= key=1 type=1 dead=0 obs=0 act=1 dflt=1 slot=-1 npr=1
+pl 0 name= key=1 type=1 dead=0 obs=0 act=1 dflt=1 slot=-1 npr=1 cash=0 cpm=0 bkt=0 rank=1 skp=0 spp=0 lup=2147483647 ldn=0 nsci=0:0:0 rad=0,0,0 nrg=0,0,0
 pr 0->0 Allies
 pr 0->1 Enemies
 pt 0 0 tp1
-pl 1 name=america key=2 type=0 dead=0 obs=0 act=1 dflt=0 slot=-1 npr=0
+pl 1 name=america key=2 type=0 dead=0 obs=0 act=1 dflt=0 slot=-1 npr=0 cash=0 cpm=0 bkt=0 rank=1 skp=0 spp=0 lup=2147483647 ldn=0 nsci=0:0:0 rad=0,0,0 nrg=0,0,0
 pr 1->0 Neutral
 pr 1->1 Allies
-pl 2 name= key=1 type=1 dead=0 obs=0 act=1 dflt=0 slot=-1 npr=0
+pl 2 name= key=1 type=1 dead=0 obs=0 act=1 dflt=0 slot=-1 npr=0 cash=0 cpm=0 bkt=0 rank=1 skp=0 spp=0 lup=2147483647 ldn=0 nsci=0:0:0 rad=0,0,0 nrg=0,0,0
 pr 2->2 Allies
-pl 3 name= key=1 type=1 dead=0 obs=0 act=1 dflt=0 slot=-1 npr=0
+pl 3 name= key=1 type=1 dead=0 obs=0 act=1 dflt=0 slot=-1 npr=0 cash=0 cpm=0 bkt=0 rank=1 skp=0 spp=0 lup=2147483647 ldn=0 nsci=0:0:0 rad=0,0,0 nrg=0,0,0
 pr 3->3 Allies
-pl 4 name= key=1 type=1 dead=0 obs=0 act=1 dflt=0 slot=-1 npr=0
+pl 4 name= key=1 type=1 dead=0 obs=0 act=1 dflt=0 slot=-1 npr=0 cash=0 cpm=0 bkt=0 rank=1 skp=0 spp=0 lup=2147483647 ldn=0 nsci=0:0:0 rad=0,0,0 nrg=0,0,0
 pr 4->4 Allies
-pl 5 name= key=1 type=1 dead=0 obs=0 act=1 dflt=0 slot=-1 npr=0
+pl 5 name= key=1 type=1 dead=0 obs=0 act=1 dflt=0 slot=-1 npr=0 cash=0 cpm=0 bkt=0 rank=1 skp=0 spp=0 lup=2147483647 ldn=0 nsci=0:0:0 rad=0,0,0 nrg=0,0,0
 pr 5->5 Allies
-pl 6 name= key=1 type=1 dead=0 obs=0 act=1 dflt=0 slot=-1 npr=0
+pl 6 name= key=1 type=1 dead=0 obs=0 act=1 dflt=0 slot=-1 npr=0 cash=0 cpm=0 bkt=0 rank=1 skp=0 spp=0 lup=2147483647 ldn=0 nsci=0:0:0 rad=0,0,0 nrg=0,0,0
 pr 6->6 Allies
-pl 7 name= key=1 type=1 dead=0 obs=0 act=1 dflt=0 slot=-1 npr=0
+pl 7 name= key=1 type=1 dead=0 obs=0 act=1 dflt=0 slot=-1 npr=0 cash=0 cpm=0 bkt=0 rank=1 skp=0 spp=0 lup=2147483647 ldn=0 nsci=0:0:0 rad=0,0,0 nrg=0,0,0
 pr 7->7 Allies
-pl 8 name= key=1 type=1 dead=0 obs=0 act=1 dflt=0 slot=-1 npr=0
+pl 8 name= key=1 type=1 dead=0 obs=0 act=1 dflt=0 slot=-1 npr=0 cash=0 cpm=0 bkt=0 rank=1 skp=0 spp=0 lup=2147483647 ldn=0 nsci=0:0:0 rad=0,0,0 nrg=0,0,0
 pr 8->8 Allies
-pl 9 name= key=1 type=1 dead=0 obs=0 act=1 dflt=0 slot=-1 npr=0
+pl 9 name= key=1 type=1 dead=0 obs=0 act=1 dflt=0 slot=-1 npr=0 cash=0 cpm=0 bkt=0 rank=1 skp=0 spp=0 lup=2147483647 ldn=0 nsci=0:0:0 rad=0,0,0 nrg=0,0,0
 pr 9->9 Allies
-pl 10 name= key=1 type=1 dead=0 obs=0 act=1 dflt=0 slot=-1 npr=0
+pl 10 name= key=1 type=1 dead=0 obs=0 act=1 dflt=0 slot=-1 npr=0 cash=0 cpm=0 bkt=0 rank=1 skp=0 spp=0 lup=2147483647 ldn=0 nsci=0:0:0 rad=0,0,0 nrg=0,0,0
 pr 10->10 Allies
-pl 11 name= key=1 type=1 dead=0 obs=0 act=1 dflt=0 slot=-1 npr=0
+pl 11 name= key=1 type=1 dead=0 obs=0 act=1 dflt=0 slot=-1 npr=0 cash=0 cpm=0 bkt=0 rank=1 skp=0 spp=0 lup=2147483647 ldn=0 nsci=0:0:0 rad=0,0,0 nrg=0,0,0
 pr 11->11 Allies
-pl 12 name= key=1 type=1 dead=0 obs=0 act=1 dflt=0 slot=-1 npr=0
+pl 12 name= key=1 type=1 dead=0 obs=0 act=1 dflt=0 slot=-1 npr=0 cash=0 cpm=0 bkt=0 rank=1 skp=0 spp=0 lup=2147483647 ldn=0 nsci=0:0:0 rad=0,0,0 nrg=0,0,0
 pr 12->12 Allies
-pl 13 name= key=1 type=1 dead=0 obs=0 act=1 dflt=0 slot=-1 npr=0
+pl 13 name= key=1 type=1 dead=0 obs=0 act=1 dflt=0 slot=-1 npr=0 cash=0 cpm=0 bkt=0 rank=1 skp=0 spp=0 lup=2147483647 ldn=0 nsci=0:0:0 rad=0,0,0 nrg=0,0,0
 pr 13->13 Allies
-pl 14 name= key=1 type=1 dead=0 obs=0 act=1 dflt=0 slot=-1 npr=0
+pl 14 name= key=1 type=1 dead=0 obs=0 act=1 dflt=0 slot=-1 npr=0 cash=0 cpm=0 bkt=0 rank=1 skp=0 spp=0 lup=2147483647 ldn=0 nsci=0:0:0 rad=0,0,0 nrg=0,0,0
 pr 14->14 Allies
-pl 15 name= key=1 type=1 dead=0 obs=0 act=1 dflt=0 slot=-1 npr=0
+pl 15 name= key=1 type=1 dead=0 obs=0 act=1 dflt=0 slot=-1 npr=0 cash=0 cpm=0 bkt=0 rank=1 skp=0 spp=0 lup=2147483647 ldn=0 nsci=0:0:0 rad=0,0,0 nrg=0,0,0
 pr 15->15 Allies
 slot 0 p-1
 slot 1 p-1
@@ -2797,44 +2797,44 @@ r4 0 1
 r5 0
 r6 Neutral
 players count=4 local=1
-pl 0 name= key=1 type=1 dead=0 obs=0 act=1 dflt=1 slot=-1 npr=1
+pl 0 name= key=1 type=1 dead=0 obs=0 act=1 dflt=1 slot=-1 npr=1 cash=0 cpm=0 bkt=0 rank=1 skp=0 spp=0 lup=2147483647 ldn=0 nsci=0:0:0 rad=0,0,0 nrg=0,0,0
 pr 0->0 Allies
 pt 0 0 tp1
-pl 1 name=america key=2 type=0 dead=0 obs=0 act=1 dflt=2 slot=-1 npr=2
+pl 1 name=america key=2 type=0 dead=0 obs=0 act=1 dflt=2 slot=-1 npr=2 cash=0 cpm=0 bkt=0 rank=1 skp=0 spp=0 lup=2147483647 ldn=0 nsci=0:0:0 rad=0,0,0 nrg=0,0,0
 pt 1 0 tp2
 pt 1 1 tp5
-pl 2 name=china key=3 type=1 dead=0 obs=0 act=1 dflt=3 slot=-1 npr=2
+pl 2 name=china key=3 type=1 dead=0 obs=0 act=1 dflt=3 slot=-1 npr=2 cash=0 cpm=0 bkt=0 rank=1 skp=0 spp=0 lup=2147483647 ldn=0 nsci=0:0:0 rad=0,0,0 nrg=0,0,0
 pr 2->0 Neutral
 pr 2->2 Allies
 pt 2 0 tp3
 pt 2 1 tp6
-pl 3 name=gla key=4 type=1 dead=0 obs=0 act=1 dflt=4 slot=-1 npr=1
+pl 3 name=gla key=4 type=1 dead=0 obs=0 act=1 dflt=4 slot=-1 npr=1 cash=0 cpm=0 bkt=0 rank=1 skp=0 spp=0 lup=2147483647 ldn=0 nsci=0:0:0 rad=0,0,0 nrg=0,0,0
 pr 3->0 Neutral
 pr 3->3 Allies
 pt 3 0 tp4
-pl 4 name= key=1 type=1 dead=0 obs=0 act=1 dflt=0 slot=-1 npr=0
+pl 4 name= key=1 type=1 dead=0 obs=0 act=1 dflt=0 slot=-1 npr=0 cash=0 cpm=0 bkt=0 rank=1 skp=0 spp=0 lup=2147483647 ldn=0 nsci=0:0:0 rad=0,0,0 nrg=0,0,0
 pr 4->4 Allies
-pl 5 name= key=1 type=1 dead=0 obs=0 act=1 dflt=0 slot=-1 npr=0
+pl 5 name= key=1 type=1 dead=0 obs=0 act=1 dflt=0 slot=-1 npr=0 cash=0 cpm=0 bkt=0 rank=1 skp=0 spp=0 lup=2147483647 ldn=0 nsci=0:0:0 rad=0,0,0 nrg=0,0,0
 pr 5->5 Allies
-pl 6 name= key=1 type=1 dead=0 obs=0 act=1 dflt=0 slot=-1 npr=0
+pl 6 name= key=1 type=1 dead=0 obs=0 act=1 dflt=0 slot=-1 npr=0 cash=0 cpm=0 bkt=0 rank=1 skp=0 spp=0 lup=2147483647 ldn=0 nsci=0:0:0 rad=0,0,0 nrg=0,0,0
 pr 6->6 Allies
-pl 7 name= key=1 type=1 dead=0 obs=0 act=1 dflt=0 slot=-1 npr=0
+pl 7 name= key=1 type=1 dead=0 obs=0 act=1 dflt=0 slot=-1 npr=0 cash=0 cpm=0 bkt=0 rank=1 skp=0 spp=0 lup=2147483647 ldn=0 nsci=0:0:0 rad=0,0,0 nrg=0,0,0
 pr 7->7 Allies
-pl 8 name= key=1 type=1 dead=0 obs=0 act=1 dflt=0 slot=-1 npr=0
+pl 8 name= key=1 type=1 dead=0 obs=0 act=1 dflt=0 slot=-1 npr=0 cash=0 cpm=0 bkt=0 rank=1 skp=0 spp=0 lup=2147483647 ldn=0 nsci=0:0:0 rad=0,0,0 nrg=0,0,0
 pr 8->8 Allies
-pl 9 name= key=1 type=1 dead=0 obs=0 act=1 dflt=0 slot=-1 npr=0
+pl 9 name= key=1 type=1 dead=0 obs=0 act=1 dflt=0 slot=-1 npr=0 cash=0 cpm=0 bkt=0 rank=1 skp=0 spp=0 lup=2147483647 ldn=0 nsci=0:0:0 rad=0,0,0 nrg=0,0,0
 pr 9->9 Allies
-pl 10 name= key=1 type=1 dead=0 obs=0 act=1 dflt=0 slot=-1 npr=0
+pl 10 name= key=1 type=1 dead=0 obs=0 act=1 dflt=0 slot=-1 npr=0 cash=0 cpm=0 bkt=0 rank=1 skp=0 spp=0 lup=2147483647 ldn=0 nsci=0:0:0 rad=0,0,0 nrg=0,0,0
 pr 10->10 Allies
-pl 11 name= key=1 type=1 dead=0 obs=0 act=1 dflt=0 slot=-1 npr=0
+pl 11 name= key=1 type=1 dead=0 obs=0 act=1 dflt=0 slot=-1 npr=0 cash=0 cpm=0 bkt=0 rank=1 skp=0 spp=0 lup=2147483647 ldn=0 nsci=0:0:0 rad=0,0,0 nrg=0,0,0
 pr 11->11 Allies
-pl 12 name= key=1 type=1 dead=0 obs=0 act=1 dflt=0 slot=-1 npr=0
+pl 12 name= key=1 type=1 dead=0 obs=0 act=1 dflt=0 slot=-1 npr=0 cash=0 cpm=0 bkt=0 rank=1 skp=0 spp=0 lup=2147483647 ldn=0 nsci=0:0:0 rad=0,0,0 nrg=0,0,0
 pr 12->12 Allies
-pl 13 name= key=1 type=1 dead=0 obs=0 act=1 dflt=0 slot=-1 npr=0
+pl 13 name= key=1 type=1 dead=0 obs=0 act=1 dflt=0 slot=-1 npr=0 cash=0 cpm=0 bkt=0 rank=1 skp=0 spp=0 lup=2147483647 ldn=0 nsci=0:0:0 rad=0,0,0 nrg=0,0,0
 pr 13->13 Allies
-pl 14 name= key=1 type=1 dead=0 obs=0 act=1 dflt=0 slot=-1 npr=0
+pl 14 name= key=1 type=1 dead=0 obs=0 act=1 dflt=0 slot=-1 npr=0 cash=0 cpm=0 bkt=0 rank=1 skp=0 spp=0 lup=2147483647 ldn=0 nsci=0:0:0 rad=0,0,0 nrg=0,0,0
 pr 14->14 Allies
-pl 15 name= key=1 type=1 dead=0 obs=0 act=1 dflt=0 slot=-1 npr=0
+pl 15 name= key=1 type=1 dead=0 obs=0 act=1 dflt=0 slot=-1 npr=0 cash=0 cpm=0 bkt=0 rank=1 skp=0 spp=0 lup=2147483647 ldn=0 nsci=0:0:0 rad=0,0,0 nrg=0,0,0
 pr 15->15 Allies
 slot 0 p-1
 slot 1 p-1
@@ -2878,45 +2878,45 @@ teamevents 1
 tv capture 1 1 2
 ctrlnull 2
 players count=4 local=1
-pl 0 name= key=1 type=1 dead=0 obs=0 act=1 dflt=1 slot=-1 npr=1
+pl 0 name= key=1 type=1 dead=0 obs=0 act=1 dflt=1 slot=-1 npr=1 cash=0 cpm=0 bkt=0 rank=1 skp=0 spp=0 lup=2147483647 ldn=0 nsci=0:0:0 rad=0,0,0 nrg=0,0,0
 pr 0->0 Allies
 pt 0 0 tp1
-pl 1 name=america key=2 type=0 dead=0 obs=0 act=1 dflt=2 slot=-1 npr=1
+pl 1 name=america key=2 type=0 dead=0 obs=0 act=1 dflt=2 slot=-1 npr=1 cash=0 cpm=0 bkt=0 rank=1 skp=0 spp=0 lup=2147483647 ldn=0 nsci=0:0:0 rad=0,0,0 nrg=0,0,0
 pr 1->2 Enemies
 pt 1 0 tp2
-pl 2 name=china key=3 type=1 dead=0 obs=0 act=1 dflt=3 slot=-1 npr=3
+pl 2 name=china key=3 type=1 dead=0 obs=0 act=1 dflt=3 slot=-1 npr=3 cash=0 cpm=0 bkt=0 rank=1 skp=0 spp=0 lup=2147483647 ldn=0 nsci=0:0:0 rad=0,0,0 nrg=0,0,0
 pr 2->0 Neutral
 pr 2->2 Allies
 pt 2 0 tp3
 pt 2 1 tp6
 pt 2 2 tp5
-pl 3 name=gla key=4 type=1 dead=0 obs=0 act=1 dflt=4 slot=-1 npr=1
+pl 3 name=gla key=4 type=1 dead=0 obs=0 act=1 dflt=4 slot=-1 npr=1 cash=0 cpm=0 bkt=0 rank=1 skp=0 spp=0 lup=2147483647 ldn=0 nsci=0:0:0 rad=0,0,0 nrg=0,0,0
 pr 3->0 Neutral
 pr 3->3 Allies
 pt 3 0 tp4
-pl 4 name= key=1 type=1 dead=0 obs=0 act=1 dflt=0 slot=-1 npr=0
+pl 4 name= key=1 type=1 dead=0 obs=0 act=1 dflt=0 slot=-1 npr=0 cash=0 cpm=0 bkt=0 rank=1 skp=0 spp=0 lup=2147483647 ldn=0 nsci=0:0:0 rad=0,0,0 nrg=0,0,0
 pr 4->4 Allies
-pl 5 name= key=1 type=1 dead=0 obs=0 act=1 dflt=0 slot=-1 npr=0
+pl 5 name= key=1 type=1 dead=0 obs=0 act=1 dflt=0 slot=-1 npr=0 cash=0 cpm=0 bkt=0 rank=1 skp=0 spp=0 lup=2147483647 ldn=0 nsci=0:0:0 rad=0,0,0 nrg=0,0,0
 pr 5->5 Allies
-pl 6 name= key=1 type=1 dead=0 obs=0 act=1 dflt=0 slot=-1 npr=0
+pl 6 name= key=1 type=1 dead=0 obs=0 act=1 dflt=0 slot=-1 npr=0 cash=0 cpm=0 bkt=0 rank=1 skp=0 spp=0 lup=2147483647 ldn=0 nsci=0:0:0 rad=0,0,0 nrg=0,0,0
 pr 6->6 Allies
-pl 7 name= key=1 type=1 dead=0 obs=0 act=1 dflt=0 slot=-1 npr=0
+pl 7 name= key=1 type=1 dead=0 obs=0 act=1 dflt=0 slot=-1 npr=0 cash=0 cpm=0 bkt=0 rank=1 skp=0 spp=0 lup=2147483647 ldn=0 nsci=0:0:0 rad=0,0,0 nrg=0,0,0
 pr 7->7 Allies
-pl 8 name= key=1 type=1 dead=0 obs=0 act=1 dflt=0 slot=-1 npr=0
+pl 8 name= key=1 type=1 dead=0 obs=0 act=1 dflt=0 slot=-1 npr=0 cash=0 cpm=0 bkt=0 rank=1 skp=0 spp=0 lup=2147483647 ldn=0 nsci=0:0:0 rad=0,0,0 nrg=0,0,0
 pr 8->8 Allies
-pl 9 name= key=1 type=1 dead=0 obs=0 act=1 dflt=0 slot=-1 npr=0
+pl 9 name= key=1 type=1 dead=0 obs=0 act=1 dflt=0 slot=-1 npr=0 cash=0 cpm=0 bkt=0 rank=1 skp=0 spp=0 lup=2147483647 ldn=0 nsci=0:0:0 rad=0,0,0 nrg=0,0,0
 pr 9->9 Allies
-pl 10 name= key=1 type=1 dead=0 obs=0 act=1 dflt=0 slot=-1 npr=0
+pl 10 name= key=1 type=1 dead=0 obs=0 act=1 dflt=0 slot=-1 npr=0 cash=0 cpm=0 bkt=0 rank=1 skp=0 spp=0 lup=2147483647 ldn=0 nsci=0:0:0 rad=0,0,0 nrg=0,0,0
 pr 10->10 Allies
-pl 11 name= key=1 type=1 dead=0 obs=0 act=1 dflt=0 slot=-1 npr=0
+pl 11 name= key=1 type=1 dead=0 obs=0 act=1 dflt=0 slot=-1 npr=0 cash=0 cpm=0 bkt=0 rank=1 skp=0 spp=0 lup=2147483647 ldn=0 nsci=0:0:0 rad=0,0,0 nrg=0,0,0
 pr 11->11 Allies
-pl 12 name= key=1 type=1 dead=0 obs=0 act=1 dflt=0 slot=-1 npr=0
+pl 12 name= key=1 type=1 dead=0 obs=0 act=1 dflt=0 slot=-1 npr=0 cash=0 cpm=0 bkt=0 rank=1 skp=0 spp=0 lup=2147483647 ldn=0 nsci=0:0:0 rad=0,0,0 nrg=0,0,0
 pr 12->12 Allies
-pl 13 name= key=1 type=1 dead=0 obs=0 act=1 dflt=0 slot=-1 npr=0
+pl 13 name= key=1 type=1 dead=0 obs=0 act=1 dflt=0 slot=-1 npr=0 cash=0 cpm=0 bkt=0 rank=1 skp=0 spp=0 lup=2147483647 ldn=0 nsci=0:0:0 rad=0,0,0 nrg=0,0,0
 pr 13->13 Allies
-pl 14 name= key=1 type=1 dead=0 obs=0 act=1 dflt=0 slot=-1 npr=0
+pl 14 name= key=1 type=1 dead=0 obs=0 act=1 dflt=0 slot=-1 npr=0 cash=0 cpm=0 bkt=0 rank=1 skp=0 spp=0 lup=2147483647 ldn=0 nsci=0:0:0 rad=0,0,0 nrg=0,0,0
 pr 14->14 Allies
-pl 15 name= key=1 type=1 dead=0 obs=0 act=1 dflt=0 slot=-1 npr=0
+pl 15 name= key=1 type=1 dead=0 obs=0 act=1 dflt=0 slot=-1 npr=0 cash=0 cpm=0 bkt=0 rank=1 skp=0 spp=0 lup=2147483647 ldn=0 nsci=0:0:0 rad=0,0,0 nrg=0,0,0
 pr 15->15 Allies
 slot 0 p-1
 slot 1 p-1
@@ -2948,9 +2948,9 @@ tp 6 name=chinaSquad key=11 owner=2 single=0 inst=1
 tpi 6 oc=0 od=0 oi=0 oes=0 oac=0 oud=0 thr=00000000 ea=0 pc= pe=0
 t 6 tp6 act=1 cre=1 eo=0 see=0 psee=0 chk=0 cur=0 thr=0 idle=0 mem=0
 objteams 3
-ot o1 t5 ctrl=2 vis=00000000 ai=0/0
-ot o2 t3 ctrl=2 vis=00000000 ai=0/0
-ot o3 t0 ctrl=-1 vis=00000000 ai=0/0
+ot o1 t5 ctrl=2 vis=00000000 ai=0/0 enr=0,0 pwr=0
+ot o2 t3 ctrl=2 vis=00000000 ai=0/0 enr=0,0 pwr=0
+ot o3 t0 ctrl=-1 vis=00000000 ai=0/0 enr=0,0 pwr=0
 corpus players_masks
 teamevents 3
 tv local 0 1 -1
@@ -2974,48 +2974,48 @@ g6 0000
 g7 001f
 g8 001f
 players count=5 local=1
-pl 0 name= key=1 type=1 dead=0 obs=0 act=1 dflt=1 slot=-1 npr=1
+pl 0 name= key=1 type=1 dead=0 obs=0 act=1 dflt=1 slot=-1 npr=1 cash=0 cpm=0 bkt=0 rank=1 skp=0 spp=0 lup=2147483647 ldn=0 nsci=0:0:0 rad=0,0,0 nrg=0,0,0
 pr 0->0 Allies
 pt 0 0 tp1
-pl 1 name=america key=2 type=0 dead=0 obs=0 act=1 dflt=2 slot=-1 npr=1
+pl 1 name=america key=2 type=0 dead=0 obs=0 act=1 dflt=2 slot=-1 npr=1 cash=0 cpm=0 bkt=0 rank=1 skp=0 spp=0 lup=2147483647 ldn=0 nsci=0:0:0 rad=0,0,0 nrg=0,0,0
 pr 1->0 Neutral
 pr 1->1 Allies
 pr 1->2 Enemies
 pr 1->3 Allies
 pt 1 0 tp2
-pl 2 name=china key=3 type=1 dead=0 obs=0 act=1 dflt=3 slot=-1 npr=1
+pl 2 name=china key=3 type=1 dead=0 obs=0 act=1 dflt=3 slot=-1 npr=1 cash=0 cpm=0 bkt=0 rank=1 skp=0 spp=0 lup=2147483647 ldn=0 nsci=0:0:0 rad=0,0,0 nrg=0,0,0
 pr 2->0 Neutral
 pr 2->2 Allies
 pt 2 0 tp3
-pl 3 name=gla key=4 type=1 dead=0 obs=0 act=1 dflt=4 slot=-1 npr=1
+pl 3 name=gla key=4 type=1 dead=0 obs=0 act=1 dflt=4 slot=-1 npr=1 cash=0 cpm=0 bkt=0 rank=1 skp=0 spp=0 lup=2147483647 ldn=0 nsci=0:0:0 rad=0,0,0 nrg=0,0,0
 pr 3->0 Neutral
 pr 3->3 Allies
 pt 3 0 tp4
-pl 4 name=observer key=5 type=1 dead=1 obs=1 act=0 dflt=5 slot=-1 npr=1
+pl 4 name=observer key=5 type=1 dead=1 obs=1 act=0 dflt=5 slot=-1 npr=1 cash=0 cpm=0 bkt=0 rank=1 skp=0 spp=0 lup=2147483647 ldn=0 nsci=0:0:0 rad=0,0,0 nrg=0,0,0
 pr 4->0 Neutral
 pr 4->4 Allies
 pt 4 0 tp5
-pl 5 name= key=1 type=1 dead=0 obs=0 act=1 dflt=0 slot=-1 npr=0
+pl 5 name= key=1 type=1 dead=0 obs=0 act=1 dflt=0 slot=-1 npr=0 cash=0 cpm=0 bkt=0 rank=1 skp=0 spp=0 lup=2147483647 ldn=0 nsci=0:0:0 rad=0,0,0 nrg=0,0,0
 pr 5->5 Allies
-pl 6 name= key=1 type=1 dead=0 obs=0 act=1 dflt=0 slot=-1 npr=0
+pl 6 name= key=1 type=1 dead=0 obs=0 act=1 dflt=0 slot=-1 npr=0 cash=0 cpm=0 bkt=0 rank=1 skp=0 spp=0 lup=2147483647 ldn=0 nsci=0:0:0 rad=0,0,0 nrg=0,0,0
 pr 6->6 Allies
-pl 7 name= key=1 type=1 dead=0 obs=0 act=1 dflt=0 slot=-1 npr=0
+pl 7 name= key=1 type=1 dead=0 obs=0 act=1 dflt=0 slot=-1 npr=0 cash=0 cpm=0 bkt=0 rank=1 skp=0 spp=0 lup=2147483647 ldn=0 nsci=0:0:0 rad=0,0,0 nrg=0,0,0
 pr 7->7 Allies
-pl 8 name= key=1 type=1 dead=0 obs=0 act=1 dflt=0 slot=-1 npr=0
+pl 8 name= key=1 type=1 dead=0 obs=0 act=1 dflt=0 slot=-1 npr=0 cash=0 cpm=0 bkt=0 rank=1 skp=0 spp=0 lup=2147483647 ldn=0 nsci=0:0:0 rad=0,0,0 nrg=0,0,0
 pr 8->8 Allies
-pl 9 name= key=1 type=1 dead=0 obs=0 act=1 dflt=0 slot=-1 npr=0
+pl 9 name= key=1 type=1 dead=0 obs=0 act=1 dflt=0 slot=-1 npr=0 cash=0 cpm=0 bkt=0 rank=1 skp=0 spp=0 lup=2147483647 ldn=0 nsci=0:0:0 rad=0,0,0 nrg=0,0,0
 pr 9->9 Allies
-pl 10 name= key=1 type=1 dead=0 obs=0 act=1 dflt=0 slot=-1 npr=0
+pl 10 name= key=1 type=1 dead=0 obs=0 act=1 dflt=0 slot=-1 npr=0 cash=0 cpm=0 bkt=0 rank=1 skp=0 spp=0 lup=2147483647 ldn=0 nsci=0:0:0 rad=0,0,0 nrg=0,0,0
 pr 10->10 Allies
-pl 11 name= key=1 type=1 dead=0 obs=0 act=1 dflt=0 slot=-1 npr=0
+pl 11 name= key=1 type=1 dead=0 obs=0 act=1 dflt=0 slot=-1 npr=0 cash=0 cpm=0 bkt=0 rank=1 skp=0 spp=0 lup=2147483647 ldn=0 nsci=0:0:0 rad=0,0,0 nrg=0,0,0
 pr 11->11 Allies
-pl 12 name= key=1 type=1 dead=0 obs=0 act=1 dflt=0 slot=-1 npr=0
+pl 12 name= key=1 type=1 dead=0 obs=0 act=1 dflt=0 slot=-1 npr=0 cash=0 cpm=0 bkt=0 rank=1 skp=0 spp=0 lup=2147483647 ldn=0 nsci=0:0:0 rad=0,0,0 nrg=0,0,0
 pr 12->12 Allies
-pl 13 name= key=1 type=1 dead=0 obs=0 act=1 dflt=0 slot=-1 npr=0
+pl 13 name= key=1 type=1 dead=0 obs=0 act=1 dflt=0 slot=-1 npr=0 cash=0 cpm=0 bkt=0 rank=1 skp=0 spp=0 lup=2147483647 ldn=0 nsci=0:0:0 rad=0,0,0 nrg=0,0,0
 pr 13->13 Allies
-pl 14 name= key=1 type=1 dead=0 obs=0 act=1 dflt=0 slot=-1 npr=0
+pl 14 name= key=1 type=1 dead=0 obs=0 act=1 dflt=0 slot=-1 npr=0 cash=0 cpm=0 bkt=0 rank=1 skp=0 spp=0 lup=2147483647 ldn=0 nsci=0:0:0 rad=0,0,0 nrg=0,0,0
 pr 14->14 Allies
-pl 15 name= key=1 type=1 dead=0 obs=0 act=1 dflt=0 slot=-1 npr=0
+pl 15 name= key=1 type=1 dead=0 obs=0 act=1 dflt=0 slot=-1 npr=0 cash=0 cpm=0 bkt=0 rank=1 skp=0 spp=0 lup=2147483647 ldn=0 nsci=0:0:0 rad=0,0,0 nrg=0,0,0
 pr 15->15 Allies
 slot 0 p-1
 slot 1 p-1
@@ -3145,11 +3145,11 @@ teamevents 2
 tv script 5 onunitdestroyed -1
 tv script 5 ondestroyed -1
 objteams 5
-ot o1 t5 ctrl=1 vis=41000000 ai=1/1
-ot o2 t5 ctrl=1 vis=41000000 ai=1/1
-ot o3 t0 ctrl=-1 vis=41000000 ai=1/0
-ot o4 t0 ctrl=-1 vis=41000000 ai=0/0
-ot o5 t3 ctrl=2 vis=41000000 ai=0/0
+ot o1 t5 ctrl=1 vis=41000000 ai=1/1 enr=0,0 pwr=0
+ot o2 t5 ctrl=1 vis=41000000 ai=1/1 enr=0,0 pwr=0
+ot o3 t0 ctrl=-1 vis=41000000 ai=1/0 enr=0,0 pwr=0
+ot o4 t0 ctrl=-1 vis=41000000 ai=0/0 enr=0,0 pwr=0
+ot o5 t3 ctrl=2 vis=41000000 ai=0/0 enr=0,0 pwr=0
 teamevents 5
 tv teammember 3 1 1
 tv teammember 3 1 0
@@ -3199,13 +3199,13 @@ tv local 0 1 -1
 tv local 0 0 -1
 tv local 1 1 -1
 objteams 7
-ot o1 t2 ctrl=1 vis=00000000 ai=0/0
-ot o2 t2 ctrl=1 vis=00000000 ai=0/0
-ot o3 t5 ctrl=1 vis=00000000 ai=0/0
-ot o4 t3 ctrl=2 vis=00000000 ai=0/0
-ot o5 t3 ctrl=2 vis=00000000 ai=0/0
-ot o6 t4 ctrl=3 vis=00000000 ai=0/0
-ot o7 t1 ctrl=0 vis=00000000 ai=0/0
+ot o1 t2 ctrl=1 vis=00000000 ai=0/0 enr=0,0 pwr=0
+ot o2 t2 ctrl=1 vis=00000000 ai=0/0 enr=0,0 pwr=0
+ot o3 t5 ctrl=1 vis=00000000 ai=0/0 enr=0,0 pwr=0
+ot o4 t3 ctrl=2 vis=00000000 ai=0/0 enr=0,0 pwr=0
+ot o5 t3 ctrl=2 vis=00000000 ai=0/0 enr=0,0 pwr=0
+ot o6 t4 ctrl=3 vis=00000000 ai=0/0 enr=0,0 pwr=0
+ot o7 t1 ctrl=0 vis=00000000 ai=0/0 enr=0,0 pwr=0
 teamevents 7
 tv teammember 1 1 1
 tv teammember 2 1 1
@@ -3250,49 +3250,49 @@ teamevents 2
 tv local 1 0 -1
 tv local 2 1 -1
 players count=4 local=2
-pl 0 name= key=1 type=1 dead=0 obs=0 act=1 dflt=1 slot=-1 npr=1
+pl 0 name= key=1 type=1 dead=0 obs=0 act=1 dflt=1 slot=-1 npr=1 cash=0 cpm=0 bkt=0 rank=1 skp=0 spp=0 lup=2147483647 ldn=0 nsci=0:0:0 rad=0,0,0 nrg=0,0,0
 pr 0->0 Allies
 pt 0 0 tp1
-pl 1 name=america key=2 type=0 dead=0 obs=0 act=1 dflt=2 slot=-1 npr=2
+pl 1 name=america key=2 type=0 dead=0 obs=0 act=1 dflt=2 slot=-1 npr=2 cash=0 cpm=0 bkt=0 rank=1 skp=0 spp=0 lup=2147483647 ldn=0 nsci=0:0:0 rad=0,0,0 nrg=0,0,0
 pr 1->0 Neutral
 pr 1->1 Allies
 pr 1->2 Enemies
 pt 1 0 tp2
 pt 1 1 tp5
-pl 2 name=china key=3 type=1 dead=0 obs=0 act=1 dflt=3 slot=-1 npr=1
+pl 2 name=china key=3 type=1 dead=0 obs=0 act=1 dflt=3 slot=-1 npr=1 cash=0 cpm=0 bkt=0 rank=1 skp=0 spp=0 lup=2147483647 ldn=0 nsci=0:0:0 rad=0,0,0 nrg=0,0,0
 pr 2->0 Neutral
 pr 2->1 Enemies
 pr 2->2 Allies
 pt 2 0 tp3
-pl 3 name=gla key=4 type=1 dead=0 obs=0 act=1 dflt=4 slot=-1 npr=1
+pl 3 name=gla key=4 type=1 dead=0 obs=0 act=1 dflt=4 slot=-1 npr=1 cash=0 cpm=0 bkt=0 rank=1 skp=0 spp=0 lup=2147483647 ldn=0 nsci=0:0:0 rad=0,0,0 nrg=0,0,0
 pr 3->0 Neutral
 pr 3->1 Enemies
 pr 3->2 Enemies
 pr 3->3 Allies
 pt 3 0 tp4
-pl 4 name= key=1 type=1 dead=0 obs=0 act=1 dflt=0 slot=-1 npr=0
+pl 4 name= key=1 type=1 dead=0 obs=0 act=1 dflt=0 slot=-1 npr=0 cash=0 cpm=0 bkt=0 rank=1 skp=0 spp=0 lup=2147483647 ldn=0 nsci=0:0:0 rad=0,0,0 nrg=0,0,0
 pr 4->4 Allies
-pl 5 name= key=1 type=1 dead=0 obs=0 act=1 dflt=0 slot=-1 npr=0
+pl 5 name= key=1 type=1 dead=0 obs=0 act=1 dflt=0 slot=-1 npr=0 cash=0 cpm=0 bkt=0 rank=1 skp=0 spp=0 lup=2147483647 ldn=0 nsci=0:0:0 rad=0,0,0 nrg=0,0,0
 pr 5->5 Allies
-pl 6 name= key=1 type=1 dead=0 obs=0 act=1 dflt=0 slot=-1 npr=0
+pl 6 name= key=1 type=1 dead=0 obs=0 act=1 dflt=0 slot=-1 npr=0 cash=0 cpm=0 bkt=0 rank=1 skp=0 spp=0 lup=2147483647 ldn=0 nsci=0:0:0 rad=0,0,0 nrg=0,0,0
 pr 6->6 Allies
-pl 7 name= key=1 type=1 dead=0 obs=0 act=1 dflt=0 slot=-1 npr=0
+pl 7 name= key=1 type=1 dead=0 obs=0 act=1 dflt=0 slot=-1 npr=0 cash=0 cpm=0 bkt=0 rank=1 skp=0 spp=0 lup=2147483647 ldn=0 nsci=0:0:0 rad=0,0,0 nrg=0,0,0
 pr 7->7 Allies
-pl 8 name= key=1 type=1 dead=0 obs=0 act=1 dflt=0 slot=-1 npr=0
+pl 8 name= key=1 type=1 dead=0 obs=0 act=1 dflt=0 slot=-1 npr=0 cash=0 cpm=0 bkt=0 rank=1 skp=0 spp=0 lup=2147483647 ldn=0 nsci=0:0:0 rad=0,0,0 nrg=0,0,0
 pr 8->8 Allies
-pl 9 name= key=1 type=1 dead=0 obs=0 act=1 dflt=0 slot=-1 npr=0
+pl 9 name= key=1 type=1 dead=0 obs=0 act=1 dflt=0 slot=-1 npr=0 cash=0 cpm=0 bkt=0 rank=1 skp=0 spp=0 lup=2147483647 ldn=0 nsci=0:0:0 rad=0,0,0 nrg=0,0,0
 pr 9->9 Allies
-pl 10 name= key=1 type=1 dead=0 obs=0 act=1 dflt=0 slot=-1 npr=0
+pl 10 name= key=1 type=1 dead=0 obs=0 act=1 dflt=0 slot=-1 npr=0 cash=0 cpm=0 bkt=0 rank=1 skp=0 spp=0 lup=2147483647 ldn=0 nsci=0:0:0 rad=0,0,0 nrg=0,0,0
 pr 10->10 Allies
-pl 11 name= key=1 type=1 dead=0 obs=0 act=1 dflt=0 slot=-1 npr=0
+pl 11 name= key=1 type=1 dead=0 obs=0 act=1 dflt=0 slot=-1 npr=0 cash=0 cpm=0 bkt=0 rank=1 skp=0 spp=0 lup=2147483647 ldn=0 nsci=0:0:0 rad=0,0,0 nrg=0,0,0
 pr 11->11 Allies
-pl 12 name= key=1 type=1 dead=0 obs=0 act=1 dflt=0 slot=-1 npr=0
+pl 12 name= key=1 type=1 dead=0 obs=0 act=1 dflt=0 slot=-1 npr=0 cash=0 cpm=0 bkt=0 rank=1 skp=0 spp=0 lup=2147483647 ldn=0 nsci=0:0:0 rad=0,0,0 nrg=0,0,0
 pr 12->12 Allies
-pl 13 name= key=1 type=1 dead=0 obs=0 act=1 dflt=0 slot=-1 npr=0
+pl 13 name= key=1 type=1 dead=0 obs=0 act=1 dflt=0 slot=-1 npr=0 cash=0 cpm=0 bkt=0 rank=1 skp=0 spp=0 lup=2147483647 ldn=0 nsci=0:0:0 rad=0,0,0 nrg=0,0,0
 pr 13->13 Allies
-pl 14 name= key=1 type=1 dead=0 obs=0 act=1 dflt=0 slot=-1 npr=0
+pl 14 name= key=1 type=1 dead=0 obs=0 act=1 dflt=0 slot=-1 npr=0 cash=0 cpm=0 bkt=0 rank=1 skp=0 spp=0 lup=2147483647 ldn=0 nsci=0:0:0 rad=0,0,0 nrg=0,0,0
 pr 14->14 Allies
-pl 15 name= key=1 type=1 dead=0 obs=0 act=1 dflt=0 slot=-1 npr=0
+pl 15 name= key=1 type=1 dead=0 obs=0 act=1 dflt=0 slot=-1 npr=0 cash=0 cpm=0 bkt=0 rank=1 skp=0 spp=0 lup=2147483647 ldn=0 nsci=0:0:0 rad=0,0,0 nrg=0,0,0
 pr 15->15 Allies
 slot 0 p-1
 slot 1 p-1
@@ -3303,44 +3303,44 @@ slot 5 p-1
 slot 6 p-1
 slot 7 p-1
 players count=1 local=0
-pl 0 name= key=1 type=1 dead=0 obs=0 act=1 dflt=0 slot=-1 npr=0
+pl 0 name= key=1 type=1 dead=0 obs=0 act=1 dflt=0 slot=-1 npr=0 cash=0 cpm=0 bkt=0 rank=1 skp=0 spp=0 lup=2147483647 ldn=0 nsci=0:0:0 rad=0,0,0 nrg=0,0,0
 pr 0->0 Allies
-pl 1 name= key=1 type=1 dead=0 obs=0 act=1 dflt=0 slot=-1 npr=0
+pl 1 name= key=1 type=1 dead=0 obs=0 act=1 dflt=0 slot=-1 npr=0 cash=0 cpm=0 bkt=0 rank=1 skp=0 spp=0 lup=2147483647 ldn=0 nsci=0:0:0 rad=0,0,0 nrg=0,0,0
 pr 1->0 Neutral
 pr 1->1 Allies
 pr 1->2 Enemies
-pl 2 name= key=1 type=1 dead=0 obs=0 act=1 dflt=0 slot=-1 npr=0
+pl 2 name= key=1 type=1 dead=0 obs=0 act=1 dflt=0 slot=-1 npr=0 cash=0 cpm=0 bkt=0 rank=1 skp=0 spp=0 lup=2147483647 ldn=0 nsci=0:0:0 rad=0,0,0 nrg=0,0,0
 pr 2->0 Neutral
 pr 2->1 Enemies
 pr 2->2 Allies
-pl 3 name= key=1 type=1 dead=0 obs=0 act=1 dflt=0 slot=-1 npr=0
+pl 3 name= key=1 type=1 dead=0 obs=0 act=1 dflt=0 slot=-1 npr=0 cash=0 cpm=0 bkt=0 rank=1 skp=0 spp=0 lup=2147483647 ldn=0 nsci=0:0:0 rad=0,0,0 nrg=0,0,0
 pr 3->0 Neutral
 pr 3->1 Enemies
 pr 3->2 Enemies
 pr 3->3 Allies
-pl 4 name= key=1 type=1 dead=0 obs=0 act=1 dflt=0 slot=-1 npr=0
+pl 4 name= key=1 type=1 dead=0 obs=0 act=1 dflt=0 slot=-1 npr=0 cash=0 cpm=0 bkt=0 rank=1 skp=0 spp=0 lup=2147483647 ldn=0 nsci=0:0:0 rad=0,0,0 nrg=0,0,0
 pr 4->4 Allies
-pl 5 name= key=1 type=1 dead=0 obs=0 act=1 dflt=0 slot=-1 npr=0
+pl 5 name= key=1 type=1 dead=0 obs=0 act=1 dflt=0 slot=-1 npr=0 cash=0 cpm=0 bkt=0 rank=1 skp=0 spp=0 lup=2147483647 ldn=0 nsci=0:0:0 rad=0,0,0 nrg=0,0,0
 pr 5->5 Allies
-pl 6 name= key=1 type=1 dead=0 obs=0 act=1 dflt=0 slot=-1 npr=0
+pl 6 name= key=1 type=1 dead=0 obs=0 act=1 dflt=0 slot=-1 npr=0 cash=0 cpm=0 bkt=0 rank=1 skp=0 spp=0 lup=2147483647 ldn=0 nsci=0:0:0 rad=0,0,0 nrg=0,0,0
 pr 6->6 Allies
-pl 7 name= key=1 type=1 dead=0 obs=0 act=1 dflt=0 slot=-1 npr=0
+pl 7 name= key=1 type=1 dead=0 obs=0 act=1 dflt=0 slot=-1 npr=0 cash=0 cpm=0 bkt=0 rank=1 skp=0 spp=0 lup=2147483647 ldn=0 nsci=0:0:0 rad=0,0,0 nrg=0,0,0
 pr 7->7 Allies
-pl 8 name= key=1 type=1 dead=0 obs=0 act=1 dflt=0 slot=-1 npr=0
+pl 8 name= key=1 type=1 dead=0 obs=0 act=1 dflt=0 slot=-1 npr=0 cash=0 cpm=0 bkt=0 rank=1 skp=0 spp=0 lup=2147483647 ldn=0 nsci=0:0:0 rad=0,0,0 nrg=0,0,0
 pr 8->8 Allies
-pl 9 name= key=1 type=1 dead=0 obs=0 act=1 dflt=0 slot=-1 npr=0
+pl 9 name= key=1 type=1 dead=0 obs=0 act=1 dflt=0 slot=-1 npr=0 cash=0 cpm=0 bkt=0 rank=1 skp=0 spp=0 lup=2147483647 ldn=0 nsci=0:0:0 rad=0,0,0 nrg=0,0,0
 pr 9->9 Allies
-pl 10 name= key=1 type=1 dead=0 obs=0 act=1 dflt=0 slot=-1 npr=0
+pl 10 name= key=1 type=1 dead=0 obs=0 act=1 dflt=0 slot=-1 npr=0 cash=0 cpm=0 bkt=0 rank=1 skp=0 spp=0 lup=2147483647 ldn=0 nsci=0:0:0 rad=0,0,0 nrg=0,0,0
 pr 10->10 Allies
-pl 11 name= key=1 type=1 dead=0 obs=0 act=1 dflt=0 slot=-1 npr=0
+pl 11 name= key=1 type=1 dead=0 obs=0 act=1 dflt=0 slot=-1 npr=0 cash=0 cpm=0 bkt=0 rank=1 skp=0 spp=0 lup=2147483647 ldn=0 nsci=0:0:0 rad=0,0,0 nrg=0,0,0
 pr 11->11 Allies
-pl 12 name= key=1 type=1 dead=0 obs=0 act=1 dflt=0 slot=-1 npr=0
+pl 12 name= key=1 type=1 dead=0 obs=0 act=1 dflt=0 slot=-1 npr=0 cash=0 cpm=0 bkt=0 rank=1 skp=0 spp=0 lup=2147483647 ldn=0 nsci=0:0:0 rad=0,0,0 nrg=0,0,0
 pr 12->12 Allies
-pl 13 name= key=1 type=1 dead=0 obs=0 act=1 dflt=0 slot=-1 npr=0
+pl 13 name= key=1 type=1 dead=0 obs=0 act=1 dflt=0 slot=-1 npr=0 cash=0 cpm=0 bkt=0 rank=1 skp=0 spp=0 lup=2147483647 ldn=0 nsci=0:0:0 rad=0,0,0 nrg=0,0,0
 pr 13->13 Allies
-pl 14 name= key=1 type=1 dead=0 obs=0 act=1 dflt=0 slot=-1 npr=0
+pl 14 name= key=1 type=1 dead=0 obs=0 act=1 dflt=0 slot=-1 npr=0 cash=0 cpm=0 bkt=0 rank=1 skp=0 spp=0 lup=2147483647 ldn=0 nsci=0:0:0 rad=0,0,0 nrg=0,0,0
 pr 14->14 Allies
-pl 15 name= key=1 type=1 dead=0 obs=0 act=1 dflt=0 slot=-1 npr=0
+pl 15 name= key=1 type=1 dead=0 obs=0 act=1 dflt=0 slot=-1 npr=0 cash=0 cpm=0 bkt=0 rank=1 skp=0 spp=0 lup=2147483647 ldn=0 nsci=0:0:0 rad=0,0,0 nrg=0,0,0
 pr 15->15 Allies
 slot 0 p-1
 slot 1 p-1
@@ -3367,13 +3367,1738 @@ tv teammember 3 1 0
 tv local 2 0 -1
 tv local 0 1 -1
 objteams 7
-ot o1 t0 ctrl=-1 vis=00000000 ai=0/0
-ot o2 t0 ctrl=-1 vis=00000000 ai=0/0
-ot o3 t0 ctrl=-1 vis=41400000 ai=0/0
-ot o4 t0 ctrl=-1 vis=00000000 ai=0/0
-ot o5 t0 ctrl=-1 vis=00000000 ai=0/0
-ot o6 t0 ctrl=-1 vis=00000000 ai=0/0
-ot o7 t0 ctrl=-1 vis=00000000 ai=0/0
+ot o1 t0 ctrl=-1 vis=00000000 ai=0/0 enr=0,0 pwr=0
+ot o2 t0 ctrl=-1 vis=00000000 ai=0/0 enr=0,0 pwr=0
+ot o3 t0 ctrl=-1 vis=41400000 ai=0/0 enr=0,0 pwr=0
+ot o4 t0 ctrl=-1 vis=00000000 ai=0/0 enr=0,0 pwr=0
+ot o5 t0 ctrl=-1 vis=00000000 ai=0/0 enr=0,0 pwr=0
+ot o6 t0 ctrl=-1 vis=00000000 ai=0/0 enr=0,0 pwr=0
+ot o7 t0 ctrl=-1 vis=00000000 ai=0/0 enr=0,0 pwr=0
+corpus purse_money
+teamevents 3
+tv local 0 1 -1
+tv income 0 -1 -1
+tv income 1 -1 -1
+start 10000 0
+wd 3000
+wd 7000
+wd 0
+wd 0 0
+teamevents 5
+tv moneyaudio 1 1 -1
+tv moneyaudio 1 1 -1
+tv moneyaudio 1 0 -1
+tv income 1 -1 -1
+tv income 1 -1 -1
+cash 2007 2000 0
+eq 1
+eq 0
+cpm 150
+cpm 160
+cpm 160
+cpm 160 bkt=59
+cpm 10 bkt=0
+teamevents 83
+tv income 1 -1 -1
+tv pupdate 0 -1 -1
+tv pupdate 1 -1 -1
+tv pupdate 2 -1 -1
+tv pupdate 3 -1 -1
+tv pupdate 4 -1 -1
+tv pupdate 5 -1 -1
+tv pupdate 6 -1 -1
+tv pupdate 7 -1 -1
+tv pupdate 8 -1 -1
+tv pupdate 9 -1 -1
+tv pupdate 10 -1 -1
+tv pupdate 11 -1 -1
+tv pupdate 12 -1 -1
+tv pupdate 13 -1 -1
+tv pupdate 14 -1 -1
+tv pupdate 15 -1 -1
+tv income 1 -1 -1
+tv pupdate 0 -1 -1
+tv pupdate 1 -1 -1
+tv pupdate 2 -1 -1
+tv pupdate 3 -1 -1
+tv pupdate 4 -1 -1
+tv pupdate 5 -1 -1
+tv pupdate 6 -1 -1
+tv pupdate 7 -1 -1
+tv pupdate 8 -1 -1
+tv pupdate 9 -1 -1
+tv pupdate 10 -1 -1
+tv pupdate 11 -1 -1
+tv pupdate 12 -1 -1
+tv pupdate 13 -1 -1
+tv pupdate 14 -1 -1
+tv pupdate 15 -1 -1
+tv income 1 -1 -1
+tv pupdate 0 -1 -1
+tv pupdate 1 -1 -1
+tv pupdate 2 -1 -1
+tv pupdate 3 -1 -1
+tv pupdate 4 -1 -1
+tv pupdate 5 -1 -1
+tv pupdate 6 -1 -1
+tv pupdate 7 -1 -1
+tv pupdate 8 -1 -1
+tv pupdate 9 -1 -1
+tv pupdate 10 -1 -1
+tv pupdate 11 -1 -1
+tv pupdate 12 -1 -1
+tv pupdate 13 -1 -1
+tv pupdate 14 -1 -1
+tv pupdate 15 -1 -1
+tv pupdate 0 -1 -1
+tv pupdate 1 -1 -1
+tv pupdate 2 -1 -1
+tv pupdate 3 -1 -1
+tv pupdate 4 -1 -1
+tv pupdate 5 -1 -1
+tv pupdate 6 -1 -1
+tv pupdate 7 -1 -1
+tv pupdate 8 -1 -1
+tv pupdate 9 -1 -1
+tv pupdate 10 -1 -1
+tv pupdate 11 -1 -1
+tv pupdate 12 -1 -1
+tv pupdate 13 -1 -1
+tv pupdate 14 -1 -1
+tv pupdate 15 -1 -1
+tv pupdate 0 -1 -1
+tv pupdate 1 -1 -1
+tv pupdate 2 -1 -1
+tv pupdate 3 -1 -1
+tv pupdate 4 -1 -1
+tv pupdate 5 -1 -1
+tv pupdate 6 -1 -1
+tv pupdate 7 -1 -1
+tv pupdate 8 -1 -1
+tv pupdate 9 -1 -1
+tv pupdate 10 -1 -1
+tv pupdate 11 -1 -1
+tv pupdate 12 -1 -1
+tv pupdate 13 -1 -1
+tv pupdate 14 -1 -1
+tv pupdate 15 -1 -1
+wrap 99
+teamevents 2
+tv income 1 -1 -1
+tv income 15 -1 -1
+players count=1 local=0
+pl 0 name= key=1 type=1 dead=0 obs=0 act=1 dflt=0 slot=-1 npr=0 cash=0 cpm=0 bkt=0 rank=1 skp=0 spp=0 lup=2147483647 ldn=0 nsci=0:0:0 rad=0,0,0 nrg=0,0,0
+pr 0->0 Allies
+pl 1 name= key=1 type=1 dead=0 obs=0 act=1 dflt=0 slot=-1 npr=0 cash=99 cpm=0 bkt=0 rank=1 skp=0 spp=0 lup=2147483647 ldn=0 nsci=0:0:0 rad=0,0,0 nrg=0,0,0
+pr 1->1 Allies
+pl 2 name= key=1 type=1 dead=0 obs=0 act=1 dflt=0 slot=-1 npr=0 cash=15 cpm=0 bkt=0 rank=1 skp=0 spp=0 lup=2147483647 ldn=0 nsci=0:0:0 rad=0,0,0 nrg=0,0,0
+pr 2->2 Allies
+pl 3 name= key=1 type=1 dead=0 obs=0 act=1 dflt=0 slot=-1 npr=0 cash=0 cpm=0 bkt=0 rank=1 skp=0 spp=0 lup=2147483647 ldn=0 nsci=0:0:0 rad=0,0,0 nrg=0,0,0
+pr 3->3 Allies
+pl 4 name= key=1 type=1 dead=0 obs=0 act=1 dflt=0 slot=-1 npr=0 cash=0 cpm=0 bkt=0 rank=1 skp=0 spp=0 lup=2147483647 ldn=0 nsci=0:0:0 rad=0,0,0 nrg=0,0,0
+pr 4->4 Allies
+pl 5 name= key=1 type=1 dead=0 obs=0 act=1 dflt=0 slot=-1 npr=0 cash=0 cpm=0 bkt=0 rank=1 skp=0 spp=0 lup=2147483647 ldn=0 nsci=0:0:0 rad=0,0,0 nrg=0,0,0
+pr 5->5 Allies
+pl 6 name= key=1 type=1 dead=0 obs=0 act=1 dflt=0 slot=-1 npr=0 cash=0 cpm=0 bkt=0 rank=1 skp=0 spp=0 lup=2147483647 ldn=0 nsci=0:0:0 rad=0,0,0 nrg=0,0,0
+pr 6->6 Allies
+pl 7 name= key=1 type=1 dead=0 obs=0 act=1 dflt=0 slot=-1 npr=0 cash=0 cpm=0 bkt=0 rank=1 skp=0 spp=0 lup=2147483647 ldn=0 nsci=0:0:0 rad=0,0,0 nrg=0,0,0
+pr 7->7 Allies
+pl 8 name= key=1 type=1 dead=0 obs=0 act=1 dflt=0 slot=-1 npr=0 cash=0 cpm=0 bkt=0 rank=1 skp=0 spp=0 lup=2147483647 ldn=0 nsci=0:0:0 rad=0,0,0 nrg=0,0,0
+pr 8->8 Allies
+pl 9 name= key=1 type=1 dead=0 obs=0 act=1 dflt=0 slot=-1 npr=0 cash=0 cpm=0 bkt=0 rank=1 skp=0 spp=0 lup=2147483647 ldn=0 nsci=0:0:0 rad=0,0,0 nrg=0,0,0
+pr 9->9 Allies
+pl 10 name= key=1 type=1 dead=0 obs=0 act=1 dflt=0 slot=-1 npr=0 cash=0 cpm=0 bkt=0 rank=1 skp=0 spp=0 lup=2147483647 ldn=0 nsci=0:0:0 rad=0,0,0 nrg=0,0,0
+pr 10->10 Allies
+pl 11 name= key=1 type=1 dead=0 obs=0 act=1 dflt=0 slot=-1 npr=0 cash=0 cpm=0 bkt=0 rank=1 skp=0 spp=0 lup=2147483647 ldn=0 nsci=0:0:0 rad=0,0,0 nrg=0,0,0
+pr 11->11 Allies
+pl 12 name= key=1 type=1 dead=0 obs=0 act=1 dflt=0 slot=-1 npr=0 cash=0 cpm=0 bkt=0 rank=1 skp=0 spp=0 lup=2147483647 ldn=0 nsci=0:0:0 rad=0,0,0 nrg=0,0,0
+pr 12->12 Allies
+pl 13 name= key=1 type=1 dead=0 obs=0 act=1 dflt=0 slot=-1 npr=0 cash=0 cpm=0 bkt=0 rank=1 skp=0 spp=0 lup=2147483647 ldn=0 nsci=0:0:0 rad=0,0,0 nrg=0,0,0
+pr 13->13 Allies
+pl 14 name= key=1 type=1 dead=0 obs=0 act=1 dflt=0 slot=-1 npr=0 cash=0 cpm=0 bkt=0 rank=1 skp=0 spp=0 lup=2147483647 ldn=0 nsci=0:0:0 rad=0,0,0 nrg=0,0,0
+pr 14->14 Allies
+pl 15 name= key=1 type=1 dead=0 obs=0 act=1 dflt=0 slot=-1 npr=0 cash=0 cpm=0 bkt=0 rank=1 skp=0 spp=0 lup=2147483647 ldn=0 nsci=0:0:0 rad=0,0,0 nrg=0,0,0
+pr 15->15 Allies
+slot 0 p-1
+slot 1 p-1
+slot 2 p-1
+slot 3 p-1
+slot 4 p-1
+slot 5 p-1
+slot 6 p-1
+slot 7 p-1
+end
+corpus purse_energy
+nrg 60 0 suff=1
+nrg 60 20 suff=1
+players count=3 local=1
+pl 0 name= key=1 type=1 dead=0 obs=0 act=1 dflt=1 slot=-1 npr=1 cash=0 cpm=0 bkt=0 rank=1 skp=0 spp=0 lup=2147483647 ldn=0 nsci=0:0:0 rad=0,0,0 nrg=0,0,0
+pr 0->0 Allies
+pt 0 0 tp1
+pl 1 name=p1 key=2 type=0 dead=0 obs=0 act=1 dflt=2 slot=-1 npr=2 cash=0 cpm=0 bkt=0 rank=1 skp=0 spp=0 lup=2147483647 ldn=0 nsci=0:0:0 rad=2,1,0 nrg=60,20,0
+pr 1->0 Neutral
+pr 1->1 Allies
+pt 1 0 tp2
+pt 1 1 tp4
+pl 2 name=p2 key=3 type=1 dead=0 obs=0 act=1 dflt=3 slot=-1 npr=1 cash=0 cpm=0 bkt=0 rank=1 skp=0 spp=0 lup=2147483647 ldn=0 nsci=0:0:0 rad=0,0,0 nrg=0,0,0
+pr 2->0 Neutral
+pr 2->2 Allies
+pt 2 0 tp3
+pl 3 name= key=1 type=1 dead=0 obs=0 act=1 dflt=0 slot=-1 npr=0 cash=0 cpm=0 bkt=0 rank=1 skp=0 spp=0 lup=2147483647 ldn=0 nsci=0:0:0 rad=0,0,0 nrg=0,0,0
+pr 3->3 Allies
+pl 4 name= key=1 type=1 dead=0 obs=0 act=1 dflt=0 slot=-1 npr=0 cash=0 cpm=0 bkt=0 rank=1 skp=0 spp=0 lup=2147483647 ldn=0 nsci=0:0:0 rad=0,0,0 nrg=0,0,0
+pr 4->4 Allies
+pl 5 name= key=1 type=1 dead=0 obs=0 act=1 dflt=0 slot=-1 npr=0 cash=0 cpm=0 bkt=0 rank=1 skp=0 spp=0 lup=2147483647 ldn=0 nsci=0:0:0 rad=0,0,0 nrg=0,0,0
+pr 5->5 Allies
+pl 6 name= key=1 type=1 dead=0 obs=0 act=1 dflt=0 slot=-1 npr=0 cash=0 cpm=0 bkt=0 rank=1 skp=0 spp=0 lup=2147483647 ldn=0 nsci=0:0:0 rad=0,0,0 nrg=0,0,0
+pr 6->6 Allies
+pl 7 name= key=1 type=1 dead=0 obs=0 act=1 dflt=0 slot=-1 npr=0 cash=0 cpm=0 bkt=0 rank=1 skp=0 spp=0 lup=2147483647 ldn=0 nsci=0:0:0 rad=0,0,0 nrg=0,0,0
+pr 7->7 Allies
+pl 8 name= key=1 type=1 dead=0 obs=0 act=1 dflt=0 slot=-1 npr=0 cash=0 cpm=0 bkt=0 rank=1 skp=0 spp=0 lup=2147483647 ldn=0 nsci=0:0:0 rad=0,0,0 nrg=0,0,0
+pr 8->8 Allies
+pl 9 name= key=1 type=1 dead=0 obs=0 act=1 dflt=0 slot=-1 npr=0 cash=0 cpm=0 bkt=0 rank=1 skp=0 spp=0 lup=2147483647 ldn=0 nsci=0:0:0 rad=0,0,0 nrg=0,0,0
+pr 9->9 Allies
+pl 10 name= key=1 type=1 dead=0 obs=0 act=1 dflt=0 slot=-1 npr=0 cash=0 cpm=0 bkt=0 rank=1 skp=0 spp=0 lup=2147483647 ldn=0 nsci=0:0:0 rad=0,0,0 nrg=0,0,0
+pr 10->10 Allies
+pl 11 name= key=1 type=1 dead=0 obs=0 act=1 dflt=0 slot=-1 npr=0 cash=0 cpm=0 bkt=0 rank=1 skp=0 spp=0 lup=2147483647 ldn=0 nsci=0:0:0 rad=0,0,0 nrg=0,0,0
+pr 11->11 Allies
+pl 12 name= key=1 type=1 dead=0 obs=0 act=1 dflt=0 slot=-1 npr=0 cash=0 cpm=0 bkt=0 rank=1 skp=0 spp=0 lup=2147483647 ldn=0 nsci=0:0:0 rad=0,0,0 nrg=0,0,0
+pr 12->12 Allies
+pl 13 name= key=1 type=1 dead=0 obs=0 act=1 dflt=0 slot=-1 npr=0 cash=0 cpm=0 bkt=0 rank=1 skp=0 spp=0 lup=2147483647 ldn=0 nsci=0:0:0 rad=0,0,0 nrg=0,0,0
+pr 13->13 Allies
+pl 14 name= key=1 type=1 dead=0 obs=0 act=1 dflt=0 slot=-1 npr=0 cash=0 cpm=0 bkt=0 rank=1 skp=0 spp=0 lup=2147483647 ldn=0 nsci=0:0:0 rad=0,0,0 nrg=0,0,0
+pr 14->14 Allies
+pl 15 name= key=1 type=1 dead=0 obs=0 act=1 dflt=0 slot=-1 npr=0 cash=0 cpm=0 bkt=0 rank=1 skp=0 spp=0 lup=2147483647 ldn=0 nsci=0:0:0 rad=0,0,0 nrg=0,0,0
+pr 15->15 Allies
+slot 0 p-1
+slot 1 p-1
+slot 2 p-1
+slot 3 p-1
+slot 4 p-1
+slot 5 p-1
+slot 6 p-1
+slot 7 p-1
+nrg 60 35 suff=1 radar=1
+frame 0
+nextid 6
+objlist 5
+o id=5 upd=0 part=5 dis=0000 cellchg=0
+o id=4 upd=0 part=4 dis=0000 cellchg=0
+o id=3 upd=0 part=3 dis=0000 cellchg=0
+o id=2 upd=0 part=2 dis=0000 cellchg=0
+o id=1 upd=0 part=1 dis=0000 cellchg=0
+destroylist 0
+teamevents 8
+tv local 0 1 -1
+tv local 0 0 -1
+tv local 1 1 -1
+tv teammember 3 1 1
+tv teammember 4 1 1
+tv teammember 1 1 1
+tv teammember 2 1 1
+tv teammember 5 1 1
+ratio 3fdb6db7
+nrg 60 20 suff=1 radar=1
+ratio 40400000
+adj 65 20
+adj 60 20
+adj 60 25
+adj 60 20
+adj 60 20
+bonus 110
+bonus 110
+bonus 60
+sab 0 0 ratio=00000000
+sab 100
+sab 0 suff=1
+frame 101
+nextid 6
+objlist 5
+o id=5 upd=0 part=5 dis=0000 cellchg=0
+o id=4 upd=0 part=4 dis=0000 cellchg=0
+o id=3 upd=0 part=3 dis=0000 cellchg=0
+o id=2 upd=0 part=2 dis=0000 cellchg=0
+o id=1 upd=0 part=1 dis=0000 cellchg=0
+destroylist 0
+objteams 5
+ot o1 t2 ctrl=1 vis=00000000 ai=0/0 enr=30,25 pwr=1
+ot o2 t2 ctrl=1 vis=00000000 ai=0/0 enr=30,0 pwr=0
+ot o3 t4 ctrl=1 vis=00000000 ai=0/0 enr=-20,0 pwr=1
+ot o4 t4 ctrl=1 vis=00000000 ai=0/0 enr=-15,0 pwr=1
+ot o5 t2 ctrl=1 vis=00000000 ai=0/0 enr=10,50 pwr=1
+players count=3 local=1
+pl 0 name= key=1 type=1 dead=0 obs=0 act=1 dflt=1 slot=-1 npr=1 cash=0 cpm=0 bkt=3 rank=1 skp=0 spp=0 lup=2147483647 ldn=0 nsci=0:0:0 rad=0,0,0 nrg=0,0,0
+pr 0->0 Allies
+pt 0 0 tp1
+pl 1 name=p1 key=2 type=0 dead=0 obs=0 act=1 dflt=2 slot=-1 npr=2 cash=0 cpm=0 bkt=3 rank=1 skp=0 spp=0 lup=2147483647 ldn=0 nsci=0:0:0 rad=2,1,0 nrg=60,20,0
+pr 1->0 Neutral
+pr 1->1 Allies
+pt 1 0 tp2
+pt 1 1 tp4
+pl 2 name=p2 key=3 type=1 dead=0 obs=0 act=1 dflt=3 slot=-1 npr=1 cash=0 cpm=0 bkt=3 rank=1 skp=0 spp=0 lup=2147483647 ldn=0 nsci=0:0:0 rad=0,0,0 nrg=0,0,0
+pr 2->0 Neutral
+pr 2->2 Allies
+pt 2 0 tp3
+pl 3 name= key=1 type=1 dead=0 obs=0 act=1 dflt=0 slot=-1 npr=0 cash=0 cpm=0 bkt=3 rank=1 skp=0 spp=0 lup=2147483647 ldn=0 nsci=0:0:0 rad=0,0,0 nrg=0,0,0
+pr 3->3 Allies
+pl 4 name= key=1 type=1 dead=0 obs=0 act=1 dflt=0 slot=-1 npr=0 cash=0 cpm=0 bkt=3 rank=1 skp=0 spp=0 lup=2147483647 ldn=0 nsci=0:0:0 rad=0,0,0 nrg=0,0,0
+pr 4->4 Allies
+pl 5 name= key=1 type=1 dead=0 obs=0 act=1 dflt=0 slot=-1 npr=0 cash=0 cpm=0 bkt=3 rank=1 skp=0 spp=0 lup=2147483647 ldn=0 nsci=0:0:0 rad=0,0,0 nrg=0,0,0
+pr 5->5 Allies
+pl 6 name= key=1 type=1 dead=0 obs=0 act=1 dflt=0 slot=-1 npr=0 cash=0 cpm=0 bkt=3 rank=1 skp=0 spp=0 lup=2147483647 ldn=0 nsci=0:0:0 rad=0,0,0 nrg=0,0,0
+pr 6->6 Allies
+pl 7 name= key=1 type=1 dead=0 obs=0 act=1 dflt=0 slot=-1 npr=0 cash=0 cpm=0 bkt=3 rank=1 skp=0 spp=0 lup=2147483647 ldn=0 nsci=0:0:0 rad=0,0,0 nrg=0,0,0
+pr 7->7 Allies
+pl 8 name= key=1 type=1 dead=0 obs=0 act=1 dflt=0 slot=-1 npr=0 cash=0 cpm=0 bkt=3 rank=1 skp=0 spp=0 lup=2147483647 ldn=0 nsci=0:0:0 rad=0,0,0 nrg=0,0,0
+pr 8->8 Allies
+pl 9 name= key=1 type=1 dead=0 obs=0 act=1 dflt=0 slot=-1 npr=0 cash=0 cpm=0 bkt=3 rank=1 skp=0 spp=0 lup=2147483647 ldn=0 nsci=0:0:0 rad=0,0,0 nrg=0,0,0
+pr 9->9 Allies
+pl 10 name= key=1 type=1 dead=0 obs=0 act=1 dflt=0 slot=-1 npr=0 cash=0 cpm=0 bkt=3 rank=1 skp=0 spp=0 lup=2147483647 ldn=0 nsci=0:0:0 rad=0,0,0 nrg=0,0,0
+pr 10->10 Allies
+pl 11 name= key=1 type=1 dead=0 obs=0 act=1 dflt=0 slot=-1 npr=0 cash=0 cpm=0 bkt=3 rank=1 skp=0 spp=0 lup=2147483647 ldn=0 nsci=0:0:0 rad=0,0,0 nrg=0,0,0
+pr 11->11 Allies
+pl 12 name= key=1 type=1 dead=0 obs=0 act=1 dflt=0 slot=-1 npr=0 cash=0 cpm=0 bkt=3 rank=1 skp=0 spp=0 lup=2147483647 ldn=0 nsci=0:0:0 rad=0,0,0 nrg=0,0,0
+pr 12->12 Allies
+pl 13 name= key=1 type=1 dead=0 obs=0 act=1 dflt=0 slot=-1 npr=0 cash=0 cpm=0 bkt=3 rank=1 skp=0 spp=0 lup=2147483647 ldn=0 nsci=0:0:0 rad=0,0,0 nrg=0,0,0
+pr 13->13 Allies
+pl 14 name= key=1 type=1 dead=0 obs=0 act=1 dflt=0 slot=-1 npr=0 cash=0 cpm=0 bkt=3 rank=1 skp=0 spp=0 lup=2147483647 ldn=0 nsci=0:0:0 rad=0,0,0 nrg=0,0,0
+pr 14->14 Allies
+pl 15 name= key=1 type=1 dead=0 obs=0 act=1 dflt=0 slot=-1 npr=0 cash=0 cpm=0 bkt=3 rank=1 skp=0 spp=0 lup=2147483647 ldn=0 nsci=0:0:0 rad=0,0,0 nrg=0,0,0
+pr 15->15 Allies
+slot 0 p-1
+slot 1 p-1
+slot 2 p-1
+slot 3 p-1
+slot 4 p-1
+slot 5 p-1
+slot 6 p-1
+slot 7 p-1
+teamevents 32
+tv pupdate 0 -1 -1
+tv pupdate 1 -1 -1
+tv pupdate 2 -1 -1
+tv pupdate 3 -1 -1
+tv pupdate 4 -1 -1
+tv pupdate 5 -1 -1
+tv pupdate 6 -1 -1
+tv pupdate 7 -1 -1
+tv pupdate 8 -1 -1
+tv pupdate 9 -1 -1
+tv pupdate 10 -1 -1
+tv pupdate 11 -1 -1
+tv pupdate 12 -1 -1
+tv pupdate 13 -1 -1
+tv pupdate 14 -1 -1
+tv pupdate 15 -1 -1
+tv pupdate 0 -1 -1
+tv pupdate 1 -1 -1
+tv pupdate 2 -1 -1
+tv pupdate 3 -1 -1
+tv pupdate 4 -1 -1
+tv pupdate 5 -1 -1
+tv pupdate 6 -1 -1
+tv pupdate 7 -1 -1
+tv pupdate 8 -1 -1
+tv pupdate 9 -1 -1
+tv pupdate 10 -1 -1
+tv pupdate 11 -1 -1
+tv pupdate 12 -1 -1
+tv pupdate 13 -1 -1
+tv pupdate 14 -1 -1
+tv pupdate 15 -1 -1
+end
+corpus purse_ranks
+scistore n=5
+sc 2 cost=0 grant=0
+scr 2 2
+sc 3 cost=0 grant=0
+scp 3 2
+scr 3 2
+sc 4 cost=0 grant=0
+scp 4 3
+scr 4 2
+sc 5 cost=0 grant=0
+scp 5 4
+scr 5 2
+sc 6 cost=0 grant=0
+scp 6 5
+scr 6 2
+rankstore n=5
+rk 1 spn=0 spp=1
+rkg 1 2
+rk 2 spn=100 spp=1
+rkg 2 3
+rk 3 spn=300 spp=2
+rkg 3 4
+rk 4 spn=600 spp=3
+rkg 4 5
+rk 5 spn=1000 spp=4
+rkg 5 6
+teamevents 33
+tv local 0 1 -1
+tv science 0 2 -1
+tv science 0 2 -1
+tv science 1 2 -1
+tv science 1 2 -1
+tv science 2 2 -1
+tv science 2 2 -1
+tv science 3 2 -1
+tv science 3 2 -1
+tv science 4 2 -1
+tv science 4 2 -1
+tv science 5 2 -1
+tv science 5 2 -1
+tv science 6 2 -1
+tv science 6 2 -1
+tv science 7 2 -1
+tv science 7 2 -1
+tv science 8 2 -1
+tv science 8 2 -1
+tv science 9 2 -1
+tv science 9 2 -1
+tv science 10 2 -1
+tv science 10 2 -1
+tv science 11 2 -1
+tv science 11 2 -1
+tv science 12 2 -1
+tv science 12 2 -1
+tv science 13 2 -1
+tv science 13 2 -1
+tv science 14 2 -1
+tv science 14 2 -1
+tv science 15 2 -1
+tv science 15 2 -1
+rank 1 0 1 100 0
+sk 1
+rank 2 100
+sk 0
+rank 2 102 2 300 100 nsci=2
+sk 1
+rank 3 303 4
+sk 1
+rank 5 1000 2147483647 1000
+sk 0
+rank 5 1000
+teamevents 4
+tv science 1 3 -1
+tv science 1 4 -1
+tv science 1 5 -1
+tv science 1 6 -1
+sk 0
+skp 5
+sk 0
+skp 2
+sk 0
+skp 2
+neg 3 351
+neg 3 101
+down 1
+rank 2 100 2 nsci=2
+teamevents 11
+tv science 1 2 -1
+tv science 1 2 -1
+tv science 1 2 -1
+tv science 1 2 -1
+tv science 1 2 -1
+tv science 1 2 -1
+tv science 1 3 -1
+tv science 1 4 -1
+tv science 1 2 -1
+tv science 1 2 -1
+tv science 1 3 -1
+same 0
+clamp 1
+rank 5
+clamp 1
+rank 1
+rank 5
+limit 1
+rank 3
+sk 1
+rank 3 300 (limit=3: the level-up loop stops, the points cap at the ladder's top)
+teamevents 17
+tv science 1 4 -1
+tv science 1 5 -1
+tv science 1 6 -1
+tv science 1 2 -1
+tv science 1 2 -1
+tv science 1 3 -1
+tv science 1 4 -1
+tv science 1 5 -1
+tv science 1 6 -1
+tv science 1 2 -1
+tv science 1 2 -1
+tv science 1 3 -1
+tv science 1 4 -1
+tv science 1 2 -1
+tv science 1 2 -1
+tv science 1 3 -1
+tv science 1 4 -1
+players count=1 local=0
+pl 0 name= key=1 type=1 dead=0 obs=0 act=1 dflt=0 slot=-1 npr=0 cash=0 cpm=0 bkt=0 rank=1 skp=0 spp=1 lup=100 ldn=0 nsci=1:0:0 rad=0,0,0 nrg=0,0,0
+pr 0->0 Allies
+ps 0 2
+pl 1 name= key=1 type=1 dead=0 obs=0 act=1 dflt=0 slot=-1 npr=0 cash=0 cpm=0 bkt=0 rank=3 skp=300 spp=4 lup=600 ldn=300 nsci=3:0:0 rad=0,0,0 nrg=0,0,0
+pr 1->1 Allies
+ps 1 2
+ps 1 3
+ps 1 4
+pl 2 name= key=1 type=1 dead=0 obs=0 act=1 dflt=0 slot=-1 npr=0 cash=0 cpm=0 bkt=0 rank=1 skp=0 spp=1 lup=100 ldn=0 nsci=1:0:0 rad=0,0,0 nrg=0,0,0
+pr 2->2 Allies
+ps 2 2
+pl 3 name= key=1 type=1 dead=0 obs=0 act=1 dflt=0 slot=-1 npr=0 cash=0 cpm=0 bkt=0 rank=1 skp=0 spp=1 lup=100 ldn=0 nsci=1:0:0 rad=0,0,0 nrg=0,0,0
+pr 3->3 Allies
+ps 3 2
+pl 4 name= key=1 type=1 dead=0 obs=0 act=1 dflt=0 slot=-1 npr=0 cash=0 cpm=0 bkt=0 rank=1 skp=0 spp=1 lup=100 ldn=0 nsci=1:0:0 rad=0,0,0 nrg=0,0,0
+pr 4->4 Allies
+ps 4 2
+pl 5 name= key=1 type=1 dead=0 obs=0 act=1 dflt=0 slot=-1 npr=0 cash=0 cpm=0 bkt=0 rank=1 skp=0 spp=1 lup=100 ldn=0 nsci=1:0:0 rad=0,0,0 nrg=0,0,0
+pr 5->5 Allies
+ps 5 2
+pl 6 name= key=1 type=1 dead=0 obs=0 act=1 dflt=0 slot=-1 npr=0 cash=0 cpm=0 bkt=0 rank=1 skp=0 spp=1 lup=100 ldn=0 nsci=1:0:0 rad=0,0,0 nrg=0,0,0
+pr 6->6 Allies
+ps 6 2
+pl 7 name= key=1 type=1 dead=0 obs=0 act=1 dflt=0 slot=-1 npr=0 cash=0 cpm=0 bkt=0 rank=1 skp=0 spp=1 lup=100 ldn=0 nsci=1:0:0 rad=0,0,0 nrg=0,0,0
+pr 7->7 Allies
+ps 7 2
+pl 8 name= key=1 type=1 dead=0 obs=0 act=1 dflt=0 slot=-1 npr=0 cash=0 cpm=0 bkt=0 rank=1 skp=0 spp=1 lup=100 ldn=0 nsci=1:0:0 rad=0,0,0 nrg=0,0,0
+pr 8->8 Allies
+ps 8 2
+pl 9 name= key=1 type=1 dead=0 obs=0 act=1 dflt=0 slot=-1 npr=0 cash=0 cpm=0 bkt=0 rank=1 skp=0 spp=1 lup=100 ldn=0 nsci=1:0:0 rad=0,0,0 nrg=0,0,0
+pr 9->9 Allies
+ps 9 2
+pl 10 name= key=1 type=1 dead=0 obs=0 act=1 dflt=0 slot=-1 npr=0 cash=0 cpm=0 bkt=0 rank=1 skp=0 spp=1 lup=100 ldn=0 nsci=1:0:0 rad=0,0,0 nrg=0,0,0
+pr 10->10 Allies
+ps 10 2
+pl 11 name= key=1 type=1 dead=0 obs=0 act=1 dflt=0 slot=-1 npr=0 cash=0 cpm=0 bkt=0 rank=1 skp=0 spp=1 lup=100 ldn=0 nsci=1:0:0 rad=0,0,0 nrg=0,0,0
+pr 11->11 Allies
+ps 11 2
+pl 12 name= key=1 type=1 dead=0 obs=0 act=1 dflt=0 slot=-1 npr=0 cash=0 cpm=0 bkt=0 rank=1 skp=0 spp=1 lup=100 ldn=0 nsci=1:0:0 rad=0,0,0 nrg=0,0,0
+pr 12->12 Allies
+ps 12 2
+pl 13 name= key=1 type=1 dead=0 obs=0 act=1 dflt=0 slot=-1 npr=0 cash=0 cpm=0 bkt=0 rank=1 skp=0 spp=1 lup=100 ldn=0 nsci=1:0:0 rad=0,0,0 nrg=0,0,0
+pr 13->13 Allies
+ps 13 2
+pl 14 name= key=1 type=1 dead=0 obs=0 act=1 dflt=0 slot=-1 npr=0 cash=0 cpm=0 bkt=0 rank=1 skp=0 spp=1 lup=100 ldn=0 nsci=1:0:0 rad=0,0,0 nrg=0,0,0
+pr 14->14 Allies
+ps 14 2
+pl 15 name= key=1 type=1 dead=0 obs=0 act=1 dflt=0 slot=-1 npr=0 cash=0 cpm=0 bkt=0 rank=1 skp=0 spp=1 lup=100 ldn=0 nsci=1:0:0 rad=0,0,0 nrg=0,0,0
+pr 15->15 Allies
+ps 15 2
+slot 0 p-1
+slot 1 p-1
+slot 2 p-1
+slot 3 p-1
+slot 4 p-1
+slot 5 p-1
+slot 6 p-1
+slot 7 p-1
+end
+corpus purse_sciences
+scistore n=8
+sc 2 cost=1 grant=1
+scr 2 2
+sc 3 cost=2 grant=1
+scp 3 2
+scr 3 2
+sc 4 cost=3 grant=1
+scp 4 3
+scr 4 2
+sc 5 cost=0 grant=1
+scr 5 5
+sc 6 cost=1 grant=0
+scr 6 6
+sc 7 cost=1 grant=1
+scp 7 8
+sc 9 cost=1 grant=1
+scp 9 4
+scr 9 2
+sc 4 cost=3 grant=1
+scp 4 3
+scr 4 2
+rankstore n=0
+unknown valid=0 grant=0 cost=0
+walk n=2 n=1
+can 2
+can 6
+pot 7
+spp 3
+buy 0
+buy 0
+buy 0
+buy 0
+buy 1
+spp 2 nsci=1
+buy 1
+spp 0
+buy 0
+buy 0
+spp 0
+teamevents 5
+tv local 0 1 -1
+tv science 1 2 -1
+tv spent 1 1 -1
+tv science 1 3 -1
+tv spent 1 2 -1
+grant 0
+grant 1
+grant 0
+pre 1
+pre 0
+root 1
+cap 0
+cap 0
+cap 1
+cap 0
+cap 0
+cap 1
+buy 1
+nsci 1
+teamevents 5
+tv science 1 4 -1
+tv science 1 2 -1
+tv science 1 3 -1
+tv spent 1 2 -1
+tv science 1 2 -1
+players count=1 local=0
+pl 0 name= key=1 type=1 dead=0 obs=0 act=1 dflt=0 slot=-1 npr=0 cash=0 cpm=0 bkt=0 rank=1 skp=0 spp=0 lup=2147483647 ldn=0 nsci=0:0:0 rad=0,0,0 nrg=0,0,0
+pr 0->0 Allies
+pl 1 name= key=1 type=1 dead=0 obs=0 act=1 dflt=0 slot=-1 npr=0 cash=0 cpm=0 bkt=0 rank=2 skp=0 spp=3 lup=2147483647 ldn=0 nsci=1:0:0 rad=0,0,0 nrg=0,0,0
+pr 1->1 Allies
+ps 1 2
+pl 2 name= key=1 type=1 dead=0 obs=0 act=1 dflt=0 slot=-1 npr=0 cash=0 cpm=0 bkt=0 rank=1 skp=0 spp=0 lup=2147483647 ldn=0 nsci=0:0:0 rad=0,0,0 nrg=0,0,0
+pr 2->2 Allies
+pl 3 name= key=1 type=1 dead=0 obs=0 act=1 dflt=0 slot=-1 npr=0 cash=0 cpm=0 bkt=0 rank=1 skp=0 spp=0 lup=2147483647 ldn=0 nsci=0:0:0 rad=0,0,0 nrg=0,0,0
+pr 3->3 Allies
+pl 4 name= key=1 type=1 dead=0 obs=0 act=1 dflt=0 slot=-1 npr=0 cash=0 cpm=0 bkt=0 rank=1 skp=0 spp=0 lup=2147483647 ldn=0 nsci=0:0:0 rad=0,0,0 nrg=0,0,0
+pr 4->4 Allies
+pl 5 name= key=1 type=1 dead=0 obs=0 act=1 dflt=0 slot=-1 npr=0 cash=0 cpm=0 bkt=0 rank=1 skp=0 spp=0 lup=2147483647 ldn=0 nsci=0:0:0 rad=0,0,0 nrg=0,0,0
+pr 5->5 Allies
+pl 6 name= key=1 type=1 dead=0 obs=0 act=1 dflt=0 slot=-1 npr=0 cash=0 cpm=0 bkt=0 rank=1 skp=0 spp=0 lup=2147483647 ldn=0 nsci=0:0:0 rad=0,0,0 nrg=0,0,0
+pr 6->6 Allies
+pl 7 name= key=1 type=1 dead=0 obs=0 act=1 dflt=0 slot=-1 npr=0 cash=0 cpm=0 bkt=0 rank=1 skp=0 spp=0 lup=2147483647 ldn=0 nsci=0:0:0 rad=0,0,0 nrg=0,0,0
+pr 7->7 Allies
+pl 8 name= key=1 type=1 dead=0 obs=0 act=1 dflt=0 slot=-1 npr=0 cash=0 cpm=0 bkt=0 rank=1 skp=0 spp=0 lup=2147483647 ldn=0 nsci=0:0:0 rad=0,0,0 nrg=0,0,0
+pr 8->8 Allies
+pl 9 name= key=1 type=1 dead=0 obs=0 act=1 dflt=0 slot=-1 npr=0 cash=0 cpm=0 bkt=0 rank=1 skp=0 spp=0 lup=2147483647 ldn=0 nsci=0:0:0 rad=0,0,0 nrg=0,0,0
+pr 9->9 Allies
+pl 10 name= key=1 type=1 dead=0 obs=0 act=1 dflt=0 slot=-1 npr=0 cash=0 cpm=0 bkt=0 rank=1 skp=0 spp=0 lup=2147483647 ldn=0 nsci=0:0:0 rad=0,0,0 nrg=0,0,0
+pr 10->10 Allies
+pl 11 name= key=1 type=1 dead=0 obs=0 act=1 dflt=0 slot=-1 npr=0 cash=0 cpm=0 bkt=0 rank=1 skp=0 spp=0 lup=2147483647 ldn=0 nsci=0:0:0 rad=0,0,0 nrg=0,0,0
+pr 11->11 Allies
+pl 12 name= key=1 type=1 dead=0 obs=0 act=1 dflt=0 slot=-1 npr=0 cash=0 cpm=0 bkt=0 rank=1 skp=0 spp=0 lup=2147483647 ldn=0 nsci=0:0:0 rad=0,0,0 nrg=0,0,0
+pr 12->12 Allies
+pl 13 name= key=1 type=1 dead=0 obs=0 act=1 dflt=0 slot=-1 npr=0 cash=0 cpm=0 bkt=0 rank=1 skp=0 spp=0 lup=2147483647 ldn=0 nsci=0:0:0 rad=0,0,0 nrg=0,0,0
+pr 13->13 Allies
+pl 14 name= key=1 type=1 dead=0 obs=0 act=1 dflt=0 slot=-1 npr=0 cash=0 cpm=0 bkt=0 rank=1 skp=0 spp=0 lup=2147483647 ldn=0 nsci=0:0:0 rad=0,0,0 nrg=0,0,0
+pr 14->14 Allies
+pl 15 name= key=1 type=1 dead=0 obs=0 act=1 dflt=0 slot=-1 npr=0 cash=0 cpm=0 bkt=0 rank=1 skp=0 spp=0 lup=2147483647 ldn=0 nsci=0:0:0 rad=0,0,0 nrg=0,0,0
+pr 15->15 Allies
+slot 0 p-1
+slot 1 p-1
+slot 2 p-1
+slot 3 p-1
+slot 4 p-1
+slot 5 p-1
+slot 6 p-1
+slot 7 p-1
+scistore n=8
+sc 2 cost=1 grant=1
+scr 2 2
+sc 3 cost=2 grant=1
+scp 3 2
+scr 3 2
+sc 4 cost=3 grant=1
+scp 4 3
+scr 4 2
+sc 5 cost=0 grant=1
+scr 5 5
+sc 6 cost=1 grant=0
+scr 6 6
+sc 7 cost=1 grant=1
+scp 7 8
+sc 9 cost=1 grant=1
+scp 9 4
+scr 9 2
+sc 4 cost=3 grant=1
+scp 4 3
+scr 4 2
+rankstore n=0
+end
+corpus purse_roundtrip
+teamevents 44
+tv local 0 1 -1
+tv science 0 2 -1
+tv science 0 2 -1
+tv science 1 2 -1
+tv science 1 2 -1
+tv science 2 2 -1
+tv science 2 2 -1
+tv science 3 2 -1
+tv science 3 2 -1
+tv science 4 2 -1
+tv science 4 2 -1
+tv science 5 2 -1
+tv science 5 2 -1
+tv science 6 2 -1
+tv science 6 2 -1
+tv science 7 2 -1
+tv science 7 2 -1
+tv science 8 2 -1
+tv science 8 2 -1
+tv science 9 2 -1
+tv science 9 2 -1
+tv science 10 2 -1
+tv science 10 2 -1
+tv science 11 2 -1
+tv science 11 2 -1
+tv science 12 2 -1
+tv science 12 2 -1
+tv science 13 2 -1
+tv science 13 2 -1
+tv science 14 2 -1
+tv science 14 2 -1
+tv science 15 2 -1
+tv science 15 2 -1
+tv science 1 2 -1
+tv science 1 3 -1
+tv science 1 2 -1
+tv local 0 0 -1
+tv local 1 1 -1
+tv income 2 -1 -1
+tv science 2 2 -1
+tv science 2 2 -1
+tv income 3 -1 -1
+tv science 3 2 -1
+tv science 3 2 -1
+players count=4 local=1
+pl 0 name= key=1 type=1 dead=0 obs=0 act=1 dflt=1 slot=-1 npr=1 cash=0 cpm=0 bkt=0 rank=1 skp=0 spp=1 lup=100 ldn=0 nsci=1:0:0 rad=0,0,0 nrg=0,0,0
+pr 0->0 Allies
+pt 0 0 tp1
+ps 0 2
+pl 1 name=p1 key=4 type=0 dead=0 obs=0 act=1 dflt=2 slot=-1 npr=1 cash=5000 cpm=0 bkt=0 rank=1 skp=0 spp=3 lup=100 ldn=0 nsci=2:0:0 rad=0,0,0 nrg=0,0,0
+pr 1->0 Neutral
+pr 1->1 Allies
+pt 1 0 tp2
+ps 1 3
+ps 1 2
+pl 2 name=p2 key=5 type=1 dead=0 obs=0 act=1 dflt=3 slot=-1 npr=2 cash=12000 cpm=0 bkt=0 rank=1 skp=0 spp=1 lup=100 ldn=0 nsci=1:0:0 rad=0,0,0 nrg=0,0,0
+pr 2->0 Neutral
+pr 2->2 Allies
+pt 2 0 tp3
+pt 2 1 tp5
+ps 2 2
+pl 3 name=p3 key=6 type=1 dead=0 obs=0 act=1 dflt=4 slot=-1 npr=1 cash=12000 cpm=0 bkt=0 rank=1 skp=0 spp=1 lup=100 ldn=0 nsci=1:0:0 rad=0,0,0 nrg=0,0,0
+pr 3->0 Neutral
+pr 3->3 Allies
+pt 3 0 tp4
+ps 3 2
+pl 4 name= key=1 type=1 dead=0 obs=0 act=1 dflt=0 slot=-1 npr=0 cash=0 cpm=0 bkt=0 rank=1 skp=0 spp=1 lup=100 ldn=0 nsci=1:0:0 rad=0,0,0 nrg=0,0,0
+pr 4->4 Allies
+ps 4 2
+pl 5 name= key=1 type=1 dead=0 obs=0 act=1 dflt=0 slot=-1 npr=0 cash=0 cpm=0 bkt=0 rank=1 skp=0 spp=1 lup=100 ldn=0 nsci=1:0:0 rad=0,0,0 nrg=0,0,0
+pr 5->5 Allies
+ps 5 2
+pl 6 name= key=1 type=1 dead=0 obs=0 act=1 dflt=0 slot=-1 npr=0 cash=0 cpm=0 bkt=0 rank=1 skp=0 spp=1 lup=100 ldn=0 nsci=1:0:0 rad=0,0,0 nrg=0,0,0
+pr 6->6 Allies
+ps 6 2
+pl 7 name= key=1 type=1 dead=0 obs=0 act=1 dflt=0 slot=-1 npr=0 cash=0 cpm=0 bkt=0 rank=1 skp=0 spp=1 lup=100 ldn=0 nsci=1:0:0 rad=0,0,0 nrg=0,0,0
+pr 7->7 Allies
+ps 7 2
+pl 8 name= key=1 type=1 dead=0 obs=0 act=1 dflt=0 slot=-1 npr=0 cash=0 cpm=0 bkt=0 rank=1 skp=0 spp=1 lup=100 ldn=0 nsci=1:0:0 rad=0,0,0 nrg=0,0,0
+pr 8->8 Allies
+ps 8 2
+pl 9 name= key=1 type=1 dead=0 obs=0 act=1 dflt=0 slot=-1 npr=0 cash=0 cpm=0 bkt=0 rank=1 skp=0 spp=1 lup=100 ldn=0 nsci=1:0:0 rad=0,0,0 nrg=0,0,0
+pr 9->9 Allies
+ps 9 2
+pl 10 name= key=1 type=1 dead=0 obs=0 act=1 dflt=0 slot=-1 npr=0 cash=0 cpm=0 bkt=0 rank=1 skp=0 spp=1 lup=100 ldn=0 nsci=1:0:0 rad=0,0,0 nrg=0,0,0
+pr 10->10 Allies
+ps 10 2
+pl 11 name= key=1 type=1 dead=0 obs=0 act=1 dflt=0 slot=-1 npr=0 cash=0 cpm=0 bkt=0 rank=1 skp=0 spp=1 lup=100 ldn=0 nsci=1:0:0 rad=0,0,0 nrg=0,0,0
+pr 11->11 Allies
+ps 11 2
+pl 12 name= key=1 type=1 dead=0 obs=0 act=1 dflt=0 slot=-1 npr=0 cash=0 cpm=0 bkt=0 rank=1 skp=0 spp=1 lup=100 ldn=0 nsci=1:0:0 rad=0,0,0 nrg=0,0,0
+pr 12->12 Allies
+ps 12 2
+pl 13 name= key=1 type=1 dead=0 obs=0 act=1 dflt=0 slot=-1 npr=0 cash=0 cpm=0 bkt=0 rank=1 skp=0 spp=1 lup=100 ldn=0 nsci=1:0:0 rad=0,0,0 nrg=0,0,0
+pr 13->13 Allies
+ps 13 2
+pl 14 name= key=1 type=1 dead=0 obs=0 act=1 dflt=0 slot=-1 npr=0 cash=0 cpm=0 bkt=0 rank=1 skp=0 spp=1 lup=100 ldn=0 nsci=1:0:0 rad=0,0,0 nrg=0,0,0
+pr 14->14 Allies
+ps 14 2
+pl 15 name= key=1 type=1 dead=0 obs=0 act=1 dflt=0 slot=-1 npr=0 cash=0 cpm=0 bkt=0 rank=1 skp=0 spp=1 lup=100 ldn=0 nsci=1:0:0 rad=0,0,0 nrg=0,0,0
+pr 15->15 Allies
+ps 15 2
+slot 0 p-1
+slot 1 p-1
+slot 2 p-1
+slot 3 p-1
+slot 4 p-1
+slot 5 p-1
+slot 6 p-1
+slot 7 p-1
+frame 30 p1=3800/0 p2=12500/500
+frame 45 p1=3200/0 p2=12750/750
+frame 45 p1=3200/0 p2=12750/750
+teamevents 739
+tv pupdate 0 -1 -1
+tv pupdate 1 -1 -1
+tv pupdate 2 -1 -1
+tv pupdate 3 -1 -1
+tv pupdate 4 -1 -1
+tv pupdate 5 -1 -1
+tv pupdate 6 -1 -1
+tv pupdate 7 -1 -1
+tv pupdate 8 -1 -1
+tv pupdate 9 -1 -1
+tv pupdate 10 -1 -1
+tv pupdate 11 -1 -1
+tv pupdate 12 -1 -1
+tv pupdate 13 -1 -1
+tv pupdate 14 -1 -1
+tv pupdate 15 -1 -1
+tv pupdate 0 -1 -1
+tv pupdate 1 -1 -1
+tv pupdate 2 -1 -1
+tv pupdate 3 -1 -1
+tv pupdate 4 -1 -1
+tv pupdate 5 -1 -1
+tv pupdate 6 -1 -1
+tv pupdate 7 -1 -1
+tv pupdate 8 -1 -1
+tv pupdate 9 -1 -1
+tv pupdate 10 -1 -1
+tv pupdate 11 -1 -1
+tv pupdate 12 -1 -1
+tv pupdate 13 -1 -1
+tv pupdate 14 -1 -1
+tv pupdate 15 -1 -1
+tv income 2 -1 -1
+tv pupdate 0 -1 -1
+tv pupdate 1 -1 -1
+tv pupdate 2 -1 -1
+tv pupdate 3 -1 -1
+tv pupdate 4 -1 -1
+tv pupdate 5 -1 -1
+tv pupdate 6 -1 -1
+tv pupdate 7 -1 -1
+tv pupdate 8 -1 -1
+tv pupdate 9 -1 -1
+tv pupdate 10 -1 -1
+tv pupdate 11 -1 -1
+tv pupdate 12 -1 -1
+tv pupdate 13 -1 -1
+tv pupdate 14 -1 -1
+tv pupdate 15 -1 -1
+tv pupdate 0 -1 -1
+tv pupdate 1 -1 -1
+tv pupdate 2 -1 -1
+tv pupdate 3 -1 -1
+tv pupdate 4 -1 -1
+tv pupdate 5 -1 -1
+tv pupdate 6 -1 -1
+tv pupdate 7 -1 -1
+tv pupdate 8 -1 -1
+tv pupdate 9 -1 -1
+tv pupdate 10 -1 -1
+tv pupdate 11 -1 -1
+tv pupdate 12 -1 -1
+tv pupdate 13 -1 -1
+tv pupdate 14 -1 -1
+tv pupdate 15 -1 -1
+tv pupdate 0 -1 -1
+tv pupdate 1 -1 -1
+tv pupdate 2 -1 -1
+tv pupdate 3 -1 -1
+tv pupdate 4 -1 -1
+tv pupdate 5 -1 -1
+tv pupdate 6 -1 -1
+tv pupdate 7 -1 -1
+tv pupdate 8 -1 -1
+tv pupdate 9 -1 -1
+tv pupdate 10 -1 -1
+tv pupdate 11 -1 -1
+tv pupdate 12 -1 -1
+tv pupdate 13 -1 -1
+tv pupdate 14 -1 -1
+tv pupdate 15 -1 -1
+tv income 2 -1 -1
+tv pupdate 0 -1 -1
+tv pupdate 1 -1 -1
+tv pupdate 2 -1 -1
+tv pupdate 3 -1 -1
+tv pupdate 4 -1 -1
+tv pupdate 5 -1 -1
+tv pupdate 6 -1 -1
+tv pupdate 7 -1 -1
+tv pupdate 8 -1 -1
+tv pupdate 9 -1 -1
+tv pupdate 10 -1 -1
+tv pupdate 11 -1 -1
+tv pupdate 12 -1 -1
+tv pupdate 13 -1 -1
+tv pupdate 14 -1 -1
+tv pupdate 15 -1 -1
+tv pupdate 0 -1 -1
+tv pupdate 1 -1 -1
+tv pupdate 2 -1 -1
+tv pupdate 3 -1 -1
+tv pupdate 4 -1 -1
+tv pupdate 5 -1 -1
+tv pupdate 6 -1 -1
+tv pupdate 7 -1 -1
+tv pupdate 8 -1 -1
+tv pupdate 9 -1 -1
+tv pupdate 10 -1 -1
+tv pupdate 11 -1 -1
+tv pupdate 12 -1 -1
+tv pupdate 13 -1 -1
+tv pupdate 14 -1 -1
+tv pupdate 15 -1 -1
+tv pupdate 0 -1 -1
+tv pupdate 1 -1 -1
+tv pupdate 2 -1 -1
+tv pupdate 3 -1 -1
+tv pupdate 4 -1 -1
+tv pupdate 5 -1 -1
+tv pupdate 6 -1 -1
+tv pupdate 7 -1 -1
+tv pupdate 8 -1 -1
+tv pupdate 9 -1 -1
+tv pupdate 10 -1 -1
+tv pupdate 11 -1 -1
+tv pupdate 12 -1 -1
+tv pupdate 13 -1 -1
+tv pupdate 14 -1 -1
+tv pupdate 15 -1 -1
+tv income 2 -1 -1
+tv pupdate 0 -1 -1
+tv pupdate 1 -1 -1
+tv pupdate 2 -1 -1
+tv pupdate 3 -1 -1
+tv pupdate 4 -1 -1
+tv pupdate 5 -1 -1
+tv pupdate 6 -1 -1
+tv pupdate 7 -1 -1
+tv pupdate 8 -1 -1
+tv pupdate 9 -1 -1
+tv pupdate 10 -1 -1
+tv pupdate 11 -1 -1
+tv pupdate 12 -1 -1
+tv pupdate 13 -1 -1
+tv pupdate 14 -1 -1
+tv pupdate 15 -1 -1
+tv moneyaudio 1 1 -1
+tv pupdate 0 -1 -1
+tv pupdate 1 -1 -1
+tv pupdate 2 -1 -1
+tv pupdate 3 -1 -1
+tv pupdate 4 -1 -1
+tv pupdate 5 -1 -1
+tv pupdate 6 -1 -1
+tv pupdate 7 -1 -1
+tv pupdate 8 -1 -1
+tv pupdate 9 -1 -1
+tv pupdate 10 -1 -1
+tv pupdate 11 -1 -1
+tv pupdate 12 -1 -1
+tv pupdate 13 -1 -1
+tv pupdate 14 -1 -1
+tv pupdate 15 -1 -1
+tv pupdate 0 -1 -1
+tv pupdate 1 -1 -1
+tv pupdate 2 -1 -1
+tv pupdate 3 -1 -1
+tv pupdate 4 -1 -1
+tv pupdate 5 -1 -1
+tv pupdate 6 -1 -1
+tv pupdate 7 -1 -1
+tv pupdate 8 -1 -1
+tv pupdate 9 -1 -1
+tv pupdate 10 -1 -1
+tv pupdate 11 -1 -1
+tv pupdate 12 -1 -1
+tv pupdate 13 -1 -1
+tv pupdate 14 -1 -1
+tv pupdate 15 -1 -1
+tv income 2 -1 -1
+tv pupdate 0 -1 -1
+tv pupdate 1 -1 -1
+tv pupdate 2 -1 -1
+tv pupdate 3 -1 -1
+tv pupdate 4 -1 -1
+tv pupdate 5 -1 -1
+tv pupdate 6 -1 -1
+tv pupdate 7 -1 -1
+tv pupdate 8 -1 -1
+tv pupdate 9 -1 -1
+tv pupdate 10 -1 -1
+tv pupdate 11 -1 -1
+tv pupdate 12 -1 -1
+tv pupdate 13 -1 -1
+tv pupdate 14 -1 -1
+tv pupdate 15 -1 -1
+tv pupdate 0 -1 -1
+tv pupdate 1 -1 -1
+tv pupdate 2 -1 -1
+tv pupdate 3 -1 -1
+tv pupdate 4 -1 -1
+tv pupdate 5 -1 -1
+tv pupdate 6 -1 -1
+tv pupdate 7 -1 -1
+tv pupdate 8 -1 -1
+tv pupdate 9 -1 -1
+tv pupdate 10 -1 -1
+tv pupdate 11 -1 -1
+tv pupdate 12 -1 -1
+tv pupdate 13 -1 -1
+tv pupdate 14 -1 -1
+tv pupdate 15 -1 -1
+tv pupdate 0 -1 -1
+tv pupdate 1 -1 -1
+tv pupdate 2 -1 -1
+tv pupdate 3 -1 -1
+tv pupdate 4 -1 -1
+tv pupdate 5 -1 -1
+tv pupdate 6 -1 -1
+tv pupdate 7 -1 -1
+tv pupdate 8 -1 -1
+tv pupdate 9 -1 -1
+tv pupdate 10 -1 -1
+tv pupdate 11 -1 -1
+tv pupdate 12 -1 -1
+tv pupdate 13 -1 -1
+tv pupdate 14 -1 -1
+tv pupdate 15 -1 -1
+tv income 2 -1 -1
+tv pupdate 0 -1 -1
+tv pupdate 1 -1 -1
+tv pupdate 2 -1 -1
+tv pupdate 3 -1 -1
+tv pupdate 4 -1 -1
+tv pupdate 5 -1 -1
+tv pupdate 6 -1 -1
+tv pupdate 7 -1 -1
+tv pupdate 8 -1 -1
+tv pupdate 9 -1 -1
+tv pupdate 10 -1 -1
+tv pupdate 11 -1 -1
+tv pupdate 12 -1 -1
+tv pupdate 13 -1 -1
+tv pupdate 14 -1 -1
+tv pupdate 15 -1 -1
+tv pupdate 0 -1 -1
+tv pupdate 1 -1 -1
+tv pupdate 2 -1 -1
+tv pupdate 3 -1 -1
+tv pupdate 4 -1 -1
+tv pupdate 5 -1 -1
+tv pupdate 6 -1 -1
+tv pupdate 7 -1 -1
+tv pupdate 8 -1 -1
+tv pupdate 9 -1 -1
+tv pupdate 10 -1 -1
+tv pupdate 11 -1 -1
+tv pupdate 12 -1 -1
+tv pupdate 13 -1 -1
+tv pupdate 14 -1 -1
+tv pupdate 15 -1 -1
+tv pupdate 0 -1 -1
+tv pupdate 1 -1 -1
+tv pupdate 2 -1 -1
+tv pupdate 3 -1 -1
+tv pupdate 4 -1 -1
+tv pupdate 5 -1 -1
+tv pupdate 6 -1 -1
+tv pupdate 7 -1 -1
+tv pupdate 8 -1 -1
+tv pupdate 9 -1 -1
+tv pupdate 10 -1 -1
+tv pupdate 11 -1 -1
+tv pupdate 12 -1 -1
+tv pupdate 13 -1 -1
+tv pupdate 14 -1 -1
+tv pupdate 15 -1 -1
+tv income 2 -1 -1
+tv pupdate 0 -1 -1
+tv pupdate 1 -1 -1
+tv pupdate 2 -1 -1
+tv pupdate 3 -1 -1
+tv pupdate 4 -1 -1
+tv pupdate 5 -1 -1
+tv pupdate 6 -1 -1
+tv pupdate 7 -1 -1
+tv pupdate 8 -1 -1
+tv pupdate 9 -1 -1
+tv pupdate 10 -1 -1
+tv pupdate 11 -1 -1
+tv pupdate 12 -1 -1
+tv pupdate 13 -1 -1
+tv pupdate 14 -1 -1
+tv pupdate 15 -1 -1
+tv pupdate 0 -1 -1
+tv pupdate 1 -1 -1
+tv pupdate 2 -1 -1
+tv pupdate 3 -1 -1
+tv pupdate 4 -1 -1
+tv pupdate 5 -1 -1
+tv pupdate 6 -1 -1
+tv pupdate 7 -1 -1
+tv pupdate 8 -1 -1
+tv pupdate 9 -1 -1
+tv pupdate 10 -1 -1
+tv pupdate 11 -1 -1
+tv pupdate 12 -1 -1
+tv pupdate 13 -1 -1
+tv pupdate 14 -1 -1
+tv pupdate 15 -1 -1
+tv moneyaudio 1 1 -1
+tv pupdate 0 -1 -1
+tv pupdate 1 -1 -1
+tv pupdate 2 -1 -1
+tv pupdate 3 -1 -1
+tv pupdate 4 -1 -1
+tv pupdate 5 -1 -1
+tv pupdate 6 -1 -1
+tv pupdate 7 -1 -1
+tv pupdate 8 -1 -1
+tv pupdate 9 -1 -1
+tv pupdate 10 -1 -1
+tv pupdate 11 -1 -1
+tv pupdate 12 -1 -1
+tv pupdate 13 -1 -1
+tv pupdate 14 -1 -1
+tv pupdate 15 -1 -1
+tv income 2 -1 -1
+tv pupdate 0 -1 -1
+tv pupdate 1 -1 -1
+tv pupdate 2 -1 -1
+tv pupdate 3 -1 -1
+tv pupdate 4 -1 -1
+tv pupdate 5 -1 -1
+tv pupdate 6 -1 -1
+tv pupdate 7 -1 -1
+tv pupdate 8 -1 -1
+tv pupdate 9 -1 -1
+tv pupdate 10 -1 -1
+tv pupdate 11 -1 -1
+tv pupdate 12 -1 -1
+tv pupdate 13 -1 -1
+tv pupdate 14 -1 -1
+tv pupdate 15 -1 -1
+tv pupdate 0 -1 -1
+tv pupdate 1 -1 -1
+tv pupdate 2 -1 -1
+tv pupdate 3 -1 -1
+tv pupdate 4 -1 -1
+tv pupdate 5 -1 -1
+tv pupdate 6 -1 -1
+tv pupdate 7 -1 -1
+tv pupdate 8 -1 -1
+tv pupdate 9 -1 -1
+tv pupdate 10 -1 -1
+tv pupdate 11 -1 -1
+tv pupdate 12 -1 -1
+tv pupdate 13 -1 -1
+tv pupdate 14 -1 -1
+tv pupdate 15 -1 -1
+tv pupdate 0 -1 -1
+tv pupdate 1 -1 -1
+tv pupdate 2 -1 -1
+tv pupdate 3 -1 -1
+tv pupdate 4 -1 -1
+tv pupdate 5 -1 -1
+tv pupdate 6 -1 -1
+tv pupdate 7 -1 -1
+tv pupdate 8 -1 -1
+tv pupdate 9 -1 -1
+tv pupdate 10 -1 -1
+tv pupdate 11 -1 -1
+tv pupdate 12 -1 -1
+tv pupdate 13 -1 -1
+tv pupdate 14 -1 -1
+tv pupdate 15 -1 -1
+tv income 2 -1 -1
+tv pupdate 0 -1 -1
+tv pupdate 1 -1 -1
+tv pupdate 2 -1 -1
+tv pupdate 3 -1 -1
+tv pupdate 4 -1 -1
+tv pupdate 5 -1 -1
+tv pupdate 6 -1 -1
+tv pupdate 7 -1 -1
+tv pupdate 8 -1 -1
+tv pupdate 9 -1 -1
+tv pupdate 10 -1 -1
+tv pupdate 11 -1 -1
+tv pupdate 12 -1 -1
+tv pupdate 13 -1 -1
+tv pupdate 14 -1 -1
+tv pupdate 15 -1 -1
+tv pupdate 0 -1 -1
+tv pupdate 1 -1 -1
+tv pupdate 2 -1 -1
+tv pupdate 3 -1 -1
+tv pupdate 4 -1 -1
+tv pupdate 5 -1 -1
+tv pupdate 6 -1 -1
+tv pupdate 7 -1 -1
+tv pupdate 8 -1 -1
+tv pupdate 9 -1 -1
+tv pupdate 10 -1 -1
+tv pupdate 11 -1 -1
+tv pupdate 12 -1 -1
+tv pupdate 13 -1 -1
+tv pupdate 14 -1 -1
+tv pupdate 15 -1 -1
+tv pupdate 0 -1 -1
+tv pupdate 1 -1 -1
+tv pupdate 2 -1 -1
+tv pupdate 3 -1 -1
+tv pupdate 4 -1 -1
+tv pupdate 5 -1 -1
+tv pupdate 6 -1 -1
+tv pupdate 7 -1 -1
+tv pupdate 8 -1 -1
+tv pupdate 9 -1 -1
+tv pupdate 10 -1 -1
+tv pupdate 11 -1 -1
+tv pupdate 12 -1 -1
+tv pupdate 13 -1 -1
+tv pupdate 14 -1 -1
+tv pupdate 15 -1 -1
+tv income 2 -1 -1
+tv pupdate 0 -1 -1
+tv pupdate 1 -1 -1
+tv pupdate 2 -1 -1
+tv pupdate 3 -1 -1
+tv pupdate 4 -1 -1
+tv pupdate 5 -1 -1
+tv pupdate 6 -1 -1
+tv pupdate 7 -1 -1
+tv pupdate 8 -1 -1
+tv pupdate 9 -1 -1
+tv pupdate 10 -1 -1
+tv pupdate 11 -1 -1
+tv pupdate 12 -1 -1
+tv pupdate 13 -1 -1
+tv pupdate 14 -1 -1
+tv pupdate 15 -1 -1
+tv pupdate 0 -1 -1
+tv pupdate 1 -1 -1
+tv pupdate 2 -1 -1
+tv pupdate 3 -1 -1
+tv pupdate 4 -1 -1
+tv pupdate 5 -1 -1
+tv pupdate 6 -1 -1
+tv pupdate 7 -1 -1
+tv pupdate 8 -1 -1
+tv pupdate 9 -1 -1
+tv pupdate 10 -1 -1
+tv pupdate 11 -1 -1
+tv pupdate 12 -1 -1
+tv pupdate 13 -1 -1
+tv pupdate 14 -1 -1
+tv pupdate 15 -1 -1
+tv pupdate 0 -1 -1
+tv pupdate 1 -1 -1
+tv pupdate 2 -1 -1
+tv pupdate 3 -1 -1
+tv pupdate 4 -1 -1
+tv pupdate 5 -1 -1
+tv pupdate 6 -1 -1
+tv pupdate 7 -1 -1
+tv pupdate 8 -1 -1
+tv pupdate 9 -1 -1
+tv pupdate 10 -1 -1
+tv pupdate 11 -1 -1
+tv pupdate 12 -1 -1
+tv pupdate 13 -1 -1
+tv pupdate 14 -1 -1
+tv pupdate 15 -1 -1
+tv moneyaudio 1 1 -1
+tv income 2 -1 -1
+tv pupdate 0 -1 -1
+tv pupdate 1 -1 -1
+tv pupdate 2 -1 -1
+tv pupdate 3 -1 -1
+tv pupdate 4 -1 -1
+tv pupdate 5 -1 -1
+tv pupdate 6 -1 -1
+tv pupdate 7 -1 -1
+tv pupdate 8 -1 -1
+tv pupdate 9 -1 -1
+tv pupdate 10 -1 -1
+tv pupdate 11 -1 -1
+tv pupdate 12 -1 -1
+tv pupdate 13 -1 -1
+tv pupdate 14 -1 -1
+tv pupdate 15 -1 -1
+tv pupdate 0 -1 -1
+tv pupdate 1 -1 -1
+tv pupdate 2 -1 -1
+tv pupdate 3 -1 -1
+tv pupdate 4 -1 -1
+tv pupdate 5 -1 -1
+tv pupdate 6 -1 -1
+tv pupdate 7 -1 -1
+tv pupdate 8 -1 -1
+tv pupdate 9 -1 -1
+tv pupdate 10 -1 -1
+tv pupdate 11 -1 -1
+tv pupdate 12 -1 -1
+tv pupdate 13 -1 -1
+tv pupdate 14 -1 -1
+tv pupdate 15 -1 -1
+tv pupdate 0 -1 -1
+tv pupdate 1 -1 -1
+tv pupdate 2 -1 -1
+tv pupdate 3 -1 -1
+tv pupdate 4 -1 -1
+tv pupdate 5 -1 -1
+tv pupdate 6 -1 -1
+tv pupdate 7 -1 -1
+tv pupdate 8 -1 -1
+tv pupdate 9 -1 -1
+tv pupdate 10 -1 -1
+tv pupdate 11 -1 -1
+tv pupdate 12 -1 -1
+tv pupdate 13 -1 -1
+tv pupdate 14 -1 -1
+tv pupdate 15 -1 -1
+tv income 2 -1 -1
+tv pupdate 0 -1 -1
+tv pupdate 1 -1 -1
+tv pupdate 2 -1 -1
+tv pupdate 3 -1 -1
+tv pupdate 4 -1 -1
+tv pupdate 5 -1 -1
+tv pupdate 6 -1 -1
+tv pupdate 7 -1 -1
+tv pupdate 8 -1 -1
+tv pupdate 9 -1 -1
+tv pupdate 10 -1 -1
+tv pupdate 11 -1 -1
+tv pupdate 12 -1 -1
+tv pupdate 13 -1 -1
+tv pupdate 14 -1 -1
+tv pupdate 15 -1 -1
+tv pupdate 0 -1 -1
+tv pupdate 1 -1 -1
+tv pupdate 2 -1 -1
+tv pupdate 3 -1 -1
+tv pupdate 4 -1 -1
+tv pupdate 5 -1 -1
+tv pupdate 6 -1 -1
+tv pupdate 7 -1 -1
+tv pupdate 8 -1 -1
+tv pupdate 9 -1 -1
+tv pupdate 10 -1 -1
+tv pupdate 11 -1 -1
+tv pupdate 12 -1 -1
+tv pupdate 13 -1 -1
+tv pupdate 14 -1 -1
+tv pupdate 15 -1 -1
+tv pupdate 0 -1 -1
+tv pupdate 1 -1 -1
+tv pupdate 2 -1 -1
+tv pupdate 3 -1 -1
+tv pupdate 4 -1 -1
+tv pupdate 5 -1 -1
+tv pupdate 6 -1 -1
+tv pupdate 7 -1 -1
+tv pupdate 8 -1 -1
+tv pupdate 9 -1 -1
+tv pupdate 10 -1 -1
+tv pupdate 11 -1 -1
+tv pupdate 12 -1 -1
+tv pupdate 13 -1 -1
+tv pupdate 14 -1 -1
+tv pupdate 15 -1 -1
+tv income 2 -1 -1
+tv pupdate 0 -1 -1
+tv pupdate 1 -1 -1
+tv pupdate 2 -1 -1
+tv pupdate 3 -1 -1
+tv pupdate 4 -1 -1
+tv pupdate 5 -1 -1
+tv pupdate 6 -1 -1
+tv pupdate 7 -1 -1
+tv pupdate 8 -1 -1
+tv pupdate 9 -1 -1
+tv pupdate 10 -1 -1
+tv pupdate 11 -1 -1
+tv pupdate 12 -1 -1
+tv pupdate 13 -1 -1
+tv pupdate 14 -1 -1
+tv pupdate 15 -1 -1
+tv pupdate 0 -1 -1
+tv pupdate 1 -1 -1
+tv pupdate 2 -1 -1
+tv pupdate 3 -1 -1
+tv pupdate 4 -1 -1
+tv pupdate 5 -1 -1
+tv pupdate 6 -1 -1
+tv pupdate 7 -1 -1
+tv pupdate 8 -1 -1
+tv pupdate 9 -1 -1
+tv pupdate 10 -1 -1
+tv pupdate 11 -1 -1
+tv pupdate 12 -1 -1
+tv pupdate 13 -1 -1
+tv pupdate 14 -1 -1
+tv pupdate 15 -1 -1
+tv pupdate 0 -1 -1
+tv pupdate 1 -1 -1
+tv pupdate 2 -1 -1
+tv pupdate 3 -1 -1
+tv pupdate 4 -1 -1
+tv pupdate 5 -1 -1
+tv pupdate 6 -1 -1
+tv pupdate 7 -1 -1
+tv pupdate 8 -1 -1
+tv pupdate 9 -1 -1
+tv pupdate 10 -1 -1
+tv pupdate 11 -1 -1
+tv pupdate 12 -1 -1
+tv pupdate 13 -1 -1
+tv pupdate 14 -1 -1
+tv pupdate 15 -1 -1
+tv income 2 -1 -1
+tv pupdate 0 -1 -1
+tv pupdate 1 -1 -1
+tv pupdate 2 -1 -1
+tv pupdate 3 -1 -1
+tv pupdate 4 -1 -1
+tv pupdate 5 -1 -1
+tv pupdate 6 -1 -1
+tv pupdate 7 -1 -1
+tv pupdate 8 -1 -1
+tv pupdate 9 -1 -1
+tv pupdate 10 -1 -1
+tv pupdate 11 -1 -1
+tv pupdate 12 -1 -1
+tv pupdate 13 -1 -1
+tv pupdate 14 -1 -1
+tv pupdate 15 -1 -1
+tv moneyaudio 1 1 -1
+tv pupdate 0 -1 -1
+tv pupdate 1 -1 -1
+tv pupdate 2 -1 -1
+tv pupdate 3 -1 -1
+tv pupdate 4 -1 -1
+tv pupdate 5 -1 -1
+tv pupdate 6 -1 -1
+tv pupdate 7 -1 -1
+tv pupdate 8 -1 -1
+tv pupdate 9 -1 -1
+tv pupdate 10 -1 -1
+tv pupdate 11 -1 -1
+tv pupdate 12 -1 -1
+tv pupdate 13 -1 -1
+tv pupdate 14 -1 -1
+tv pupdate 15 -1 -1
+tv pupdate 0 -1 -1
+tv pupdate 1 -1 -1
+tv pupdate 2 -1 -1
+tv pupdate 3 -1 -1
+tv pupdate 4 -1 -1
+tv pupdate 5 -1 -1
+tv pupdate 6 -1 -1
+tv pupdate 7 -1 -1
+tv pupdate 8 -1 -1
+tv pupdate 9 -1 -1
+tv pupdate 10 -1 -1
+tv pupdate 11 -1 -1
+tv pupdate 12 -1 -1
+tv pupdate 13 -1 -1
+tv pupdate 14 -1 -1
+tv pupdate 15 -1 -1
+tv income 2 -1 -1
+tv pupdate 0 -1 -1
+tv pupdate 1 -1 -1
+tv pupdate 2 -1 -1
+tv pupdate 3 -1 -1
+tv pupdate 4 -1 -1
+tv pupdate 5 -1 -1
+tv pupdate 6 -1 -1
+tv pupdate 7 -1 -1
+tv pupdate 8 -1 -1
+tv pupdate 9 -1 -1
+tv pupdate 10 -1 -1
+tv pupdate 11 -1 -1
+tv pupdate 12 -1 -1
+tv pupdate 13 -1 -1
+tv pupdate 14 -1 -1
+tv pupdate 15 -1 -1
+tv pupdate 0 -1 -1
+tv pupdate 1 -1 -1
+tv pupdate 2 -1 -1
+tv pupdate 3 -1 -1
+tv pupdate 4 -1 -1
+tv pupdate 5 -1 -1
+tv pupdate 6 -1 -1
+tv pupdate 7 -1 -1
+tv pupdate 8 -1 -1
+tv pupdate 9 -1 -1
+tv pupdate 10 -1 -1
+tv pupdate 11 -1 -1
+tv pupdate 12 -1 -1
+tv pupdate 13 -1 -1
+tv pupdate 14 -1 -1
+tv pupdate 15 -1 -1
+tv pupdate 0 -1 -1
+tv pupdate 1 -1 -1
+tv pupdate 2 -1 -1
+tv pupdate 3 -1 -1
+tv pupdate 4 -1 -1
+tv pupdate 5 -1 -1
+tv pupdate 6 -1 -1
+tv pupdate 7 -1 -1
+tv pupdate 8 -1 -1
+tv pupdate 9 -1 -1
+tv pupdate 10 -1 -1
+tv pupdate 11 -1 -1
+tv pupdate 12 -1 -1
+tv pupdate 13 -1 -1
+tv pupdate 14 -1 -1
+tv pupdate 15 -1 -1
+tv income 2 -1 -1
+tv pupdate 0 -1 -1
+tv pupdate 1 -1 -1
+tv pupdate 2 -1 -1
+tv pupdate 3 -1 -1
+tv pupdate 4 -1 -1
+tv pupdate 5 -1 -1
+tv pupdate 6 -1 -1
+tv pupdate 7 -1 -1
+tv pupdate 8 -1 -1
+tv pupdate 9 -1 -1
+tv pupdate 10 -1 -1
+tv pupdate 11 -1 -1
+tv pupdate 12 -1 -1
+tv pupdate 13 -1 -1
+tv pupdate 14 -1 -1
+tv pupdate 15 -1 -1
+sk 1
+rank 2 151 5 nsci=2
+nrg 30 35 radar=0
+frame 45
+nextid 3
+objlist 2
+o id=2 upd=0 part=2 dis=0040 cellchg=0
+o id=1 upd=0 part=1 dis=0040 cellchg=0
+destroylist 0
+sab 0 0
+sab 0 suff=0
+buy 0
+frame 102
+nextid 3
+objlist 2
+o id=2 upd=0 part=2 dis=0040 cellchg=0
+o id=1 upd=0 part=1 dis=0040 cellchg=0
+destroylist 0
+objteams 2
+ot o1 t3 ctrl=2 vis=00000000 ai=0/0 enr=30,0 pwr=1
+ot o2 t3 ctrl=2 vis=00000000 ai=0/0 enr=-35,0 pwr=1
+players count=4 local=1
+pl 0 name= key=1 type=1 dead=0 obs=0 act=1 dflt=1 slot=-1 npr=1 cash=0 cpm=0 bkt=3 rank=1 skp=0 spp=1 lup=100 ldn=0 nsci=1:0:0 rad=0,0,0 nrg=0,0,0
+pr 0->0 Allies
+pt 0 0 tp1
+ps 0 2
+pl 1 name=p1 key=4 type=0 dead=0 obs=0 act=1 dflt=2 slot=-1 npr=1 cash=3200 cpm=0 bkt=3 rank=2 skp=151 spp=5 lup=300 ldn=100 nsci=2:0:0 rad=0,0,0 nrg=0,0,0
+pr 1->0 Neutral
+pr 1->1 Allies
+pt 1 0 tp2
+ps 1 3
+ps 1 2
+pl 2 name=p2 key=5 type=1 dead=0 obs=0 act=1 dflt=3 slot=-1 npr=2 cash=12750 cpm=750 bkt=3 rank=1 skp=0 spp=1 lup=100 ldn=0 nsci=1:0:0 rad=1,0,1 nrg=30,35,0
+pr 2->0 Neutral
+pr 2->2 Allies
+pt 2 0 tp3
+pt 2 1 tp5
+ps 2 2
+pl 3 name=p3 key=6 type=1 dead=0 obs=0 act=1 dflt=4 slot=-1 npr=1 cash=12000 cpm=0 bkt=3 rank=1 skp=0 spp=1 lup=100 ldn=0 nsci=1:0:0 rad=0,0,0 nrg=0,0,0
+pr 3->0 Neutral
+pr 3->3 Allies
+pt 3 0 tp4
+ps 3 2
+pl 4 name= key=1 type=1 dead=0 obs=0 act=1 dflt=0 slot=-1 npr=0 cash=0 cpm=0 bkt=3 rank=1 skp=0 spp=1 lup=100 ldn=0 nsci=1:0:0 rad=0,0,0 nrg=0,0,0
+pr 4->4 Allies
+ps 4 2
+pl 5 name= key=1 type=1 dead=0 obs=0 act=1 dflt=0 slot=-1 npr=0 cash=0 cpm=0 bkt=3 rank=1 skp=0 spp=1 lup=100 ldn=0 nsci=1:0:0 rad=0,0,0 nrg=0,0,0
+pr 5->5 Allies
+ps 5 2
+pl 6 name= key=1 type=1 dead=0 obs=0 act=1 dflt=0 slot=-1 npr=0 cash=0 cpm=0 bkt=3 rank=1 skp=0 spp=1 lup=100 ldn=0 nsci=1:0:0 rad=0,0,0 nrg=0,0,0
+pr 6->6 Allies
+ps 6 2
+pl 7 name= key=1 type=1 dead=0 obs=0 act=1 dflt=0 slot=-1 npr=0 cash=0 cpm=0 bkt=3 rank=1 skp=0 spp=1 lup=100 ldn=0 nsci=1:0:0 rad=0,0,0 nrg=0,0,0
+pr 7->7 Allies
+ps 7 2
+pl 8 name= key=1 type=1 dead=0 obs=0 act=1 dflt=0 slot=-1 npr=0 cash=0 cpm=0 bkt=3 rank=1 skp=0 spp=1 lup=100 ldn=0 nsci=1:0:0 rad=0,0,0 nrg=0,0,0
+pr 8->8 Allies
+ps 8 2
+pl 9 name= key=1 type=1 dead=0 obs=0 act=1 dflt=0 slot=-1 npr=0 cash=0 cpm=0 bkt=3 rank=1 skp=0 spp=1 lup=100 ldn=0 nsci=1:0:0 rad=0,0,0 nrg=0,0,0
+pr 9->9 Allies
+ps 9 2
+pl 10 name= key=1 type=1 dead=0 obs=0 act=1 dflt=0 slot=-1 npr=0 cash=0 cpm=0 bkt=3 rank=1 skp=0 spp=1 lup=100 ldn=0 nsci=1:0:0 rad=0,0,0 nrg=0,0,0
+pr 10->10 Allies
+ps 10 2
+pl 11 name= key=1 type=1 dead=0 obs=0 act=1 dflt=0 slot=-1 npr=0 cash=0 cpm=0 bkt=3 rank=1 skp=0 spp=1 lup=100 ldn=0 nsci=1:0:0 rad=0,0,0 nrg=0,0,0
+pr 11->11 Allies
+ps 11 2
+pl 12 name= key=1 type=1 dead=0 obs=0 act=1 dflt=0 slot=-1 npr=0 cash=0 cpm=0 bkt=3 rank=1 skp=0 spp=1 lup=100 ldn=0 nsci=1:0:0 rad=0,0,0 nrg=0,0,0
+pr 12->12 Allies
+ps 12 2
+pl 13 name= key=1 type=1 dead=0 obs=0 act=1 dflt=0 slot=-1 npr=0 cash=0 cpm=0 bkt=3 rank=1 skp=0 spp=1 lup=100 ldn=0 nsci=1:0:0 rad=0,0,0 nrg=0,0,0
+pr 13->13 Allies
+ps 13 2
+pl 14 name= key=1 type=1 dead=0 obs=0 act=1 dflt=0 slot=-1 npr=0 cash=0 cpm=0 bkt=3 rank=1 skp=0 spp=1 lup=100 ldn=0 nsci=1:0:0 rad=0,0,0 nrg=0,0,0
+pr 14->14 Allies
+ps 14 2
+pl 15 name= key=1 type=1 dead=0 obs=0 act=1 dflt=0 slot=-1 npr=0 cash=0 cpm=0 bkt=3 rank=1 skp=0 spp=1 lup=100 ldn=0 nsci=1:0:0 rad=0,0,0 nrg=0,0,0
+pr 15->15 Allies
+ps 15 2
+slot 0 p-1
+slot 1 p-1
+slot 2 p-1
+slot 3 p-1
+slot 4 p-1
+slot 5 p-1
+slot 6 p-1
+slot 7 p-1
+teamevents 130
+tv teammember 1 2 1
+tv teammember 2 2 1
+tv pupdate 0 -1 -1
+tv pupdate 1 -1 -1
+tv pupdate 2 -1 -1
+tv pupdate 3 -1 -1
+tv pupdate 4 -1 -1
+tv pupdate 5 -1 -1
+tv pupdate 6 -1 -1
+tv pupdate 7 -1 -1
+tv pupdate 8 -1 -1
+tv pupdate 9 -1 -1
+tv pupdate 10 -1 -1
+tv pupdate 11 -1 -1
+tv pupdate 12 -1 -1
+tv pupdate 13 -1 -1
+tv pupdate 14 -1 -1
+tv pupdate 15 -1 -1
+tv pupdate 0 -1 -1
+tv pupdate 1 -1 -1
+tv pupdate 2 -1 -1
+tv pupdate 3 -1 -1
+tv pupdate 4 -1 -1
+tv pupdate 5 -1 -1
+tv pupdate 6 -1 -1
+tv pupdate 7 -1 -1
+tv pupdate 8 -1 -1
+tv pupdate 9 -1 -1
+tv pupdate 10 -1 -1
+tv pupdate 11 -1 -1
+tv pupdate 12 -1 -1
+tv pupdate 13 -1 -1
+tv pupdate 14 -1 -1
+tv pupdate 15 -1 -1
+tv pupdate 0 -1 -1
+tv pupdate 1 -1 -1
+tv pupdate 2 -1 -1
+tv pupdate 3 -1 -1
+tv pupdate 4 -1 -1
+tv pupdate 5 -1 -1
+tv pupdate 6 -1 -1
+tv pupdate 7 -1 -1
+tv pupdate 8 -1 -1
+tv pupdate 9 -1 -1
+tv pupdate 10 -1 -1
+tv pupdate 11 -1 -1
+tv pupdate 12 -1 -1
+tv pupdate 13 -1 -1
+tv pupdate 14 -1 -1
+tv pupdate 15 -1 -1
+tv pupdate 0 -1 -1
+tv pupdate 1 -1 -1
+tv pupdate 2 -1 -1
+tv pupdate 3 -1 -1
+tv pupdate 4 -1 -1
+tv pupdate 5 -1 -1
+tv pupdate 6 -1 -1
+tv pupdate 7 -1 -1
+tv pupdate 8 -1 -1
+tv pupdate 9 -1 -1
+tv pupdate 10 -1 -1
+tv pupdate 11 -1 -1
+tv pupdate 12 -1 -1
+tv pupdate 13 -1 -1
+tv pupdate 14 -1 -1
+tv pupdate 15 -1 -1
+tv pupdate 0 -1 -1
+tv pupdate 1 -1 -1
+tv pupdate 2 -1 -1
+tv pupdate 3 -1 -1
+tv pupdate 4 -1 -1
+tv pupdate 5 -1 -1
+tv pupdate 6 -1 -1
+tv pupdate 7 -1 -1
+tv pupdate 8 -1 -1
+tv pupdate 9 -1 -1
+tv pupdate 10 -1 -1
+tv pupdate 11 -1 -1
+tv pupdate 12 -1 -1
+tv pupdate 13 -1 -1
+tv pupdate 14 -1 -1
+tv pupdate 15 -1 -1
+tv pupdate 0 -1 -1
+tv pupdate 1 -1 -1
+tv pupdate 2 -1 -1
+tv pupdate 3 -1 -1
+tv pupdate 4 -1 -1
+tv pupdate 5 -1 -1
+tv pupdate 6 -1 -1
+tv pupdate 7 -1 -1
+tv pupdate 8 -1 -1
+tv pupdate 9 -1 -1
+tv pupdate 10 -1 -1
+tv pupdate 11 -1 -1
+tv pupdate 12 -1 -1
+tv pupdate 13 -1 -1
+tv pupdate 14 -1 -1
+tv pupdate 15 -1 -1
+tv pupdate 0 -1 -1
+tv pupdate 1 -1 -1
+tv pupdate 2 -1 -1
+tv pupdate 3 -1 -1
+tv pupdate 4 -1 -1
+tv pupdate 5 -1 -1
+tv pupdate 6 -1 -1
+tv pupdate 7 -1 -1
+tv pupdate 8 -1 -1
+tv pupdate 9 -1 -1
+tv pupdate 10 -1 -1
+tv pupdate 11 -1 -1
+tv pupdate 12 -1 -1
+tv pupdate 13 -1 -1
+tv pupdate 14 -1 -1
+tv pupdate 15 -1 -1
+tv pupdate 0 -1 -1
+tv pupdate 1 -1 -1
+tv pupdate 2 -1 -1
+tv pupdate 3 -1 -1
+tv pupdate 4 -1 -1
+tv pupdate 5 -1 -1
+tv pupdate 6 -1 -1
+tv pupdate 7 -1 -1
+tv pupdate 8 -1 -1
+tv pupdate 9 -1 -1
+tv pupdate 10 -1 -1
+tv pupdate 11 -1 -1
+tv pupdate 12 -1 -1
+tv pupdate 13 -1 -1
+tv pupdate 14 -1 -1
+tv pupdate 15 -1 -1
+end
 corpus kernel_roundtrip
 events 21
 ev objcreated 1

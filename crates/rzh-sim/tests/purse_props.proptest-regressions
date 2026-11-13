@@ -1,0 +1,10 @@
+# Seeds for failure cases proptest has generated in the past. It is
+# automatically read and these particular cases re-run before any
+# novel cases are generated.
+#
+# It is recommended to check this file in to source control so that
+# everyone who runs the test benefits from these saved cases.
+cc 9db576da406b440a7157285c08c07937b03b9fcbde12fb4274b42a7e6062a230 # shrinks to ops = [(1022051659, false), (1968840584, false), (1304075053, false)], stepwise = false
+cc ecaae248857d96a1e2b180183a8579878ff7da61e6b2d309065c718e0764c458 # shrinks to ops = [(1, false, false)], sabotage_frame = 1
+cc e62d3cf6968a56dfb7843974122209b4b82e532c2778e9e0c83ffca7e47ea77a # shrinks to names = ["j", "j"]
+cc 8b0003959ec57f2827dfcd30a155a27e13bc81f07906e8acf7a5eb052d48b3aa # shrinks to thresholds = [0, 636], gains = [635, -1], limit_low = 2

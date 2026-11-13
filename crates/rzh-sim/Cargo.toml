@@ -107,6 +107,72 @@
 #                                                     mask queries, the slot
 #                                                     bookkeeping, validateTeam,
 #                                                     updateTeamStates)
+#   GeneralsMD/Code/GameEngine/Source/Common/RTS/Money.cpp
+#   GeneralsMD/Code/GameEngine/Include/Common/Money.h
+#                                                     (the money block: the
+#                                                     over-draw clamp of
+#                                                     withdraw, the tracked
+#                                                     -income 60-second circular
+#                                                     buckets with their second
+#                                                     -resolution rollover, the
+#                                                     zero-wallet starting-cash
+#                                                     deposit of the init path)
+#   GeneralsMD/Code/GameEngine/Source/Common/RTS/Energy.cpp
+#   GeneralsMD/Code/GameEngine/Include/Common/Energy.h
+#                                                     (the energy block: the
+#                                                     sabotage-gated production
+#                                                     reads, the supply ratio
+#                                                     with its zero-consumption
+#                                                     branch, the adjustPower
+#                                                     sign matrix, the influence
+#                                                     walks and the power-bonus
+#                                                     family with the Caball009
+#                                                     disabled-plant refusal)
+#   GeneralsMD/Code/GameEngine/Source/Common/RTS/Science.cpp
+#   GeneralsMD/Code/GameEngine/Include/Common/Science.h
+#                                                     (the science catalog: the
+#                                                     linear findScienceInfo
+#                                                     scan, the parse-order
+#                                                     addRootSciences
+#                                                     computation, the prereq/
+#                                                     root queries and the
+#                                                     purchasable walk)
+#   Core/GameEngine/Include/GameLogic/RankInfo.h
+#   Core/GameEngine/Source/GameLogic/System/RankInfo.cpp
+#                                                     (the rank ladder: the
+#                                                     1-based getRankInfo, the
+#                                                     per-level skill-point
+#                                                     thresholds, the SPP grants
+#                                                     and the granted sciences)
+#   GeneralsMD/Code/GameEngine/Source/Common/RTS/Player.cpp
+#                                                     (the progression half:
+#                                                     resetRank/resetSciences
+#                                                     with the double notify,
+#                                                     addSkillPoints with the
+#                                                     Hoffesommer ceil, setRank
+#                                                     Level's upgrade and the
+#                                                     lose-everything downgrade,
+#                                                     the purchase family's gate
+#                                                     chain, the science
+#                                                     availability, the radar
+#                                                     refcounts, onPowerBrownOut
+#                                                     Change's doPowerDisable
+#                                                     sweep, Player::update's
+#                                                     sabotage expiry and the
+#                                                     money bucket)
+#   GeneralsMD/Code/GameEngine/Include/Common/ThingTemplate.h
+#                                                     (getEnergyProduction /
+#                                                     getEnergyBonus — the
+#                                                     distilled template reads
+#                                                     the influence walks make)
+#   GeneralsMD/Code/GameEngine/Include/Common/KindOf.h
+#                                                     (the POWERED bit — ordinal
+#                                                     66, the generated table's)
+#   GeneralsMD/Code/GameEngine/Include/GameLogic/GameLogic.h
+#   GeneralsMD/Code/GameEngine/Source/GameLogic/System/GameLogic.cpp
+#                                                     (m_rankLevelLimit — init's
+#                                                     1000, setRankLevelLimit's
+#                                                     <1 clamp)
 #   GeneralsMD/Code/GameEngine/Include/Common/PlayerList.h
 #                                                     (AllowPlayerRelationship)
 #   GeneralsMD/Code/GameEngine/Source/Common/RTS/Player.cpp
@@ -213,7 +279,7 @@
 
 [package]
 name = "rzh-sim"
-description = "Zero Hour deterministic simulation kernel: the frame loop, the object registry with its sleepy-update scheduler, the partition-manager spatial store and its query family"
+description = "Zero Hour deterministic simulation kernel: the frame loop, the object registry with its sleepy-update scheduler, the partition-manager spatial store and its query family, the players/teams block and the money/energy/ranks/sciences block"
 version.workspace = true
 edition.workspace = true
 rust-version.workspace = true

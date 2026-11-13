@@ -545,15 +545,15 @@ impl PartitionFilter for PartitionFilterWouldCollide {
 #[derive(Debug)]
 pub struct PartitionFilterAcceptByKindOf {
     /// `m_mustBeSet`.
-    pub must_be_set: u32,
+    pub must_be_set: u128,
     /// `m_mustBeClear`.
-    pub must_be_clear: u32,
+    pub must_be_clear: u128,
 }
 
 impl PartitionFilterAcceptByKindOf {
     /// The `PartitionFilterAcceptByKindOf(mustBeSet, mustBeClear)`
     /// constructor.
-    pub fn new(must_be_set: u32, must_be_clear: u32) -> Self {
+    pub fn new(must_be_set: u128, must_be_clear: u128) -> Self {
         Self {
             must_be_set,
             must_be_clear,
@@ -574,15 +574,15 @@ impl PartitionFilter for PartitionFilterAcceptByKindOf {
 #[derive(Debug)]
 pub struct PartitionFilterRejectByKindOf {
     /// `m_mustBeSet`.
-    pub must_be_set: u32,
+    pub must_be_set: u128,
     /// `m_mustBeClear`.
-    pub must_be_clear: u32,
+    pub must_be_clear: u128,
 }
 
 impl PartitionFilterRejectByKindOf {
     /// The `PartitionFilterRejectByKindOf(mustBeSet, mustBeClear)`
     /// constructor.
-    pub fn new(must_be_set: u32, must_be_clear: u32) -> Self {
+    pub fn new(must_be_set: u128, must_be_clear: u128) -> Self {
         Self {
             must_be_set,
             must_be_clear,

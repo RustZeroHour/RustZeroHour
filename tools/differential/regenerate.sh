@@ -463,10 +463,13 @@ echo "wrote crates/rzh-formats/tests/golden/font.txt"
 # and the collide-test family with the contact list's processing, plus
 # the query family — the FASTER_GCO rings, the distCalcProc measures,
 # getClosestObjects, the SimpleObjectIterator, the filters and the
-# measure entries)
+# measure entries — and the money/energy/ranks/sciences block (Money.cpp,
+# Energy.cpp, Science.cpp, RankInfo.cpp and Player.cpp's progression
+# half, over the players/teams transcription)
 # over hand-built id/frame/scheduler/destroy/disabled/grid/fill/dirty/
 # contact/register/collide-matrix/collide-process/query-radiusvec/
-# query-closest/query-iterate/roundtrip corpora. The generator links the
+# query-closest/query-iterate/players/teams/purse-money/purse-energy/
+# purse-ranks/purse-sciences/purse-roundtrip/roundtrip corpora. The generator links the
 # pinned GameMath sources for gm_sinf / gm_cosf / gm_sqrtf / gm_acosf,
 # like gen_hanim_golden.cpp (the deterministic-math build's trig entry
 # points).

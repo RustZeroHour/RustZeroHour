@@ -56,7 +56,21 @@ provenance list), the crate owns:
   with its `isPlayerActive` refusal, and `Team::updateState`'s state
   half — the created latch, the destroy-threshold compute, the
   enemy-sighted partition query and the empty-team removal sweep — plus
-  the same-player / relationship / on-team query filters over it all.
+  the same-player / relationship / on-team query filters over it all;
+- the **money/energy/ranks/sciences block** — the per-player wallets
+  (the over-draw clamp, the tracked-income 60-second circular buckets
+  with their second-resolution rollover, the zero-wallet
+  starting-cash deposit of the newGame init), the power pools (the
+  sabotage-gated production reads, the supply ratio, the `adjustPower`
+  sign matrix, the influence walks, and the brownout choreography:
+  the radar restriction plus the `DISABLED_UNDERPOWERED` sweep over
+  every `KINDOF_POWERED` member, with the disabled-plant bonus
+  refusal), the rank ladders (the `INT_MAX` sentinel, the
+  upgrade/downgrade walks with the lose-everything wipe, the
+  Hoffesommer-ceil skill-point arithmetic), the science catalogs (the
+  parse-order root computation, the linear lookups, the purchase gate
+  chain and the purchasable walks, the script availability
+  choreography) and the radar refcounts.
 
 Parity is golden-pinned against
 `tools/differential/gen_kernel_golden.cpp` — a verbatim C++
@@ -80,17 +94,32 @@ family, the defector gates, the mask queries' peeling and exhaustion,
 the member choreography with the isPlayerActive refusal and the
 capture pair, the updateState latches and thresholds with the
 enemy-sighted query, the empty-team sweep and the clear()'s
-map-pre-emptied contrast, the stale relations surviving reset) and a
-mixed roundtrip (`tests/golden/kernel.txt`, 3,554 lines), plus a
+map-pre-emptied contrast, the stale relations surviving reset), the
+money/energy/ranks/sciences block (the wallet's clamps, hooks and
+stale player index; the income buckets' second-resolution rollover
+and the unsigned wraps; the influence walks and the brownout cascade
+with the radar and the UNDERPOWERED sweep; the sabotage gate and its
+strict-> expiry; the ladder's grants, the double notify of the
+rank-1 sciences, the exact-integer-lands-one-high ceil arithmetic and
+the lose-everything downgrade; the purchase gates with the cost-0 and
+non-grantable refusals, the parse-order roots and the availability
+choreography; the integration roundtrip's new_game deposits, power
+cascade and mid-run sabotage expiry) and a mixed roundtrip
+(`tests/golden/kernel.txt`, 5,279 lines), plus a
 256-case result-symmetry / unit-normal property test
 (`tests/collide_props.rs`), a 256-case query property suite
 (`tests/query_props.rs` — the sorted drains' monotonicity and tie
 stability, the range query's set-exactness vs the brute force, and
-the rings' partition of the offset space) and a players property
+the rings' partition of the offset space), a players property
 suite (`tests/players_props.rs` — the relationship chain's totality
 against a brute-force reference, the team-level precedence, the
 mask-query agreement, the interning injectivity, the team-id
-monotonicity and the member-list conservation).
+monotonicity and the member-list conservation) and a purse property
+suite (`tests/purse_props.rs` — the wallet's conservation and bucket
+invariants, the energy pool against a signed reference with the
+sabotage gate, the rank ladder's totality and band invariants, the
+purchasable sets against brute force and the availability states'
+exclusivity).
 
 Deterministic by construction (plan §3.3): `#![forbid(unsafe_code)]`,
 single-threaded, no I/O, no wall-clock, no `HashMap` iteration, `f32`

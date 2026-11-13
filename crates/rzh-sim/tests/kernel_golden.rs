@@ -78,6 +78,7 @@ use rzh_sim::query::{
     RELATIONSHIP_FILTER_ALLOW_NEUTRAL, SimpleObjectIterator,
 };
 use rzh_sim::scheduler::ModuleArena;
+use rzh_sim::sciences::ScienceAvailabilityType;
 use rzh_sim::types::{
     Coord3, DisabledMask, DisabledType, FOREVER, GeometryInfo, GeometryType, INVALID_ID,
     KINDOF_NO_COLLIDE_BIT, LOGICFRAMES_PER_MSEC_REAL, LOGICFRAMES_PER_SECOND,
@@ -104,6 +105,7 @@ fn side_spec(
         observer,
         enemies: enemies.iter().map(|s| s.to_string()).collect(),
         allies: allies.iter().map(|s| s.to_string()).collect(),
+        ..SideSpec::default()
     }
 }
 
@@ -196,6 +198,11 @@ const TEV_TEAM_MEMBER: i64 = 2;
 const TEV_CAPTURE: i64 = 3;
 const TEV_TEAM_SCRIPT: i64 = 4;
 const TEV_TEAM_DESTROYED: i64 = 5;
+// the money/energy/ranks/sciences block's hooks:
+const TEV_MONEY_AUDIO: i64 = 6;
+const TEV_ACADEMY_INCOME: i64 = 7;
+const TEV_ACADEMY_SPENT: i64 = 8;
+const TEV_ACQUIRED_SCIENCE: i64 = 9;
 
 #[allow(clippy::trivially_copy_pass_by_ref)]
 fn tev_name(e: i64) -> &'static str {
@@ -206,6 +213,10 @@ fn tev_name(e: i64) -> &'static str {
         TEV_CAPTURE => "capture",
         TEV_TEAM_SCRIPT => "script",
         TEV_TEAM_DESTROYED => "teamdestroyed",
+        TEV_MONEY_AUDIO => "moneyaudio",
+        TEV_ACADEMY_INCOME => "income",
+        TEV_ACADEMY_SPENT => "spent",
+        TEV_ACQUIRED_SCIENCE => "science",
         _ => "?",
     }
 }
@@ -434,6 +445,30 @@ impl KernelHost for GoldenHost {
         self.team_events
             .push([TEV_TEAM_DESTROYED, i64::from(team), -1, -1]);
     }
+
+    fn on_money_audio(&mut self, player: usize, withdraw: bool) {
+        self.team_events
+            .push([TEV_MONEY_AUDIO, player as i64, i64::from(withdraw), -1]);
+    }
+
+    fn on_academy_income(&mut self, player: usize) {
+        self.team_events
+            .push([TEV_ACADEMY_INCOME, player as i64, -1, -1]);
+    }
+
+    fn on_academy_points_spent(&mut self, player: usize, points: i32) {
+        self.team_events
+            .push([TEV_ACADEMY_SPENT, player as i64, i64::from(points), -1]);
+    }
+
+    fn on_acquired_science(&mut self, player: usize, science: rzh_sim::sciences::ScienceType) {
+        self.team_events.push([
+            TEV_ACQUIRED_SCIENCE,
+            player as i64,
+            science.ordinal() as i64,
+            -1,
+        ]);
+    }
 }
 
 impl Harness {
@@ -498,6 +533,7 @@ impl Harness {
                 z: 0.0,
             },
             orientation: angle,
+            ..ObjectSpec::default()
         };
         self.kernel.create_object(&spec, &mut self.host)
     }
@@ -753,6 +789,7 @@ impl Harness {
                 z: pos.2,
             },
             orientation: 0.0,
+            ..ObjectSpec::default()
         };
         self.kernel.create_object(&spec, &mut self.host)
     }
@@ -866,7 +903,9 @@ impl Harness {
             let p = &players.list.players[i];
             let _ = writeln!(
                 out,
-                "pl {} name={} key={} type={} dead={} obs={} act={} dflt={} slot={} npr={}",
+                "pl {} name={} key={} type={} dead={} obs={} act={} dflt={} slot={} npr={} \
+                 cash={} cpm={} bkt={} rank={} skp={} spp={} lup={} ldn={} nsci={}:{}:{} \
+                 rad={},{},{} nrg={},{},{}",
                 i,
                 p.name,
                 p.name_key.ordinal(),
@@ -876,7 +915,24 @@ impl Harness {
                 i32::from(p.is_player_active()),
                 p.default_team,
                 players.get_slot_index(i),
-                p.team_prototypes.len()
+                p.team_prototypes.len(),
+                p.money.money,
+                p.money.cash_per_minute,
+                p.money.current_bucket,
+                p.rank_level,
+                p.skill_points,
+                p.science_purchase_points,
+                p.level_up,
+                p.level_down,
+                p.sciences.len(),
+                p.sciences_disabled.len(),
+                p.sciences_hidden.len(),
+                p.radar_count,
+                p.disable_proof_radar_count,
+                i32::from(p.radar_disabled),
+                p.energy.energy_production,
+                p.energy.energy_consumption,
+                p.energy.power_sabotaged_till_frame
             );
             for (&k, &r) in &p.player_relations {
                 let _ = writeln!(out, "pr {i}->{k} {}", r.name());
@@ -890,6 +946,15 @@ impl Harness {
                     .map(|tp| tp.id)
                     .unwrap_or(0);
                 let _ = writeln!(out, "pt {i} {j} tp{proto_id}");
+            }
+            for &s in &p.sciences {
+                let _ = writeln!(out, "ps {i} {}", s.ordinal());
+            }
+            for &s in &p.sciences_disabled {
+                let _ = writeln!(out, "psd {i} {}", s.ordinal());
+            }
+            for &s in &p.sciences_hidden {
+                let _ = writeln!(out, "psh {i} {}", s.ordinal());
             }
         }
         for s in 0..rzh_sim::types::MAX_SLOTS {
@@ -993,15 +1058,91 @@ impl Harness {
                 .unwrap_or(-1);
             let _ = writeln!(
                 out,
-                "ot o{} t{} ctrl={} vis={:08x} ai={}/{}",
+                "ot o{} t{} ctrl={} vis={:08x} ai={}/{} enr={},{} pwr={}",
                 o.id,
                 o.team,
                 ctrl,
                 o.vision_range.to_bits(),
                 i32::from(o.has_ai),
-                i32::from(o.ai_idle)
+                i32::from(o.ai_idle),
+                o.energy_production,
+                o.energy_bonus,
+                i32::from((o.kindof >> rzh_sim::types::KINDOF_POWERED_BIT) & 1 != 0)
             );
         }
+    }
+
+    /// `dumpStores`: the money/energy/ranks/sciences block's catalogs —
+    /// the science store in load order (the cost, the grantable flag,
+    /// the prereq and root key lists) and the rank ladder.
+    fn dump_stores(&mut self) {
+        let players = &self.kernel.players;
+        let out = &mut self.out;
+        let _ = writeln!(out, "scistore n={}", players.science_store.sciences.len());
+        for si in &players.science_store.sciences {
+            let _ = writeln!(
+                out,
+                "sc {} cost={} grant={}",
+                si.science.ordinal(),
+                si.science_purchase_point_cost,
+                i32::from(si.grantable)
+            );
+            for &p in &si.prereq_sciences {
+                let _ = writeln!(out, "scp {} {}", si.science.ordinal(), p.ordinal());
+            }
+            for &r in &si.root_sciences {
+                let _ = writeln!(out, "scr {} {}", si.science.ordinal(), r.ordinal());
+            }
+        }
+        let _ = writeln!(out, "rankstore n={}", players.rank_store.rank_level_count());
+        for i in 1..=players.rank_store.rank_level_count() {
+            let ri = players.rank_store.rank_info(i).expect("live rank");
+            let _ = writeln!(
+                out,
+                "rk {} spn={} spp={}",
+                i, ri.skill_points_needed, ri.science_purchase_points_granted
+            );
+            for &g in &ri.sciences_granted {
+                let _ = writeln!(out, "rkg {i} {}", g.ordinal());
+            }
+        }
+    }
+
+    /// The generator's `playerListUpdate` (the 16-slot walk at the current
+    /// frame).
+    fn players_update(&mut self) {
+        let frame = self.kernel.logic.frame;
+        self.kernel
+            .players
+            .update(&mut self.kernel.objects, frame, &mut self.host);
+    }
+
+    /// The generator's `createObject` with the energy fields (the
+    /// money/energy corpora's power objects).
+    #[allow(clippy::too_many_arguments)]
+    fn create_power_object(
+        &mut self,
+        pos: (f32, f32),
+        powered: bool,
+        energy_production: i32,
+        energy_bonus: i32,
+    ) -> i32 {
+        let spec = ObjectSpec {
+            geometry: GeometryInfo::default(),
+            immobile: false,
+            powered,
+            modules: Vec::new(),
+            colliders: 0,
+            position: Coord3 {
+                x: pos.0,
+                y: pos.1,
+                z: 0.0,
+            },
+            orientation: 0.0,
+            energy_production,
+            energy_bonus,
+        };
+        self.kernel.create_object(&spec, &mut self.host)
     }
 
     fn create_query_obj_angle(
@@ -1021,6 +1162,7 @@ impl Harness {
                 z: pos.2,
             },
             orientation: angle,
+            ..ObjectSpec::default()
         };
         self.kernel.create_object(&spec, &mut self.host)
     }
@@ -2531,7 +2673,9 @@ fn corpus_players_lifecycle(h: &mut Harness) {
     ));
 
     // the 16-slot update walk (the count is 1 — every slot updates anyway)
-    h.kernel.players.update(&mut h.host);
+    h.kernel
+        .players
+        .update(&mut h.kernel.objects, h.kernel.logic.frame, &mut h.host);
     h.dump_team_events();
 
     // getNthPlayer's bounds refusal
@@ -2616,7 +2760,9 @@ fn corpus_players_newgame(h: &mut Harness) {
             has_game_info: true,
             game_info: GameInfoSpec {
                 occupied_slots: vec![0, 2, 3],
+                starting_cash: 0,
             },
+            default_starting_cash: 0,
         };
 
         h.kernel
@@ -2670,6 +2816,7 @@ fn corpus_players_newgame(h: &mut Harness) {
             teams: Vec::new(),
             has_game_info: false,
             game_info: GameInfoSpec::default(),
+            default_starting_cash: 0,
         };
         h.kernel
             .players
@@ -2694,6 +2841,7 @@ fn corpus_players_newgame(h: &mut Harness) {
             teams: vec![team_spec("team", "neutral", true)],
             has_game_info: false,
             game_info: GameInfoSpec::default(),
+            default_starting_cash: 0,
         };
         h.kernel
             .players
@@ -2719,6 +2867,7 @@ fn corpus_players_newgame(h: &mut Harness) {
             teams: Vec::new(), // no teams at all
             has_game_info: false,
             game_info: GameInfoSpec::default(),
+            default_starting_cash: 0,
         };
         h.kernel
             .players
@@ -2770,6 +2919,7 @@ fn corpus_teams_factory(h: &mut Harness) {
         ],
         has_game_info: false,
         game_info: GameInfoSpec::default(),
+        default_starting_cash: 0,
     };
 
     h.kernel
@@ -2917,6 +3067,7 @@ fn corpus_relationships(h: &mut Harness) {
         ],
         has_game_info: false,
         game_info: GameInfoSpec::default(),
+        default_starting_cash: 0,
     };
     h.kernel
         .players
@@ -3173,6 +3324,7 @@ fn corpus_players_masks(h: &mut Harness) {
         ],
         has_game_info: false,
         game_info: GameInfoSpec::default(),
+        default_starting_cash: 0,
     };
     h.kernel
         .players
@@ -3301,6 +3453,7 @@ fn corpus_team_members(h: &mut Harness) {
         ],
         has_game_info: false,
         game_info: GameInfoSpec::default(),
+        default_starting_cash: 0,
     };
     h.kernel
         .players
@@ -3484,6 +3637,7 @@ fn corpus_players_roundtrip(h: &mut Harness) {
         ],
         has_game_info: false,
         game_info: GameInfoSpec::default(),
+        default_starting_cash: 0,
     };
     h.kernel
         .players
@@ -3672,6 +3826,1135 @@ fn corpus_players_roundtrip(h: &mut Harness) {
     h.dump_teams();
     h.dump_team_events();
     h.dump_object_teams();
+}
+
+// --- purse_money: the Money lifecycle — the starting-cash reset, the
+// deposit/withdraw families (the clamps, the audio hooks, the tracked and
+// untracked forms, the academy hooks, the stale player-index quirk), the
+// income-bucket rollover at the second boundaries, and the unsigned wrap.
+fn corpus_purse_money(h: &mut Harness) {
+    h.line("corpus purse_money");
+    h.fresh_world(10.0, (0.0, 0.0, 100.0, 100.0));
+
+    // the neutral init left player 1's Money player index at the CTOR's 0
+    // (the neutral branch never re-sets it) — the stale-index quirk
+    h.kernel.players.list.players[1]
+        .money
+        .deposit(400, false, false, &mut h.host);
+    h.kernel.players.list.players[1].money.set_player_index(1);
+    h.kernel.players.list.players[1]
+        .money
+        .deposit(400, false, true, &mut h.host);
+    h.dump_team_events();
+
+    // the starting-cash reset wipes the wallet AND the income tracking
+    h.kernel.players.list.players[1]
+        .money
+        .set_starting_cash(10_000);
+    h.line(&format!(
+        "start {} {}",
+        h.kernel.players.list.players[1].money.count_money(),
+        h.kernel.players.list.players[1].money.get_cash_per_minute()
+    ));
+
+    // the withdraw family: the sound, the clamp, the zero
+    let mut wd = h.kernel.players.list.players[1]
+        .money
+        .withdraw(3000, true, &mut h.host);
+    h.line(&format!("wd {wd}"));
+    wd = h.kernel.players.list.players[1]
+        .money
+        .withdraw(99_999, true, &mut h.host);
+    h.line(&format!("wd {wd}"));
+    wd = h.kernel.players.list.players[1]
+        .money
+        .withdraw(0, true, &mut h.host);
+    h.line(&format!("wd {wd}"));
+    wd = h.kernel.players.list.players[1]
+        .money
+        .withdraw(500, false, &mut h.host);
+    h.line(&format!(
+        "wd {} {}",
+        wd,
+        h.kernel.players.list.players[1].money.count_money()
+    ));
+
+    // the deposit family: tracked (the bucket + the per-minute), untracked
+    // (neither), the zero refusal, the audio
+    h.kernel.players.list.players[1]
+        .money
+        .deposit(2000, true, true, &mut h.host);
+    h.kernel.players.list.players[1]
+        .money
+        .deposit(0, true, true, &mut h.host);
+    h.kernel.players.list.players[1]
+        .money
+        .deposit(7, false, false, &mut h.host);
+    h.dump_team_events();
+    h.line(&format!(
+        "cash {} {} {}",
+        h.kernel.players.list.players[1].money.count_money(),
+        h.kernel.players.list.players[1].money.get_cash_per_minute(),
+        h.kernel.players.list.players[1].money.current_bucket
+    ));
+
+    // amountEqual (everything but the index)
+    {
+        let mut that = rzh_sim::money::Money::default();
+        that.set_starting_cash(h.kernel.players.list.players[1].money.count_money());
+        h.line(&format!(
+            "eq {}",
+            i32::from(h.kernel.players.list.players[1].money.amount_equal(&that))
+        ));
+        that.set_starting_cash(1);
+        h.line(&format!(
+            "eq {}",
+            i32::from(h.kernel.players.list.players[1].money.amount_equal(&that))
+        ));
+    }
+
+    // the income-bucket rollover: deposits land in the frame's SECOND
+    // bucket; the rollover zeroes the aged bucket and drops its sum from
+    // the per-minute. Frames 0 (bucket 0), 29 (still 0), 30 (bucket 1),
+    // 59, 60 (bucket 2), 1799 (bucket 59), 1800 (the wrap to bucket 0 —
+    // the 60-second-old sum leaves).
+    h.kernel.players.list.players[1].money.set_starting_cash(0);
+    h.kernel.players.list.players[1]
+        .money
+        .deposit(100, false, true, &mut h.host);
+    h.kernel.logic.frame = 29;
+    h.players_update();
+    h.kernel.players.list.players[1]
+        .money
+        .deposit(50, false, true, &mut h.host);
+    h.line(&format!(
+        "cpm {}",
+        h.kernel.players.list.players[1].money.get_cash_per_minute()
+    ));
+    h.kernel.logic.frame = 30;
+    h.players_update();
+    h.kernel.players.list.players[1]
+        .money
+        .deposit(10, false, true, &mut h.host);
+    h.line(&format!(
+        "cpm {}",
+        h.kernel.players.list.players[1].money.get_cash_per_minute()
+    ));
+    h.kernel.logic.frame = 60;
+    h.players_update();
+    h.line(&format!(
+        "cpm {}",
+        h.kernel.players.list.players[1].money.get_cash_per_minute()
+    ));
+    h.kernel.logic.frame = 1799;
+    h.players_update();
+    h.line(&format!(
+        "cpm {} bkt={}",
+        h.kernel.players.list.players[1].money.get_cash_per_minute(),
+        h.kernel.players.list.players[1].money.current_bucket
+    ));
+    h.kernel.logic.frame = 1800;
+    h.players_update();
+    h.line(&format!(
+        "cpm {} bkt={}",
+        h.kernel.players.list.players[1].money.get_cash_per_minute(),
+        h.kernel.players.list.players[1].money.current_bucket
+    ));
+    h.dump_team_events();
+
+    // the unsigned wrap: the wallet and the buckets are UnsignedInt — the
+    // adds wrap (defined behaviour in the original)
+    h.kernel.players.list.players[1]
+        .money
+        .set_starting_cash(4_294_967_195); // u32::MAX - 100
+    h.kernel.players.list.players[1]
+        .money
+        .deposit(200, false, false, &mut h.host);
+    h.line(&format!(
+        "wrap {}",
+        h.kernel.players.list.players[1].money.count_money()
+    ));
+
+    // the academy hook's bounds refusal (getNthPlayer: 0..15 only)
+    h.kernel.players.list.players[2].money.set_starting_cash(0);
+    h.kernel.players.list.players[2].money.set_player_index(-1);
+    h.kernel.players.list.players[2]
+        .money
+        .deposit(5, false, false, &mut h.host);
+    h.kernel.players.list.players[2].money.set_player_index(99);
+    h.kernel.players.list.players[2]
+        .money
+        .deposit(5, false, false, &mut h.host);
+    h.kernel.players.list.players[2].money.set_player_index(15);
+    h.kernel.players.list.players[2]
+        .money
+        .deposit(5, false, false, &mut h.host);
+    h.dump_team_events();
+
+    h.dump_players();
+    h.line("end");
+}
+
+// --- purse_energy: the Energy family — the influence walks (the producers
+// and the consumers), the adjustPower sign matrix, the brownout transitions
+// (the radar restriction and the UNDERPOWERED sweep over the POWERED
+// members), the sabotage gate and its expiry, the power bonus with the
+// disabled-plant refusal, and the supply ratio's zero-consumption branch.
+fn corpus_purse_energy(h: &mut Harness) {
+    h.line("corpus purse_energy");
+    h.fresh_world(10.0, (0.0, 0.0, 100.0, 100.0));
+
+    // the 3-side world with the default teams (p1 human+local)
+    let sides = SidesSpec {
+        sides: vec![
+            side_spec("", false, false, false, &[], &[]),
+            side_spec("p1", true, false, false, &[], &[]),
+            side_spec("p2", false, false, false, &[], &[]),
+        ],
+        teams: vec![
+            team_spec("team", "", true),
+            team_spec("teamp1", "p1", true),
+            team_spec("teamp2", "p2", true),
+            team_spec("p1squad", "p1", false),
+        ],
+        has_game_info: false,
+        game_info: GameInfoSpec::default(),
+        default_starting_cash: 0,
+    };
+    h.kernel
+        .players
+        .new_game(&sides, &mut h.kernel.objects, &mut h.host);
+
+    // the power objects: two producers (one POWERED-kindof, one not), two
+    // consumers (both POWERED), a bonus carrier
+    let plant = h.create_power_object((10.0, 10.0), true, 30, 25);
+    let bunker = h.create_power_object((20.0, 10.0), false, 30, 0);
+    let airfield = h.create_power_object((30.0, 10.0), true, -20, 0);
+    let factory = h.create_power_object((40.0, 10.0), true, -15, 0);
+    let rod_plant = h.create_power_object((50.0, 10.0), true, 10, 50);
+
+    // put them on p1's teams (the sweep walks the team topology):
+    // plant+bunker+rodPlant on the default team, airfield+factory on the
+    // squad
+    let default_team = h.kernel.players.list.players[1].default_team;
+    let squad = h
+        .kernel
+        .players
+        .find_team("p1squad", &mut h.host)
+        .expect("the squad");
+    h.kernel
+        .players
+        .set_team(&mut h.kernel.objects, airfield, Some(squad), &mut h.host);
+    h.kernel
+        .players
+        .set_team(&mut h.kernel.objects, factory, Some(squad), &mut h.host);
+    h.kernel.players.set_team(
+        &mut h.kernel.objects,
+        plant,
+        Some(default_team),
+        &mut h.host,
+    );
+    h.kernel.players.set_team(
+        &mut h.kernel.objects,
+        bunker,
+        Some(default_team),
+        &mut h.host,
+    );
+    h.kernel.players.set_team(
+        &mut h.kernel.objects,
+        rod_plant,
+        Some(default_team),
+        &mut h.host,
+    );
+
+    // radar: p1 has two radars, one disable-proof (hasRadar survives a
+    // brownout)
+    h.kernel.players.list.players[1].add_radar(false);
+    h.kernel.players.list.players[1].add_radar(true);
+
+    // the influence walks: 30 production first (sufficient — the enable
+    // no-op), then the consumers
+    let frame = h.kernel.logic.frame;
+    h.kernel
+        .players
+        .energy_object_entering_influence(&mut h.kernel.objects, 1, plant, frame);
+    h.kernel
+        .players
+        .energy_object_entering_influence(&mut h.kernel.objects, 1, bunker, frame);
+    h.line(&format!(
+        "nrg {} {} suff={}",
+        h.kernel.players.energy_get_production(1, frame),
+        h.kernel.players.list.players[1].energy.energy_consumption,
+        i32::from(h.kernel.players.energy_has_sufficient_power(1, frame))
+    ));
+    h.kernel
+        .players
+        .energy_object_entering_influence(&mut h.kernel.objects, 1, airfield, frame);
+    h.line(&format!(
+        "nrg {} {} suff={}",
+        h.kernel.players.energy_get_production(1, frame),
+        h.kernel.players.list.players[1].energy.energy_consumption,
+        i32::from(h.kernel.players.energy_has_sufficient_power(1, frame))
+    ));
+    h.dump_players();
+
+    // the brownout: the second consumer crosses the line — the radar
+    // restriction (the disable-proof count saves hasRadar) and the
+    // UNDERPOWERED sweep over the POWERED members (the squad's and the
+    // default team's, newest first; bunker is not POWERED)
+    h.kernel
+        .players
+        .energy_object_entering_influence(&mut h.kernel.objects, 1, factory, frame);
+    h.line(&format!(
+        "nrg {} {} suff={} radar={}",
+        h.kernel.players.energy_get_production(1, frame),
+        h.kernel.players.list.players[1].energy.energy_consumption,
+        i32::from(h.kernel.players.energy_has_sufficient_power(1, frame)),
+        i32::from(h.kernel.players.list.players[1].has_radar())
+    ));
+    h.dump_registry();
+    h.dump_team_events();
+
+    // the supply ratio: the zero-consumption branch is the raw production
+    h.line(&format!(
+        "ratio {:08x}",
+        h.kernel.players.energy_supply_ratio(1, frame).to_bits()
+    ));
+    h.kernel
+        .players
+        .energy_object_leaving_influence(&mut h.kernel.objects, 1, factory, frame);
+    h.line(&format!(
+        "nrg {} {} suff={} radar={}",
+        h.kernel.players.energy_get_production(1, frame),
+        h.kernel.players.list.players[1].energy.energy_consumption,
+        i32::from(h.kernel.players.energy_has_sufficient_power(1, frame)),
+        i32::from(h.kernel.players.list.players[1].has_radar())
+    ));
+    h.line(&format!(
+        "ratio {:08x}",
+        h.kernel.players.energy_supply_ratio(1, frame).to_bits()
+    ));
+
+    // the adjustPower sign matrix ("consumption is reversed. Negative
+    // power is positive consumption.")
+    h.kernel
+        .players
+        .energy_adjust_power(&mut h.kernel.objects, 1, 5, true, frame);
+    h.line(&format!(
+        "adj {} {}",
+        h.kernel.players.list.players[1].energy.energy_production,
+        h.kernel.players.list.players[1].energy.energy_consumption
+    ));
+    h.kernel
+        .players
+        .energy_adjust_power(&mut h.kernel.objects, 1, 5, false, frame);
+    h.line(&format!(
+        "adj {} {}",
+        h.kernel.players.list.players[1].energy.energy_production,
+        h.kernel.players.list.players[1].energy.energy_consumption
+    ));
+    h.kernel
+        .players
+        .energy_adjust_power(&mut h.kernel.objects, 1, -5, true, frame);
+    h.line(&format!(
+        "adj {} {}",
+        h.kernel.players.list.players[1].energy.energy_production,
+        h.kernel.players.list.players[1].energy.energy_consumption
+    ));
+    h.kernel
+        .players
+        .energy_adjust_power(&mut h.kernel.objects, 1, -5, false, frame);
+    h.line(&format!(
+        "adj {} {}",
+        h.kernel.players.list.players[1].energy.energy_production,
+        h.kernel.players.list.players[1].energy.energy_consumption
+    ));
+    h.kernel
+        .players
+        .energy_adjust_power(&mut h.kernel.objects, 1, 0, true, frame);
+    h.line(&format!(
+        "adj {} {}",
+        h.kernel.players.list.players[1].energy.energy_production,
+        h.kernel.players.list.players[1].energy.energy_consumption
+    ));
+
+    // the power bonus and the disabled-plant refusal (Caball009 14/11/2025)
+    h.kernel
+        .players
+        .energy_add_power_bonus(&mut h.kernel.objects, 1, rod_plant, frame);
+    h.line(&format!(
+        "bonus {}",
+        h.kernel.players.list.players[1].energy.energy_production
+    ));
+    h.kernel.set_disabled(rod_plant, DisabledType::Default);
+    h.kernel
+        .players
+        .energy_remove_power_bonus(&mut h.kernel.objects, 1, rod_plant, frame); // refused
+    h.line(&format!(
+        "bonus {}",
+        h.kernel.players.list.players[1].energy.energy_production
+    ));
+    h.kernel
+        .set_disabled_until(rod_plant, DisabledType::Default, rzh_sim::types::NEVER);
+    h.kernel
+        .players
+        .energy_remove_power_bonus(&mut h.kernel.objects, 1, rod_plant, frame);
+    h.line(&format!(
+        "bonus {}",
+        h.kernel.players.list.players[1].energy.energy_production
+    ));
+
+    // the sabotage gate: production 0, ratio 0, insufficient — and the
+    // expiry through Player::update (frame > till, the strict >)
+    h.kernel
+        .players
+        .energy_set_power_sabotaged_till_frame(1, 100);
+    h.line(&format!(
+        "sab {} {} ratio={:08x}",
+        h.kernel
+            .players
+            .energy_get_production(1, h.kernel.logic.frame),
+        i32::from(
+            h.kernel
+                .players
+                .energy_has_sufficient_power(1, h.kernel.logic.frame)
+        ),
+        h.kernel
+            .players
+            .energy_supply_ratio(1, h.kernel.logic.frame)
+            .to_bits()
+    ));
+    h.kernel.logic.frame = 100;
+    h.players_update(); // == till: not yet
+    h.line(&format!(
+        "sab {}",
+        h.kernel.players.energy_power_sabotaged_till_frame(1)
+    ));
+    h.kernel.logic.frame = 101;
+    h.players_update(); // > till: the clear + the brownout re-derivation
+    h.line(&format!(
+        "sab {} suff={}",
+        h.kernel.players.energy_power_sabotaged_till_frame(1),
+        i32::from(
+            h.kernel
+                .players
+                .energy_has_sufficient_power(1, h.kernel.logic.frame)
+        )
+    ));
+
+    h.dump_registry();
+    h.dump_object_teams();
+    h.dump_players();
+    h.dump_team_events();
+    h.line("end");
+}
+
+// --- purse_ranks: the rank ladder — the init resetRank (level 1, the SPP
+// grants, the double-notify of the rank-1 sciences), addSkillPoints (the
+// modifier's ceil, the point cap, the level-up loop with the INT_MAX
+// sentinel), setRankLevel up and DOWN (the lose-everything wipe), the rank
+// limit clamp, and the negative-point edge.
+fn corpus_purse_ranks(h: &mut Harness) {
+    h.line("corpus purse_ranks");
+    h.fresh_world(10.0, (0.0, 0.0, 100.0, 100.0));
+
+    // the ladder: 5 levels; the sciences each grants (the keys intern in
+    // load order — science store first, then the rank names)
+    let sciences = [
+        ("Rank1", &[][..], 0, false),
+        ("Rank2", &["Rank1"][..], 0, false),
+        ("Rank3", &["Rank2"][..], 0, false),
+        ("Rank4", &["Rank3"][..], 0, false),
+        ("Rank5", &["Rank4"][..], 0, false),
+    ];
+    let science_specs: Vec<rzh_sim::sciences::ScienceSpec> = sciences
+        .iter()
+        .map(|(n, pre, cost, grant)| rzh_sim::sciences::ScienceSpec {
+            name: (*n).to_string(),
+            prereq_sciences: pre.iter().map(|s| s.to_string()).collect(),
+            science_purchase_point_cost: *cost,
+            grantable: *grant,
+        })
+        .collect();
+    let rank_specs = vec![
+        rzh_sim::sciences::RankSpec {
+            skill_points_needed: 0,
+            science_purchase_points_granted: 1,
+            sciences_granted: vec!["Rank1".to_string()],
+        },
+        rzh_sim::sciences::RankSpec {
+            skill_points_needed: 100,
+            science_purchase_points_granted: 1,
+            sciences_granted: vec!["Rank2".to_string()],
+        },
+        rzh_sim::sciences::RankSpec {
+            skill_points_needed: 300,
+            science_purchase_points_granted: 2,
+            sciences_granted: vec!["Rank3".to_string()],
+        },
+        rzh_sim::sciences::RankSpec {
+            skill_points_needed: 600,
+            science_purchase_points_granted: 3,
+            sciences_granted: vec!["Rank4".to_string()],
+        },
+        rzh_sim::sciences::RankSpec {
+            skill_points_needed: 1000,
+            science_purchase_points_granted: 4,
+            sciences_granted: vec!["Rank5".to_string()],
+        },
+    ];
+    h.kernel.players.load_stores(&science_specs, &rank_specs);
+    h.dump_stores();
+
+    // the re-init with the loaded ladder: every slot's resetRank grants
+    // rank 1's science (the notify fires TWICE — addScience, then the
+    // resetSciences tail)
+    h.kernel.players.reset(&mut h.kernel.objects, &mut h.host);
+    h.dump_team_events();
+    {
+        let p1 = &h.kernel.players.list.players[1];
+        h.line(&format!(
+            "rank {} {} {} {} {}",
+            p1.rank_level, p1.skill_points, p1.science_purchase_points, p1.level_up, p1.level_down
+        ));
+    }
+
+    let limit = h.kernel.logic.rank_level_limit;
+
+    // 99 points: the Hoffesommer ceil's quirk makes exact integers land
+    // one high (99 + ALMOST1 rounds to 100), so this DOES reach level 2 —
+    // the pinned XP arithmetic the corpora expose
+    let v = i32::from(h.kernel.players.add_skill_points(1, 99, limit, &mut h.host));
+    h.line(&format!("sk {}", v));
+    h.line(&format!(
+        "rank {} {}",
+        h.kernel.players.list.players[1].rank_level, h.kernel.players.list.players[1].skill_points
+    ));
+    // +1 (lands as 2 — the same ceil quirk): level 2's grants
+    let v = i32::from(h.kernel.players.add_skill_points(1, 1, limit, &mut h.host));
+    h.line(&format!("sk {}", v));
+    {
+        let p1 = &h.kernel.players.list.players[1];
+        h.line(&format!(
+            "rank {} {} {} {} {} nsci={}",
+            p1.rank_level,
+            p1.skill_points,
+            p1.science_purchase_points,
+            p1.level_up,
+            p1.level_down,
+            p1.sciences.len()
+        ));
+    }
+    // +200: level 3 at 300 points
+    let v = i32::from(
+        h.kernel
+            .players
+            .add_skill_points(1, 200, limit, &mut h.host),
+    );
+    h.line(&format!("sk {}", v));
+    h.line(&format!(
+        "rank {} {} {}",
+        h.kernel.players.list.players[1].rank_level,
+        h.kernel.players.list.players[1].skill_points,
+        h.kernel.players.list.players[1].science_purchase_points
+    ));
+    // +700: straight to the ladder's top (1000) — levelUp becomes INT_MAX
+    let v = i32::from(
+        h.kernel
+            .players
+            .add_skill_points(1, 700, limit, &mut h.host),
+    );
+    h.line(&format!("sk {}", v));
+    h.line(&format!(
+        "rank {} {} {} {}",
+        h.kernel.players.list.players[1].rank_level,
+        h.kernel.players.list.players[1].skill_points,
+        h.kernel.players.list.players[1].level_up,
+        h.kernel.players.list.players[1].level_down
+    ));
+    // past the top: the INT_MAX sentinel ends the loop, the point cap holds
+    let v = i32::from(
+        h.kernel
+            .players
+            .add_skill_points(1, 5000, limit, &mut h.host),
+    );
+    h.line(&format!("sk {}", v));
+    h.line(&format!(
+        "rank {} {}",
+        h.kernel.players.list.players[1].rank_level, h.kernel.players.list.players[1].skill_points
+    ));
+    h.dump_team_events();
+
+    // the modifier's ceil (REAL_TO_INT_CEIL of the product): 1.5*3 = 4.5
+    // → 5; 0.5*3 = 1.5 → 2; 0*x → 0 (the no-op)
+    h.kernel.players.reset_rank(1, &mut h.host);
+    h.kernel.players.list.players[1].skill_points_modifier = 1.5;
+    let v = i32::from(h.kernel.players.add_skill_points(1, 3, limit, &mut h.host));
+    h.line(&format!("sk {}", v));
+    h.line(&format!(
+        "skp {}",
+        h.kernel.players.list.players[1].skill_points
+    ));
+    h.kernel.players.reset_rank(1, &mut h.host);
+    h.kernel.players.list.players[1].skill_points_modifier = 0.5;
+    let v = i32::from(h.kernel.players.add_skill_points(1, 3, limit, &mut h.host));
+    h.line(&format!("sk {}", v));
+    h.line(&format!(
+        "skp {}",
+        h.kernel.players.list.players[1].skill_points
+    ));
+    h.kernel.players.list.players[1].skill_points_modifier = 0.0;
+    let v = i32::from(
+        h.kernel
+            .players
+            .add_skill_points(1, 100, limit, &mut h.host),
+    );
+    h.line(&format!("sk {}", v));
+    h.line(&format!(
+        "skp {}",
+        h.kernel.players.list.players[1].skill_points
+    ));
+    h.kernel.players.list.players[1].skill_points_modifier = 1.0;
+
+    // the negative edge: points drop, the level stays (the loop only
+    // fires on >=)
+    h.kernel.players.reset_rank(1, &mut h.host);
+    h.kernel
+        .players
+        .add_skill_points(1, 350, limit, &mut h.host); // level 3
+    h.line(&format!(
+        "neg {} {}",
+        h.kernel.players.list.players[1].rank_level, h.kernel.players.list.players[1].skill_points
+    ));
+    h.kernel
+        .players
+        .add_skill_points(1, -250, limit, &mut h.host);
+    h.line(&format!(
+        "neg {} {}",
+        h.kernel.players.list.players[1].rank_level, h.kernel.players.list.players[1].skill_points
+    ));
+
+    // the downgrade: "you lose everything. oh well..." — resetRank then
+    // the re-grant walk; the SPP is rebuilt, the sciences re-granted
+    // through the target level only
+    let v = i32::from(h.kernel.players.set_rank_level(1, 2, limit, &mut h.host));
+    h.line(&format!("down {}", v));
+    {
+        let p1 = &h.kernel.players.list.players[1];
+        h.line(&format!(
+            "rank {} {} {} nsci={}",
+            p1.rank_level,
+            p1.skill_points,
+            p1.science_purchase_points,
+            p1.sciences.len()
+        ));
+    }
+    h.dump_team_events();
+
+    // the no-change refusal and the clamps
+    let v = i32::from(h.kernel.players.set_rank_level(1, 2, limit, &mut h.host));
+    h.line(&format!("same {}", v));
+    let v = i32::from(h.kernel.players.set_rank_level(1, 99, limit, &mut h.host));
+    h.line(&format!("clamp {}", v));
+    h.line(&format!(
+        "rank {}",
+        h.kernel.players.list.players[1].rank_level
+    ));
+    let v = i32::from(h.kernel.players.set_rank_level(1, 0, limit, &mut h.host));
+    h.line(&format!("clamp {}", v));
+    h.line(&format!(
+        "rank {}",
+        h.kernel.players.list.players[1].rank_level
+    ));
+
+    // the rank limit: the ladder says 5, the limit says 3
+    h.kernel.players.set_rank_level(1, 5, limit, &mut h.host);
+    h.line(&format!(
+        "rank {}",
+        h.kernel.players.list.players[1].rank_level
+    ));
+    h.kernel.logic.set_rank_level_limit(3);
+    let limit3 = h.kernel.logic.rank_level_limit;
+    let v = i32::from(h.kernel.players.set_rank_level(1, 4, limit3, &mut h.host));
+    h.line(&format!("limit {}", v));
+    h.line(&format!(
+        "rank {}",
+        h.kernel.players.list.players[1].rank_level
+    ));
+    h.kernel.players.set_rank_level(1, 1, limit3, &mut h.host);
+    let v = i32::from(
+        h.kernel
+            .players
+            .add_skill_points(1, 10_000, limit3, &mut h.host),
+    );
+    h.line(&format!("sk {}", v));
+    h.line(&format!(
+        "rank {} {} (limit=3: the level-up loop stops, the points cap at the ladder's top)",
+        h.kernel.players.list.players[1].rank_level, h.kernel.players.list.players[1].skill_points
+    ));
+    h.dump_team_events();
+
+    h.dump_players();
+    h.line("end");
+}
+
+// --- purse_sciences: the science catalog and the purchase family — the
+// load order, the root computation (the parse-order quirk: a prereq loaded
+// later is invisible to the earlier science's roots; an unknown prereq is
+// skipped), the purchasable walk, the purchase gate chain (the cost-0
+// refusal, the prereqs, the points, the script availability), grantScience's
+// non-grantable refusal, and the double-notify of resetSciences.
+fn corpus_purse_sciences(h: &mut Harness) {
+    h.line("corpus purse_sciences");
+    h.fresh_world(10.0, (0.0, 0.0, 100.0, 100.0));
+
+    // the catalog: A a purchasable root; B on A; C on B; D a cost-0 root
+    // ("cannot be purchased"); E non-grantable but purchasable; F with an
+    // UNKNOWN prereq; G loaded before its prereq C (the parse-order root
+    // quirk — G's roots miss C)
+    let science_specs: Vec<rzh_sim::sciences::ScienceSpec> = vec![
+        rzh_sim::sciences::ScienceSpec {
+            name: "SciA".to_string(),
+            prereq_sciences: Vec::new(),
+            science_purchase_point_cost: 1,
+            grantable: true,
+        },
+        rzh_sim::sciences::ScienceSpec {
+            name: "SciB".to_string(),
+            prereq_sciences: vec!["SciA".to_string()],
+            science_purchase_point_cost: 2,
+            grantable: true,
+        },
+        rzh_sim::sciences::ScienceSpec {
+            name: "SciC".to_string(),
+            prereq_sciences: vec!["SciB".to_string()],
+            science_purchase_point_cost: 3,
+            grantable: true,
+        },
+        rzh_sim::sciences::ScienceSpec {
+            name: "SciD".to_string(),
+            prereq_sciences: Vec::new(),
+            science_purchase_point_cost: 0,
+            grantable: true,
+        },
+        rzh_sim::sciences::ScienceSpec {
+            name: "SciE".to_string(),
+            prereq_sciences: Vec::new(),
+            science_purchase_point_cost: 1,
+            grantable: false,
+        },
+        rzh_sim::sciences::ScienceSpec {
+            name: "SciF".to_string(),
+            prereq_sciences: vec!["NoSuchScience".to_string()],
+            science_purchase_point_cost: 1,
+            grantable: true,
+        },
+        rzh_sim::sciences::ScienceSpec {
+            name: "SciG".to_string(),
+            prereq_sciences: vec!["SciC".to_string()],
+            science_purchase_point_cost: 1,
+            grantable: true,
+        },
+        rzh_sim::sciences::ScienceSpec {
+            name: "SciC".to_string(),
+            prereq_sciences: vec!["SciB".to_string()],
+            science_purchase_point_cost: 3,
+            grantable: true,
+        },
+    ];
+    h.kernel.players.load_stores(&science_specs, &[]);
+    h.dump_stores();
+
+    // the queries over an unknown science
+    let nosuch = h.kernel.players.science_from_name("NoSuchScience");
+    h.line(&format!(
+        "unknown valid={} grant={} cost={}",
+        i32::from(h.kernel.players.science_store.is_valid_science(nosuch)),
+        i32::from(h.kernel.players.science_store.is_science_grantable(nosuch)),
+        h.kernel
+            .players
+            .science_store
+            .get_science_purchase_cost(nosuch)
+    ));
+
+    // the purchasable walk for a science-less player
+    {
+        let (purchasable, potentially) = h.kernel.players.get_purchasable_sciences(1);
+        h.line(&format!(
+            "walk n={} n={}",
+            purchasable.len(),
+            potentially.len()
+        ));
+        for sci in purchasable {
+            h.line(&format!("can {}", sci.ordinal()));
+        }
+        for sci in potentially {
+            h.line(&format!("pot {}", sci.ordinal()));
+        }
+    }
+
+    // the SPP adds and the purchase gate chain
+    h.kernel.players.add_science_purchase_points(1, 3);
+    h.line(&format!(
+        "spp {}",
+        h.kernel.players.list.players[1].science_purchase_points
+    ));
+    let scid = h.kernel.players.science_from_name("SciD");
+    let v = i32::from(
+        h.kernel
+            .players
+            .attempt_to_purchase_science(1, scid, &mut h.host),
+    );
+    h.line(&format!("buy {}", v)); // cost 0: not purchasable
+    let v = i32::from(
+        h.kernel
+            .players
+            .attempt_to_purchase_science(1, nosuch, &mut h.host),
+    );
+    h.line(&format!("buy {}", v)); // unknown
+    let v = i32::from(h.kernel.players.attempt_to_purchase_science(
+        1,
+        rzh_sim::sciences::SCIENCE_INVALID,
+        &mut h.host,
+    ));
+    h.line(&format!("buy {}", v)); // SCIENCE_INVALID
+    let scia = h.kernel.players.science_from_name("SciA");
+    let scib = h.kernel.players.science_from_name("SciB");
+    let scic = h.kernel.players.science_from_name("SciC");
+    let scie = h.kernel.players.science_from_name("SciE");
+    let v = i32::from(
+        h.kernel
+            .players
+            .attempt_to_purchase_science(1, scib, &mut h.host),
+    );
+    h.line(&format!("buy {}", v)); // prereq A missing
+    let v = i32::from(
+        h.kernel
+            .players
+            .attempt_to_purchase_science(1, scia, &mut h.host),
+    );
+    h.line(&format!("buy {}", v)); // OK (cost 1)
+    h.line(&format!(
+        "spp {} nsci={}",
+        h.kernel.players.list.players[1].science_purchase_points,
+        h.kernel.players.list.players[1].sciences.len()
+    ));
+    let v = i32::from(
+        h.kernel
+            .players
+            .attempt_to_purchase_science(1, scib, &mut h.host),
+    );
+    h.line(&format!("buy {}", v)); // OK (cost 2)
+    h.line(&format!(
+        "spp {}",
+        h.kernel.players.list.players[1].science_purchase_points
+    ));
+    let v = i32::from(
+        h.kernel
+            .players
+            .attempt_to_purchase_science(1, scib, &mut h.host),
+    );
+    h.line(&format!("buy {}", v)); // already owned
+    let v = i32::from(
+        h.kernel
+            .players
+            .attempt_to_purchase_science(1, scic, &mut h.host),
+    );
+    h.line(&format!("buy {}", v)); // cost 3 > 0 points
+    h.kernel.players.add_science_purchase_points(1, -2); // the negative clamp at 0
+    h.line(&format!(
+        "spp {}",
+        h.kernel.players.list.players[1].science_purchase_points
+    ));
+    h.dump_team_events();
+
+    // grantScience: the non-grantable refusal (SciE), the grant
+    let v = i32::from(h.kernel.players.grant_science(1, scie, &mut h.host));
+    h.line(&format!("grant {}", v));
+    let v = i32::from(h.kernel.players.grant_science(1, scic, &mut h.host));
+    h.line(&format!("grant {}", v));
+    let v = i32::from(h.kernel.players.grant_science(1, nosuch, &mut h.host));
+    h.line(&format!("grant {}", v));
+
+    // the prereq/root queries
+    h.line(&format!(
+        "pre {}",
+        i32::from(h.kernel.players.has_prereqs_for_science(1, scic))
+    ));
+    let scif = h.kernel.players.science_from_name("SciF");
+    let v = i32::from(h.kernel.players.has_prereqs_for_science(1, scif));
+    h.line(&format!("pre {}", v));
+    h.line(&format!(
+        "root {}",
+        i32::from(
+            h.kernel
+                .players
+                .science_store
+                .player_has_root_prereqs_for_science(
+                    &h.kernel.players.list.players[1].sciences,
+                    scib
+                )
+        )
+    ));
+
+    // the script availability choreography: disable → refuse, hidden →
+    // refuse, available → buy again
+    h.line(&format!(
+        "cap {}",
+        i32::from(h.kernel.players.is_capable_of_purchasing_science(1, scib))
+    )); // owned: no
+    h.kernel.players.list.players[1].sciences.clear();
+    h.kernel.players.add_science_purchase_points(1, 5);
+    h.line(&format!(
+        "cap {}",
+        i32::from(h.kernel.players.is_capable_of_purchasing_science(1, scib))
+    )); // prereq A gone: no
+    h.kernel.players.list.players[1].add_science(scia, &mut h.host);
+    h.line(&format!(
+        "cap {}",
+        i32::from(h.kernel.players.is_capable_of_purchasing_science(1, scib))
+    )); // yes
+    h.kernel.players.list.players[1]
+        .set_science_availability(scib, ScienceAvailabilityType::Disabled);
+    h.line(&format!(
+        "cap {}",
+        i32::from(h.kernel.players.is_capable_of_purchasing_science(1, scib))
+    )); // disabled: no
+    h.kernel.players.list.players[1]
+        .set_science_availability(scib, ScienceAvailabilityType::Hidden);
+    h.line(&format!(
+        "cap {}",
+        i32::from(h.kernel.players.is_capable_of_purchasing_science(1, scib))
+    )); // hidden: no
+    h.kernel.players.list.players[1]
+        .set_science_availability(scib, ScienceAvailabilityType::Available);
+    h.line(&format!(
+        "cap {}",
+        i32::from(h.kernel.players.is_capable_of_purchasing_science(1, scib))
+    )); // available again
+    let v = i32::from(
+        h.kernel
+            .players
+            .attempt_to_purchase_science(1, scib, &mut h.host),
+    );
+    h.line(&format!("buy {}", v));
+
+    // the resetSciences double-notify: A is intrinsic (no addScience → one
+    // notify), the rank-granted ones go through addScience AND the tail
+    // (two)
+    h.kernel.players.list.players[1]
+        .intrinsic_sciences
+        .push(scia);
+    h.kernel.players.list.players[1].rank_level = 2; // pretend (the rank-2 science SciB is "granted")
+    h.kernel.players.reset_sciences(1, &mut h.host);
+    h.line(&format!(
+        "nsci {}",
+        h.kernel.players.list.players[1].sciences.len()
+    ));
+    h.dump_team_events();
+
+    h.dump_players();
+    h.dump_stores();
+    h.line("end");
+}
+
+// --- purse_roundtrip: the integration corpus — a new_game with template
+// cash and intrinsic sciences over the loaded stores (the zero-wallet
+// deposits, the init-time rank grants with their notifies), objects with
+// energy on teams (the brownout cascade), a money stream across frames
+// (the bucket rollover), and a sabotage that expires mid-run.
+fn corpus_purse_roundtrip(h: &mut Harness) {
+    h.line("corpus purse_roundtrip");
+    h.fresh_world(10.0, (0.0, 0.0, 100.0, 100.0));
+
+    // the stores (loaded BEFORE the new_game — the init walk grants rank 1)
+    let science_specs: Vec<rzh_sim::sciences::ScienceSpec> = vec![
+        rzh_sim::sciences::ScienceSpec {
+            name: "Rank1".to_string(),
+            prereq_sciences: Vec::new(),
+            science_purchase_point_cost: 0,
+            grantable: false,
+        },
+        rzh_sim::sciences::ScienceSpec {
+            name: "Moab".to_string(),
+            prereq_sciences: vec!["Rank1".to_string()],
+            science_purchase_point_cost: 1,
+            grantable: true,
+        },
+    ];
+    let rank_specs = vec![
+        rzh_sim::sciences::RankSpec {
+            skill_points_needed: 0,
+            science_purchase_points_granted: 1,
+            sciences_granted: vec!["Rank1".to_string()],
+        },
+        rzh_sim::sciences::RankSpec {
+            skill_points_needed: 100,
+            science_purchase_points_granted: 2,
+            sciences_granted: Vec::new(),
+        },
+        rzh_sim::sciences::RankSpec {
+            skill_points_needed: 300,
+            science_purchase_points_granted: 3,
+            sciences_granted: vec!["Rank1".to_string()],
+        },
+    ];
+    h.kernel.players.load_stores(&science_specs, &rank_specs);
+
+    // the sides: p1 carries template cash; p2's zero wallet takes the
+    // game-info deposit (12000); p3's takes the global default (8000); p1
+    // has the intrinsic science and the intrinsic SPP
+    let mut s1 = side_spec("p1", true, false, false, &[], &[]);
+    s1.template_cash = 5000;
+    s1.intrinsic_sciences = vec!["Moab".to_string()];
+    s1.intrinsic_science_purchase_points = 2;
+    let sides = SidesSpec {
+        sides: vec![
+            side_spec("", false, false, false, &[], &[]),
+            s1,
+            side_spec("p2", false, false, false, &[], &[]),
+            side_spec("p3", false, false, false, &[], &[]),
+        ],
+        teams: vec![
+            team_spec("team", "", true),
+            team_spec("teamp1", "p1", true),
+            team_spec("teamp2", "p2", true),
+            team_spec("teamp3", "p3", true),
+            team_spec("p2squad", "p2", false),
+        ],
+        has_game_info: true,
+        game_info: GameInfoSpec {
+            occupied_slots: vec![1, 3],
+            starting_cash: 12_000,
+        },
+        default_starting_cash: 8000,
+    };
+    h.kernel
+        .players
+        .new_game(&sides, &mut h.kernel.objects, &mut h.host);
+    h.dump_team_events();
+    h.dump_players();
+
+    // the money stream: p1 spends and earns across frames (the bucket
+    // rollover at 30); p2's supply dock deposits trickle in
+    for f in 1..=45u32 {
+        h.kernel.logic.frame = f;
+        if f % 5 == 0 {
+            let sound = f % 10 == 0;
+            h.kernel.players.list.players[1]
+                .money
+                .withdraw(200, sound, &mut h.host);
+        }
+        if f % 3 == 0 {
+            h.kernel.players.list.players[2]
+                .money
+                .deposit(50, false, true, &mut h.host);
+        }
+        if f == 30 || f == 45 {
+            h.line(&format!(
+                "frame {} p1={}/{} p2={}/{}",
+                f,
+                h.kernel.players.list.players[1].money.count_money(),
+                h.kernel.players.list.players[1].money.get_cash_per_minute(),
+                h.kernel.players.list.players[2].money.count_money(),
+                h.kernel.players.list.players[2].money.get_cash_per_minute()
+            ));
+        }
+        h.players_update();
+    }
+    h.line(&format!(
+        "frame 45 p1={}/{} p2={}/{}",
+        h.kernel.players.list.players[1].money.count_money(),
+        h.kernel.players.list.players[1].money.get_cash_per_minute(),
+        h.kernel.players.list.players[2].money.count_money(),
+        h.kernel.players.list.players[2].money.get_cash_per_minute()
+    ));
+    h.dump_team_events();
+
+    // the rank progression: p1 earns the skill points (the level 2 grant)
+    let limit = h.kernel.logic.rank_level_limit;
+    let v = i32::from(
+        h.kernel
+            .players
+            .add_skill_points(1, 150, limit, &mut h.host),
+    );
+    h.line(&format!("sk {}", v));
+    {
+        let p1 = &h.kernel.players.list.players[1];
+        h.line(&format!(
+            "rank {} {} {} nsci={}",
+            p1.rank_level,
+            p1.skill_points,
+            p1.science_purchase_points,
+            p1.sciences.len()
+        ));
+    }
+
+    // the power: p2's park browns out, recovers, then is sabotaged and
+    // expires across the frames
+    let plant = h.create_power_object((10.0, 10.0), true, 30, 0);
+    let lab = h.create_power_object((20.0, 10.0), true, -35, 0);
+    let p2_team = h.kernel.players.list.players[2].default_team;
+    h.kernel
+        .players
+        .set_team(&mut h.kernel.objects, plant, Some(p2_team), &mut h.host);
+    h.kernel
+        .players
+        .set_team(&mut h.kernel.objects, lab, Some(p2_team), &mut h.host);
+    h.kernel.players.list.players[2].add_radar(false);
+    let frame = h.kernel.logic.frame;
+    h.kernel
+        .players
+        .energy_object_entering_influence(&mut h.kernel.objects, 2, plant, frame);
+    h.kernel
+        .players
+        .energy_object_entering_influence(&mut h.kernel.objects, 2, lab, frame); // 30 < 35: the brownout
+    h.line(&format!(
+        "nrg {} {} radar={}",
+        h.kernel.players.energy_get_production(2, frame),
+        h.kernel.players.list.players[2].energy.energy_consumption,
+        i32::from(h.kernel.players.list.players[2].has_radar())
+    ));
+    h.dump_registry();
+
+    // the sabotage at frame 60, expiring at 100 (the update walk at 101)
+    h.kernel
+        .players
+        .energy_set_power_sabotaged_till_frame(2, 100);
+    h.kernel.logic.frame = 60;
+    h.line(&format!(
+        "sab {} {}",
+        h.kernel.players.energy_get_production(2, 60),
+        i32::from(h.kernel.players.energy_has_sufficient_power(2, 60))
+    ));
+    for f in 95..=102u32 {
+        h.kernel.logic.frame = f;
+        h.players_update();
+    }
+    h.line(&format!(
+        "sab {} suff={}",
+        h.kernel.players.energy_power_sabotaged_till_frame(2),
+        i32::from(
+            h.kernel
+                .players
+                .energy_has_sufficient_power(2, h.kernel.logic.frame)
+        )
+    ));
+
+    // the science purchase at the end (the SPP from the ranks)
+    let moab = h.kernel.players.science_from_name("Moab");
+    let v = i32::from(
+        h.kernel
+            .players
+            .attempt_to_purchase_science(1, moab, &mut h.host),
+    );
+    h.line(&format!("buy {}", v));
+
+    h.dump_registry();
+    h.dump_object_teams();
+    h.dump_players();
+    h.dump_team_events();
+    h.line("end");
 }
 
 fn corpus_roundtrip(h: &mut Harness) {
@@ -4402,7 +5685,7 @@ fn corpus_query_iterate(h: &mut Harness) {
 #[test]
 fn kernel_golden() {
     let mut all = String::new();
-    let corpora: [fn(&mut Harness); 31] = [
+    let corpora: [fn(&mut Harness); 36] = [
         corpus_ids,
         corpus_frame,
         corpus_sched_basic,
@@ -4433,6 +5716,11 @@ fn kernel_golden() {
         corpus_players_masks,
         corpus_team_members,
         corpus_players_roundtrip,
+        corpus_purse_money,
+        corpus_purse_energy,
+        corpus_purse_ranks,
+        corpus_purse_sciences,
+        corpus_purse_roundtrip,
         corpus_roundtrip,
     ];
     for corpus in corpora {

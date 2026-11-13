@@ -606,7 +606,7 @@ now reads: container 0.62–0.99x, height map 0.53–0.77x, blend tiles
 1.08x, sides 0.98x, layouts 0.37x, fonts 0.23x — all within the §6
 threshold.
 
-#### The game-logic kernel (`kernel/frame_loop_x180`, `kernel/dispatch_x180`, `kernel/query_x300`, `kernel/players_x300`)
+#### The game-logic kernel (`kernel/frame_loop_x180`, `kernel/dispatch_x180`, `kernel/query_x300`, `kernel/players_x300`, `kernel/purse_x300`)
 
 The Phase 3 opener: the WP1 kernel — the frame loop's full walk and the
 sleepy dispatch, since the collide slice also the contact list's
@@ -641,6 +641,7 @@ same setup and flags as the Phase 2 numbers.
 | `kernel/dispatch_x180` | 6.44 ms | 18.61 ms | 0.35x | within |
 | `kernel/query_x300` | 154.09 µs | 759.98 µs | 0.20x | within |
 | `kernel/players_x300` | 138.29 µs | 186.72 µs | 0.74x | within |
+| `kernel/purse_x300` | 58.34 µs | 52.9 µs | 1.10x | within |
 
 The query slice adds the third comparison: 300 mixed spatial queries
 over the same formula corpus settled by one full update (a third
@@ -677,6 +678,32 @@ O(log n) / arena-indexed while the transcription's `teamByID` /
 `findPlayerWithNameKey` linear scans pay O(N) — the transcription's own
 bookkeeping, not the original's (the retail `Team.cpp` resolves through
 intrusive pointers; a faithful-C++ baseline would sit between the two).
+
+The money/energy/ranks/sciences slice adds the fifth comparison: 300
+mixed block operations over the players corpus promoted with the data
+stores (the science catalog with its chains and costs, the 5-rung rank
+ladder, loaded before the `newGame` so the init walk runs the ladder)
+and the energy values (producers, consumers and bonus carriers on the
+teams, the POWERED kindof bits): a quarter the money streams (the
+withdrawal/deposit cycles with the sound and tracking flags, the
+bucket rollovers), a quarter the energy influence walks (the entering
+and leaving alternating, the adjustPower sign matrix, the brownout
+sweeps over the POWERED members), a quarter the rank ladder (the
+skill-point gains with the Hoffesommer ceil's arithmetic — the corpora
+pinned the exact-integer-lands-one-high quirk — and the periodic
+resets), a quarter the science purchases (the gate chain and the
+purchasable walks), the checksum folding every player's wallet, rank,
+science and power state plus the objects' disabled masks,
+12,146,934,425,632,222,704 on both sides. Measured 2026-11-13, same
+setup and flags as above (the C++ number is the median of 40
+corpus-build-outside-the-timing runs, matching criterion's
+`iter_batched` shape). The 1.10x is the transcription's bookkeeping
+again: the energy reads and the brownout sweeps resolve through the
+team-prototype and member walks the transcription drives through
+pointer chains while the port's arena slots index directly, but the
+science store's linear `findScienceInfo` scans and the purchasable
+walks pay the same O(n) on both sides — the retail `ScienceStore.cpp`
+is the same linear walk, so this one is a faithful-C++ baseline too.
 
 Two structural choices the budget run itself surfaced and paid for,
 before any number was recorded: the host and module-arena surfaces are

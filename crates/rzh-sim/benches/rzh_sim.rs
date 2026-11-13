@@ -28,6 +28,18 @@
 //!   the full `updateTeamStates` walk (the state half with the
 //!   enemy-sighted partition queries), the checksum folding every
 //!   verdict, mask and team-state word.
+//! - `kernel/purse_x300`: 300 mixed money/energy/ranks/sciences
+//!   operations over the same corpus promoted with the block's data
+//!   stores and energy values — a quarter the money streams (the
+//!   withdrawal/deposit cycles with the sound and tracking flags, the
+//!   bucket rollovers), a quarter the energy influence walks (the
+//!   entering and leaving alternating, the adjustPower sign matrix,
+//!   the brownout sweeps over the POWERED members), a quarter the rank
+//!   ladder (the skill-point gains with the Hoffesommer ceil's
+//!   arithmetic and the periodic resets), a quarter the science
+//!   purchases (the gate chain and the purchasable walks), the
+//!   checksum folding every player's wallet, rank, science and power
+//!   state plus the objects' disabled masks.
 //!
 //! Both benches assert the final-state checksum (the heap array's packed
 //! priorities in order, the object list's coverage and cell-change
@@ -149,6 +161,7 @@ fn build_corpus(cell_size: f32, extents: (f32, f32, f32, f32)) -> (Kernel, Bench
                 z: 0.0,
             },
             orientation: if i % 4 == 3 { 0.3 } else { 0.0 },
+            ..ObjectSpec::default()
         };
         kernel.create_object(&spec, &mut host);
     }
@@ -417,7 +430,34 @@ fn players_corpus() -> (Kernel, BenchHost) {
         },
         has_game_info: false,
         game_info: Default::default(),
+        default_starting_cash: 0,
     };
+    // the block's data FIRST (the new_game's init walk runs the ladder —
+    // a reset after the team distribution would wipe it): the science
+    // catalog (chains, costs, the non-grantable) and the 5-rung ladder
+    let science_specs: Vec<rzh_sim::sciences::ScienceSpec> = (0..8)
+        .map(|i| rzh_sim::sciences::ScienceSpec {
+            name: format!("S{i}"),
+            prereq_sciences: if i % 3 == 0 {
+                Vec::new()
+            } else {
+                vec![format!("S{}", i - 1)]
+            },
+            science_purchase_point_cost: 1 + (i % 3),
+            grantable: i % 5 != 0,
+        })
+        .collect();
+    let rank_specs: Vec<rzh_sim::sciences::RankSpec> = [0i32, 100, 300, 600, 1000]
+        .iter()
+        .enumerate()
+        .map(|(i, needed)| rzh_sim::sciences::RankSpec {
+            skill_points_needed: *needed,
+            science_purchase_points_granted: 1 + i as i32,
+            sciences_granted: vec![format!("S{}", i.min(7))],
+        })
+        .collect();
+    kernel.players.load_stores(&science_specs, &rank_specs);
+
     kernel
         .players
         .new_game(&sides, &mut kernel.objects, &mut host);
@@ -534,11 +574,332 @@ fn bench_players(c: &mut Criterion) {
     });
 }
 
+/// The money/energy/ranks/sciences block's checksum (pinned at authoring
+/// time against the C++ wrapper — both sides build the identical corpus
+/// and operation stream).
+const PURSE_CHECKSUM: u64 = 12_146_934_425_632_222_704;
+
+/// The purse corpus: the players corpus promoted with the block's data
+/// (the science catalog with chains and costs, the 5-rung rank ladder),
+/// the objects carrying energy values (producers, consumers and bonus
+/// carriers on the teams), the players' wallets and radars — settled by
+/// one full update.
+fn purse_corpus() -> (Kernel, BenchHost) {
+    let (mut kernel, mut host) = build_corpus(10.0, (0.0, 0.0, 300.0, 300.0));
+
+    // the distilled sides: four players, the first the human and the
+    // local one; p1→p2 enemies, p3→p1 allies
+    let sides = rzh_sim::players::SidesSpec {
+        sides: vec![
+            rzh_sim::players::SideSpec {
+                player_name: String::new(),
+                ..Default::default()
+            },
+            rzh_sim::players::SideSpec {
+                player_name: "p1".to_string(),
+                is_human: true,
+                enemies: vec!["p2".to_string()],
+                ..Default::default()
+            },
+            rzh_sim::players::SideSpec {
+                player_name: "p2".to_string(),
+                ..Default::default()
+            },
+            rzh_sim::players::SideSpec {
+                player_name: "p3".to_string(),
+                allies: vec!["p1".to_string()],
+                ..Default::default()
+            },
+        ],
+        teams: {
+            let mut teams = vec![rzh_sim::players::TeamSpec {
+                name: "team".to_string(),
+                owner: String::new(),
+                singleton: true,
+                ..Default::default()
+            }];
+            for p in 1..=3 {
+                teams.push(rzh_sim::players::TeamSpec {
+                    name: format!("teamp{p}"),
+                    owner: format!("p{p}"),
+                    singleton: true,
+                    ..Default::default()
+                });
+            }
+            for p in 1..=3 {
+                teams.push(rzh_sim::players::TeamSpec {
+                    name: format!("p{p}squad"),
+                    owner: format!("p{p}"),
+                    singleton: false,
+                    ..Default::default()
+                });
+            }
+            teams
+        },
+        has_game_info: false,
+        game_info: Default::default(),
+        default_starting_cash: 0,
+    };
+    // the block's data FIRST (the new_game's init walk runs the ladder —
+    // a reset after the team distribution would wipe it): the science
+    // catalog (chains, costs, the non-grantable) and the 5-rung ladder
+    let science_specs: Vec<rzh_sim::sciences::ScienceSpec> = (0..8)
+        .map(|i| rzh_sim::sciences::ScienceSpec {
+            name: format!("S{i}"),
+            prereq_sciences: if i % 3 == 0 {
+                Vec::new()
+            } else {
+                vec![format!("S{}", i - 1)]
+            },
+            science_purchase_point_cost: 1 + (i % 3),
+            grantable: i % 5 != 0,
+        })
+        .collect();
+    let rank_specs: Vec<rzh_sim::sciences::RankSpec> = [0i32, 100, 300, 600, 1000]
+        .iter()
+        .enumerate()
+        .map(|(i, needed)| rzh_sim::sciences::RankSpec {
+            skill_points_needed: *needed,
+            science_purchase_points_granted: 1 + i as i32,
+            sciences_granted: vec![format!("S{}", i.min(7))],
+        })
+        .collect();
+    kernel.players.load_stores(&science_specs, &rank_specs);
+
+    kernel
+        .players
+        .new_game(&sides, &mut kernel.objects, &mut host);
+
+    // the team distribution: object i belongs to player (i % 3) + 1's
+    // default team, every fifth to that player's squad instead
+    let default_teams: Vec<u32> = (1..=3)
+        .map(|p| kernel.players.list.players[p].default_team)
+        .collect();
+    let squads: Vec<u32> = (1..=3)
+        .map(|p| {
+            kernel
+                .players
+                .create_team(&format!("p{p}squad"), &mut host)
+                .unwrap()
+        })
+        .collect();
+    for i in 1..=BENCH_OBJECTS {
+        let player = (i % 3) + 1;
+        let team = if i % 5 == 0 {
+            squads[player - 1]
+        } else {
+            default_teams[player - 1]
+        };
+        kernel
+            .players
+            .set_team(&mut kernel.objects, i as i32, Some(team), &mut host);
+        let obj = kernel.objects.get_mut(i as i32);
+        obj.vision_range = 5.0 + ((i % 7) as f32);
+        obj.has_ai = (i % 3) != 0;
+        obj.ai_idle = (i % 2) == 0;
+    }
+
+    // the energy values: producers, consumers and bonus carriers over
+    // the teams (the template fields the corpus programs)
+    for i in 1..=BENCH_OBJECTS {
+        let obj = kernel.objects.get_mut(i as i32);
+        obj.energy_production = match i % 4 {
+            0 => 30,
+            1 => -20,
+            2 => 25,
+            _ => -10,
+        };
+        obj.energy_bonus = if i % 3 == 0 { 50 } else { 0 };
+    }
+    // the POWERED kindof bit rides the spec; re-create is not needed —
+    // program the bit directly (the spec's powered flag's equivalent)
+    for i in 1..=BENCH_OBJECTS {
+        if i % 2 == 0 {
+            kernel.objects.get_mut(i as i32).kindof |= 1u128 << rzh_sim::types::KINDOF_POWERED_BIT;
+        }
+    }
+
+    // the wallets and the radars
+    for p in 1..=3 {
+        let cash = 10_000 + (p as u32 * 13);
+        kernel.players.list.players[p].money.set_starting_cash(cash);
+        kernel.players.list.players[p].add_radar(p % 2 == 0);
+    }
+
+    kernel.update(&mut host); // the settle
+    (kernel, host)
+}
+
+/// The timed body: 300 mixed money/energy/ranks/sciences operations (the
+/// C++ wrapper's bench_kernel_purse, formula for formula).
+fn run_purse(kernel: &mut Kernel, host: &mut BenchHost) -> u64 {
+    let mut sum: u64 = 1_000_003;
+
+    // the science keys, resolved once (the catalog's ordinals)
+    let sciences: Vec<rzh_sim::sciences::ScienceType> = (0..8)
+        .map(|i| kernel.players.science_from_name(&format!("S{i}")))
+        .collect();
+
+    for i in 0..300u64 {
+        match i % 4 {
+            0 => {
+                // the money stream: withdrawals and deposits with the
+                // tracked/untracked and sound flags keyed by the
+                // iteration, the bucket rollover at the frame
+                for p in 1..=3u32 {
+                    let sound = (i + u64::from(p)) % 2 == 0;
+                    let track = (i + u64::from(p)) % 3 == 0;
+                    let wallet = &mut kernel.players.list.players[p as usize].money;
+                    wallet.withdraw(50 + ((i + u64::from(p)) % 97) as u32, sound, host);
+                    wallet.deposit(30 + ((i * u64::from(p)) % 53) as u32, sound, track, host);
+                    wallet.update_income_bucket(i as u32);
+                    sum = sum
+                        .wrapping_mul(31)
+                        .wrapping_add(u64::from(wallet.count_money()))
+                        .wrapping_mul(31)
+                        .wrapping_add(u64::from(wallet.get_cash_per_minute()));
+                }
+            }
+            1 => {
+                // the energy stream: the influence walks (entering and
+                // leaving alternating), the adjustPower matrix, the reads
+                for p in 1..=3usize {
+                    let obj = ((i * 7 + p as u64 * 29) % 120 + 1) as i32;
+                    if i % 2 == 0 {
+                        kernel.players.energy_object_entering_influence(
+                            &mut kernel.objects,
+                            p,
+                            obj,
+                            i as u32,
+                        );
+                    } else {
+                        kernel.players.energy_object_leaving_influence(
+                            &mut kernel.objects,
+                            p,
+                            obj,
+                            i as u32,
+                        );
+                    }
+                    let delta = ((i % 5) as i32 - 2) * 7;
+                    kernel.players.energy_adjust_power(
+                        &mut kernel.objects,
+                        p,
+                        delta,
+                        i % 2 == 0,
+                        i as u32,
+                    );
+                    sum = sum
+                        .wrapping_mul(31)
+                        .wrapping_add(kernel.players.energy_get_production(p, i as u32) as u64)
+                        .wrapping_mul(31)
+                        .wrapping_add(kernel.players.energy_get_consumption(p) as u64)
+                        .wrapping_mul(31)
+                        .wrapping_add(u64::from(
+                            kernel.players.energy_supply_ratio(p, i as u32).to_bits(),
+                        ));
+                }
+            }
+            2 => {
+                // the rank stream: the skill-point gains (the Hoffesommer
+                // ceil's arithmetic included), the periodic resets
+                let limit = kernel.logic.rank_level_limit;
+                for p in 1..=3usize {
+                    if i % 16 == 15 {
+                        kernel.players.reset_rank(p, host);
+                    } else {
+                        kernel
+                            .players
+                            .add_skill_points(p, 17 + (i % 23) as i32, limit, host);
+                    }
+                    let pl = &kernel.players.list.players[p];
+                    sum = sum
+                        .wrapping_mul(31)
+                        .wrapping_add(pl.rank_level as u64)
+                        .wrapping_mul(31)
+                        .wrapping_add(pl.skill_points as u64)
+                        .wrapping_mul(31)
+                        .wrapping_add(pl.science_purchase_points as u64);
+                }
+            }
+            _ => {
+                // the science stream: the purchases (the gate chain), the
+                // purchasable walk, the point top-ups
+                for p in 1..=3usize {
+                    let science = sciences[((i + p as u64) % 8) as usize];
+                    kernel
+                        .players
+                        .attempt_to_purchase_science(p, science, &mut *host);
+                    if i % 3 == 0 {
+                        kernel.players.add_science_purchase_points(p, 2);
+                    }
+                    let (can, pot) = kernel.players.get_purchasable_sciences(p);
+                    sum = sum
+                        .wrapping_mul(31)
+                        .wrapping_add(can.len() as u64)
+                        .wrapping_mul(31)
+                        .wrapping_add(pot.len() as u64);
+                    for s in can {
+                        sum = sum.wrapping_mul(31).wrapping_add(u64::from(s.ordinal()));
+                    }
+                }
+            }
+        }
+    }
+
+    // the final fold: every player's block state and the objects' masks
+    for p in 0..16usize {
+        let pl = &kernel.players.list.players[p];
+        sum = sum
+            .wrapping_mul(31)
+            .wrapping_add(u64::from(pl.money.count_money()))
+            .wrapping_mul(31)
+            .wrapping_add(u64::from(pl.money.get_cash_per_minute()))
+            .wrapping_mul(31)
+            .wrapping_add(pl.rank_level as u64)
+            .wrapping_mul(31)
+            .wrapping_add(pl.skill_points as u64)
+            .wrapping_mul(31)
+            .wrapping_add(pl.science_purchase_points as u64)
+            .wrapping_mul(31)
+            .wrapping_add(pl.sciences.len() as u64)
+            .wrapping_mul(31)
+            .wrapping_add(pl.energy.energy_production as u64)
+            .wrapping_mul(31)
+            .wrapping_add(pl.energy.energy_consumption as u64)
+            .wrapping_mul(31)
+            .wrapping_add(pl.radar_count as u64);
+    }
+    for &id in &kernel.logic.obj_list {
+        sum = sum
+            .wrapping_mul(31)
+            .wrapping_add(u64::from(kernel.objects.get(id).disabled_mask.bits));
+    }
+    sum
+}
+
+fn bench_purse(c: &mut Criterion) {
+    // the authoring-time lockstep check: the corpus and the operation
+    // stream are deterministic, so the checksum is too (the C++ wrapper
+    // asserts the same value)
+    let (mut kernel, mut host) = purse_corpus();
+    let expected = run_purse(&mut kernel, &mut host);
+    assert_eq!(expected, PURSE_CHECKSUM, "re-pin PURSE_CHECKSUM");
+
+    c.bench_function("kernel/purse_x300", |b| {
+        b.iter_batched(
+            purse_corpus,
+            |(mut kernel, mut host)| run_purse(&mut kernel, &mut host),
+            BatchSize::PerIteration,
+        )
+    });
+}
+
 criterion_group!(
     benches,
     bench_frame_loop,
     bench_dispatch,
     bench_query,
-    bench_players
+    bench_players,
+    bench_purse
 );
 criterion_main!(benches);

@@ -952,8 +952,54 @@ the member-list conservation). A fourth bench pins the budget:
 settled formula corpus — the mask sweeps, the relationship chains and
 the full `updateTeamStates` walk with the enemy-sighted queries,
 checksum-locked at 10,479,098,065,696,129,437) measured within
-(0.74x — docs/benchmarks.md). The **next slice** per WP order: the
-money/energy/ranks/sciences block of WP1's remainder.
+(0.74x — docs/benchmarks.md).
+
+The **fifth slice**: the money/energy/ranks/sciences block of WP1's
+remainder — the players' wallets, power pools, rank ladders and science
+catalogs. `Money.cpp`, `Energy.cpp`, `Science.cpp` and `RankInfo.cpp`
+are transcribed whole (the over-draw clamp and the 60-second income
+buckets with their second-resolution rollover; the sabotage-gated
+production reads and the brownout choreography — `disableRadar`/
+`enableRadar` plus the `doPowerDisable` sweep setting
+`DISABLED_UNDERPOWERED` on every `KINDOF_POWERED` member, with the
+Caball009 disabled-plant bonus refusal; the parse-order root-sciences
+computation and the linear-scan lookups; the 1-based rank thresholds
+with the `INT_MAX` sentinel), together with `Player.cpp`'s progression
+half (the init paths with the zero-wallet starting-cash deposit, the
+`resetRank`/`resetSciences` walk with its double script-notify, the
+`addSkillPoints` ceil-modifier arithmetic, the `setRankLevel` upgrade
+and downgrade (the lose-everything wipe), the purchase family's gate
+chain, the script availability choreography, the radar refcounts and
+the sabotage expiry in `Player::update`) — the state hanging on the
+player objects the fourth slice created, exactly as the plan ordered.
+The pinned quirks: the wallet and bucket arithmetic wraps (UnsignedInt);
+the neutral init leaves a stale `Money` player index behind (the academy
+hook credits the old slot); the Hoffesommer `REAL_TO_INT_CEIL` makes
+exact positive integers land ONE HIGH (a 99-point gain reaches a
+100-point rung — the XP arithmetic the corpora exposed);
+`resetSciences` notifies every rank-granted science TWICE (the
+`addScience` call and the tail loop); the parse-order root computation
+misses forward-referenced prereqs; an unknown prereq silently breaks
+the chain; the purchasable walk skips the cost-0 and owned entries;
+`grantScience` refuses the non-grantable while `attemptToPurchase`
+does not check it; the downgrade wipes then re-grants through the
+target rung; the sabotage expiry is the strict `>` with the brownout
+re-derivation; the point cap is the LOWEST threshold of the cap level.
+The corpora grew to 36 (five new: the money lifecycle with its
+buckets, wraps and hooks; the energy family with the brownout cascade
+and the sabotage; the rank ladder; the science catalog and purchase
+gates; the integration roundtrip — the new_game deposits, the power
+cascade, the mid-run sabotage expiry), plus a purse property suite in
+`tests/purse_props.rs` (the wallet's conservation and bucket invariants
+against wrapping models, the energy pool against a signed reference,
+the rank ladder's totality — the level is exactly the highest covered
+threshold and the band invariants, with the negative-drift exclusion
+the original's own "hmm, wrong" debug assert documents — and the
+purchasable sets against brute force). A fifth bench pins the budget:
+`kernel/purse_x300` (300 mixed block operations over the store-loaded
+corpus, checksum-locked at 12,146,934,425,632,222,704) measured within
+(1.10x — docs/benchmarks.md). The **next slice** per WP order: the
+GameMessage command processing (the last of WP1's remainder).
 
 Work packages, in order. Develop by **vertical slices**, not by subsystem:
 

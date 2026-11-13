@@ -94,6 +94,7 @@ fn build_world(
             colliders: 0,
             position: *pos_ref,
             orientation: *angle_ref,
+            ..ObjectSpec::default()
         };
         kernel.create_object(&spec, &mut host);
     }

@@ -307,6 +307,14 @@ pub const KINDOF_IMMOBILE_BIT: u32 = 2;
 /// collide family refuses pairs where either side carries it.
 pub const KINDOF_NO_COLLIDE_BIT: u32 = 27;
 
+/// The kindof bitset's `KINDOF_POWERED` (KindOf.h — ordinal 66 in the
+/// script-engine slice's generated `KINDOF_NAMES` table, the Zero Hour
+/// configuration: "This object gets the Underpowered disabled condition
+/// when its owning player has power consumption exceed supply"). The
+/// money/energy/ranks/sciences block's brownout sweep consults exactly
+/// this bit.
+pub const KINDOF_POWERED_BIT: u32 = 66;
+
 /// `DisabledType` (Common/DisabledTypes.h): the 13 disable reasons. The
 /// ordinals are the bit indices of `DisabledMask`.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord)]

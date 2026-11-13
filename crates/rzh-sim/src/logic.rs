@@ -233,6 +233,36 @@ pub trait KernelHost {
 
     /// `~Team`'s `notifyOfTeamDestruction` (the script engine's).
     fn on_team_destroyed(&mut self, team: crate::types::TeamID) {}
+
+    /// Money's `triggerAudioEvent` (Money.cpp — the withdraw/deposit
+    /// sounds; the volume math — `m_preferredMoneyTransactionVolume`
+    /// times the event's volume, the `<= 0` early return — is the
+    /// audio phase's, and so is the event queue itself; the hook pins
+    /// the call, its player and the direction).
+    fn on_money_audio(&mut self, player: usize, withdraw: bool) {
+        let _ = (player, withdraw);
+    }
+
+    /// `AcademyStats::recordIncome` (Money::deposit's academy hook —
+    /// the academy-stats slice's body, fired even for the untracked,
+    /// silent deposits).
+    fn on_academy_income(&mut self, player: usize) {
+        let _ = player;
+    }
+
+    /// `AcademyStats::recordGeneralsPointsSpent`
+    /// (Player::attemptToPurchaseScience's academy hook).
+    fn on_academy_points_spent(&mut self, player: usize, points: i32) {
+        let _ = (player, points);
+    }
+
+    /// `TheScriptEngine->notifyOfAcquiredScience` (Player::addScience
+    /// and Player::resetSciences's notify — the script engine's body,
+    /// WP7; the resetSciences tail loop fires it AGAIN for every
+    /// rank-granted science, the double-notify quirk the corpora pin).
+    fn on_acquired_science(&mut self, player: usize, science: crate::sciences::ScienceType) {
+        let _ = (player, science);
+    }
 }
 
 /// The kernel's object: the registry state, the scheduler's modules and
@@ -249,10 +279,12 @@ pub struct Object {
     pub position: crate::types::Coord3,
     /// The orientation (the facing angle, radians).
     pub orientation: f32,
-    /// `m_kindof` (the bitset; the IMMOBILE and NO_COLLIDE bits are what
-    /// the store and the collide family consult — the full 122-entry
-    /// table is the data layer's).
-    pub kindof: u32,
+    /// `m_kindof` (the bitset — `KindOfMaskType`, a 122-entry
+    /// `BitFlags` in the original; the port's `u128` carries the real
+    /// ordinals: the IMMOBILE, NO_COLLIDE and POWERED bits are what
+    /// the store, the collide family and the brownout sweep consult —
+    /// the full table is the data layer's).
+    pub kindof: u128,
     /// `m_status` (the ObjectStatusMaskType).
     pub status: u32,
     /// `m_privateStatus` (the ObjectPrivateStatusBits: EFFECTIVELY_DEAD,
@@ -282,6 +314,14 @@ pub struct Object {
     /// no team; the `setTeam` family in [`crate::players`] maintains
     /// it).
     pub team: crate::types::TeamID,
+    /// The template's `getEnergyProduction()` (ThingTemplate.h — the
+    /// energy block's influence read; negative = consumption; the
+    /// corpus programs the value, the template itself is the rzh-data
+    /// object model's).
+    pub energy_production: i32,
+    /// The template's `getEnergyBonus()` (the power-plant upgrade
+    /// bonus; ditto).
+    pub energy_bonus: i32,
     /// `getVisionRange()` — the template's vision (the rzh-data object
     /// model's; the corpora program the value — the enemy-sighted walk
     /// reads it).
@@ -297,13 +337,13 @@ impl Object {
     /// `isKindOf(KINDOF_IMMOBILE)`.
     #[must_use]
     pub fn is_kind_of_immobile(&self) -> bool {
-        (self.kindof & (1 << KINDOF_IMMOBILE_BIT)) != 0
+        (self.kindof & (1u128 << KINDOF_IMMOBILE_BIT)) != 0
     }
 
     /// `isKindOf(KINDOF_NO_COLLIDE)`.
     #[must_use]
     pub fn is_kind_of_no_collide(&self) -> bool {
-        (self.kindof & (1 << KINDOF_NO_COLLIDE_BIT)) != 0
+        (self.kindof & (1u128 << KINDOF_NO_COLLIDE_BIT)) != 0
     }
 
     /// `isDestroyed()` (the DESTROYED status bit).
@@ -342,7 +382,7 @@ impl Object {
     /// template's kindof bits; the port keeps the bits on the object):
     /// every must-be-set bit set and every must-be-clear bit clear.
     #[must_use]
-    pub fn is_kind_of_multi(&self, must_be_set: u32, must_be_clear: u32) -> bool {
+    pub fn is_kind_of_multi(&self, must_be_set: u128, must_be_clear: u128) -> bool {
         (self.kindof & must_be_set) == must_be_set && (self.kindof & must_be_clear) == 0
     }
 
@@ -474,9 +514,28 @@ pub struct GameLogic {
     /// `m_gamePaused` (setGamePaused's kernel half; the FramePacer
     /// machinery is the client layer's).
     pub game_paused: bool,
+    /// `m_rankLevelLimit` — `GameLogic::init`'s 1000 (and
+    /// `startNewGame`'s "this is reset every game" re-set; the reset
+    /// position is the game-setup slice's, stated). The rank ladder's
+    /// clamp; `setRankLevelLimit` refuses limits below 1.
+    pub rank_level_limit: i32,
 }
 
 impl GameLogic {
+    /// `getRankLevelLimit()`.
+    #[must_use]
+    pub fn rank_level_limit(&self) -> i32 {
+        self.rank_level_limit
+    }
+
+    /// `setRankLevelLimit(Int)`: the `< 1` refusal.
+    pub fn set_rank_level_limit(&mut self, mut limit: i32) {
+        if limit < 1 {
+            limit = 1;
+        }
+        self.rank_level_limit = limit;
+    }
+
     /// `allocateObjectID`: return the counter, then advance (no reuse;
     /// the `@todo Find unused value` is still in the original).
     pub fn allocate_object_id(&mut self) -> ObjectID {
@@ -761,6 +820,8 @@ pub struct ObjectSpec {
     pub geometry: GeometryInfo,
     /// The IMMOBILE kindof bit.
     pub immobile: bool,
+    /// The POWERED kindof bit (the brownout sweep's gate).
+    pub powered: bool,
     /// One entry per update module: its phase, its
     /// disabled-types-to-process mask and its constructor wake (an
     /// absolute frame, clamped to now).
@@ -772,6 +833,12 @@ pub struct ObjectSpec {
     pub position: crate::types::Coord3,
     /// The birth orientation.
     pub orientation: f32,
+    /// The template's `getEnergyProduction()` (the energy block's
+    /// influence read; negative = consumption).
+    pub energy_production: i32,
+    /// The template's `getEnergyBonus()` (the power-plant upgrade
+    /// bonus).
+    pub energy_bonus: i32,
 }
 
 /// One update module's birth configuration.
@@ -784,6 +851,33 @@ pub struct UpdateModuleSpec {
     /// The constructor's `setWakeFrame` (an absolute frame; `None` =
     /// never woken — registerObject clamps those to now).
     pub ctor_wake: Option<u32>,
+}
+
+/// `Object::setDisabledUntil`'s kernel half (the `m_disabledTillFrame`
+/// write with its `!= frame` gate and the `frame > now` mask write) —
+/// shared by [`Kernel::set_disabled_until`] and the money/energy block's
+/// brownout sweep (the `doPowerDisable` walk in [`crate::players`]).
+///
+/// (The original's audio events, `pauseAllSpecialPowers`, the drawable
+/// tint, the contain-rider recursion and the spawn-slave orders are
+/// their own slices'; the invalid-type refusal rides along.)
+pub(crate) fn set_disabled_until_core(
+    objects: &mut Objects,
+    now: u32,
+    obj: ObjectID,
+    ty: DisabledType,
+    frame: u32,
+) {
+    let idx = ty.index();
+    if idx >= DISABLED_COUNT {
+        return; // the invalid-type refusal
+    }
+    let o = objects.get_mut(obj);
+    if o.disabled_till_frame[idx] != frame {
+        o.disabled_till_frame[idx] = frame;
+        o.disabled_mask.set(ty, frame > now);
+        // (the rider/spawn/carbomb side effects are their own slices')
+    }
 }
 
 /// The kernel: the logic, the object arena, the partition manager and
@@ -816,6 +910,9 @@ impl Kernel {
     ) -> Self {
         let mut kernel = Self::default();
         kernel.logic.next_obj_id = 1;
+        // GameLogic::init's rank-limit reset ("this is reset every game"
+        // re-runs it in startNewGame — the game-setup slice's, stated)
+        kernel.logic.rank_level_limit = 1000;
         kernel.pm.init(partition_cell_size, world_extents);
         kernel.players.init(host);
         kernel
@@ -831,11 +928,15 @@ impl Kernel {
             geometry: spec.geometry,
             position: spec.position,
             orientation: spec.orientation,
-            kindof: if spec.immobile {
-                1 << KINDOF_IMMOBILE_BIT
+            kindof: u128::from(if spec.immobile {
+                1u32 << KINDOF_IMMOBILE_BIT
             } else {
-                0
-            },
+                0u32
+            }) | (if spec.powered {
+                1u128 << crate::types::KINDOF_POWERED_BIT
+            } else {
+                0u128
+            }),
             status: 0,
             private_status: 0,
             build_cost: 0.0,
@@ -850,6 +951,8 @@ impl Kernel {
             partition: None,
             cell_change_count: 0,
             team: crate::types::TEAM_ID_INVALID,
+            energy_production: spec.energy_production,
+            energy_bonus: spec.energy_bonus,
             vision_range: 0.0,
             has_ai: false,
             ai_idle: false,
@@ -901,17 +1004,7 @@ impl Kernel {
     /// `Object::setDisabledUntil` (the kernel half: the mask write is
     /// gated on `frame > now`).
     pub fn set_disabled_until(&mut self, obj: ObjectID, ty: DisabledType, frame: u32) {
-        let idx = ty.index();
-        if idx >= DISABLED_COUNT {
-            return; // the invalid-type refusal
-        }
-        let now = self.logic.frame;
-        let till = &mut self.objects.get_mut(obj).disabled_till_frame[idx];
-        if *till != frame {
-            *till = frame;
-            self.objects.get_mut(obj).disabled_mask.set(ty, frame > now);
-            // (the rider/spawn/carbomb side effects are their own slices)
-        }
+        set_disabled_until_core(&mut self.objects, self.logic.frame, obj, ty, frame);
     }
 
     /// `Object::setDisabled(type)`.

@@ -16,7 +16,11 @@
 // players/teams block over the settled corpus (300 mixed operations:
 // the relationship-to-mask sweeps, the relationship chains and the full
 // updateTeamStates walk with the enemy-sighted partition queries — the
-// players/teams/relationships slice).
+// players/teams/relationships slice) and the money/energy/ranks/sciences
+// block over the same corpus promoted with the data stores (300 mixed
+// operations: the money streams, the energy influence walks with the
+// brownout sweeps, the rank ladder and the science purchases — the
+// money/energy/ranks/sciences slice).
 //
 // The corpus is built by the same formulas on both sides and the final
 // -state checksums (the heap array's packed priorities in order, the
@@ -50,6 +54,7 @@
 #define DISPATCH_CHECKSUM 14539779273077219524ULL
 #define QUERY_CHECKSUM 1025416407242357139ULL
 #define PLAYERS_CHECKSUM 10479098065696129437ULL
+#define PURSE_CHECKSUM 12146934425632222704ULL
 
 // The final-state checksum (the same formula the Rust bench computes).
 static uint64_t kernel_checksum(World &w)
@@ -329,10 +334,225 @@ static uint64_t run_players(World *w)
         return sum;
 }
 
+
+// The purse corpus: the Rust bench's purse_corpus, formula for formula —
+// the players corpus promoted with the block's data stores (loaded
+// BEFORE the new_game so the init walk runs the ladder), the objects
+// carrying energy values, the players' wallets and radars — settled by
+// one full update.
+static World *build_purse_corpus()
+{
+        World *w = build_corpus();
+        w->hooks.m_events.clear();
+
+        // the block's data FIRST: the science catalog (chains, costs,
+        // the non-grantable) and the 5-rung ladder
+        for (int i = 0; i < 8; ++i) {
+                std::vector<std::string> prereqs;
+                if (i % 3 != 0)
+                        prereqs.push_back(std::string("S") + std::to_string(i - 1));
+                w->scienceStore.load(std::string("S") + std::to_string(i), prereqs, 1 + (i % 3),
+                                     (i % 5) != 0, w);
+        }
+        {
+                const int needed[5] = {0, 100, 300, 600, 1000};
+                for (int i = 0; i < 5; ++i) {
+                        std::vector<std::string> granted;
+                        granted.push_back(std::string("S") + std::to_string(i < 7 ? i : 7));
+                        w->rankStore.load(needed[i], 1 + i, granted, w);
+                }
+        }
+
+        SidesSpecT sides;
+        sides.sides.push_back(SideSpecT{}); // the neutral side
+        SideSpecT p1;
+        p1.playerName = "p1";
+        p1.isHuman = true;
+        p1.enemies = {"p2"};
+        sides.sides.push_back(p1);
+        SideSpecT p2;
+        p2.playerName = "p2";
+        sides.sides.push_back(p2);
+        SideSpecT p3;
+        p3.playerName = "p3";
+        p3.allies = {"p1"};
+        sides.sides.push_back(p3);
+
+        sides.teams.push_back(teamSpec("team", "neutral", true));
+        for (int p = 1; p <= 3; ++p) {
+                char name[32], owner[32];
+                snprintf(name, sizeof(name), "teamp%d", p);
+                snprintf(owner, sizeof(owner), "p%d", p);
+                sides.teams.push_back(teamSpec(name, owner, true));
+        }
+        for (int p = 1; p <= 3; ++p) {
+                char name[32], owner[32];
+                snprintf(name, sizeof(name), "p%dsquad", p);
+                snprintf(owner, sizeof(owner), "p%d", p);
+                sides.teams.push_back(teamSpec(name, owner, false));
+        }
+        w->playerListNewGame(sides);
+
+        TeamIDT defaultTeams[3], squads[3];
+        for (int p = 1; p <= 3; ++p)
+                defaultTeams[p - 1] = w->playerList.getNthPlayer(p)->m_defaultTeam;
+        for (int p = 1; p <= 3; ++p) {
+                char name[32];
+                snprintf(name, sizeof(name), "p%dsquad", p);
+                squads[p - 1] = w->teamFactory.createTeam(name, w)->getID();
+        }
+        for (int i = 1; i <= BENCH_OBJECTS; ++i) {
+                int player = (i % 3) + 1;
+                TeamIDT team = (i % 5 == 0) ? squads[player - 1] : defaultTeams[player - 1];
+                objectSetTeam(w->object(i), teamByID(w, team), w);
+                ObjectT *obj = w->object(i);
+                obj->m_visionRange = 5.0f + (float)(i % 7);
+                obj->m_hasAi = (i % 3) != 0;
+                obj->m_aiIdle = (i % 2) == 0;
+        }
+
+        // the energy values: producers, consumers and bonus carriers
+        // over the teams (the template fields the corpus programs)
+        for (int i = 1; i <= BENCH_OBJECTS; ++i) {
+                ObjectT *obj = w->object(i);
+                obj->m_energyProduction = (i % 4 == 0) ? 30 : (i % 4 == 1) ? -20 : (i % 4 == 2) ? 25 : -10;
+                obj->m_energyBonus = (i % 3 == 0) ? 50 : 0;
+        }
+        // the POWERED kindof bit (the spec's powered flag's equivalent)
+        for (int i = 1; i <= BENCH_OBJECTS; ++i) {
+                if (i % 2 == 0)
+                        w->object(i)->m_kindof |= (((unsigned __int128)1) << KINDOF_POWERED_BIT);
+        }
+
+        // the wallets and the radars
+        for (int p = 1; p <= 3; ++p) {
+                w->playerList.getNthPlayer(p)->m_money.setStartingCash((unsigned)(10000 + p * 13));
+                w->playerList.getNthPlayer(p)->addRadar((p % 2) == 0);
+        }
+
+        w->update();
+        w->hooks.m_events.clear(); // (the bench host records nothing)
+        w->hooks.m_teamEvents.clear();
+        return w;
+}
+
+// The timed body: 300 mixed money/energy/ranks/sciences operations (the
+// Rust bench's run_purse, formula for formula — a quarter the money
+// streams, a quarter the energy influence walks with the brownout
+// sweeps, a quarter the rank ladder, a quarter the science purchases).
+static uint64_t run_purse(World *w)
+{
+        uint64_t sum = 1000003ULL;
+
+        // the science keys, resolved once (the catalog's ordinals)
+        unsigned sciences[8];
+        for (int i = 0; i < 8; ++i)
+                sciences[i] = w->nameKeys.nameToKey(std::string("S") + std::to_string(i));
+
+        for (uint64_t i = 0; i < 300; ++i) {
+                w->logic.m_frame = (unsigned)i;
+                switch (i % 4) {
+                case 0: {
+                        // the money stream
+                        for (int p = 1; p <= 3; ++p) {
+                                bool sound = ((i + (uint64_t)p) % 2) == 0;
+                                bool track = ((i + (uint64_t)p) % 3) == 0;
+                                MoneyT *wallet = &w->playerList.getNthPlayer(p)->m_money;
+                                wallet->withdraw(50 + (unsigned)((i + (uint64_t)p) % 97), sound, w);
+                                wallet->deposit(30 + (unsigned)((i * (uint64_t)p) % 53), sound, track, w);
+                                wallet->updateIncomeBucket(w);
+                                sum = sum * 31 + (uint64_t)wallet->countMoney();
+                                sum = sum * 31 + (uint64_t)wallet->getCashPerMinute();
+                        }
+                        break;
+                }
+                case 1: {
+                        // the energy stream
+                        for (int p = 1; p <= 3; ++p) {
+                                int objId = (int)((i * 7 + (uint64_t)p * 29) % 120 + 1);
+                                PlayerT *pl = w->playerList.getNthPlayer(p);
+                                if (i % 2 == 0)
+                                        pl->m_energy.objectEnteringInfluence(w->object(objId), w);
+                                else
+                                        pl->m_energy.objectLeavingInfluence(w->object(objId), w);
+                                int delta = (int)((i % 5) - 2) * 7;
+                                pl->m_energy.adjustPower(delta, (i % 2) == 0, w);
+                                sum = sum * 31 + (uint64_t)pl->m_energy.getProduction(w);
+                                sum = sum * 31 + (uint64_t)pl->m_energy.m_energyConsumption;
+                                sum = sum * 31 + (uint64_t)bits_of(pl->m_energy.getEnergySupplyRatio(w));
+                        }
+                        break;
+                }
+                case 2: {
+                        // the rank stream
+                        for (int p = 1; p <= 3; ++p) {
+                                PlayerT *pl = w->playerList.getNthPlayer(p);
+                                if (i % 16 == 15)
+                                        pl->resetRank(w);
+                                else
+                                        pl->addSkillPoints(17 + (int)(i % 23), w);
+                                sum = sum * 31 + (uint64_t)pl->m_rankLevel;
+                                sum = sum * 31 + (uint64_t)pl->m_skillPoints;
+                                sum = sum * 31 + (uint64_t)pl->m_sciencePurchasePoints;
+                        }
+                        break;
+                }
+                default: {
+                        // the science stream
+                        for (int p = 1; p <= 3; ++p) {
+                                PlayerT *pl = w->playerList.getNthPlayer(p);
+                                unsigned science = sciences[(i + (uint64_t)p) % 8];
+                                pl->attemptToPurchaseScience(science, w);
+                                if (i % 3 == 0)
+                                        pl->addSciencePurchasePoints(2);
+                                std::vector<unsigned> can, pot;
+                                w->scienceStore.getPurchasableSciences(pl, can, pot);
+                                sum = sum * 31 + (uint64_t)can.size();
+                                sum = sum * 31 + (uint64_t)pot.size();
+                                for (unsigned s : can)
+                                        sum = sum * 31 + (uint64_t)s;
+                        }
+                        break;
+                }
+                }
+                w->hooks.m_teamEvents.clear(); // (the bench host records nothing)
+        }
+
+        // the final fold: every player's block state and the objects' masks
+        for (int p = 0; p < MAX_PLAYER_COUNT; ++p) {
+                PlayerT *pl = w->playerList.getNthPlayer(p);
+                sum = sum * 31 + (uint64_t)pl->m_money.countMoney();
+                sum = sum * 31 + (uint64_t)pl->m_money.getCashPerMinute();
+                sum = sum * 31 + (uint64_t)pl->m_rankLevel;
+                sum = sum * 31 + (uint64_t)pl->m_skillPoints;
+                sum = sum * 31 + (uint64_t)pl->m_sciencePurchasePoints;
+                sum = sum * 31 + (uint64_t)pl->m_sciences.size();
+                sum = sum * 31 + (uint64_t)pl->m_energy.m_energyProduction;
+                sum = sum * 31 + (uint64_t)pl->m_energy.m_energyConsumption;
+                sum = sum * 31 + (uint64_t)pl->m_radarCount;
+        }
+        for (ObjectT *obj : w->logic.m_objList)
+                sum = sum * 31 + (uint64_t)obj->m_disabledMask.bits;
+        return sum;
+}
+
 // Untimed corpus materialization for the players bench.
 void *bench_kernel_players_build()
 {
         return build_players_corpus();
+}
+
+// Untimed corpus materialization for the purse bench.
+void *bench_kernel_purse_build()
+{
+        return build_purse_corpus();
+}
+
+// The timed body: the money/energy/ranks/sciences block over the
+// promoted corpus.
+uint64_t bench_kernel_purse(void *world)
+{
+        return run_purse((World *)world);
 }
 
 // The timed body: the players/teams block over the settled corpus.
@@ -378,6 +598,13 @@ int bench_kernel_verify()
                 uint64_t sum = run_players(w);
                 delete w;
                 if (sum != PLAYERS_CHECKSUM)
+                        return 0;
+        }
+        {
+                World *w = build_purse_corpus();
+                uint64_t sum = run_purse(w);
+                delete w;
+                if (sum != PURSE_CHECKSUM)
                         return 0;
         }
         return 1;

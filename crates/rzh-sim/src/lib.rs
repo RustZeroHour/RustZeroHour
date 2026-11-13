@@ -26,7 +26,20 @@
 //!   `++id` scheme, the two-level relationship override chain (player →
 //!   team → owner), the member-list choreography of `Object::setTeam`
 //!   and `Team::updateState`'s state half with the empty-team removal
-//!   sweep;
+//!   sweep — plus the money/energy/ranks/sciences state each player
+//!   carries (the fifth slice's block: the rank ladder of
+//!   [`sciences::RankStore`], the purchase family over
+//!   [`sciences::ScienceStore`], the power brownout choreography);
+//! - [`money`]: the per-player wallet — the over-draw clamp of
+//!   `withdraw`, the tracked-income circular buffer of `deposit` and
+//!   the second-resolution rollover of `updateIncomeBucket`;
+//! - [`energy`]: the per-player power pool — the sabotage-gated
+//!   production read, the sufficiency verdict and the supply ratio
+//!   (the mutation choreography and the brownout sweep live in
+//!   [`players`], where the owner's team topology is reachable);
+//! - [`sciences`]: the science catalog and the rank ladder — the
+//!   linear-scan lookups, the parse-order root computation, the
+//!   prereq/purchasable queries and the 1-based rank thresholds;
 //! - [`query`]: the partition query family the AI and weapon targeting
 //!   consume — the FASTER_GCO ring walk of `getClosestObjects` over the
 //!   four distance measures, the `SimpleObjectIterator` with its five
@@ -55,17 +68,19 @@
 //! The module bodies, subsystem walk members (script engine, terrain,
 //! commands, AI, economy, stores) are later slices; they plug in through
 //! the [`logic::KernelHost`] trait whose call order this kernel pins.
-//! WP1's remainder after the players/teams/relationships block (this
-//! slice): the money/energy/ranks/sciences block and the GameMessage
-//! command processing.
+//! WP1's remainder after the money/energy/ranks/sciences block (this
+//! slice): the GameMessage command processing.
 
 #![forbid(unsafe_code)]
 
 pub mod collide;
+pub mod energy;
 pub mod fastmath;
 pub mod logic;
+pub mod money;
 pub mod partition;
 pub mod players;
 pub mod query;
 pub mod scheduler;
+pub mod sciences;
 pub mod types;

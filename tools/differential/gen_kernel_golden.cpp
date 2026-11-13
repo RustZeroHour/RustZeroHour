@@ -235,6 +235,7 @@
 #include <memory>
 #include <string>
 #include <vector>
+#include <climits>
 
 // The pinned GameMath sources (TheSuperHackers/GameMath @ 59f7ccd4)
 // supply the deterministic trig (USE_DETERMINISTIC_MATH = 1 in
@@ -425,6 +426,16 @@ enum {
 // collided with").
 enum {
     KINDOF_NO_COLLIDE_BIT = 27, // KindOf.h (ALLOW_SURRENDER off)
+};
+
+// The kindof bit the money/energy block's brownout sweep consults (KindOf.h
+// — ordinal 66 in the script-engine slice's generated KINDOF_NAMES table,
+// the Zero Hour configuration: "This object gets the Underpowered disabled
+// condition when its owning player has power consumption exceed supply").
+// Bit 66 needs more than 64 bits — the transcription's kindof is a
+// __int128, like the original's 122-entry BitFlags.
+enum {
+    KINDOF_POWERED_BIT = 66, // KindOf.h (the generated table's ordinal)
 };
 
 // PartitionManager.h's HUGE_DIST and its square (the "everything" range
@@ -661,7 +672,10 @@ struct ObjectT {
     GeometryInfoT m_geometryInfo;
     Coord3D m_pos;
     float m_angle = 0;
-    unsigned m_kindof = 0; // the bitset; IMMOBILE is what the store consults
+    // the bitset — KindOfMaskType, a 122-entry BitFlags in the original; the
+    // transcription's __int128 carries the real ordinals (IMMOBILE 2,
+    // NO_COLLIDE 27, POWERED 66)
+    unsigned __int128 m_kindof = 0;
     unsigned m_status = 0; // ObjectStatusMaskType
     unsigned m_privateStatus = 0; // ObjectPrivateStatusBits (EFFECTIVELY_DEAD, OFF_MAP)
     float m_buildCost = 0.0f;     // the template's friend_getBuildCost (the template is rzh-data's)
@@ -672,12 +686,19 @@ struct ObjectT {
     int m_partitionData = INVALID_ID; // the object-id handle of the PartitionData
     int m_cellChangeCount = 0;        // onPartitionCellChange() invocations
     TeamIDT m_team = TEAM_ID_T_INVALID; // m_team (the Team* handle; 0 = no team)
+    int m_energyProduction = 0; // the template's getEnergyProduction() (negative = consumption)
+    int m_energyBonus = 0;      // the template's getEnergyBonus()
     float m_visionRange = 0.0f;       // getVisionRange() (the template's vision; the corpus programs it)
     bool m_hasAi = false;             // getAIUpdateInterface() != null (the AI update's existence)
     bool m_aiIdle = false;            // AIUpdateInterface::isIdle()
 
-    bool isKindOfImmobile() const { return (m_kindof & (1u << KINDOF_IMMOBILE_BIT)) != 0; }
-    bool isKindOfNoCollide() const { return (m_kindof & (1u << KINDOF_NO_COLLIDE_BIT)) != 0; }
+    bool isKindOfImmobile() const { return (m_kindof & (((unsigned __int128)1) << KINDOF_IMMOBILE_BIT)) != 0; }
+    bool isKindOfNoCollide() const { return (m_kindof & (((unsigned __int128)1) << KINDOF_NO_COLLIDE_BIT)) != 0; }
+    // KindOf.h: KINDOF_POWERED — "This object gets the Underpowered disabled
+    // condition when its owning player has power consumption exceed supply".
+    bool isKindOfPowered() const { return (m_kindof & (((unsigned __int128)1) << KINDOF_POWERED_BIT)) != 0; }
+    // Object.h: isDisabled — the any() of the mask.
+    bool isDisabled() const { return m_disabledMask.any(); }
     bool isDestroyed() const { return (m_status & (1u << OBJECT_STATUS_DESTROYED_BIT)) != 0; }
     bool isNoCollisions() const { return (m_status & (1u << OBJECT_STATUS_NO_COLLISIONS_BIT)) != 0; }
     bool isEffectivelyDead() const { return (m_privateStatus & (1u << OBJECT_PRIVATE_EFFECTIVELY_DEAD_BIT)) != 0; }
@@ -688,7 +709,7 @@ struct ObjectT {
     // Thing::isKindOfMulti (Thing.cpp → the template's kindof bits; the
     // transcription keeps the bits on the object): every must-be-set bit
     // set and every must-be-clear bit clear.
-    bool isKindOfMulti(unsigned mustBeSet, unsigned mustBeClear) const
+    bool isKindOfMulti(unsigned __int128 mustBeSet, unsigned __int128 mustBeClear) const
     {
         return (m_kindof & mustBeSet) == mustBeSet && (m_kindof & mustBeClear) == 0;
     }
@@ -726,6 +747,16 @@ struct GameLogicT {
 
     // ---- the frame loop state
     unsigned m_frame = 0;
+    // m_rankLevelLimit — GameLogic::init's 1000 ("this is reset every game"
+    // re-runs it in startNewGame; the game-setup slice's, stated)
+    int m_rankLevelLimit = 1000;
+    int getRankLevelLimit() const { return m_rankLevelLimit; }
+    void setRankLevelLimit(int limit)
+    {
+        if (limit < 1)
+            limit = 1;
+        m_rankLevelLimit = limit;
+    }
     bool m_startNewGame = false;
     bool m_hasUpdated = false;
     bool m_isInUpdate = false;
@@ -1011,6 +1042,11 @@ struct GameLogicHooks {
         TEV_CAPTURE,        // Object::onCapture (a = object, b = old player, c = new player)
         TEV_TEAM_SCRIPT,    // a script run (a = team id, b = the ScriptKind)
         TEV_TEAM_DESTROYED, // notifyOfTeamDestruction (a = team id)
+        // the money/energy/ranks/sciences block's hooks:
+        TEV_MONEY_AUDIO,      // Money's triggerAudioEvent (a = player index, b = 1 withdraw / 0 deposit)
+        TEV_ACADEMY_INCOME,   // AcademyStats::recordIncome (a = player index)
+        TEV_ACADEMY_SPENT,    // AcademyStats::recordGeneralsPointsSpent (a = player, b = points)
+        TEV_ACQUIRED_SCIENCE, // TheScriptEngine->notifyOfAcquiredScience (a = player, b = the science key)
     };
     enum ScriptKind {
         SCRIPT_ON_CREATE = 0,
@@ -2444,18 +2480,28 @@ void GameLogicT::friend_awakenUpdateModule(ObjectT *obj, UpdateModuleT *u, unsig
 // PartitionManager.cpp filters over the state (SamePlayer / Relationship /
 // AcceptOnTeam) — verbatim, distilled inputs.
 //
+// The money/energy/ranks/sciences block (the fifth slice) rides the same
+// PlayerT: Money.cpp's wallet, Energy.cpp's power pool, Science.cpp's
+// catalog, RankInfo.cpp's ladder and Player.cpp's progression half are
+// transcribed below (the fifth-slice section before the Dumper), with the
+// data catalogs (ScienceSpec / RankSpec entries) distilled the same way.
+//
 // The input distillation (the map's SidesList dicts become plain specs; the
 // real dict parse is rzh-formats' sides-list slice, already ported):
 //   SideSpec  = playerName, playerIsHuman, multiplayerIsLocal, the
 //               PlayerTemplate's observer bit, the enemies/allies token
-//               lists.
+//               lists, and the money block's template fields (the
+//               PlayerTemplate's cash, its IntrinsicSciences and its
+//               IntrinsicSciencePurchasePoints).
 //   TeamSpec  = teamName, teamOwner, teamIsSingleton, the TeamTemplateInfo
 //               fields updateState consults (the six script names and the
 //               destroyedThreshold real), and the production-condition pair
 //               (the executeActions flag, the condition name and whether the
 //               script engine's catalog holds it).
 //   GameInfo  = the occupied slot indices (assignSlotIndices walks
-//               "player%d" names against them).
+//               "player%d" names against them) and the starting cash
+//               (TheGameInfo->getStartingCash — the zero-wallet deposit's
+//               source; TheGlobalData's default is the fallback).
 // Everything else the dicts carry (factions, build lists, skirmish script
 // duplication, waypoints, attitudes, max instances, ...) is the data/AI/
 // script-engine slices' and is stated in the header, not modelled.
@@ -2561,6 +2607,9 @@ struct SideSpecT {
     bool observer = false;  // the PlayerTemplate's isObserver() (distilled)
     std::vector<std::string> enemies; // TheKey_playerEnemies' token list
     std::vector<std::string> allies;  // TheKey_playerAllies' token list
+    unsigned templateCash = 0; // the PlayerTemplate's money (pt->getMoney()->countMoney(); 0 takes the game's starting-cash deposit)
+    std::vector<std::string> intrinsicSciences; // the PlayerTemplate's IntrinsicSciences
+    int intrinsicSPP = 0;       // the PlayerTemplate's IntrinsicSciencePurchasePoints
 };
 
 // The distilled team dict (TeamTemplateInfo's updateState-relevant half).
@@ -2580,9 +2629,11 @@ struct TeamSpecT {
     bool productionScriptExists = false; // findScriptByName's verdict (the catalog is the script slice's)
 };
 
-// The distilled GameInfo (assignSlotIndices' occupied-slot walk).
+// The distilled GameInfo (assignSlotIndices' occupied-slot walk + the
+// starting cash the zero-wallet init deposit reads).
 struct GameInfoSpecT {
     std::vector<int> occupiedSlots; // the occupied slot indices (isOccupied())
+    unsigned startingCash = 0; // TheGameInfo->getStartingCash().countMoney()
 };
 
 // The corpora's spec builders (full-field initializers; the aggregate
@@ -2614,16 +2665,93 @@ struct SidesSpecT {
     std::vector<TeamSpecT> teams;
     bool hasGameInfo = false; // TheGameInfo != nullptr
     GameInfoSpecT gameInfo;
+    unsigned defaultStartingCash = 0; // TheGlobalData->m_defaultStartingCash.countMoney()
 };
 
 struct TeamProtoT;
 struct TeamT;
 
-// Player.cpp's kernel half (the relation maps, the identity, the team list).
-// The maps are std::hash_map in the original but are only ever PROBED by key
-// here (find / operator[] / erase) — never iterated — so the transcription
-// uses sorted vectors and dumps them in key order (a stated, order-free
-// model: no observable depends on the hash_map's bucket order).
+
+struct PlayerT; // EnergyT's tight owner pointer
+struct World;   // the hooks/frame context
+
+// the array-size macro the game's headers carry (PreRTS.h)
+#ifndef ARRAY_SIZE
+#define ARRAY_SIZE(x) (sizeof(x) / sizeof(x[0]))
+#endif
+
+// ============================================================================
+// Money.cpp — the per-player wallet (the money block). The audio triggers
+// and the academy hook fire through the World's hooks (the audio engine is
+// the audio phase's; the academy stats are their own slice's).
+// ============================================================================
+
+// Money.h: "How much 'money' (Tiberium, Gems, Magic Resource Boxes,
+// whatever) the Player has. This is currently a Very Simple Class but is
+// encapsulated in anticipation of future expansion."
+struct MoneyT {
+    unsigned m_money = 0;      // amount of money (UnsignedInt — the adds wrap)
+    int m_playerIndex = 0;     // what is my player index?
+    unsigned m_incomeBuckets[60] = {}; // circular buffer of 60 seconds for income tracking
+    unsigned m_currentBucket = 0;
+    unsigned m_cashPerMinute = 0;
+
+    void init() { setStartingCash(0); }
+    void setPlayerIndex(int ndx) { m_playerIndex = ndx; }
+    unsigned countMoney() const { return m_money; }
+    unsigned getCashPerMinute() const { return m_cashPerMinute; }
+    // Money::amountEqual — "compare everything except m_playerIndex".
+    bool amountEqual(const MoneyT &that) const { return m_money == that.m_money; }
+
+    void setStartingCash(unsigned amount);
+    unsigned withdraw(unsigned amountToWithdraw, bool playSound, World *w);
+    void deposit(unsigned amountToDeposit, bool playSound, bool trackIncome, World *w);
+    void updateIncomeBucket(World *w);
+};
+
+// ============================================================================
+// Energy.cpp — the per-player power pool (the energy block). The mutation
+// choreography's brownout walk runs through the owner (PlayerT), defined
+// below; the frame reads take the World.
+// ============================================================================
+
+// Energy.h: "This class is used to encapsulate the Player's energy use and
+// production. for consistent nomenclature, we'll arbitrarily call energy
+// units 'kilowatts' (though that may have no bearing on reality)."
+struct EnergyT {
+    int m_energyProduction = 0; // level of energy production, in kw
+    int m_energyConsumption = 0; // level of energy consumption, in kw
+    unsigned m_powerSabotagedTillFrame = 0; // If power is sabotaged, the frame will be greater than now.
+    PlayerT *m_owner = nullptr; // Tight pointer to the Player I am intrinsic to.
+
+    void init(PlayerT *owner)
+    {
+        m_energyProduction = 0;
+        m_energyConsumption = 0;
+        m_powerSabotagedTillFrame = 0;
+        m_owner = owner;
+    }
+    void setPowerSabotagedTillFrame(unsigned frame) { m_powerSabotagedTillFrame = frame; }
+    unsigned getPowerSabotagedTillFrame() const { return m_powerSabotagedTillFrame; }
+
+    int getProduction(World *w) const;
+    float getEnergySupplyRatio(World *w) const;
+    bool hasSufficientPower(World *w) const;
+    void adjustPower(int powerDelta, bool adding, World *w);
+    void objectEnteringInfluence(ObjectT *obj, World *w);
+    void objectLeavingInfluence(ObjectT *obj, World *w);
+    void addPowerBonus(ObjectT *obj, World *w);
+    void removePowerBonus(ObjectT *obj, World *w);
+    void addProduction(int amt, World *w);
+    void addConsumption(int amt, World *w);
+};
+
+// Player.cpp's kernel half (the relation maps, the identity, the team list,
+// the money/energy/ranks/sciences state). The maps are std::hash_map in the
+// original but are only ever PROBED by key here (find / operator[] / erase)
+// — never iterated — so the transcription uses sorted vectors and dumps
+// them in key order (a stated, order-free model: no observable depends on
+// the hash_map's bucket order).
 struct PlayerT {
     int m_playerIndex = 0;
     std::string m_playerName;
@@ -2639,6 +2767,25 @@ struct PlayerT {
 
     TeamIDT m_defaultTeam = TEAM_ID_T_INVALID; // m_defaultTeam (Team* -> id handle)
     std::vector<TeamProtoT *> m_playerTeamPrototypes; // push_back order (addTeamToList)
+
+    // ---- the money/energy/ranks/sciences block (Player.cpp / Money.h /
+    // Energy.h; the ctor defaults — the ctor's init(nullptr) is modelled by
+    // the PlayerList init walk, where the stores and the host exist)
+    MoneyT m_money;
+    EnergyT m_energy;
+    int m_rankLevel = 0;         // "our RankLevel, 1...n" (0 only pre-init)
+    int m_skillPoints = 0;       // our cumulative SkillPoint total
+    int m_sciencePurchasePoints = 0; // our unspent SciencePurchasePoint total
+    int m_levelUp = 0, m_levelDown = 0; // skill points to go up/down a level (runtime only)
+    std::vector<unsigned> m_sciences;       // sciences that we know
+    std::vector<unsigned> m_sciencesDisabled; // not permitted to purchase "yet" (script-controlled)
+    std::vector<unsigned> m_sciencesHidden;    // not shown (script-controlled)
+    std::vector<unsigned> m_intrinsicSciences; // the template's IntrinsicSciences, resolved at init
+    int m_intrinsicSPP = 0;                   // the template's IntrinsicSciencePurchasePoints
+    float m_skillPointsModifier = 1.0f; // Multiplied by skill points before they are applied
+    int m_radarCount = 0;              // # of facilities that have a radar under the players control
+    int m_disableProofRadarCount = 0;  // # of disable proof radars (also in the normal refcount)
+    bool m_radarDisabled = false;      // the radar is disabled regardless of the number of radar objects
 
     // ---- the relation-map primitives (probed, sorted by key) ----
     const RelationshipT *findPlayerRelation(int playerIndex) const
@@ -2687,6 +2834,45 @@ struct PlayerT {
     // Player::isPlayerActive: alive and not observer.
     bool isPlayerActive() const { return !m_observer && !m_isPlayerDead; }
 
+    // ---- the science state half (Player.cpp) ----
+    bool hasScience(unsigned t) const
+    {
+        return std::find(m_sciences.begin(), m_sciences.end(), t) != m_sciences.end();
+    }
+    bool isScienceDisabled(unsigned t) const
+    {
+        return std::find(m_sciencesDisabled.begin(), m_sciencesDisabled.end(), t) != m_sciencesDisabled.end();
+    }
+    bool isScienceHidden(unsigned t) const
+    {
+        return std::find(m_sciencesHidden.begin(), m_sciencesHidden.end(), t) != m_sciencesHidden.end();
+    }
+    void setScienceAvailability(unsigned science, int type); // ScienceAvailabilityType
+    bool addScience(unsigned science, World *w);
+
+    // ---- the radar half (Player.cpp) ----
+    bool hasRadar() const
+    {
+        if (m_radarDisabled && (m_disableProofRadarCount == 0))
+            return false; // Nope, no matter how many you have, if I say no, you don't have it
+        // Otherwise, check if I actually do have it.
+        return m_radarCount > 0;
+    }
+    void addRadar(bool disableProof)
+    {
+        ++m_radarCount;
+        if (disableProof)
+            ++m_disableProofRadarCount; // Disable proof is also in the normal refcount
+    }
+    void removeRadar(bool disableProof)
+    {
+        --m_radarCount;
+        if (disableProof)
+            --m_disableProofRadarCount;
+    }
+    void disableRadar() { m_radarDisabled = true; }
+    void enableRadar() { m_radarDisabled = false; }
+
     // ---- the declared-later surface (defined after the World) ----
     void addTeamToList(TeamProtoT *team);
     void removeTeamFromList(TeamProtoT *team);
@@ -2697,6 +2883,18 @@ struct PlayerT {
     void newMap(World *w);
     void setPlayerType(PlayerTypeT t, bool skirmish);
     void init(bool hasTemplate, World *w);
+    // the money/energy/ranks/sciences block:
+    void initFull(const SideSpecT *side, unsigned startingCash, World *w); // Player::init (side = nullptr → the neutral branch)
+    bool hasPrereqsForScience(unsigned t, World *w) const;
+    bool addSkillPoints(int delta, World *w);
+    void resetSciences(World *w);
+    void resetRank(World *w);
+    bool setRankLevel(int newLevel, World *w);
+    void addSciencePurchasePoints(int delta);
+    bool attemptToPurchaseScience(unsigned science, World *w);
+    bool grantScience(unsigned science, World *w);
+    bool isCapableOfPurchasingScience(unsigned science, World *w) const;
+    void onPowerBrownOutChange(bool brownOut, World *w);
 };
 
 // Team.cpp's TeamPrototype: the owning player, the singleton flag, the
@@ -2905,6 +3103,65 @@ struct PlayerListT {
 };
 
 // ============================================================================
+// ============================================================================
+// Science.cpp / RankInfo.cpp — the science catalog and the rank ladder (the
+// money/energy/ranks/sciences block's data stores). A science's identity is
+// its interned name key (ScienceType is (ScienceType)NameKeyType; the
+// original's SCIENCE_INVALID = -1 sentinel is only ever "no science" — the
+// transcription's 0 key, which no live name interns, carries the same role).
+// ============================================================================
+
+// Science.h's ScienceInfo (the display strings are the client's).
+struct ScienceInfoT {
+    unsigned m_science = 0; // the interned name key (the identity)
+    std::vector<unsigned> m_prereqSciences; // the raw prereq keys
+    std::vector<unsigned> m_rootSciences;   // calced at load, NOT read from INI
+    int m_sciencePurchasePointCost = 0;     // 0 means "cannot be purchased"
+    bool m_grantable = true;
+};
+
+// Science.h's ScienceStore: the catalog in load order (every lookup is the
+// linear findScienceInfo walk).
+struct ScienceStoreT {
+    std::vector<ScienceInfoT *> m_sciences;
+
+    // friend_parseScienceDefinition, distilled: append in load order, intern
+    // the prereq names, then compute the roots against the catalog SO FAR.
+    void load(const std::string &name, const std::vector<std::string> &prereqs, int cost,
+              bool grantable, World *w);
+    // ScienceInfo::addRootSciences: "we're a root" for no prereqs (added
+    // once, first-discovery order), else the roots of every known prereq.
+    void addRootSciences(const ScienceInfoT *info, std::vector<unsigned> &v) const;
+    const ScienceInfoT *findScienceInfo(unsigned st) const;
+    bool isValidScience(unsigned st) const { return findScienceInfo(st) != nullptr; }
+    bool isScienceGrantable(unsigned st) const;
+    int getSciencePurchaseCost(unsigned st) const;
+    bool playerHasPrereqsForScience(const PlayerT *player, unsigned st) const;
+    bool playerHasRootPrereqsForScience(const PlayerT *player, unsigned st) const;
+    void getPurchasableSciences(const PlayerT *player, std::vector<unsigned> &purchasable,
+                                std::vector<unsigned> &potentiallyPurchasable) const;
+};
+
+// RankInfo.h's RankInfo (the rank-name display string is the client's).
+struct RankInfoT {
+    int m_skillPointsNeeded = 0;
+    int m_sciencePurchasePointsGranted = 0;
+    std::vector<unsigned> m_sciencesGranted;
+};
+
+// RankInfo.h's RankInfoStore: the ladder, 1-based through getRankInfo.
+struct RankStoreT {
+    std::vector<RankInfoT *> m_rankInfos;
+
+    // friend_parseRankDefinition, distilled: append in level order, the
+    // granted sciences interned to their raw keys.
+    void load(int skillPointsNeeded, int sciencePurchasePointsGranted,
+              const std::vector<std::string> &sciencesGranted, World *w);
+    int getRankLevelCount() const { return (int)m_rankInfos.size(); }
+    // note that level is 1...n, NOT 0...n-1
+    const RankInfoT *getRankInfo(int level) const;
+};
+
 // The World: the driver's singletons (TheGameLogic / ThePartitionManager /
 // the object table), the scripted module bodies and the corpus commands.
 // ============================================================================
@@ -2913,6 +3170,8 @@ struct World {
     PartitionManagerT pm;
     PlayerListT playerList;
     TeamFactoryT teamFactory;
+    ScienceStoreT scienceStore; // TheScienceStore
+    RankStoreT rankStore;       // TheRankInfoStore
     NameKeyGenT nameKeys;
     bool m_networkPresent = false; // TheNetwork != null (the newGame local-selection gate)
     GameLogicHooks hooks;
@@ -2969,16 +3228,20 @@ struct World {
     // the GameLogic registration, then the partition registration.
     ObjectT *createObject(const GeometryInfoT &geom, bool immobile, int numUpdates,
                           const std::vector<int> &ctorWakes, const Coord3D &pos = {}, float angle = 0.0f,
-                          const std::vector<int> &phases = {}, int numColliders = 0)
+                          const std::vector<int> &phases = {}, int numColliders = 0,
+                          bool powered = false, int energyProduction = 0, int energyBonus = 0)
     {
         ObjectT *obj = new ObjectT();
         objects.emplace_back(obj);
         obj->m_geometryInfo = geom;
         obj->m_pos = pos;
         obj->m_angle = angle;
-        obj->m_kindof = immobile ? (1u << KINDOF_IMMOBILE_BIT) : 0u;
+        obj->m_kindof = (immobile ? (((unsigned __int128)1) << KINDOF_IMMOBILE_BIT) : (unsigned __int128)0)
+                       | (powered ? (((unsigned __int128)1) << KINDOF_POWERED_BIT) : (unsigned __int128)0);
         for (int i = 0; i < DISABLED_COUNT; ++i)
             obj->m_disabledTillFrame[i] = NEVER;
+        obj->m_energyProduction = energyProduction;
+        obj->m_energyBonus = energyBonus;
         obj->m_updates.resize((size_t)numUpdates);
         for (int i = 0; i < numUpdates && i < (int)phases.size(); ++i)
             obj->m_updates[(size_t)i].m_phase = phases[(size_t)i];
@@ -3076,6 +3339,8 @@ struct World {
         }
     }
     void setDisabled(ObjectT *obj, int type) { setDisabledUntil(obj, type, (unsigned)FOREVER); }
+    // Object::clearDisabled — the NEVER form (the frame > now gate clears the bit).
+    void clearDisabled(ObjectT *obj, int type) { setDisabledUntil(obj, type, (unsigned)NEVER); }
 
     // Object::checkDisabledStatus (the sweep update() runs).
     void checkDisabledStatus(ObjectT *obj)
@@ -3869,8 +4134,8 @@ struct PartitionFilterWouldCollideT : public PartitionFilterT {
 // PartitionFilterAcceptByKindOf / RejectByKindOf: the isKindOfMulti test
 // over the must-be-set / must-be-clear masks.
 struct PartitionFilterAcceptByKindOfT : public PartitionFilterT {
-    unsigned m_mustBeSet, m_mustBeClear;
-    PartitionFilterAcceptByKindOfT(unsigned mustBeSet, unsigned mustBeClear)
+    unsigned __int128 m_mustBeSet, m_mustBeClear;
+    PartitionFilterAcceptByKindOfT(unsigned __int128 mustBeSet, unsigned __int128 mustBeClear)
         : m_mustBeSet(mustBeSet), m_mustBeClear(mustBeClear)
     {
     }
@@ -3878,8 +4143,8 @@ struct PartitionFilterAcceptByKindOfT : public PartitionFilterT {
 };
 
 struct PartitionFilterRejectByKindOfT : public PartitionFilterT {
-    unsigned m_mustBeSet, m_mustBeClear;
-    PartitionFilterRejectByKindOfT(unsigned mustBeSet, unsigned mustBeClear)
+    unsigned __int128 m_mustBeSet, m_mustBeClear;
+    PartitionFilterRejectByKindOfT(unsigned __int128 mustBeSet, unsigned __int128 mustBeClear)
         : m_mustBeSet(mustBeSet), m_mustBeClear(mustBeClear)
     {
     }
@@ -4948,16 +5213,28 @@ void PlayerT::updateTeamStates(World *w)
     }
 }
 
-// Player::update (Player.cpp): the AI/team-scripts/energy/academy/money
-// bodies are later slices — the single hook pins the 16-slot walk's
-// position (TheAI->UPDATE calls ThePlayerList->UPDATE from AI.cpp:363).
+// Player::update (Player.cpp): the sabotage-expiry check and the money
+// bucket rollover are this slice's (real bodies); the AI/team-scripts/
+// academy/retaliation/tunnel bodies are later slices — the single hook
+// pins their position between the two (TheAI->UPDATE calls
+// ThePlayerList->UPDATE from AI.cpp:363).
 void PlayerT::update(World *w)
 {
-    // (m_ai->update(); the team generic-script walk; the power-sabotage
-    // check; getAcademyStats()->update(); the retaliation-mode posting; the
-    // tunnel heal; m_money.updateIncomeBucket() — the AI, script-engine,
-    // economy and client slices' bodies)
+    // (m_ai->update(); the team generic-script walk — the AI and
+    // script-engine slices' bodies)
+
+    if (m_energy.getPowerSabotagedTillFrame() != 0
+        && w->logic.getFrame() > m_energy.getPowerSabotagedTillFrame()) {
+        m_energy.setPowerSabotagedTillFrame(0); // Tells us we're no longer sabotaged for above check.
+        onPowerBrownOutChange(!m_energy.hasSufficientPower(w), w);
+    }
+
+    // (getAcademyStats()->update(); the local player's retaliation-mode
+    // posting; the tunnel heal — the academy, client and script-engine
+    // slices' bodies)
     w->hooks.tev(GameLogicHooks::TEV_PLAYER_UPDATE, m_playerIndex);
+
+    m_money.updateIncomeBucket(w);
 }
 
 // Player::newMap: the AI's newMap — stated (the AI slice's).
@@ -4976,30 +5253,66 @@ void PlayerT::setPlayerType(PlayerTypeT t, bool skirmish)
 // Player::init (Player.cpp), the kernel half: the neutral branch verbatim,
 // the template branch distilled (the side/color/money/template fields are
 // the rzh-data money block's).
-void PlayerT::init(bool hasTemplate, World *w)
+// Player::init — the full body (the common head, the template or neutral
+// branch, resetRank and the science-availability clears). The distilled
+// template is the SideSpecT (side == nullptr → the neutral player);
+// startingCash is the resolved TheGameInfo/TheGlobalData figure the
+// zero-wallet deposit reads (unused on the neutral branch).
+void PlayerT::initFull(const SideSpecT *side, unsigned startingCash, World *w)
 {
     m_isPlayerDead = false;
     m_observer = false;
     m_defaultTeam = TEAM_ID_T_INVALID;
     // (the squads, selection, tunnel system, build lists, upgrade lists,
-    // rank/sciences, energy, stats, retaliation — the money/energy/ranks/
-    // sciences block and the client's)
+    // battle plans, stats, retaliation — the economy and client slices')
+    m_skillPointsModifier = 1.0f;
+    m_radarCount = 0;
+    m_disableProofRadarCount = 0;
+    m_radarDisabled = false;
+    m_energy.init(this);
 
-    if (hasTemplate) {
-        // the pt branch: the names cleared, PLAYER_COMPUTER, the observer
-        // bits from the template (the money/side/color halves stated)
+    if (side) {
+        // the pt branch: the money copy (a fresh-parsed template money is
+        // setStartingCash semantics), the index fix, then the zero-wallet
+        // starting-cash deposit (TheSuperHackers @bugfix "Now correctly
+        // deposits the money and fixes its audio and academy issues" —
+        // silent and untracked, but the academy hook still fires).
+        m_intrinsicSciences.clear();
+        for (const std::string &n : side->intrinsicSciences)
+            m_intrinsicSciences.push_back(w->nameKeys.nameToKey(n));
+        m_intrinsicSPP = side->intrinsicSPP;
+        m_money.setStartingCash(side->templateCash);
+        m_money.setPlayerIndex(m_playerIndex);
+        if (m_money.countMoney() == 0) {
+            m_money.deposit(startingCash, false, false, w);
+        }
         m_playerName.clear();
         m_playerNameKey = 0; // NAMEKEY_INVALID
         m_playerType = PLAYER_COMPUTER_T;
+        m_observer = side->observer;
+        m_isPlayerDead = side->observer; // observers are dead
     } else {
         // no player template? must be the neutral player!
         m_playerName.clear();
         m_playerNameKey = w->nameKeys.nameToKey("");
         m_playerType = PLAYER_COMPUTER_T;
+        // (the neutral branch's m_money.init() — setStartingCash(0); NOTE
+        // the player index is NOT re-set: a slot that lived as a template
+        // player keeps its Money index across the reset — the stale-index
+        // quirk the corpora pin)
+        m_money.init();
+        m_intrinsicSciences.clear();
+        m_intrinsicSPP = 0;
 
         // neutral is always "allied" with self -- this is the only thing ever allied with neutral!
         playerSetPlayerRelationship(this, this, R_ALLIES);
     }
+
+    // reset rank info (m_generalName's fetch — the client's)
+    resetRank(w);
+    m_sciencesDisabled.clear();
+    m_sciencesHidden.clear();
+    // (m_specialPowerReadyTimerList.clear() — the special-power slice's)
     // NOTE (the pinned quirk): the relation maps are NOT cleared here — they
     // are born in the ctor and die in the dtor only, so entries survive
     // PlayerList::reset()/init() within a process lifetime. newGame's
@@ -5011,10 +5324,10 @@ void PlayerT::init(bool hasTemplate, World *w)
 void World::playerListInit()
 {
     playerList.m_playerCount = 1;
-    playerList.m_players[0]->init(false, this);
+    playerList.m_players[0]->initFull(nullptr, 0, this);
 
     for (int i = 1; i < MAX_PLAYER_COUNT; i++)
-        playerList.m_players[i]->init(false, this);
+        playerList.m_players[i]->initFull(nullptr, 0, this);
 
     std::fill(playerList.m_slotIndices, playerList.m_slotIndices + MAX_PLAYER_COUNT, -1);
     std::fill(playerList.m_slotToPlayerIndices, playerList.m_slotToPlayerIndices + MAX_SLOTS_T, -1);
@@ -5194,6 +5507,11 @@ void World::playerListNewGame(const SidesSpecT &sides)
 {
     playerListReset();
 
+    // the zero-wallet deposit's starting cash: TheGameInfo's figure when a
+    // game is in progress, TheGlobalData's default otherwise
+    const unsigned startingCash = sides.hasGameInfo ? sides.gameInfo.startingCash
+                                                    : sides.defaultStartingCash;
+
     // ok, now create the rest of players we need.
     bool setLocal = false;
     for (size_t i = 0; i < sides.sides.size(); i++) {
@@ -5202,10 +5520,11 @@ void World::playerListNewGame(const SidesSpecT &sides)
             continue; // it's neutral, which we've already done, so skip it.
 
         PlayerT *p = playerList.m_players[playerList.m_playerCount++];
-        // initFromDict, distilled: init(pt) with a template, the name, the
-        // type (the skirmish script duplication is the script-engine
-        // slice's, stated)
-        p->init(true, this);
+        // initFromDict, distilled: init(pt) with the template (the
+        // money/energy/rank init included — the zero-wallet deposit rides
+        // the template branch), then the name, then the type (the skirmish
+        // script duplication is the script-engine slice's, stated)
+        p->initFull(&sd, startingCash, this);
         p->m_playerName = sd.playerName;
         p->m_playerNameKey = nameKeys.nameToKey(sd.playerName);
         p->m_observer = sd.observer;
@@ -5604,6 +5923,618 @@ bool PartitionFilterAcceptOnTeamT::allow(ObjectT *objOther)
     return (objOther->m_team == (m_team ? m_team->getID() : TEAM_ID_T_INVALID));
 }
 
+// ============================================================================
+// The money/energy/ranks/sciences block's bodies (Money.cpp, Energy.cpp,
+// Science.cpp, RankInfo.cpp and Player.cpp's progression half) — the fifth
+// Phase 3 slice.
+// ============================================================================
+
+// ---- Money.cpp -------------------------------------------------------------
+
+void MoneyT::setStartingCash(unsigned amount)
+{
+    m_money = amount;
+    std::fill(m_incomeBuckets, m_incomeBuckets + ARRAY_SIZE(m_incomeBuckets), 0u);
+    m_currentBucket = 0u;
+    m_cashPerMinute = 0u;
+}
+
+unsigned MoneyT::withdraw(unsigned amountToWithdraw, bool playSound, World *w)
+{
+    // (the RTS_DEBUG buildsForFree refusal — return 0 without touching the
+    // wallet — is the debug build's cheat guard; stated, not transcribed)
+
+    if (amountToWithdraw > m_money)
+        amountToWithdraw = m_money;
+
+    if (amountToWithdraw == 0)
+        return amountToWithdraw;
+
+    if (playSound) {
+        // triggerAudioEvent(TheAudio->getMiscAudio()->m_moneyWithdrawSound)
+        // — the volume math is the audio phase's; the hook pins the call,
+        // the player and the direction.
+        w->hooks.tev(GameLogicHooks::TEV_MONEY_AUDIO, m_playerIndex, 1);
+    }
+
+    m_money -= amountToWithdraw;
+
+    return amountToWithdraw;
+}
+
+void MoneyT::deposit(unsigned amountToDeposit, bool playSound, bool trackIncome, World *w)
+{
+    if (amountToDeposit == 0)
+        return;
+
+    if (playSound) {
+        // triggerAudioEvent(...m_moneyDepositSound) — ditto.
+        w->hooks.tev(GameLogicHooks::TEV_MONEY_AUDIO, m_playerIndex, 0);
+    }
+
+    if (trackIncome) {
+        m_incomeBuckets[m_currentBucket] += amountToDeposit;
+        m_cashPerMinute += amountToDeposit;
+    }
+
+    m_money += amountToDeposit;
+
+    // (the original's `if (amountToDeposit > 0)' is always true here — the
+    // zero form returned above; the leftover guard rides along)
+    if (amountToDeposit > 0) {
+        // Player *player = ThePlayerList->getNthPlayer(m_playerIndex);
+        // if (player) player->getAcademyStats()->recordIncome();
+        PlayerT *player = w->playerList.getNthPlayer(m_playerIndex);
+        if (player)
+            w->hooks.tev(GameLogicHooks::TEV_ACADEMY_INCOME, m_playerIndex);
+    }
+}
+
+void MoneyT::updateIncomeBucket(World *w)
+{
+    unsigned frame = w->logic.getFrame();
+    unsigned nextBucket = (frame / LOGICFRAMES_PER_SECOND) % ARRAY_SIZE(m_incomeBuckets);
+    if (nextBucket != m_currentBucket) {
+        m_cashPerMinute -= m_incomeBuckets[nextBucket];
+        m_currentBucket = nextBucket;
+        m_incomeBuckets[m_currentBucket] = 0u;
+    }
+}
+
+// ---- Energy.cpp ------------------------------------------------------------
+
+int EnergyT::getProduction(World *w) const
+{
+    if (w->logic.getFrame() < m_powerSabotagedTillFrame) {
+        // Power sabotaged, therefore no power.
+        return 0;
+    }
+    return m_energyProduction;
+}
+
+float EnergyT::getEnergySupplyRatio(World *w) const
+{
+    if (w->logic.getFrame() < m_powerSabotagedTillFrame) {
+        // Power sabotaged, therefore no power, no ratio.
+        return 0.0f;
+    }
+
+    if (m_energyConsumption == 0)
+        return (float)m_energyProduction;
+
+    return (float)m_energyProduction / (float)m_energyConsumption;
+}
+
+bool EnergyT::hasSufficientPower(World *w) const
+{
+    if (w->logic.getFrame() < m_powerSabotagedTillFrame) {
+        // Power sabotaged, therefore no power.
+        return false;
+    }
+    return m_energyProduction >= m_energyConsumption;
+}
+
+void EnergyT::adjustPower(int powerDelta, bool adding, World *w)
+{
+    if (powerDelta == 0) {
+        return;
+    }
+
+    if (powerDelta > 0) {
+        if (adding) {
+            addProduction(powerDelta, w);
+        } else {
+            addProduction(-powerDelta, w);
+        }
+    } else {
+        // Seems a little odd, however, consumption is reversed. Negative power is positive consumption.
+        if (adding) {
+            addConsumption(-powerDelta, w);
+        } else {
+            addConsumption(powerDelta, w);
+        }
+    }
+}
+
+void EnergyT::objectEnteringInfluence(ObjectT *obj, World *w)
+{
+    // sanity (obj == nullptr — the corpus keeps the contract)
+    int energy = obj->m_energyProduction;
+
+    // adjust energy
+    if (energy < 0)
+        addConsumption(-energy, w);
+    else if (energy > 0)
+        addProduction(energy, w);
+}
+
+void EnergyT::objectLeavingInfluence(ObjectT *obj, World *w)
+{
+    // sanity
+    int energy = obj->m_energyProduction;
+
+    // adjust energy
+    if (energy < 0)
+        addConsumption(energy, w);
+    else if (energy > 0)
+        addProduction(-energy, w);
+}
+
+void EnergyT::addPowerBonus(ObjectT *obj, World *w)
+{
+    // sanity (the disabled-power-plant DEBUG_ASSERTCRASH — stated)
+    addProduction(obj->m_energyBonus, w);
+}
+
+void EnergyT::removePowerBonus(ObjectT *obj, World *w)
+{
+    // sanity
+    // TheSuperHackers @bugfix Caball009 14/11/2025 Don't remove power bonus for disabled power plants.
+    if (obj->isDisabled())
+        return;
+
+    addProduction(-obj->m_energyBonus, w);
+}
+
+void EnergyT::addProduction(int amt, World *w)
+{
+    m_energyProduction += amt;
+
+    if (m_owner == nullptr)
+        return;
+
+    // A repeated Brownout signal does nothing bad, and we need to handle more than just edge cases.
+    // Like low power, now even more low power, refresh disable.
+    m_owner->onPowerBrownOutChange(!hasSufficientPower(w), w);
+}
+
+void EnergyT::addConsumption(int amt, World *w)
+{
+    m_energyConsumption += amt;
+
+    if (m_owner == nullptr)
+        return;
+
+    m_owner->onPowerBrownOutChange(!hasSufficientPower(w), w);
+}
+
+// ---- Science.cpp / RankInfo.cpp ---------------------------------------------
+
+void ScienceStoreT::load(const std::string &name, const std::vector<std::string> &prereqs,
+                         int cost, bool grantable, World *w)
+{
+    ScienceInfoT *info = new ScienceInfoT();
+    info->m_science = w->nameKeys.nameToKey(name);
+    for (const std::string &p : prereqs)
+        info->m_prereqSciences.push_back(w->nameKeys.nameToKey(p));
+    info->m_sciencePurchasePointCost = cost;
+    info->m_grantable = grantable;
+    // friend_parseScienceDefinition's own call shape: the just-built info's
+    // roots, computed against the catalog SO FAR (a forward-reference prereq
+    // is not yet present — the parse-order quirk)
+    addRootSciences(info, info->m_rootSciences);
+    m_sciences.push_back(info);
+}
+
+void ScienceStoreT::addRootSciences(const ScienceInfoT *info, std::vector<unsigned> &v) const
+{
+    if (info->m_prereqSciences.empty()) {
+        // we're a root. add ourselves.
+        if (std::find(v.begin(), v.end(), info->m_science) == v.end())
+            v.push_back(info->m_science);
+    } else {
+        // we're not a root. add the roots of all our prereqs.
+        for (unsigned it : info->m_prereqSciences) {
+            const ScienceInfoT *si = findScienceInfo(it);
+            if (si)
+                addRootSciences(si, v);
+        }
+    }
+}
+
+const ScienceInfoT *ScienceStoreT::findScienceInfo(unsigned st) const
+{
+    for (const ScienceInfoT *si : m_sciences) {
+        if (si->m_science == st) {
+            return si;
+        }
+    }
+    return nullptr;
+}
+
+bool ScienceStoreT::isScienceGrantable(unsigned st) const
+{
+    const ScienceInfoT *si = findScienceInfo(st);
+    if (si) {
+        return si->m_grantable;
+    } else {
+        return false;
+    }
+}
+
+int ScienceStoreT::getSciencePurchaseCost(unsigned st) const
+{
+    const ScienceInfoT *si = findScienceInfo(st);
+    if (si) {
+        return si->m_sciencePurchasePointCost;
+    } else {
+        return 0;
+    }
+}
+
+bool ScienceStoreT::playerHasPrereqsForScience(const PlayerT *player, unsigned st) const
+{
+    const ScienceInfoT *si = findScienceInfo(st);
+    if (si) {
+        for (unsigned it2 : si->m_prereqSciences) {
+            if (!player->hasScience(it2)) {
+                return false;
+            }
+        }
+        return true;
+    } else {
+        return false;
+    }
+}
+
+bool ScienceStoreT::playerHasRootPrereqsForScience(const PlayerT *player, unsigned st) const
+{
+    const ScienceInfoT *si = findScienceInfo(st);
+    if (si) {
+        for (unsigned it2 : si->m_rootSciences) {
+            if (!player->hasScience(it2)) {
+                return false;
+            }
+        }
+        return true;
+    } else {
+        return false;
+    }
+}
+
+void ScienceStoreT::getPurchasableSciences(const PlayerT *player, std::vector<unsigned> &purchasable,
+                                           std::vector<unsigned> &potentiallyPurchasable) const
+{
+    purchasable.clear();
+    potentiallyPurchasable.clear();
+    for (const ScienceInfoT *si : m_sciences) {
+        if (si->m_sciencePurchasePointCost == 0) {
+            // 0 means "cannot be purchased"
+            continue;
+        }
+
+        if (player->hasScience(si->m_science)) {
+            continue;
+        }
+
+        if (playerHasPrereqsForScience(player, si->m_science)) {
+            purchasable.push_back(si->m_science);
+        } else if (playerHasRootPrereqsForScience(player, si->m_science)) {
+            potentiallyPurchasable.push_back(si->m_science);
+        }
+    }
+}
+
+void RankStoreT::load(int skillPointsNeeded, int sciencePurchasePointsGranted,
+                      const std::vector<std::string> &sciencesGranted, World *w)
+{
+    RankInfoT *ri = new RankInfoT();
+    ri->m_skillPointsNeeded = skillPointsNeeded;
+    ri->m_sciencePurchasePointsGranted = sciencePurchasePointsGranted;
+    for (const std::string &g : sciencesGranted)
+        ri->m_sciencesGranted.push_back(w->nameKeys.nameToKey(g));
+    m_rankInfos.push_back(ri);
+}
+
+const RankInfoT *RankStoreT::getRankInfo(int level) const
+{
+    if (level >= 1 && level <= getRankLevelCount()) {
+        return m_rankInfos[(size_t)(level - 1)];
+    }
+    return nullptr;
+}
+
+// ---- Player.cpp's progression half ------------------------------------------
+
+// Player.h's ScienceAvailabilityType.
+enum ScienceAvailabilityTypeT {
+    SCIENCE_AVAILABILITY_INVALID = -1,
+    SCIENCE_AVAILABLE = 0,
+    SCIENCE_DISABLED = 1,
+    SCIENCE_HIDDEN = 2,
+};
+
+void PlayerT::setScienceAvailability(unsigned science, int type)
+{
+    // First remove it from disabled sciences if it's there.
+    bool found = false;
+    for (size_t i = 0; i < m_sciencesDisabled.size(); ++i) {
+        if (m_sciencesDisabled[i] == science) {
+            m_sciencesDisabled.erase(m_sciencesDisabled.begin() + (long)i);
+            found = true;
+            break;
+        }
+    }
+    if (!found) {
+        // If still not found, remove it from hidden sciences if it's there.
+        for (size_t i = 0; i < m_sciencesHidden.size(); ++i) {
+            if (m_sciencesHidden[i] == science) {
+                m_sciencesHidden.erase(m_sciencesHidden.begin() + (long)i);
+                found = true;
+                break;
+            }
+        }
+    }
+
+    // At this point, this science shouldn't be disabled nor hidden!
+    if (type == SCIENCE_DISABLED) {
+        // Add science to disabled vec.
+        m_sciencesDisabled.push_back(science);
+    } else if (type == SCIENCE_HIDDEN) {
+        // Add science to hidden vec.
+        m_sciencesHidden.push_back(science);
+    } else if (type == SCIENCE_AVAILABLE) {
+        // Do nothing, because being available means that the science isn't in one of the hidden or disabled vecs.
+    }
+}
+
+bool PlayerT::addScience(unsigned science, World *w)
+{
+    if (hasScience(science))
+        return false;
+
+    m_sciences.push_back(science);
+
+    // 'wake up' any special powers controlled by, well, stuff — the
+    // team/member/behavior walk finds no special-power modules yet (the
+    // module framework slice's; TheControlBar's markUIDirty is the client's)
+
+    // notify the script engine
+    w->hooks.tev(GameLogicHooks::TEV_ACQUIRED_SCIENCE, m_playerIndex, (int)science);
+
+    return true;
+}
+
+bool PlayerT::hasPrereqsForScience(unsigned t, World *w) const
+{
+    return w->scienceStore.playerHasPrereqsForScience(this, t);
+}
+
+bool PlayerT::addSkillPoints(int delta, World *w)
+{
+    delta = (int)REAL_TO_INT_CEIL(m_skillPointsModifier * (float)delta);
+
+    if (delta == 0)
+        return false;
+
+    int levelCap = std::min(w->logic.getRankLevelLimit(), w->rankStore.getRankLevelCount());
+    int pointCap = w->rankStore.getRankInfo(levelCap)->m_skillPointsNeeded; // Cap at lowest point of cap level, not highest.
+
+    bool levelGained = false;
+    m_skillPoints = std::min(pointCap, (m_skillPoints + delta));
+    while (m_skillPoints >= m_levelUp) {
+        // LevelUp gets increased as a side effect of setRankLevel, and this won't infinitely loop,
+        // because when there are no more levels to be gained, m_levelUp is set to INT_MAX.
+        setRankLevel(m_rankLevel + 1, w);
+        levelGained = true;
+    }
+
+    return levelGained;
+}
+
+void PlayerT::resetSciences(World *w)
+{
+    m_sciences.clear();
+
+    if (!m_intrinsicSciences.empty())
+        m_sciences = m_intrinsicSciences;
+
+    for (int i = 1; i <= m_rankLevel; ++i) {
+        const RankInfoT *rank = w->rankStore.getRankInfo(i);
+        if (rank) {
+            for (unsigned it : rank->m_sciencesGranted) {
+                addScience(it, w);
+            }
+        }
+    }
+
+    for (unsigned it : m_sciences)
+        w->hooks.tev(GameLogicHooks::TEV_ACQUIRED_SCIENCE, m_playerIndex, (int)it);
+}
+
+void PlayerT::resetRank(World *w)
+{
+    m_rankLevel = 1;
+    m_skillPoints = 0;
+    const RankInfoT *nextRank = w->rankStore.getRankInfo(m_rankLevel + 1);
+    m_levelUp = nextRank ? nextRank->m_skillPointsNeeded : INT_MAX;
+    m_levelDown = 0;
+    m_sciences.clear();
+    m_sciencePurchasePoints = m_intrinsicSPP;
+    // (m_generalName = TheGameText->fetch("SCIENCE:GeneralName") — the client's)
+    const RankInfoT *curRank = w->rankStore.getRankInfo(m_rankLevel);
+    if (curRank)
+        m_sciencePurchasePoints += curRank->m_sciencePurchasePointsGranted;
+    resetSciences(w);
+}
+
+bool PlayerT::setRankLevel(int newLevel, World *w)
+{
+    if (newLevel < 1)
+        newLevel = 1;
+    else if (newLevel > w->rankStore.getRankLevelCount())
+        newLevel = w->rankStore.getRankLevelCount();
+
+    if (newLevel > w->logic.getRankLevelLimit())
+        newLevel = w->logic.getRankLevelLimit();
+
+    if (newLevel == m_rankLevel)
+        return false;
+
+    int oldSPP = m_sciencePurchasePoints;
+
+    if (newLevel < m_rankLevel) {
+        // when downgrading in rank, you lose everything. oh well...
+        resetRank(w);
+    }
+
+    for (int i = m_rankLevel + 1; i <= newLevel; ++i) {
+        const RankInfoT *rank = w->rankStore.getRankInfo(i);
+        // (DEBUG_ASSERTCRASH(rank, ("rank should never be null here")) — the clamps guarantee it)
+        if (rank) {
+            // do this directly, so we can defer the UI notification till the end
+            m_sciencePurchasePoints += rank->m_sciencePurchasePointsGranted;
+            if (m_sciencePurchasePoints < 0)
+                m_sciencePurchasePoints = 0;
+
+            if (m_skillPoints < rank->m_skillPointsNeeded)
+                m_skillPoints = rank->m_skillPointsNeeded;
+
+            for (unsigned it : rank->m_sciencesGranted) {
+                addScience(it, w);
+            }
+
+            m_levelDown = rank->m_skillPointsNeeded;
+        }
+    }
+
+    const RankInfoT *nextRank = w->rankStore.getRankInfo(newLevel + 1);
+    m_levelUp = nextRank ? nextRank->m_skillPointsNeeded : INT_MAX;
+    m_rankLevel = newLevel;
+
+    // (DEBUG_ASSERTCRASH(m_skillPoints >= m_levelDown && m_skillPoints < m_levelUp)
+    // — debug-only; the EVA sound and TheControlBar's notifications — the client's)
+    (void)oldSPP;
+
+    return true;
+}
+
+void PlayerT::addSciencePurchasePoints(int delta)
+{
+    int oldSPP = m_sciencePurchasePoints;
+    m_sciencePurchasePoints += delta;
+    if (m_sciencePurchasePoints < 0)
+        m_sciencePurchasePoints = 0;
+
+    // (TheControlBar->onPlayerSciencePurchasePointsChanged — the client's)
+    (void)oldSPP;
+}
+
+bool PlayerT::attemptToPurchaseScience(unsigned science, World *w)
+{
+    if (!isCapableOfPurchasingScience(science, w)) {
+        // (DEBUG_CRASH(("isCapableOfPurchasingScience: need other
+        // prereqs/points to purchase, request is ignored!")) — stated)
+        return false;
+    }
+
+    int cost = w->scienceStore.getSciencePurchaseCost(science);
+    addSciencePurchasePoints(-cost);
+    addScience(science, w);
+
+    // getAcademyStats()->recordGeneralsPointsSpent(cost)
+    w->hooks.tev(GameLogicHooks::TEV_ACADEMY_SPENT, m_playerIndex, cost);
+
+    // (TheControlBar->markUIDirty() for the local player — the client's)
+
+    return true;
+}
+
+bool PlayerT::grantScience(unsigned science, World *w)
+{
+    if (!w->scienceStore.isScienceGrantable(science)) {
+        // ("it's not grantable, so tough, can't have it, even via this method."; stated)
+        return false;
+    }
+
+    return addScience(science, w);
+}
+
+bool PlayerT::isCapableOfPurchasingScience(unsigned science, World *w) const
+{
+    // (SCIENCE_INVALID = 0 — the no-science sentinel)
+    if (science == 0) {
+        return false;
+    }
+
+    if (hasScience(science)) {
+        return false;
+    }
+
+    if (isScienceDisabled(science) || isScienceHidden(science)) {
+        return false;
+    }
+
+    if (!hasPrereqsForScience(science, w)) {
+        return false;
+    }
+
+    int cost = w->scienceStore.getSciencePurchaseCost(science);
+    // purchase cost of zero means "not purchasable!"
+    if (cost == 0 || cost > m_sciencePurchasePoints) {
+        return false;
+    }
+
+    return true;
+}
+
+// Player.cpp's doPowerDisable (the brownout sweep's per-object body).
+static void doPowerDisable(ObjectT *obj, void *userData, World *w)
+{
+    bool disabling = *((bool *)userData);
+    if (obj && obj->isKindOfPowered()) {
+        if (disabling)
+            w->setDisabled(obj, DISABLED_UNDERPOWERED); // setDisabled has a pauseAllSpecialPowers that prevents double pausing
+        else
+            w->clearDisabled(obj, DISABLED_UNDERPOWERED);
+    }
+}
+
+void PlayerT::onPowerBrownOutChange(bool brownOut, World *w)
+{
+    // Everything that changes due to Player's power supply goes in here.
+    if (brownOut)
+        disableRadar();
+    else
+        enableRadar(); // This doesn't give radar necessarily, it just removes the restriction
+
+    // iterateObjects(doPowerDisable, &brownOut) — Player::iterateObjects's
+    // team-prototype → instance → member walk (newest first)
+    for (TeamProtoT *tp : m_playerTeamPrototypes) {
+        for (auto it = tp->m_instances.rbegin(); it != tp->m_instances.rend(); ++it) {
+            TeamT *team = *it;
+            if (!team)
+                continue;
+            for (auto mit = team->m_members.rbegin(); mit != team->m_members.rend(); ++mit) {
+                ObjectT *obj = *mit;
+                if (!obj)
+                    continue;
+                doPowerDisable(obj, &brownOut, w);
+            }
+        }
+    }
+}
+
 struct Dumper {
     FILE *out;
 
@@ -5730,6 +6661,10 @@ static const char *tevName(int e)
     case GameLogicHooks::TEV_CAPTURE: return "capture";
     case GameLogicHooks::TEV_TEAM_SCRIPT: return "script";
     case GameLogicHooks::TEV_TEAM_DESTROYED: return "teamdestroyed";
+    case GameLogicHooks::TEV_MONEY_AUDIO: return "moneyaudio";
+    case GameLogicHooks::TEV_ACADEMY_INCOME: return "income";
+    case GameLogicHooks::TEV_ACADEMY_SPENT: return "spent";
+    case GameLogicHooks::TEV_ACQUIRED_SCIENCE: return "science";
     default: return "?";
     }
 }
@@ -5770,16 +6705,32 @@ static void dumpPlayers(Dumper &d, World &w)
            w.playerList.m_local ? w.playerList.m_local->m_playerIndex : -1);
     for (int i = 0; i < MAX_PLAYER_COUNT; i++) {
         PlayerT *p = w.playerList.m_players[i];
-        d.line("pl %d name=%s key=%u type=%d dead=%d obs=%d act=%d dflt=%u slot=%d npr=%d",
+        d.line("pl %d name=%s key=%u type=%d dead=%d obs=%d act=%d dflt=%u slot=%d npr=%d "
+               "cash=%u cpm=%u bkt=%u rank=%d skp=%d spp=%d lup=%d ldn=%d nsci=%d:%d:%d "
+               "rad=%d,%d,%d nrg=%d,%d,%u",
                i, p->m_playerName.c_str(), p->m_playerNameKey, (int)p->m_playerType,
                p->m_isPlayerDead ? 1 : 0, p->m_observer ? 1 : 0, p->isPlayerActive() ? 1 : 0,
-               p->m_defaultTeam, w.playerListGetSlotIndex(i), (int)p->m_playerTeamPrototypes.size());
+               p->m_defaultTeam, w.playerListGetSlotIndex(i), (int)p->m_playerTeamPrototypes.size(),
+               p->m_money.m_money, p->m_money.m_cashPerMinute, p->m_money.m_currentBucket,
+               p->m_rankLevel, p->m_skillPoints, p->m_sciencePurchasePoints,
+               p->m_levelUp, p->m_levelDown,
+               (int)p->m_sciences.size(), (int)p->m_sciencesDisabled.size(),
+               (int)p->m_sciencesHidden.size(),
+               p->m_radarCount, p->m_disableProofRadarCount, p->m_radarDisabled ? 1 : 0,
+               p->m_energy.m_energyProduction, p->m_energy.m_energyConsumption,
+               p->m_energy.m_powerSabotagedTillFrame);
         for (const auto &kv : p->m_playerRelations)
             d.line("pr %d->%d %s", i, kv.first, relationshipName(kv.second));
         for (const auto &kv : p->m_teamRelations)
             d.line("tr %d->t%u %s", i, kv.first, relationshipName(kv.second));
         for (size_t j = 0; j < p->m_playerTeamPrototypes.size(); ++j)
             d.line("pt %d %d tp%u", i, (int)j, p->m_playerTeamPrototypes[j]->m_id);
+        for (unsigned sci : p->m_sciences)
+            d.line("ps %d %u", i, sci);
+        for (unsigned sci : p->m_sciencesDisabled)
+            d.line("psd %d %u", i, sci);
+        for (unsigned sci : p->m_sciencesHidden)
+            d.line("psh %d %u", i, sci);
     }
     // the slot bookkeeping
     for (int s = 0; s < MAX_SLOTS_T; s++)
@@ -5832,10 +6783,34 @@ static void dumpObjectTeams(Dumper &d, World &w)
 {
     d.line("objteams %d", (int)w.objects.size());
     for (auto &o : w.objects)
-        d.line("ot o%d t%u ctrl=%d vis=%08x ai=%d/%d",
+        d.line("ot o%d t%u ctrl=%d vis=%08x ai=%d/%d enr=%d,%d pwr=%d",
                o->m_id, o->m_team,
                objectControllingPlayer(o.get(), &w) ? objectControllingPlayer(o.get(), &w)->m_playerIndex : -1,
-               f32bits(o->m_visionRange), o->m_hasAi ? 1 : 0, o->m_aiIdle ? 1 : 0);
+               f32bits(o->m_visionRange), o->m_hasAi ? 1 : 0, o->m_aiIdle ? 1 : 0,
+               o->m_energyProduction, o->m_energyBonus, o->isKindOfPowered() ? 1 : 0);
+}
+
+// The money/energy/ranks/sciences block's stores: the catalog in load order
+// (the prereq and root key lists) and the rank ladder.
+static void dumpStores(Dumper &d, World &w)
+{
+    d.line("scistore n=%zu", w.scienceStore.m_sciences.size());
+    for (const ScienceInfoT *si : w.scienceStore.m_sciences) {
+        d.line("sc %u cost=%d grant=%d", si->m_science, si->m_sciencePurchasePointCost,
+               si->m_grantable ? 1 : 0);
+        for (unsigned p : si->m_prereqSciences)
+            d.line("scp %u %u", si->m_science, p);
+        for (unsigned r : si->m_rootSciences)
+            d.line("scr %u %u", si->m_science, r);
+    }
+    d.line("rankstore n=%d", w.rankStore.getRankLevelCount());
+    for (int i = 1; i <= w.rankStore.getRankLevelCount(); ++i) {
+        const RankInfoT *ri = w.rankStore.getRankInfo(i);
+        d.line("rk %d spn=%d spp=%d", i, ri->m_skillPointsNeeded,
+               ri->m_sciencePurchasePointsGranted);
+        for (unsigned g : ri->m_sciencesGranted)
+            d.line("rkg %d %u", i, g);
+    }
 }
 
 // ============================================================================
@@ -7874,6 +8849,533 @@ static void corpusQueryIterate(Dumper &d)
 }
 
 
+// --- purse_money: the Money lifecycle — the starting-cash reset, the
+// deposit/withdraw families (the clamps, the audio hooks, the tracked and
+// untracked forms, the academy hooks, the stale player-index quirk), the
+// income-bucket rollover at the second boundaries, and the unsigned wrap.
+static void corpusPurseMoney(Dumper &d)
+{
+    d.line("corpus purse_money");
+    World &w = freshWorld(10.0f, Region2DT{0, 0, 100, 100});
+
+    // the neutral init left player 1's Money player index at the CTOR's 0
+    // (the neutral branch never re-sets it) — the stale-index quirk
+    w.playerList.m_players[1]->m_money.deposit(400, false, false, &w);
+    w.playerList.m_players[1]->m_money.setPlayerIndex(1);
+    w.playerList.m_players[1]->m_money.deposit(400, false, true, &w);
+    dumpTeamEvents(d, w);
+
+    // the starting-cash reset wipes the wallet AND the income tracking
+    w.playerList.m_players[1]->m_money.setStartingCash(10000);
+    d.line("start %u %u", w.playerList.m_players[1]->m_money.countMoney(),
+           w.playerList.m_players[1]->m_money.getCashPerMinute());
+
+    // the withdraw family: the sound, the clamp, the zero
+    unsigned wd = w.playerList.m_players[1]->m_money.withdraw(3000, true, &w);
+    d.line("wd %u", wd);
+    wd = w.playerList.m_players[1]->m_money.withdraw(99999, true, &w);
+    d.line("wd %u", wd);
+    wd = w.playerList.m_players[1]->m_money.withdraw(0, true, &w);
+    d.line("wd %u", wd);
+    wd = w.playerList.m_players[1]->m_money.withdraw(500, false, &w);
+    d.line("wd %u %u", wd, w.playerList.m_players[1]->m_money.countMoney());
+
+    // the deposit family: tracked (the bucket + the per-minute), untracked
+    // (neither), the zero refusal, the audio
+    w.playerList.m_players[1]->m_money.deposit(2000, true, true, &w);
+    w.playerList.m_players[1]->m_money.deposit(0, true, true, &w);
+    w.playerList.m_players[1]->m_money.deposit(7, false, false, &w);
+    dumpTeamEvents(d, w);
+    d.line("cash %u %u %u", w.playerList.m_players[1]->m_money.countMoney(),
+           w.playerList.m_players[1]->m_money.getCashPerMinute(),
+           w.playerList.m_players[1]->m_money.m_currentBucket);
+
+    // amountEqual (everything but the index)
+    {
+        MoneyT that;
+        that.setStartingCash(w.playerList.m_players[1]->m_money.countMoney());
+        d.line("eq %d", w.playerList.m_players[1]->m_money.amountEqual(that) ? 1 : 0);
+        that.setStartingCash(1);
+        d.line("eq %d", w.playerList.m_players[1]->m_money.amountEqual(that) ? 1 : 0);
+    }
+
+    // the income-bucket rollover: deposits land in the frame's SECOND bucket;
+    // the rollover zeroes the aged bucket and drops its sum from the
+    // per-minute. Frames 0 (bucket 0), 29 (still 0), 30 (bucket 1), 59,
+    // 60 (bucket 2), 1799 (bucket 59), 1800 (the wrap to bucket 0 — the
+    // 60-second-old sum leaves).
+    w.playerList.m_players[1]->m_money.setStartingCash(0);
+    w.playerList.m_players[1]->m_money.deposit(100, false, true, &w);
+    w.logic.m_frame = 29;
+    w.playerListUpdate();
+    w.playerList.m_players[1]->m_money.deposit(50, false, true, &w);
+    d.line("cpm %u", w.playerList.m_players[1]->m_money.getCashPerMinute());
+    w.logic.m_frame = 30;
+    w.playerListUpdate();
+    w.playerList.m_players[1]->m_money.deposit(10, false, true, &w);
+    d.line("cpm %u", w.playerList.m_players[1]->m_money.getCashPerMinute());
+    w.logic.m_frame = 60;
+    w.playerListUpdate();
+    d.line("cpm %u", w.playerList.m_players[1]->m_money.getCashPerMinute());
+    w.logic.m_frame = 1799;
+    w.playerListUpdate();
+    d.line("cpm %u bkt=%u", w.playerList.m_players[1]->m_money.getCashPerMinute(),
+           w.playerList.m_players[1]->m_money.m_currentBucket);
+    w.logic.m_frame = 1800;
+    w.playerListUpdate();
+    d.line("cpm %u bkt=%u", w.playerList.m_players[1]->m_money.getCashPerMinute(),
+           w.playerList.m_players[1]->m_money.m_currentBucket);
+    dumpTeamEvents(d, w);
+
+    // the unsigned wrap: the wallet and the buckets are UnsignedInt — the
+    // adds wrap (defined behaviour in the original)
+    w.playerList.m_players[1]->m_money.setStartingCash(4294967195u); // u32::MAX - 100
+    w.playerList.m_players[1]->m_money.deposit(200, false, false, &w);
+    d.line("wrap %u", w.playerList.m_players[1]->m_money.countMoney());
+
+    // the academy hook's bounds refusal (getNthPlayer: 0..15 only)
+    w.playerList.m_players[2]->m_money.setStartingCash(0);
+    w.playerList.m_players[2]->m_money.setPlayerIndex(-1);
+    w.playerList.m_players[2]->m_money.deposit(5, false, false, &w);
+    w.playerList.m_players[2]->m_money.setPlayerIndex(99);
+    w.playerList.m_players[2]->m_money.deposit(5, false, false, &w);
+    w.playerList.m_players[2]->m_money.setPlayerIndex(15);
+    w.playerList.m_players[2]->m_money.deposit(5, false, false, &w);
+    dumpTeamEvents(d, w);
+
+    dumpPlayers(d, w);
+    d.line("end");
+}
+
+// --- purse_energy: the Energy family — the influence walks (the producers
+// and the consumers), the adjustPower sign matrix, the brownout transitions
+// (the radar restriction and the UNDERPOWERED sweep over the POWERED
+// members), the sabotage gate and its expiry, the power bonus with the
+// disabled-plant refusal, and the supply ratio's zero-consumption branch.
+static void corpusPurseEnergy(Dumper &d)
+{
+    d.line("corpus purse_energy");
+    World &w = freshWorld(10.0f, Region2DT{0, 0, 100, 100});
+
+    // the 3-side world with the default teams (p1 human+local)
+    SidesSpecT sides;
+    sides.sides = {sideSpec("", false, false, false), sideSpec("p1", true, false, false),
+                   sideSpec("p2", false, false, false)};
+    sides.teams = {teamSpec("team", "", true), teamSpec("teamp1", "p1", true),
+                   teamSpec("teamp2", "p2", true), teamSpec("p1squad", "p1", false)};
+    w.playerListNewGame(sides);
+
+    // the power objects: two producers (one POWERED-kindof, one not), two
+    // consumers (both POWERED), a bonus carrier
+    GeometryInfoT g; // the sphere default
+    ObjectT *plant = w.createObject(g, false, 0, {}, Coord3D{10, 10, 0}, 0.0f, {}, 0, true, 30, 25);
+    ObjectT *bunker = w.createObject(g, false, 0, {}, Coord3D{20, 10, 0}, 0.0f, {}, 0, false, 30, 0);
+    ObjectT *airfield = w.createObject(g, false, 0, {}, Coord3D{30, 10, 0}, 0.0f, {}, 0, true, -20, 0);
+    ObjectT *factory = w.createObject(g, false, 0, {}, Coord3D{40, 10, 0}, 0.0f, {}, 0, true, -15, 0);
+    ObjectT *rodPlant = w.createObject(g, false, 0, {}, Coord3D{50, 10, 0}, 0.0f, {}, 0, true, 10, 50);
+
+    // put them on p1's teams (the sweep walks the team topology):
+    // plant+bunker+rodPlant on the default team, airfield+factory on the
+    // squad
+    PlayerT *p1 = w.playerList.getNthPlayer(1);
+    TeamT *squad = w.teamFactory.findTeam("p1squad", &w);
+    TeamT *dflt = teamByID(&w, p1->m_defaultTeam);
+    objectSetTeam(airfield, squad, &w);
+    objectSetTeam(factory, squad, &w);
+    objectSetTeam(plant, dflt, &w);
+    objectSetTeam(bunker, dflt, &w);
+    objectSetTeam(rodPlant, dflt, &w);
+
+    // radar: p1 has two radars, one disable-proof (hasRadar survives a
+    // brownout)
+    p1->addRadar(false);
+    p1->addRadar(true);
+
+    // the influence walks: 30 production first (sufficient — the enable
+    // no-op), then the consumers
+    p1->m_energy.objectEnteringInfluence(plant, &w);
+    p1->m_energy.objectEnteringInfluence(bunker, &w);
+    d.line("nrg %d %d suff=%d", p1->m_energy.getProduction(&w), p1->m_energy.m_energyConsumption,
+           p1->m_energy.hasSufficientPower(&w) ? 1 : 0);
+    p1->m_energy.objectEnteringInfluence(airfield, &w);
+    d.line("nrg %d %d suff=%d", p1->m_energy.getProduction(&w), p1->m_energy.m_energyConsumption,
+           p1->m_energy.hasSufficientPower(&w) ? 1 : 0);
+    dumpPlayers(d, w);
+
+    // the brownout: the second consumer crosses the line — the radar
+    // restriction (the disable-proof count saves hasRadar) and the
+    // UNDERPOWERED sweep over the POWERED members (the squad's and the
+    // default team's, newest first; bunker is not POWERED)
+    p1->m_energy.objectEnteringInfluence(factory, &w);
+    d.line("nrg %d %d suff=%d radar=%d", p1->m_energy.getProduction(&w), p1->m_energy.m_energyConsumption,
+           p1->m_energy.hasSufficientPower(&w) ? 1 : 0, p1->hasRadar() ? 1 : 0);
+    dumpRegistry(d, w);
+    dumpTeamEvents(d, w);
+
+    // the supply ratio: the zero-consumption branch is the raw production
+    d.line("ratio %08x", f32bits(p1->m_energy.getEnergySupplyRatio(&w)));
+    p1->m_energy.objectLeavingInfluence(factory, &w);
+    d.line("nrg %d %d suff=%d radar=%d", p1->m_energy.getProduction(&w), p1->m_energy.m_energyConsumption,
+           p1->m_energy.hasSufficientPower(&w) ? 1 : 0, p1->hasRadar() ? 1 : 0);
+    d.line("ratio %08x", f32bits(p1->m_energy.getEnergySupplyRatio(&w)));
+
+    // the adjustPower sign matrix ("consumption is reversed. Negative power
+    // is positive consumption.")
+    p1->m_energy.adjustPower(5, true, &w);   // +production
+    d.line("adj %d %d", p1->m_energy.m_energyProduction, p1->m_energy.m_energyConsumption);
+    p1->m_energy.adjustPower(5, false, &w);  // -production
+    d.line("adj %d %d", p1->m_energy.m_energyProduction, p1->m_energy.m_energyConsumption);
+    p1->m_energy.adjustPower(-5, true, &w);  // +consumption
+    d.line("adj %d %d", p1->m_energy.m_energyProduction, p1->m_energy.m_energyConsumption);
+    p1->m_energy.adjustPower(-5, false, &w); // -consumption
+    d.line("adj %d %d", p1->m_energy.m_energyProduction, p1->m_energy.m_energyConsumption);
+    p1->m_energy.adjustPower(0, true, &w);   // the zero refusal
+    d.line("adj %d %d", p1->m_energy.m_energyProduction, p1->m_energy.m_energyConsumption);
+
+    // the power bonus and the disabled-plant refusal (Caball009 14/11/2025)
+    p1->m_energy.addPowerBonus(rodPlant, &w);
+    d.line("bonus %d", p1->m_energy.m_energyProduction);
+    w.setDisabled(rodPlant, DISABLED_DEFAULT);
+    p1->m_energy.removePowerBonus(rodPlant, &w); // refused — the plant is disabled
+    d.line("bonus %d", p1->m_energy.m_energyProduction);
+    w.clearDisabled(rodPlant, DISABLED_DEFAULT);
+    p1->m_energy.removePowerBonus(rodPlant, &w);
+    d.line("bonus %d", p1->m_energy.m_energyProduction);
+
+    // the sabotage gate: production 0, ratio 0, insufficient — and the
+    // expiry through Player::update (frame > till, the strict >)
+    p1->m_energy.setPowerSabotagedTillFrame(100);
+    d.line("sab %d %d ratio=%08x", p1->m_energy.getProduction(&w),
+           p1->m_energy.hasSufficientPower(&w) ? 1 : 0, f32bits(p1->m_energy.getEnergySupplyRatio(&w)));
+    w.logic.m_frame = 100;
+    w.playerListUpdate(); // == till: not yet
+    d.line("sab %d", p1->m_energy.getPowerSabotagedTillFrame());
+    w.logic.m_frame = 101;
+    w.playerListUpdate(); // > till: the clear + the brownout re-derivation
+    d.line("sab %d suff=%d", p1->m_energy.getPowerSabotagedTillFrame(),
+           p1->m_energy.hasSufficientPower(&w) ? 1 : 0);
+
+    dumpRegistry(d, w);
+    dumpObjectTeams(d, w);
+    dumpPlayers(d, w);
+    dumpTeamEvents(d, w);
+    d.line("end");
+}
+
+// --- purse_ranks: the rank ladder — the init resetRank (level 1, the SPP
+// grants, the double-notify of the rank-1 sciences), addSkillPoints (the
+// modifier's ceil, the point cap, the level-up loop with the INT_MAX
+// sentinel), setRankLevel up and DOWN (the lose-everything wipe), the rank
+// limit clamp, and the negative-point edge.
+static void corpusPurseRanks(Dumper &d)
+{
+    d.line("corpus purse_ranks");
+    World &w = freshWorld(10.0f, Region2DT{0, 0, 100, 100});
+
+    // the ladder: 5 levels; the sciences each grants (the keys intern in
+    // load order — science store first, then the rank names)
+    w.scienceStore.load("Rank1", {}, 0, false, &w);
+    w.scienceStore.load("Rank2", {"Rank1"}, 0, false, &w);
+    w.scienceStore.load("Rank3", {"Rank2"}, 0, false, &w);
+    w.scienceStore.load("Rank4", {"Rank3"}, 0, false, &w);
+    w.scienceStore.load("Rank5", {"Rank4"}, 0, false, &w);
+    w.rankStore.load(0, 1, {"Rank1"}, &w);
+    w.rankStore.load(100, 1, {"Rank2"}, &w);
+    w.rankStore.load(300, 2, {"Rank3"}, &w);
+    w.rankStore.load(600, 3, {"Rank4"}, &w);
+    w.rankStore.load(1000, 4, {"Rank5"}, &w);
+    dumpStores(d, w);
+
+    // the re-init with the loaded ladder: every slot's resetRank grants
+    // rank 1's science (the notify fires TWICE — addScience, then the
+    // resetSciences tail)
+    w.playerListReset();
+    dumpTeamEvents(d, w);
+    {
+        PlayerT *p1 = w.playerList.getNthPlayer(1);
+        d.line("rank %d %d %d %d %d", p1->m_rankLevel, p1->m_skillPoints, p1->m_sciencePurchasePoints,
+               p1->m_levelUp, p1->m_levelDown);
+    }
+
+    PlayerT *p1 = w.playerList.getNthPlayer(1);
+
+    // 99 points: the Hoffesommer ceil's quirk makes exact integers land
+    // one high (99 + ALMOST1 rounds to 100), so this DOES reach level 2 —
+    // the pinned XP arithmetic the corpora expose
+    d.line("sk %d", p1->addSkillPoints(99, &w) ? 1 : 0);
+    d.line("rank %d %d", p1->m_rankLevel, p1->m_skillPoints);
+    // +1 (lands as 2 — the same ceil quirk): level 2's grants
+    d.line("sk %d", p1->addSkillPoints(1, &w) ? 1 : 0);
+    d.line("rank %d %d %d %d %d nsci=%zu", p1->m_rankLevel, p1->m_skillPoints, p1->m_sciencePurchasePoints,
+           p1->m_levelUp, p1->m_levelDown, p1->m_sciences.size());
+    // +200: level 3 at 300 points
+    d.line("sk %d", p1->addSkillPoints(200, &w) ? 1 : 0);
+    d.line("rank %d %d %d", p1->m_rankLevel, p1->m_skillPoints, p1->m_sciencePurchasePoints);
+    // +700: straight to the ladder's top (1000) — levelUp becomes INT_MAX
+    d.line("sk %d", p1->addSkillPoints(700, &w) ? 1 : 0);
+    d.line("rank %d %d %d %d", p1->m_rankLevel, p1->m_skillPoints, p1->m_levelUp, p1->m_levelDown);
+    // past the top: the INT_MAX sentinel ends the loop, the point cap holds
+    d.line("sk %d", p1->addSkillPoints(5000, &w) ? 1 : 0);
+    d.line("rank %d %d", p1->m_rankLevel, p1->m_skillPoints);
+    dumpTeamEvents(d, w);
+
+    // the modifier's ceil (REAL_TO_INT_CEIL of the product): 1.5*3 = 4.5
+    // → 5; 0.5*3 = 1.5 → 2; 0*x → 0 (the no-op)
+    p1->resetRank(&w);
+    p1->m_skillPointsModifier = 1.5f;
+    d.line("sk %d", p1->addSkillPoints(3, &w) ? 1 : 0);
+    d.line("skp %d", p1->m_skillPoints);
+    p1->resetRank(&w);
+    p1->m_skillPointsModifier = 0.5f;
+    d.line("sk %d", p1->addSkillPoints(3, &w) ? 1 : 0);
+    d.line("skp %d", p1->m_skillPoints);
+    p1->m_skillPointsModifier = 0.0f;
+    d.line("sk %d", p1->addSkillPoints(100, &w) ? 1 : 0);
+    d.line("skp %d", p1->m_skillPoints);
+    p1->m_skillPointsModifier = 1.0f;
+
+    // the negative edge: points drop, the level stays (the loop only
+    // fires on >=)
+    p1->resetRank(&w);
+    p1->addSkillPoints(350, &w); // level 3
+    d.line("neg %d %d", p1->m_rankLevel, p1->m_skillPoints);
+    p1->addSkillPoints(-250, &w);
+    d.line("neg %d %d", p1->m_rankLevel, p1->m_skillPoints);
+
+    // the downgrade: "you lose everything. oh well..." — resetRank then the
+    // re-grant walk; the SPP is rebuilt, the purchased... the sciences
+    // re-granted through the target level only
+    d.line("down %d", p1->setRankLevel(2, &w) ? 1 : 0);
+    d.line("rank %d %d %d nsci=%zu", p1->m_rankLevel, p1->m_skillPoints, p1->m_sciencePurchasePoints,
+           p1->m_sciences.size());
+    dumpTeamEvents(d, w);
+
+    // the no-change refusal and the clamps
+    d.line("same %d", p1->setRankLevel(2, &w) ? 1 : 0);
+    d.line("clamp %d", p1->setRankLevel(99, &w) ? 1 : 0);
+    d.line("rank %d", p1->m_rankLevel);
+    d.line("clamp %d", p1->setRankLevel(0, &w) ? 1 : 0);
+    d.line("rank %d", p1->m_rankLevel);
+
+    // the rank limit: the ladder says 5, the limit says 3
+    p1->setRankLevel(5, &w);
+    d.line("rank %d", p1->m_rankLevel);
+    w.logic.setRankLevelLimit(3);
+    d.line("limit %d", p1->setRankLevel(4, &w) ? 1 : 0);
+    d.line("rank %d", p1->m_rankLevel);
+    p1->setRankLevel(1, &w);
+    d.line("sk %d", p1->addSkillPoints(10000, &w) ? 1 : 0);
+    d.line("rank %d %d (limit=3: the level-up loop stops, the points cap at the ladder's top)",
+           p1->m_rankLevel, p1->m_skillPoints);
+    dumpTeamEvents(d, w);
+
+    dumpPlayers(d, w);
+    d.line("end");
+}
+
+// --- purse_sciences: the science catalog and the purchase family — the
+// load order, the root computation (the parse-order quirk: a prereq loaded
+// later is invisible to the earlier science's roots; an unknown prereq is
+// skipped), the purchasable walk, the purchase gate chain (the cost-0
+// refusal, the prereqs, the points, the script availability), grantScience's
+// non-grantable refusal, and the double-notify of resetSciences.
+static void corpusPurseSciences(Dumper &d)
+{
+    d.line("corpus purse_sciences");
+    World &w = freshWorld(10.0f, Region2DT{0, 0, 100, 100});
+
+    // the catalog: A a purchasable root; B on A; C on B; D a cost-0 root
+    // ("cannot be purchased"); E non-grantable but purchasable; F with an
+    // UNKNOWN prereq; G loaded before its prereq C (the parse-order root
+    // quirk — G's roots miss C)
+    w.scienceStore.load("SciA", {}, 1, true, &w);
+    w.scienceStore.load("SciB", {"SciA"}, 2, true, &w);
+    w.scienceStore.load("SciC", {"SciB"}, 3, true, &w);
+    w.scienceStore.load("SciD", {}, 0, true, &w);
+    w.scienceStore.load("SciE", {}, 1, false, &w);
+    w.scienceStore.load("SciF", {"NoSuchScience"}, 1, true, &w);
+    w.scienceStore.load("SciG", {"SciC"}, 1, true, &w);
+    w.scienceStore.load("SciC", {"SciB"}, 3, true, &w); // (a duplicate — the distilled catalog trusts; the second entry is what the walks see first)
+    dumpStores(d, w);
+
+    // the queries over an unknown science
+    unsigned nosuch = w.nameKeys.nameToKey("NoSuchScience");
+    d.line("unknown valid=%d grant=%d cost=%d", w.scienceStore.isValidScience(nosuch) ? 1 : 0,
+           w.scienceStore.isScienceGrantable(nosuch) ? 1 : 0, w.scienceStore.getSciencePurchaseCost(nosuch));
+
+    // the purchasable walk for a science-less player
+    PlayerT *p1 = w.playerList.getNthPlayer(1);
+    {
+        std::vector<unsigned> purchasable, potentially;
+        w.scienceStore.getPurchasableSciences(p1, purchasable, potentially);
+        d.line("walk n=%zu n=%zu", purchasable.size(), potentially.size());
+        for (unsigned sci : purchasable)
+            d.line("can %u", sci);
+        for (unsigned sci : potentially)
+            d.line("pot %u", sci);
+    }
+
+    // the SPP adds and the purchase gate chain
+    p1->addSciencePurchasePoints(3);
+    d.line("spp %d", p1->m_sciencePurchasePoints);
+    d.line("buy %d", p1->attemptToPurchaseScience(w.nameKeys.nameToKey("SciD"), &w) ? 1 : 0); // cost 0: not purchasable
+    d.line("buy %d", p1->attemptToPurchaseScience(nosuch, &w) ? 1 : 0);                       // unknown
+    d.line("buy %d", p1->attemptToPurchaseScience(0, &w) ? 1 : 0);                            // SCIENCE_INVALID
+    d.line("buy %d", p1->attemptToPurchaseScience(w.nameKeys.nameToKey("SciB"), &w) ? 1 : 0); // prereq A missing
+    d.line("buy %d", p1->attemptToPurchaseScience(w.nameKeys.nameToKey("SciA"), &w) ? 1 : 0); // OK (cost 1)
+    d.line("spp %d nsci=%zu", p1->m_sciencePurchasePoints, p1->m_sciences.size());
+    d.line("buy %d", p1->attemptToPurchaseScience(w.nameKeys.nameToKey("SciB"), &w) ? 1 : 0); // OK (cost 2)
+    d.line("spp %d", p1->m_sciencePurchasePoints);
+    d.line("buy %d", p1->attemptToPurchaseScience(w.nameKeys.nameToKey("SciB"), &w) ? 1 : 0); // already owned
+    d.line("buy %d", p1->attemptToPurchaseScience(w.nameKeys.nameToKey("SciC"), &w) ? 1 : 0); // cost 3 > 0 points
+    p1->addSciencePurchasePoints(-2); // the negative clamp at 0
+    d.line("spp %d", p1->m_sciencePurchasePoints);
+    dumpTeamEvents(d, w);
+
+    // grantScience: the non-grantable refusal (SciE), the grant (a
+    // purchasable-less science is still grantable if flagged)
+    d.line("grant %d", p1->grantScience(w.nameKeys.nameToKey("SciE"), &w) ? 1 : 0);
+    d.line("grant %d", p1->grantScience(w.nameKeys.nameToKey("SciC"), &w) ? 1 : 0);
+    d.line("grant %d", p1->grantScience(nosuch, &w) ? 1 : 0);
+
+    // the prereq/root queries
+    d.line("pre %d", p1->hasPrereqsForScience(w.nameKeys.nameToKey("SciC"), &w) ? 1 : 0);
+    d.line("pre %d", p1->hasPrereqsForScience(w.nameKeys.nameToKey("SciF"), &w) ? 1 : 0);
+    d.line("root %d", w.scienceStore.playerHasRootPrereqsForScience(p1, w.nameKeys.nameToKey("SciB")) ? 1 : 0);
+
+    // the script availability choreography: disable → refuse, hidden →
+    // refuse, available → buy again
+    unsigned scib = w.nameKeys.nameToKey("SciB");
+    d.line("cap %d", p1->isCapableOfPurchasingScience(scib, &w) ? 1 : 0); // owned: no
+    p1->m_sciences.clear();
+    p1->addSciencePurchasePoints(5);
+    d.line("cap %d", p1->isCapableOfPurchasingScience(scib, &w) ? 1 : 0); // prereq A gone: no
+    p1->addScience(w.nameKeys.nameToKey("SciA"), &w);
+    d.line("cap %d", p1->isCapableOfPurchasingScience(scib, &w) ? 1 : 0); // yes
+    p1->setScienceAvailability(scib, SCIENCE_DISABLED);
+    d.line("cap %d", p1->isCapableOfPurchasingScience(scib, &w) ? 1 : 0); // disabled: no
+    p1->setScienceAvailability(scib, SCIENCE_HIDDEN);
+    d.line("cap %d", p1->isCapableOfPurchasingScience(scib, &w) ? 1 : 0); // hidden: no
+    p1->setScienceAvailability(scib, SCIENCE_AVAILABLE);
+    d.line("cap %d", p1->isCapableOfPurchasingScience(scib, &w) ? 1 : 0); // available again
+    d.line("buy %d", p1->attemptToPurchaseScience(scib, &w) ? 1 : 0);
+
+    // the resetSciences double-notify: A is intrinsic (no addScience → one
+    // notify), the rank-granted ones go through addScience AND the tail
+    // (two)
+    p1->m_intrinsicSciences.push_back(w.nameKeys.nameToKey("SciA"));
+    p1->m_rankLevel = 2; // pretend (the rank-2 science SciB is "granted")
+    p1->resetSciences(&w);
+    d.line("nsci %zu", p1->m_sciences.size());
+    dumpTeamEvents(d, w);
+
+    dumpPlayers(d, w);
+    dumpStores(d, w);
+    d.line("end");
+}
+
+// --- purse_roundtrip: the integration corpus — a new_game with template
+// cash and intrinsic sciences over the loaded stores (the zero-wallet
+// deposits, the init-time rank grants with their notifies), objects with
+// energy on teams (the brownout cascade), a money stream across frames
+// (the bucket rollover), and a sabotage that expires mid-run.
+static void corpusPurseRoundtrip(Dumper &d)
+{
+    d.line("corpus purse_roundtrip");
+    World &w = freshWorld(10.0f, Region2DT{0, 0, 100, 100});
+
+    // the stores (loaded BEFORE the new_game — the init walk grants rank 1)
+    w.scienceStore.load("Rank1", {}, 0, false, &w);
+    w.scienceStore.load("Moab", {"Rank1"}, 1, true, &w);
+    w.rankStore.load(0, 1, {"Rank1"}, &w);
+    w.rankStore.load(100, 2, {}, &w);
+    w.rankStore.load(300, 3, {"Rank1"}, &w);
+
+    // the sides: p1 carries template cash; p2's zero wallet takes the
+    // game-info deposit (12000); p3's takes the global default (8000); p1
+    // has the intrinsic science and the intrinsic SPP
+    SidesSpecT sides;
+    SideSpecT s1 = sideSpec("p1", true, false, false);
+    s1.templateCash = 5000;
+    s1.intrinsicSciences = {"Moab"};
+    s1.intrinsicSPP = 2;
+    SideSpecT s2 = sideSpec("p2", false, false, false);
+    SideSpecT s3 = sideSpec("p3", false, false, false);
+    sides.sides = {sideSpec("", false, false, false), s1, s2, s3};
+    sides.teams = {teamSpec("team", "", true), teamSpec("teamp1", "p1", true),
+                   teamSpec("teamp2", "p2", true), teamSpec("teamp3", "p3", true),
+                   teamSpec("p2squad", "p2", false)};
+    sides.hasGameInfo = true;
+    sides.gameInfo.occupiedSlots = {1, 3};
+    sides.gameInfo.startingCash = 12000;
+    sides.defaultStartingCash = 8000;
+    w.playerListNewGame(sides);
+    dumpTeamEvents(d, w);
+    dumpPlayers(d, w);
+
+    // the money stream: p1 spends and earns across frames (the bucket
+    // rollover at 30); p2's supply dock deposits trickle in
+    PlayerT *p1 = w.playerList.getNthPlayer(1);
+    PlayerT *p2 = w.playerList.getNthPlayer(2);
+    for (unsigned f = 1; f <= 45; ++f) {
+        w.logic.m_frame = f;
+        if (f % 5 == 0)
+            p1->m_money.withdraw(200, (f % 10 == 0), &w);
+        if (f % 3 == 0)
+            p2->m_money.deposit(50, false, true, &w);
+        if (f == 30 || f == 45) {
+            d.line("frame %u p1=%u/%u p2=%u/%u", f, p1->m_money.countMoney(),
+                   p1->m_money.getCashPerMinute(), p2->m_money.countMoney(),
+                   p2->m_money.getCashPerMinute());
+        }
+        w.playerListUpdate();
+    }
+    d.line("frame 45 p1=%u/%u p2=%u/%u", p1->m_money.countMoney(), p1->m_money.getCashPerMinute(),
+           p2->m_money.countMoney(), p2->m_money.getCashPerMinute());
+    dumpTeamEvents(d, w);
+
+    // the rank progression: p1 earns the skill points (the level 2 grant)
+    d.line("sk %d", p1->addSkillPoints(150, &w) ? 1 : 0);
+    d.line("rank %d %d %d nsci=%zu", p1->m_rankLevel, p1->m_skillPoints, p1->m_sciencePurchasePoints,
+           p1->m_sciences.size());
+
+    // the power: p2's park browns out, recovers, then is sabotaged and
+    // expires across the frames
+    GeometryInfoT g;
+    ObjectT *plant = w.createObject(g, false, 0, {}, Coord3D{10, 10, 0}, 0.0f, {}, 0, true, 30, 0);
+    ObjectT *lab = w.createObject(g, false, 0, {}, Coord3D{20, 10, 0}, 0.0f, {}, 0, true, -35, 0);
+    PlayerT *p2r = p2;
+    TeamT *p2team = teamByID(&w, p2r->m_defaultTeam);
+    objectSetTeam(plant, p2team, &w);
+    objectSetTeam(lab, p2team, &w);
+    p2r->addRadar(false);
+    p2r->m_energy.objectEnteringInfluence(plant, &w);
+    p2r->m_energy.objectEnteringInfluence(lab, &w); // 30 < 35: the brownout
+    d.line("nrg %d %d radar=%d", p2r->m_energy.getProduction(&w), p2r->m_energy.m_energyConsumption,
+           p2r->hasRadar() ? 1 : 0);
+    dumpRegistry(d, w);
+
+    // the sabotage at frame 60, expiring at 100 (the update walk at 101)
+    p2r->m_energy.setPowerSabotagedTillFrame(100);
+    w.logic.m_frame = 60;
+    d.line("sab %d %d", p2r->m_energy.getProduction(&w), p2r->m_energy.hasSufficientPower(&w) ? 1 : 0);
+    for (unsigned f = 95; f <= 102; ++f) {
+        w.logic.m_frame = f;
+        w.playerListUpdate();
+    }
+    d.line("sab %d suff=%d", p2r->m_energy.getPowerSabotagedTillFrame(),
+           p2r->m_energy.hasSufficientPower(&w) ? 1 : 0);
+
+    // the science purchase at the end (the SPP from the ranks)
+    d.line("buy %d", p1->attemptToPurchaseScience(w.nameKeys.nameToKey("Moab"), &w) ? 1 : 0);
+
+    dumpRegistry(d, w);
+    dumpObjectTeams(d, w);
+    dumpPlayers(d, w);
+    dumpTeamEvents(d, w);
+    d.line("end");
+}
+
 int main(int argc, char **argv)
 {
     if (argc != 2) {
@@ -7917,6 +9419,11 @@ int main(int argc, char **argv)
     corpusPlayersMasks(d);
     corpusTeamMembers(d);
     corpusPlayersRoundtrip(d);
+    corpusPurseMoney(d);
+    corpusPurseEnergy(d);
+    corpusPurseRanks(d);
+    corpusPurseSciences(d);
+    corpusPurseRoundtrip(d);
     corpusRoundtrip(d);
 
     fclose(out);

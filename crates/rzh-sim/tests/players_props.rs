@@ -64,6 +64,7 @@ fn build_world(n_sides: usize, rels: &[(usize, usize, Relationship)]) -> (Kernel
             observer: false,
             enemies: Vec::new(),
             allies: Vec::new(),
+            ..SideSpec::default()
         });
     }
     let mut teams = vec![TeamSpec {
@@ -94,6 +95,7 @@ fn build_world(n_sides: usize, rels: &[(usize, usize, Relationship)]) -> (Kernel
             teams,
             has_game_info: false,
             game_info: Default::default(),
+            default_starting_cash: 0,
         },
         &mut kernel.objects,
         &mut host,
