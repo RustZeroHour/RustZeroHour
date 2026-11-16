@@ -50,6 +50,17 @@
 //!   measures;
 //! - [`types`]: the kernel's shared vocabulary (ids, geometry, masks,
 //!   the 30 Hz frame constants).
+//! - [`messages`]: the GameMessage command processing — the message
+//!   vocabulary (the 288-entry release-build `GameMessage::Type` with
+//!   the fixed 1000..=1999 network ordinals), the argument union with
+//!   its typed appenders and byte-faithful reads, the doubly-linked
+//!   message lists, the stream with its priority-sorted translator
+//!   registry and `propagateMessages` (the mid-walk destroy, the
+//!   survivor transfer, the redundant-network sweep), the command
+//!   list, `GameLogic::processCommandList` (the dispatch walk with
+//!   the player gate and the kernel-owned CRC handlers, the
+//!   validation tail with its connected-player count and
+//!   reference-CRC comparison) and `buildRegion`.
 //!
 //! Parity is pinned by `tests/kernel_golden.rs` against
 //! `tests/golden/kernel.txt`, produced by
@@ -66,10 +77,12 @@
 //! [`types::ObjectID`] — never by pointer.
 //!
 //! The module bodies, subsystem walk members (script engine, terrain,
-//! commands, AI, economy, stores) are later slices; they plug in through
-//! the [`logic::KernelHost`] trait whose call order this kernel pins.
-//! WP1's remainder after the money/energy/ranks/sciences block (this
-//! slice): the GameMessage command processing.
+//! commands' dispatch switch, AI, economy, stores) are later slices;
+//! they plug in through the [`logic::KernelHost`] trait whose call
+//! order this kernel pins. WP1's remainder after the
+//! money/energy/ranks/sciences block: none — the GameMessage command
+//! processing (this slice) closes the kernel work package; the next
+//! slice opens WP2's module framework.
 
 #![forbid(unsafe_code)]
 
@@ -77,6 +90,7 @@ pub mod collide;
 pub mod energy;
 pub mod fastmath;
 pub mod logic;
+pub mod messages;
 pub mod money;
 pub mod partition;
 pub mod players;

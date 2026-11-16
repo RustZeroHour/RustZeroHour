@@ -39,8 +39,12 @@
 //! Original: Copyright 2025 Electronic Arts Inc.
 //! Rust port Copyright 2026 the RustZeroHour contributors.
 
-use std::collections::VecDeque;
+use std::collections::{BTreeMap, VecDeque};
 
+use crate::messages::{
+    CommandList, GameMessageType, MessageArena, MessageData, MessageID, MessageStream,
+    TranslateOutcome,
+};
 use crate::partition::{PartitionData, PartitionManager, Region2};
 use crate::scheduler::{ModuleArena, ModuleHandle, SleepyScheduler, SleepyState};
 use crate::types::{
@@ -196,6 +200,63 @@ pub trait KernelHost {
     /// The update-module body. Returns the outcome the kernel applies.
     fn run_update(&mut self, id: ObjectID, module: u32) -> UpdateOutcome {
         UpdateOutcome::default()
+    }
+
+    /// One `GameMessageTranslator::translateGameMessage` body inside
+    /// [`MessageStream::propagate_messages`] (the client translators —
+    /// LookXlat, CommandXlat, the GUI hooks — are the client phase's;
+    /// the corpus scripts the dispositions and the mid-body posts).
+    fn run_translate(
+        &mut self,
+        translator: crate::messages::TranslatorID,
+        msg: MessageID,
+        data: &MessageData,
+    ) -> TranslateOutcome {
+        let _ = (translator, msg, data);
+        TranslateOutcome::default()
+    }
+
+    /// One `logicMessageDispatcher` body for a non-CRC command (the
+    /// giant switch — move/attack/contain/production — is the module
+    /// framework's and later slices'; this slice pins the walk and
+    /// owns only the CRC handlers).
+    fn run_command(&mut self, msg: MessageID, data: &MessageData) {
+        let _ = (msg, data);
+    }
+
+    /// The dispatch position observable: fired for every message that
+    /// passes the prologue's player gate, before the type split (the
+    /// kernel-owned CRC handlers included).
+    fn on_command_dispatch(&mut self, msg: MessageID, data: &MessageData) {
+        let _ = (msg, data);
+    }
+
+    /// `TheNetwork->isPlayerConnected(slot)` (the net layer's state —
+    /// the corpus programs it; no network means nobody is connected).
+    fn is_player_connected(&mut self, slot: i32) -> bool {
+        let _ = slot;
+        false
+    }
+
+    /// `TheNetwork->sawCRCMismatch()`.
+    fn saw_crc_mismatch(&mut self) -> bool {
+        false
+    }
+
+    /// `TheNetwork->setSawCRCMismatch()`.
+    fn on_crc_mismatch(&mut self) {}
+
+    /// `TheRecorder && TheRecorder->isPlaybackMode()` (the recorder
+    /// slice's state).
+    fn recorder_is_playback(&mut self) -> bool {
+        false
+    }
+
+    /// `TheRecorder->handleCRCMessage(crc, playerIndex, playback)` —
+    /// the playback branch of `onLogicCrc` and the whole of
+    /// `onLogicCrcForPlayback`.
+    fn on_recorder_crc(&mut self, crc: u32, player_index: i32, playback: bool) {
+        let _ = (crc, player_index, playback);
     }
 
     /// `Player::update`'s body position (the AI update, the team
@@ -519,6 +580,14 @@ pub struct GameLogic {
     /// position is the game-setup slice's, stated). The rank ladder's
     /// clamp; `setRankLevelLimit` refuses limits below 1.
     pub rank_level_limit: i32,
+    /// `m_cachedCRCs` (`CachedCRCMap` — a `std::map<Int, UnsignedInt>`;
+    /// the BTreeMap keeps the comparison walk's iteration order).
+    /// `processCommandList` clears it every frame; `onLogicCrc` fills
+    /// it per issuing player.
+    pub cached_crcs: BTreeMap<i32, u32>,
+    /// `m_shouldValidateCRCs` — raised by the local player's
+    /// `MSG_LOGIC_CRC`, consumed (and cleared) by the validation tail.
+    pub should_validate_crcs: bool,
 }
 
 impl GameLogic {
@@ -880,9 +949,10 @@ pub(crate) fn set_disabled_until_core(
     }
 }
 
-/// The kernel: the logic, the object arena, the partition manager and
-/// the players/teams block in one explicit context (plan §3.3 rule 5 —
-/// no global state).
+/// The kernel: the logic, the object arena, the partition manager, the
+/// players/teams block and the message system (the stream, the command
+/// list and the arena they share) in one explicit context (plan §3.3
+/// rule 5 — no global state).
 #[derive(Debug, Default)]
 pub struct Kernel {
     /// The game-logic state.
@@ -895,6 +965,12 @@ pub struct Kernel {
     /// `TheTeamFactory` + the name-key interning). Pre-`init` until
     /// [`Kernel::with_grid`] runs — construct through it, not `Default`.
     pub players: crate::players::Players,
+    /// `TheMessageStream`.
+    pub stream: MessageStream,
+    /// `TheCommandList`.
+    pub commands: CommandList,
+    /// The message arena both lists link over (slots never reused).
+    pub msg_arena: MessageArena,
 }
 
 impl Kernel {
@@ -915,6 +991,10 @@ impl Kernel {
         kernel.logic.rank_level_limit = 1000;
         kernel.pm.init(partition_cell_size, world_extents);
         kernel.players.init(host);
+        // TheMessageStream's isReadyForMessages gate: the PlayerList
+        // exists once the engine boots (the stream is born first, the
+        // player list right after — the kernel boots with it present)
+        kernel.stream.set_player_list_present(true);
         kernel
     }
 
@@ -1101,6 +1181,7 @@ impl Kernel {
 
         // process client commands
         host.on_commands_update();
+        self.process_command_list(host);
 
         // (ALLOW_NONSLEEPY_UPDATES is not defined in this build — no
         // normal updates list exists)
@@ -1169,6 +1250,7 @@ impl Kernel {
 
         // reset the command list, destroying all messages
         host.on_commands_reset();
+        self.commands.reset(&mut self.msg_arena);
 
         host.on_weapon_store_update();
         host.on_locomotor_store_update();
@@ -1200,6 +1282,48 @@ impl Kernel {
     pub fn process_destroy_list(&mut self, host: &mut impl KernelHost) {
         self.logic
             .process_destroy_list(&mut self.objects, &mut self.pm, host);
+    }
+
+    /// `TheMessageStream->appendMessage(type)` — the raw-input post
+    /// (the corpus surface; the ctor's local-player stamp rides the
+    /// stream). Set the type and append arguments through
+    /// [`MessageArena::get_mut`] on the returned handle.
+    pub fn post_stream_message(&mut self, ty: GameMessageType) -> MessageID {
+        let id = self
+            .stream
+            .append_message(&mut self.msg_arena, &self.players);
+        self.msg_arena.get_mut(id).ty = ty;
+        id
+    }
+
+    /// The recorder's simulation-playback post — `GameLogic::update`'s
+    /// `messageList = TheCommandList` branch (the CRC message lands on
+    /// the command list directly, bypassing the stream).
+    pub fn post_command_message(&mut self, ty: GameMessageType) -> MessageID {
+        let local = self.players.list.local.unwrap_or(0) as i32;
+        let id = self.msg_arena.alloc(ty, local);
+        self.commands.append_message(&mut self.msg_arena, id);
+        id
+    }
+
+    /// `TheMessageStream->propagateMessages()` — the engine-loop pump
+    /// (GameEngine.cpp drives it after the GameClient update; the
+    /// kernel's frame loop does NOT — the corpora drive it directly).
+    pub fn propagate_messages(&mut self, host: &mut dyn KernelHost) {
+        self.stream.propagate_messages(
+            &mut self.msg_arena,
+            &mut self.commands,
+            &self.players,
+            host,
+        );
+    }
+
+    /// `GameLogic::processCommandList(TheCommandList)` — the direct
+    /// pass (the corpora's out-of-update driver; the frame loop calls
+    /// it at the commands position).
+    pub fn process_command_list(&mut self, host: &mut dyn KernelHost) {
+        self.logic
+            .process_command_list(&self.players, &self.msg_arena, &mut self.commands, host);
     }
 
     /// `setGamePausedInFrame` (the preUpdate pause trigger).

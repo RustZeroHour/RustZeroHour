@@ -68,6 +68,9 @@ use rzh_sim::collide::{
 use rzh_sim::logic::{
     CollideOutcome, Kernel, KernelHost, ObjectSpec, Objects, UpdateModuleSpec, UpdateOutcome,
 };
+use rzh_sim::messages::{
+    GameMessageDisposition, GameMessageType, MessagePost, TranslateOutcome, build_region,
+};
 use rzh_sim::partition::Region2;
 use rzh_sim::players::{GameInfoSpec, SideSpec, SidesSpec, TeamSpec};
 use rzh_sim::query::{
@@ -80,8 +83,8 @@ use rzh_sim::query::{
 use rzh_sim::scheduler::ModuleArena;
 use rzh_sim::sciences::ScienceAvailabilityType;
 use rzh_sim::types::{
-    Coord3, DisabledMask, DisabledType, FOREVER, GeometryInfo, GeometryType, INVALID_ID,
-    KINDOF_NO_COLLIDE_BIT, LOGICFRAMES_PER_MSEC_REAL, LOGICFRAMES_PER_SECOND,
+    Coord3, DisabledMask, DisabledType, FOREVER, GeometryInfo, GeometryType, ICoord2, INVALID_ID,
+    IRegion2, KINDOF_NO_COLLIDE_BIT, LOGICFRAMES_PER_MSEC_REAL, LOGICFRAMES_PER_SECOND,
     LOGICFRAMES_PER_SECONDS_REAL, MSEC_PER_LOGICFRAME_REAL, OBJECT_PRIVATE_EFFECTIVELY_DEAD_BIT,
     OBJECT_PRIVATE_OFF_MAP_BIT, OBJECT_STATUS_NO_COLLISIONS_BIT, Relationship,
     SECONDS_PER_LOGICFRAME_REAL, SleepyUpdatePhase, UPDATE_SLEEP_FOREVER, UPDATE_SLEEP_NONE,
@@ -166,6 +169,23 @@ struct GoldenHost {
     /// The players/teams event stream (the generator's `m_teamEvents`:
     /// the 4-int entries, uniform).
     team_events: Vec<[i64; 4]>,
+    // ---- the GameMessage block's state (the generator's hooks) ----
+    /// The net state: TheNetwork's sawCRCMismatch latch, the connected
+    /// slots, the recorder's playback flag.
+    net_saw_crc_mismatch: bool,
+    net_connected: [bool; 8],
+    recorder_playback: bool,
+    /// The message event stream (the generator's `m_msgEvents`).
+    msg_events: Vec<[i64; 4]>,
+    /// The scripted translate dispositions: (translator id, msg id) →
+    /// destroy?
+    translate_disposition: Vec<(u32, u32, bool)>,
+    /// The scripted translate posts: (translator id, msg id) → the posted
+    /// types.
+    translate_posts: Vec<(u32, u32, Vec<GameMessageType>)>,
+    /// The scripted command bodies: msg id → the slot the body
+    /// disconnects.
+    command_disconnect_slot: Vec<(u32, i32)>,
 }
 
 // The event ids (the generator's `GameLogicHooks::Ev`).
@@ -190,6 +210,13 @@ const EV_STARTNEWGAME: u8 = 17;
 const EV_OBJ_CREATED: u8 = 18;
 const EV_OBJ_DESTROYED: u8 = 19;
 const EV_CELL_CHANGE: u8 = 20;
+
+// The message-event ids (the generator's `GameLogicHooks::MsgEv`).
+const MEV_TRANSLATE: i64 = 0;
+const MEV_DISPATCH: i64 = 1;
+const MEV_COMMAND: i64 = 2;
+const MEV_RECORDER_CRC: i64 = 3;
+const MEV_CRC_MISMATCH: i64 = 4;
 
 // The team-event ids (the generator's `GameLogicHooks::TeamEv`).
 const TEV_PLAYER_UPDATE: i64 = 0;
@@ -469,6 +496,92 @@ impl KernelHost for GoldenHost {
             -1,
         ]);
     }
+
+    // ---- the GameMessage block's hooks (the generator's mev stream) ----
+
+    fn run_translate(
+        &mut self,
+        translator: u32,
+        msg: u32,
+        data: &rzh_sim::messages::MessageData,
+    ) -> TranslateOutcome {
+        let mut outcome = TranslateOutcome::default();
+        if let Some(&true) = self
+            .translate_disposition
+            .iter()
+            .find(|(t, m, _)| *t == translator && *m == msg)
+            .map(|(_, _, d)| d)
+        {
+            outcome.disposition = GameMessageDisposition::DESTROY_MESSAGE;
+        }
+        if let Some(posts) = self
+            .translate_posts
+            .iter()
+            .find(|(t, m, _)| *t == translator && *m == msg)
+            .map(|(_, _, p)| p)
+        {
+            outcome.posts = posts
+                .iter()
+                .map(|&ty| MessagePost {
+                    ty,
+                    args: Vec::new(),
+                })
+                .collect();
+        }
+        let disp = outcome.disposition == GameMessageDisposition::DESTROY_MESSAGE;
+        self.msg_events.push([
+            MEV_TRANSLATE,
+            translator as i64,
+            msg as i64,
+            i64::from(disp),
+        ]);
+        let _ = data;
+        outcome
+    }
+
+    fn run_command(&mut self, msg: u32, data: &rzh_sim::messages::MessageData) {
+        // the generator's MEV_COMMAND point (the body's position
+        // observable), then the scripted body: the mid-walk disconnect
+        // (the m_commandDisconnectSlot)
+        self.msg_events
+            .push([MEV_COMMAND, msg as i64, data.ty.ordinal() as i64, -1]);
+        if let Some(&(_, slot)) = self.command_disconnect_slot.iter().find(|(m, _)| *m == msg)
+            && (0..8).contains(&slot)
+        {
+            self.net_connected[slot as usize] = false;
+        }
+    }
+
+    fn on_command_dispatch(&mut self, msg: u32, data: &rzh_sim::messages::MessageData) {
+        self.msg_events
+            .push([MEV_DISPATCH, msg as i64, data.ty.ordinal() as i64, -1]);
+    }
+
+    fn is_player_connected(&mut self, slot: i32) -> bool {
+        (0..8).contains(&slot) && self.net_connected[slot as usize]
+    }
+
+    fn saw_crc_mismatch(&mut self) -> bool {
+        self.net_saw_crc_mismatch
+    }
+
+    fn on_crc_mismatch(&mut self) {
+        self.msg_events.push([MEV_CRC_MISMATCH, -1, -1, -1]);
+        self.net_saw_crc_mismatch = true; // setSawCRCMismatch
+    }
+
+    fn recorder_is_playback(&mut self) -> bool {
+        self.recorder_playback
+    }
+
+    fn on_recorder_crc(&mut self, crc: u32, player_index: i32, playback: bool) {
+        self.msg_events.push([
+            MEV_RECORDER_CRC,
+            crc as i64,
+            i64::from(player_index),
+            i64::from(playback),
+        ]);
+    }
 }
 
 impl Harness {
@@ -486,6 +599,13 @@ impl Harness {
             collide_events: Vec::new(),
             scripted_collide: Vec::new(),
             team_events: Vec::new(),
+            net_saw_crc_mismatch: false,
+            net_connected: [false; 8],
+            recorder_playback: false,
+            msg_events: Vec::new(),
+            translate_disposition: Vec::new(),
+            translate_posts: Vec::new(),
+            command_disconnect_slot: Vec::new(),
         };
         let kernel = Kernel::with_grid(cell_size, region, &mut host);
         Self {
@@ -849,6 +969,13 @@ impl Harness {
             collide_events: Vec::new(),
             scripted_collide: Vec::new(),
             team_events: Vec::new(),
+            net_saw_crc_mismatch: false,
+            net_connected: [false; 8],
+            recorder_playback: false,
+            msg_events: Vec::new(),
+            translate_disposition: Vec::new(),
+            translate_posts: Vec::new(),
+            command_disconnect_slot: Vec::new(),
         };
         self.kernel = Kernel::with_grid(cell_size, region, &mut self.host);
     }
@@ -4957,6 +5084,601 @@ fn corpus_purse_roundtrip(h: &mut Harness) {
     h.line("end");
 }
 
+// ---- the GameMessage block's helpers (the generator's dump surfaces) ----
+
+impl Harness {
+    /// The generator's `postStreamMessage`.
+    fn post_stream_message(&mut self, ty: GameMessageType) -> u32 {
+        self.kernel.post_stream_message(ty)
+    }
+
+    /// The generator's `postCommandMessage`.
+    fn post_command_message(&mut self, ty: GameMessageType) -> u32 {
+        self.kernel.post_command_message(ty)
+    }
+
+    /// The generator's `dumpMsgEvents`.
+    fn dump_msg_events(&mut self) {
+        for e in std::mem::take(&mut self.host.msg_events) {
+            match e[0] {
+                MEV_TRANSLATE => {
+                    self.line(&format!(
+                        "translate t{} m{} {}",
+                        e[1],
+                        e[2],
+                        if e[3] == 1 { "destroy" } else { "keep" }
+                    ));
+                }
+                MEV_DISPATCH => {
+                    let name = GameMessageType::from_ordinal(e[2] as i32)
+                        .map(|t| t.name())
+                        .unwrap_or("?");
+                    self.line(&format!("dispatch m{} {}", e[1], name));
+                }
+                MEV_COMMAND => {
+                    let name = GameMessageType::from_ordinal(e[2] as i32)
+                        .map(|t| t.name())
+                        .unwrap_or("?");
+                    self.line(&format!("command m{} {}", e[1], name));
+                }
+                MEV_RECORDER_CRC => {
+                    self.line(&format!(
+                        "recordercrc {:x} p{} {}",
+                        e[1],
+                        e[2],
+                        if e[3] == 1 { "playback" } else { "live" }
+                    ));
+                }
+                MEV_CRC_MISMATCH => {
+                    self.line("crcmismatch");
+                }
+                _ => {}
+            }
+        }
+    }
+
+    /// The generator's `dumpMessageList` over the stream.
+    fn dump_stream(&mut self) {
+        self.dump_message_list("stream", &self.kernel.stream.ids(&self.kernel.msg_arena), 0);
+    }
+
+    /// The generator's `dumpMessageList` over the command list.
+    fn dump_commands(&mut self) {
+        self.dump_message_list(
+            "commands",
+            &self.kernel.commands.ids(&self.kernel.msg_arena),
+            1,
+        );
+    }
+
+    fn dump_message_list(&mut self, tag: &str, ids: &[u32], kind: i64) {
+        self.line(&format!("{} n {}", tag, ids.len()));
+        for &id in ids {
+            let m = self.kernel.msg_arena.get(id);
+            self.line(&format!(
+                "m{} {} p{} list {} prev {} next {} args {}",
+                id,
+                m.ty.name(),
+                m.player_index,
+                kind,
+                m.prev().map(|p| p as i64).unwrap_or(-1),
+                m.next().map(|n| n as i64).unwrap_or(-1),
+                m.args.len()
+            ));
+        }
+    }
+
+    /// The generator's `dumpCrcCache`.
+    fn dump_crc_cache(&mut self) {
+        let mut lines = Vec::new();
+        lines.push(format!(
+            "validate {} cache {}",
+            i64::from(self.kernel.logic.should_validate_crcs),
+            self.kernel.logic.cached_crcs.len()
+        ));
+        for (&player, &crc) in &self.kernel.logic.cached_crcs {
+            lines.push(format!("crc p{} {:x}", player, crc));
+        }
+        for l in lines {
+            self.line(&l);
+        }
+    }
+}
+
+/// The generator's `corpusMessagesArgs`.
+fn corpus_messages_args(h: &mut Harness) {
+    h.line("corpus messages_args");
+
+    // every typed append + its read-back (the union's word layout)
+    let id = h.post_stream_message(GameMessageType::MSG_RAW_MOUSE_POSITION);
+    {
+        let m = h.kernel.msg_arena.get_mut(id);
+        m.append_integer_argument(-42);
+        m.append_real_argument(1.5);
+        m.append_boolean_argument(true);
+        m.append_object_id_argument(7);
+        m.append_drawable_id_argument(9);
+        m.append_team_id_argument(0xDEAD_BEEF);
+        m.append_location_argument(Coord3 {
+            x: 1.0,
+            y: 2.5,
+            z: -3.25,
+        });
+        m.append_pixel_argument(ICoord2 { x: 13, y: -14 });
+        m.append_pixel_region_argument(IRegion2 {
+            lo: ICoord2 { x: 1, y: 2 },
+            hi: ICoord2 { x: 30, y: 40 },
+        });
+        m.append_timestamp_argument(1_234_567);
+        m.append_wide_char_argument(0x0102);
+    }
+    h.line(&format!(
+        "count {}",
+        h.kernel.msg_arena.get(id).get_argument_count()
+    ));
+    for i in 0..11 {
+        let a = h.kernel.msg_arena.get(id).get_argument(i);
+        h.line(&format!(
+            "arg {} type {} int {} realbits {:08x} bool {} oid {} did {} team {:x} ts {} wc {:x}",
+            i,
+            a.data_type.ordinal(),
+            a.integer(),
+            a.real().to_bits(),
+            i64::from(a.boolean()),
+            a.object_id(),
+            a.drawable_id(),
+            a.team_id(),
+            a.timestamp(),
+            a.wide_char()
+        ));
+    }
+    // the location/pixel/region reads of the right slots, the
+    // out-of-range contract and the punned reads (the same words re-read
+    // as other members)
+    let (loc, pix, reg, oor_int, oor_real, oor_type, pun_real, pun_int, pun_bool) = {
+        let m = h.kernel.msg_arena.get(id);
+        let loc = m.get_argument(6).location();
+        let pix = m.get_argument(7).pixel();
+        let reg = m.get_argument(8).pixel_region();
+        (
+            loc,
+            pix,
+            reg,
+            m.get_argument(99).integer(),
+            m.get_argument(99).real().to_bits(),
+            m.get_argument_data_type(99).ordinal(),
+            m.get_argument(0).real().to_bits(),
+            m.get_argument(1).integer(),
+            m.get_argument(2).integer(),
+        )
+    };
+    h.line(&format!(
+        "loc {:08x},{:08x},{:08x}",
+        loc.x.to_bits(),
+        loc.y.to_bits(),
+        loc.z.to_bits()
+    ));
+    h.line(&format!("pix {},{}", pix.x, pix.y));
+    h.line(&format!(
+        "reg {},{} {},{}",
+        reg.lo.x, reg.lo.y, reg.hi.x, reg.hi.y
+    ));
+    h.line(&format!(
+        "oor int {} realbits {:08x} type {}",
+        oor_int, oor_real, oor_type
+    ));
+    h.line(&format!(
+        "pun int-as-real {:08x} real-as-int {} bool-as-int {}",
+        pun_real, pun_int, pun_bool
+    ));
+    // the ctor's local-player stamp (the World boots with local = neutral)
+    let player = h.kernel.msg_arena.get(id).player_index;
+    h.line(&format!(
+        "player {} ready {}",
+        player,
+        i64::from(h.kernel.stream.is_ready_for_messages())
+    ));
+    // buildRegion: the four quadrant orders
+    let r1 = build_region(ICoord2 { x: 10, y: 10 }, ICoord2 { x: 20, y: 30 });
+    let r2 = build_region(ICoord2 { x: 20, y: 30 }, ICoord2 { x: 10, y: 10 });
+    let r3 = build_region(ICoord2 { x: -5, y: 8 }, ICoord2 { x: 5, y: -8 });
+    h.line(&format!(
+        "reg1 {},{} {},{} reg2 {},{} {},{} reg3 {},{} {},{}",
+        r1.lo.x,
+        r1.lo.y,
+        r1.hi.x,
+        r1.hi.y,
+        r2.lo.x,
+        r2.lo.y,
+        r2.hi.x,
+        r2.hi.y,
+        r3.lo.x,
+        r3.lo.y,
+        r3.hi.x,
+        r3.hi.y
+    ));
+    h.line("end");
+}
+
+/// The generator's `corpusMessagesList`.
+fn corpus_messages_list(h: &mut Harness) {
+    h.line("corpus messages_list");
+
+    // the append/insert/remove choreography over the stream
+    let a = h.post_stream_message(GameMessageType::MSG_FRAME_TICK);
+    let b = h.post_stream_message(GameMessageType::MSG_RAW_KEY_DOWN);
+    h.post_stream_message(GameMessageType::MSG_CLEAR_GAME_DATA);
+    h.dump_stream();
+    // insert after the head
+    let x = h.kernel.msg_arena.alloc(GameMessageType::MSG_NEW_GAME, 0);
+    h.kernel
+        .stream
+        .insert_message_after_raw(&mut h.kernel.msg_arena, x, a);
+    h.dump_stream();
+    // remove the middle
+    h.kernel
+        .stream
+        .remove_message_raw(&mut h.kernel.msg_arena, b);
+    h.kernel.msg_arena.free(b);
+    h.dump_stream();
+    // containsMessageOfType
+    h.line(&format!(
+        "has newgame {} has keydown {}",
+        i64::from(
+            h.kernel
+                .stream
+                .contains_message_of_type(&h.kernel.msg_arena, GameMessageType::MSG_NEW_GAME)
+        ),
+        i64::from(
+            h.kernel
+                .stream
+                .contains_message_of_type(&h.kernel.msg_arena, GameMessageType::MSG_RAW_KEY_DOWN)
+        )
+    ));
+    // the transfer: appendMessageList walks and relinks onto the command list
+    let first = h.kernel.stream.first_message();
+    h.kernel
+        .commands
+        .append_message_list(&mut h.kernel.msg_arena, first);
+    h.dump_commands();
+    // the direct command-list append (the recorder's playback post)
+    h.post_command_message(GameMessageType::MSG_LOGIC_CRC_PLAYBACK);
+    h.dump_commands();
+    // the reset: everything dies
+    h.kernel.commands.reset(&mut h.kernel.msg_arena);
+    h.dump_commands();
+    h.line("end");
+}
+
+/// The generator's `corpusMessagesStream`.
+fn corpus_messages_stream(h: &mut Harness) {
+    h.line("corpus messages_stream");
+
+    // (a) the translator registry: attach order with ties (stable), the
+    // strictly-greater insertion, find/remove
+    let t10 = h.kernel.stream.attach_translator(10);
+    let t5a = h.kernel.stream.attach_translator(5);
+    let t5b = h.kernel.stream.attach_translator(5);
+    let t7 = h.kernel.stream.attach_translator(7);
+    let t1 = h.kernel.stream.attach_translator(1);
+    h.line(&format!("ids {} {} {} {} {}", t10, t5a, t5b, t7, t1));
+    for t in h.kernel.stream.translator_order() {
+        h.line(&format!("reg t{} p{}", t.id, t.priority));
+    }
+    h.line(&format!(
+        "find {} {}",
+        h.kernel
+            .stream
+            .find_translator(t5b)
+            .map(|t| t.id as i64)
+            .unwrap_or(-1),
+        h.kernel
+            .stream
+            .find_translator(99)
+            .map(|t| t.id as i64)
+            .unwrap_or(-1)
+    ));
+    h.kernel.stream.remove_translator(t5a);
+    for t in h.kernel.stream.translator_order() {
+        h.line(&format!("reg t{} p{}", t.id, t.priority));
+    }
+
+    // (b) the propagation: the per-translator restart, the mid-walk
+    // DESTROY (the last translator kills m4), the mid-body post (t7 posts
+    // a camera while translating m2 — the same-frame tail visitation),
+    // the transfer and the redundant sweep (a lone camera survives)
+    let m1 = h.post_stream_message(GameMessageType::MSG_CREATE_SELECTED_GROUP);
+    h.kernel.msg_arena.get_mut(m1).append_boolean_argument(true); // the newGroup flag
+    let m2 = h.post_stream_message(GameMessageType::MSG_FRAME_TICK);
+    h.post_stream_message(GameMessageType::MSG_PURCHASE_SCIENCE);
+    let m4 = h.post_stream_message(GameMessageType::MSG_OBJECT_DESTROYED);
+    h.host.translate_disposition.push((t10, m4, true));
+    h.host
+        .translate_posts
+        .push((t7, m2, vec![GameMessageType::MSG_SET_REPLAY_CAMERA]));
+    h.kernel.propagate_messages(&mut h.host);
+    h.dump_commands();
+    h.dump_stream();
+    h.dump_msg_events();
+
+    // (c) the redundant sweep patterns: DESTROY+CREATE(true) is redundant,
+    // DESTROY+CREATE(false) is not, DESTROY+DESTROY is, DESTROY+SELECT_TEAM
+    // is
+    h.kernel.commands.reset(&mut h.kernel.msg_arena);
+    h.post_stream_message(GameMessageType::MSG_DESTROY_SELECTED_GROUP);
+    let c1 = h.post_stream_message(GameMessageType::MSG_CREATE_SELECTED_GROUP_NO_SOUND);
+    h.kernel.msg_arena.get_mut(c1).append_boolean_argument(true);
+    h.post_stream_message(GameMessageType::MSG_DESTROY_SELECTED_GROUP);
+    h.post_stream_message(GameMessageType::MSG_SELECT_TEAM5);
+    h.kernel.propagate_messages(&mut h.host);
+    h.dump_commands();
+
+    // (d) the SET_REPLAY_CAMERA dedup: only the LAST survives
+    h.kernel.commands.reset(&mut h.kernel.msg_arena);
+    h.post_stream_message(GameMessageType::MSG_SET_REPLAY_CAMERA);
+    h.post_stream_message(GameMessageType::MSG_SET_REPLAY_CAMERA);
+    h.post_stream_message(GameMessageType::MSG_SET_REPLAY_CAMERA);
+    h.kernel.propagate_messages(&mut h.host);
+    h.dump_commands();
+
+    // (e) the CREATE(false) keeper
+    h.kernel.commands.reset(&mut h.kernel.msg_arena);
+    h.post_stream_message(GameMessageType::MSG_DESTROY_SELECTED_GROUP);
+    let c2 = h.post_stream_message(GameMessageType::MSG_CREATE_SELECTED_GROUP);
+    h.kernel
+        .msg_arena
+        .get_mut(c2)
+        .append_boolean_argument(false);
+    h.kernel.propagate_messages(&mut h.host);
+    h.dump_commands();
+    h.line("end");
+}
+
+/// The generator's `corpusMessagesDispatch`.
+fn corpus_messages_dispatch(h: &mut Harness) {
+    h.line("corpus messages_dispatch");
+
+    // a networked 3-human world: player 0 = neutral (computer), players
+    // 1..3 = humans, player 1 local; slots 0..2 = players 1..3
+    let sides = SidesSpec {
+        sides: vec![
+            side_spec("", false, false, false, &[], &[]), // the neutral side
+            side_spec("america", true, true, false, &[], &[]),
+            side_spec("china", true, false, false, &[], &[]),
+            side_spec("gla", true, false, false, &[], &[]),
+        ],
+        ..SidesSpec::default()
+    };
+    h.kernel.players.network_present = true;
+    h.kernel
+        .players
+        .new_game(&sides, &mut h.kernel.objects, &mut h.host);
+    h.kernel.players.set_slot_index(1, 0);
+    h.kernel.players.set_slot_index(2, 1);
+    h.kernel.players.set_slot_index(3, 2);
+    h.host.net_connected[0] = true;
+    h.host.net_connected[1] = true;
+    h.host.net_connected[2] = true;
+    let types: Vec<i32> = (0..4)
+        .map(|i| {
+            h.kernel
+                .players
+                .nth_player(i)
+                .map(|p| p.player_type.bits())
+                .unwrap_or(-1)
+        })
+        .collect();
+    h.line(&format!(
+        "local {} types {} {} {} {}",
+        h.kernel.players.list.local.map(|p| p as i32).unwrap_or(-1),
+        types[0],
+        types[1],
+        types[2],
+        types[3]
+    ));
+    h.line(&format!(
+        "slots {} {} {}",
+        h.kernel.players.get_slot_index(1),
+        h.kernel.players.get_slot_index(2),
+        h.kernel.players.get_slot_index(3)
+    ));
+
+    // (a) the walk order + the prologue's player gate
+    h.post_command_message(GameMessageType::MSG_PURCHASE_SCIENCE);
+    let bad = h.post_command_message(GameMessageType::MSG_PURCHASE_SCIENCE);
+    h.kernel.msg_arena.get_mut(bad).player_index = -5;
+    h.post_command_message(GameMessageType::MSG_OBJECT_DESTROYED);
+    h.kernel.process_command_list(&mut h.host);
+    h.dump_msg_events();
+
+    // (b) the CRC gate chain (and the not-enough-CRCs verdict it ends in)
+    h.kernel.commands.reset(&mut h.kernel.msg_arena);
+    let k1 = h.post_command_message(GameMessageType::MSG_LOGIC_CRC);
+    {
+        let m = h.kernel.msg_arena.get_mut(k1);
+        m.player_index = 2; // human, connected, NOT local
+        m.append_integer_argument(0x1111_1111);
+    }
+    let k2 = h.post_command_message(GameMessageType::MSG_LOGIC_CRC);
+    {
+        let m = h.kernel.msg_arena.get_mut(k2);
+        m.player_index = 1; // the local human
+        m.append_integer_argument(0x1111_1111);
+    }
+    let k3 = h.post_command_message(GameMessageType::MSG_LOGIC_CRC);
+    {
+        let m = h.kernel.msg_arena.get_mut(k3);
+        m.player_index = 0; // the neutral player — a computer
+        m.append_integer_argument(0x2222_2222);
+    }
+    let k4 = h.post_command_message(GameMessageType::MSG_LOGIC_CRC);
+    {
+        let m = h.kernel.msg_arena.get_mut(k4);
+        m.player_index = 9; // a pre-created computer player, slot -1
+        m.append_integer_argument(0x2222_2222);
+    }
+    h.kernel.process_command_list(&mut h.host);
+    h.dump_msg_events();
+    h.dump_crc_cache();
+
+    // (c) the Caball009 skip (the (b) verdict's latch is reset — a fresh
+    // network for the fresh frame)
+    h.host.net_saw_crc_mismatch = false;
+    h.kernel.commands.reset(&mut h.kernel.msg_arena);
+    let k5 = h.post_command_message(GameMessageType::MSG_LOGIC_CRC);
+    {
+        let m = h.kernel.msg_arena.get_mut(k5);
+        m.player_index = 1;
+        m.append_integer_argument(0x1111_1111);
+    }
+    let k6 = h.post_command_message(GameMessageType::MSG_LOGIC_CRC);
+    {
+        let m = h.kernel.msg_arena.get_mut(k6);
+        m.player_index = 2;
+        m.append_integer_argument(0x1111_1111);
+    }
+    let k7 = h.post_command_message(GameMessageType::MSG_LOGIC_CRC);
+    {
+        let m = h.kernel.msg_arena.get_mut(k7);
+        m.player_index = 3;
+        m.append_integer_argument(0x4444_4444);
+    }
+    let k8 = h.post_command_message(GameMessageType::MSG_PURCHASE_SCIENCE);
+    h.kernel.msg_arena.get_mut(k8).player_index = 1;
+    h.host.command_disconnect_slot.push((k8, 2)); // the scripted body: slot 2 (player 3) drops
+    h.kernel.process_command_list(&mut h.host);
+    h.dump_msg_events();
+    h.dump_crc_cache();
+    h.line(&format!(
+        "netmismatch {}",
+        i64::from(h.host.net_saw_crc_mismatch)
+    ));
+    h.host.net_connected[2] = true; // player 3's slot returns (the fresh frames)
+
+    // (d) the same walk WITHOUT the mid-walk disconnect
+    h.kernel.commands.reset(&mut h.kernel.msg_arena);
+    for (player, crc) in [(1, 0x1111_1111), (2, 0x1111_1111), (3, 0x4444_4444)] {
+        let k = h.post_command_message(GameMessageType::MSG_LOGIC_CRC);
+        let m = h.kernel.msg_arena.get_mut(k);
+        m.player_index = player;
+        m.append_integer_argument(crc);
+    }
+    h.kernel.process_command_list(&mut h.host);
+    h.dump_msg_events();
+    h.line(&format!(
+        "netmismatch {}",
+        i64::from(h.host.net_saw_crc_mismatch)
+    ));
+
+    // (e) the latch: a following frame with mismatched CRCs does NOT
+    // re-validate
+    h.kernel.commands.reset(&mut h.kernel.msg_arena);
+    for (player, crc) in [(1, 0x1111_1111), (3, 0x5555_5555)] {
+        let k = h.post_command_message(GameMessageType::MSG_LOGIC_CRC);
+        let m = h.kernel.msg_arena.get_mut(k);
+        m.player_index = player;
+        m.append_integer_argument(crc);
+    }
+    h.kernel.process_command_list(&mut h.host);
+    h.dump_msg_events();
+    h.line(&format!(
+        "netmismatch {}",
+        i64::from(h.host.net_saw_crc_mismatch)
+    ));
+
+    // (f) the not-enough-CRCs verdict on a fresh network
+    h.host.net_saw_crc_mismatch = false;
+    h.kernel.commands.reset(&mut h.kernel.msg_arena);
+    for (player, crc) in [(1, 0x1111_1111), (2, 0x1111_1111)] {
+        let k = h.post_command_message(GameMessageType::MSG_LOGIC_CRC);
+        let m = h.kernel.msg_arena.get_mut(k);
+        m.player_index = player;
+        m.append_integer_argument(crc);
+    }
+    h.kernel.process_command_list(&mut h.host);
+    h.dump_msg_events();
+    h.line(&format!(
+        "netmismatch {}",
+        i64::from(h.host.net_saw_crc_mismatch)
+    ));
+
+    // (g) the playback branch: no network, the recorder in playback mode —
+    // then the no-recorder world
+    h.kernel.commands.reset(&mut h.kernel.msg_arena);
+    h.kernel.players.network_present = false;
+    h.host.recorder_playback = true;
+    let p1 = h.post_command_message(GameMessageType::MSG_LOGIC_CRC);
+    {
+        let m = h.kernel.msg_arena.get_mut(p1);
+        m.player_index = 2;
+        m.append_integer_argument(0x6666_6666);
+    }
+    h.post_command_message(GameMessageType::MSG_LOGIC_CRC_PLAYBACK); // the local player's stamp
+    if let Some(last) = h.kernel.commands.first_message() {
+        // walk to the tail for the append (the dump uses the list walk)
+        let mut tail = last;
+        while let Some(next) = h.kernel.msg_arena.get(tail).next() {
+            tail = next;
+        }
+        h.kernel
+            .msg_arena
+            .get_mut(tail)
+            .append_integer_argument(0x7777_7777);
+    }
+    h.kernel.process_command_list(&mut h.host);
+    h.dump_msg_events();
+    h.dump_crc_cache();
+    // the no-recorder world: the dispatch passes, neither branch runs
+    h.kernel.commands.reset(&mut h.kernel.msg_arena);
+    h.host.recorder_playback = false;
+    h.post_command_message(GameMessageType::MSG_LOGIC_CRC);
+    h.kernel.process_command_list(&mut h.host);
+    h.dump_msg_events();
+    h.dump_crc_cache();
+    h.line("end");
+}
+
+/// The generator's `corpusMessagesRoundtrip`.
+fn corpus_messages_roundtrip(h: &mut Harness) {
+    h.line("corpus messages_roundtrip");
+
+    let sides = SidesSpec {
+        sides: vec![
+            side_spec("", false, false, false, &[], &[]), // the neutral side
+            side_spec("america", true, false, false, &[], &[]),
+        ],
+        ..SidesSpec::default()
+    };
+    h.kernel
+        .players
+        .new_game(&sides, &mut h.kernel.objects, &mut h.host);
+
+    for f in 0..3 {
+        // frame f: one stream message (the second frame's DESTROY+CREATE
+        // pair exercises the sweep)
+        let a = h.post_stream_message(GameMessageType::MSG_PURCHASE_SCIENCE);
+        h.kernel.msg_arena.get_mut(a).append_integer_argument(f);
+        if f == 1 {
+            h.post_stream_message(GameMessageType::MSG_DESTROY_SELECTED_GROUP);
+            let cc = h.post_stream_message(GameMessageType::MSG_CREATE_SELECTED_GROUP);
+            h.kernel.msg_arena.get_mut(cc).append_boolean_argument(true);
+        }
+        h.kernel.propagate_messages(&mut h.host);
+        h.dump_commands();
+        h.kernel.pre_update();
+        h.update();
+        h.dump_msg_events();
+        h.dump_commands();
+        h.dump_stream();
+    }
+
+    // the out-of-update direct pass: processCommandList without update
+    h.post_command_message(GameMessageType::MSG_OBJECT_DESTROYED);
+    h.kernel.process_command_list(&mut h.host);
+    h.dump_msg_events();
+    h.line("end");
+}
+
 fn corpus_roundtrip(h: &mut Harness) {
     h.line("corpus kernel_roundtrip");
     let g = geom(GeometryType::Sphere, true, 1.0, 2.5, 2.5);
@@ -5685,7 +6407,7 @@ fn corpus_query_iterate(h: &mut Harness) {
 #[test]
 fn kernel_golden() {
     let mut all = String::new();
-    let corpora: [fn(&mut Harness); 36] = [
+    let corpora: [fn(&mut Harness); 41] = [
         corpus_ids,
         corpus_frame,
         corpus_sched_basic,
@@ -5721,6 +6443,11 @@ fn kernel_golden() {
         corpus_purse_ranks,
         corpus_purse_sciences,
         corpus_purse_roundtrip,
+        corpus_messages_args,
+        corpus_messages_list,
+        corpus_messages_stream,
+        corpus_messages_dispatch,
+        corpus_messages_roundtrip,
         corpus_roundtrip,
     ];
     for corpus in corpora {

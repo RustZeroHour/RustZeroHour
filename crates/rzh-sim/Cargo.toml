@@ -213,6 +213,63 @@
 #   GeneralsMD/Code/GameEngine/Include/Common/GameCommon.h
 #                                                     (the Relationship enum,
 #                                                      PlayerMaskType, PlayerType)
+#   Core/GameEngine/Include/Common/MessageStream.h
+#   Core/GameEngine/Source/Common/MessageStream.cpp
+#                                                     (the GameMessage
+#                                                     command processing:
+#                                                     the 288-entry
+#                                                     release-build type
+#                                                     vocabulary with the
+#                                                     fixed 1000..=1999
+#                                                     network ordinals, the
+#                                                     argument union with its
+#                                                     typed appenders and
+#                                                     byte-faithful reads, the
+#                                                     doubly-linked message
+#                                                     lists, the translator
+#                                                     registry with the stable
+#                                                     priority placement,
+#                                                     propagateMessages with
+#                                                     the mid-walk destroy,
+#                                                     the mid-body posts, the
+#                                                     survivor transfer and
+#                                                     the redundant-network
+#                                                     sweep, the CommandList,
+#                                                     buildRegion)
+#   GeneralsMD/Code/GameEngine/Source/GameLogic/System/GameLogic.cpp
+#                                                     (processCommandList —
+#                                                     the cached-CRC clear,
+#                                                     the dispatch walk and
+#                                                     the validation tail
+#                                                     with the connected-
+#                                                     player count, the
+#                                                     not-enough verdict, the
+#                                                     Caball009 disconnected
+#                                                     skip and the mismatch
+#                                                     latch; the update
+#                                                     wiring of the commands
+#                                                     position and the
+#                                                     frame-tail reset)
+#   Core/GameEngine/Source/GameLogic/System/GameLogicDispatch.cpp
+#                                                     (logicMessageDispatcher's
+#                                                     prologue — the
+#                                                     getNthPlayer gate — and
+#                                                     the CRC handlers:
+#                                                     onLogicCrc's human/
+#                                                     slot/connected gate
+#                                                     chain with the local-
+#                                                     player validate raise
+#                                                     and the per-player
+#                                                     cache write, the
+#                                                     playback branch;
+#                                                     onLogicCrcForPlayback)
+#   Core/Libraries/Source/Lib/Include/Lib/ICoord2D.h  (ICoord2D — the pixel
+#                                                      argument)
+#   Core/Libraries/Source/Lib/Include/Lib/IRegion2D.h (IRegion2D — the
+#                                                      pixel-region argument)
+#   Core/GameEngine/Include/Common/GameType.h         (DrawableID — the
+#                                                      argument union's
+#                                                      client-side id)
 #   Core/GameEngine/Include/GameNetwork/NetworkDefs.h (MAX_SLOTS)
 #   GeneralsMD/Code/GameEngine/Source/GameLogic/Object/PartitionManager.cpp
 #                                                     (the players/teams query
@@ -279,7 +336,7 @@
 
 [package]
 name = "rzh-sim"
-description = "Zero Hour deterministic simulation kernel: the frame loop, the object registry with its sleepy-update scheduler, the partition-manager spatial store and its query family, the players/teams block and the money/energy/ranks/sciences block"
+description = "Zero Hour deterministic simulation kernel: the frame loop, the object registry with its sleepy-update scheduler, the partition-manager spatial store and its query family, the players/teams block, the money/energy/ranks/sciences block and the GameMessage command processing"
 version.workspace = true
 edition.workspace = true
 rust-version.workspace = true

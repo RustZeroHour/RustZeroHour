@@ -232,6 +232,7 @@
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
+#include <map>
 #include <memory>
 #include <string>
 #include <vector>
@@ -763,6 +764,25 @@ struct GameLogicT {
     unsigned m_pauseFrame = 0;
     bool m_gamePaused = false;
 
+    // ---- the command-processing state (processCommandList's) ----
+    // CachedCRCMap (std::map<Int, UnsignedInt>): a sorted vector keeps the
+    // std::map iteration order the comparison walk observes.
+    std::vector<std::pair<int, unsigned>> m_cachedCRCs;
+    bool m_shouldValidateCRCs = false;
+    void cachedCrcClear() { m_cachedCRCs.clear(); }
+    void cachedCrcSet(int playerIndex, unsigned crc)
+    {
+        for (auto &kv : m_cachedCRCs)
+            if (kv.first == playerIndex) {
+                kv.second = crc; // std::map::operator[] assign
+                return;
+            }
+        auto it = m_cachedCRCs.begin();
+        while (it != m_cachedCRCs.end() && it->first < playerIndex)
+            ++it;
+        m_cachedCRCs.insert(it, {playerIndex, crc}); // the sorted insert
+    }
+
     // --- allocateObjectID: the counter scheme (no reuse; the @todo in the
     // original is still there).
     int allocateObjectID()
@@ -996,6 +1016,11 @@ struct GameLogicT {
 // The subsystem hooks: the ordered no-op surface of GameLogic::update.
 // The kernel orders these calls; the bodies are later slices.
 // ============================================================================
+
+// NetworkDefs.h: MAX_PLAYER = 7, MAX_SLOTS = MAX_PLAYER + 1 = 8 (the CRC
+// validation tail's slot walk bound; hoisted here — the hooks need it).
+static const int MAX_SLOTS_T = 8;
+
 struct GameLogicHooks {
     // The corpus-controlled state:
     bool m_engineTimeFrozen = false; // TheGameEngine->isTimeFrozen() (scripts/menu)
@@ -1058,6 +1083,33 @@ struct GameLogicHooks {
         SCRIPT_PRODUCTION_CONDITION = 6, // createInactiveTeam's executeActions
     };
     void tev(int e, int a = -1, int b = -1, int c = -1) { m_teamEvents.push_back({e, a, b, c}); }
+
+    // ---- the GameMessage block's corpus-controlled state ----
+    bool m_netSawCRCMismatch = false; // TheNetwork's sawCRCMismatch latch
+    bool m_netConnected[MAX_SLOTS_T] = {}; // TheNetwork->isPlayerConnected(slot)
+    bool m_recorderPlayback = false;   // TheRecorder->isPlaybackMode()
+
+    // The message event stream (each hook appends an entry; the order is
+    // the pinned observable).
+    std::vector<std::array<int, 4>> m_msgEvents;
+    enum MsgEv {
+        MEV_TRANSLATE,     // a translator body (a = translator id, b = msg id, c = disposition 0/1)
+        MEV_DISPATCH,      // the dispatcher prologue pass (a = msg id, b = type ordinal)
+        MEV_COMMAND,       // a run_command body (a = msg id, b = type ordinal)
+        MEV_RECORDER_CRC,  // handleCRCMessage (a = crc, b = player index, c = playback flag)
+        MEV_CRC_MISMATCH,  // setSawCRCMismatch
+    };
+    void mev(int e, int a = -1, int b = -1, int c = -1) { m_msgEvents.push_back({e, a, b, c}); }
+
+    // The scripted translator bodies: the disposition per (translator id,
+    // msg id) — absent means KEEP — and the posts a specific translation
+    // appends to the stream mid-body (the appended types, in order).
+    std::map<std::pair<int, int>, int> m_translateDisposition;
+    std::map<std::pair<int, int>, std::vector<int>> m_translatePosts;
+    // The scripted command bodies: the slot a command's body disconnects
+    // (fired at the run_command position — the mid-walk net change the
+    // Caball009 skip-branch fix protects).
+    std::map<int, int> m_commandDisconnectSlot;
 };
 
 // ============================================================================
@@ -2551,9 +2603,6 @@ static const TeamProtoIDT TEAM_PROTO_ID_T_INVALID = 0;
 // GameCommon.h: PLAYER_HUMAN, PLAYER_COMPUTER.
 enum PlayerTypeT { PLAYER_HUMAN_T = 0, PLAYER_COMPUTER_T = 1 };
 
-// NetworkDefs.h: MAX_PLAYER = 7, MAX_SLOTS = MAX_PLAYER + 1 = 8.
-static const int MAX_SLOTS_T = 8;
-
 // NameKeyGenerator.cpp: calcHashForString — hash * 33 + byte over the raw
 // bytes (NUL-terminated in the original; the transcription takes a length).
 static inline unsigned calcHashForStringT(const char *p, size_t len)
@@ -3165,6 +3214,327 @@ struct RankStoreT {
 // The World: the driver's singletons (TheGameLogic / ThePartitionManager /
 // the object table), the scripted module bodies and the corpus commands.
 // ============================================================================
+// ============================================================================
+// ============================================================================
+// MessageStream.h / MessageStream.cpp + GameLogic.cpp's processCommandList
+// + GameLogicDispatch.cpp's dispatcher prologue and the CRC handlers — the
+// GameMessage command processing (WP1's last block). The message
+// vocabulary's ordinals are the Zero Hour RELEASE build's (the RTS_DEBUG /
+// _ALLOW_DEBUG_CHEATS_IN_RELEASE / ALLOW_SURRENDER / DUMP_PERF_STATS blocks
+// are out; the network block keeps its fixed 1000..=1999 markers — verified
+// against the preprocessed header).
+// ============================================================================
+
+// the corpus-exercised slice of GameMessage::Type (ordinals verified)
+enum GameMsgTypeT {
+    MSG_INVALID_T = 0,
+    MSG_FRAME_TICK_T = 1,
+    MSG_RAW_MOUSE_POSITION_T = 3,
+    MSG_RAW_KEY_DOWN_T = 19,
+    MSG_CLEAR_GAME_DATA_T = 27,
+    MSG_NEW_GAME_T = 28,
+    MSG_LOGIC_CRC_PLAYBACK_T = 29,
+    MSG_BEGIN_NETWORK_MESSAGES_T = 1000,
+    MSG_CREATE_SELECTED_GROUP_T = 1001,
+    MSG_CREATE_SELECTED_GROUP_NO_SOUND_T = 1002,
+    MSG_DESTROY_SELECTED_GROUP_T = 1003,
+    MSG_SELECT_TEAM0_T = 1016,
+    MSG_SELECT_TEAM5_T = 1021,
+    MSG_PURCHASE_SCIENCE_T = 1044,
+    MSG_SET_REPLAY_CAMERA_T = 1092,
+    MSG_LOGIC_CRC_T = 1095,
+    MSG_BEGIN_DEBUG_NETWORK_MESSAGES_T = 1900,
+    MSG_END_NETWORK_MESSAGES_T = 1999,
+    MSG_TIMESTAMP_T = 2000,
+    MSG_OBJECT_DESTROYED_T = 2002,
+};
+static const char *msgTypeName(int t)
+{
+    switch (t) {
+    case MSG_INVALID_T: return "MSG_INVALID";
+    case MSG_FRAME_TICK_T: return "MSG_FRAME_TICK";
+    case MSG_RAW_MOUSE_POSITION_T: return "MSG_RAW_MOUSE_POSITION";
+    case MSG_RAW_KEY_DOWN_T: return "MSG_RAW_KEY_DOWN";
+    case MSG_CLEAR_GAME_DATA_T: return "MSG_CLEAR_GAME_DATA";
+    case MSG_LOGIC_CRC_PLAYBACK_T: return "MSG_LOGIC_CRC_PLAYBACK";
+    case MSG_NEW_GAME_T: return "MSG_NEW_GAME";
+    case MSG_BEGIN_NETWORK_MESSAGES_T: return "MSG_BEGIN_NETWORK_MESSAGES";
+    case MSG_CREATE_SELECTED_GROUP_T: return "MSG_CREATE_SELECTED_GROUP";
+    case MSG_CREATE_SELECTED_GROUP_NO_SOUND_T: return "MSG_CREATE_SELECTED_GROUP_NO_SOUND";
+    case MSG_DESTROY_SELECTED_GROUP_T: return "MSG_DESTROY_SELECTED_GROUP";
+    case MSG_SELECT_TEAM0_T: return "MSG_SELECT_TEAM0";
+    case MSG_SELECT_TEAM5_T: return "MSG_SELECT_TEAM5";
+    case MSG_PURCHASE_SCIENCE_T: return "MSG_PURCHASE_SCIENCE";
+    case MSG_SET_REPLAY_CAMERA_T: return "MSG_SET_REPLAY_CAMERA";
+    case MSG_LOGIC_CRC_T: return "MSG_LOGIC_CRC";
+    case MSG_BEGIN_DEBUG_NETWORK_MESSAGES_T: return "MSG_BEGIN_DEBUG_NETWORK_MESSAGES";
+    case MSG_END_NETWORK_MESSAGES_T: return "MSG_END_NETWORK_MESSAGES";
+    case MSG_TIMESTAMP_T: return "MSG_TIMESTAMP";
+    case MSG_OBJECT_DESTROYED_T: return "MSG_OBJECT_DESTROYED";
+    }
+    return "UnknownMessage"; // getCommandTypeAsString's in-range default
+}
+
+// GameMessageArgumentDataType
+enum ArgDataTypeT {
+    ARGDT_INTEGER = 0, ARGDT_REAL = 1, ARGDT_BOOLEAN = 2, ARGDT_OBJECTID = 3,
+    ARGDT_DRAWABLEID = 4, ARGDT_TEAMID = 5, ARGDT_LOCATION = 6, ARGDT_PIXEL = 7,
+    ARGDT_PIXELREGION = 8, ARGDT_TIMESTAMP = 9, ARGDT_WIDECHAR = 10, ARGDT_UNKNOWN = 11,
+};
+
+// IRegion2D (Lib/IRegion2D.h) — the pixel-region argument (ICoord2DT is
+// the partition block's).
+struct IRegion2DT { ICoord2DT lo, hi; };
+
+// GameMessageArgumentType: the union as its four 32-bit words (the largest
+// member is IRegion2D); every member read re-reads the same bytes the
+// original's union holds (the punned reads are byte-faithful on the
+// generating platform; the typed reads are layout-independent).
+struct GameMsgArgT {
+    int m_type = ARGDT_UNKNOWN;
+    unsigned m_words[4] = {0, 0, 0, 0};
+
+    static GameMsgArgT integer(int v) { GameMsgArgT a; a.m_type = ARGDT_INTEGER; a.m_words[0] = (unsigned)v; return a; }
+    static GameMsgArgT real(float v) { GameMsgArgT a; a.m_type = ARGDT_REAL; a.m_words[0] = bits_of(v); return a; }
+    static GameMsgArgT boolean(bool v) { GameMsgArgT a; a.m_type = ARGDT_BOOLEAN; a.m_words[0] = v ? 1u : 0u; return a; }
+    static GameMsgArgT objectID(int v) { GameMsgArgT a; a.m_type = ARGDT_OBJECTID; a.m_words[0] = (unsigned)v; return a; }
+    static GameMsgArgT drawableID(int v) { GameMsgArgT a; a.m_type = ARGDT_DRAWABLEID; a.m_words[0] = (unsigned)v; return a; }
+    static GameMsgArgT teamID(unsigned v) { GameMsgArgT a; a.m_type = ARGDT_TEAMID; a.m_words[0] = v; return a; }
+    static GameMsgArgT location(const Coord3D &v)
+    {
+        GameMsgArgT a;
+        a.m_type = ARGDT_LOCATION;
+        a.m_words[0] = bits_of(v.x);
+        a.m_words[1] = bits_of(v.y);
+        a.m_words[2] = bits_of(v.z);
+        return a;
+    }
+    static GameMsgArgT pixel(ICoord2DT v) { GameMsgArgT a; a.m_type = ARGDT_PIXEL; a.m_words[0] = (unsigned)v.x; a.m_words[1] = (unsigned)v.y; return a; }
+    static GameMsgArgT pixelRegion(IRegion2DT v)
+    {
+        GameMsgArgT a;
+        a.m_type = ARGDT_PIXELREGION;
+        a.m_words[0] = (unsigned)v.lo.x;
+        a.m_words[1] = (unsigned)v.lo.y;
+        a.m_words[2] = (unsigned)v.hi.x;
+        a.m_words[3] = (unsigned)v.hi.y;
+        return a;
+    }
+    static GameMsgArgT timestamp(unsigned v) { GameMsgArgT a; a.m_type = ARGDT_TIMESTAMP; a.m_words[0] = v; return a; }
+    static GameMsgArgT wideChar(unsigned short v) { GameMsgArgT a; a.m_type = ARGDT_WIDECHAR; a.m_words[0] = v; return a; }
+
+    int asInteger() const { return (int)m_words[0]; }
+    float asReal() const { return float_of(m_words[0]); }
+    bool asBoolean() const { return m_words[0] != 0; }
+    int asObjectID() const { return (int)m_words[0]; }
+    int asDrawableID() const { return (int)m_words[0]; }
+    unsigned asTeamID() const { return m_words[0]; }
+    Coord3D asLocation() const { return Coord3D{float_of(m_words[0]), float_of(m_words[1]), float_of(m_words[2])}; }
+    ICoord2DT asPixel() const { return ICoord2DT{(int)m_words[0], (int)m_words[1]}; }
+    IRegion2DT asPixelRegion() const { return IRegion2DT{ICoord2DT{(int)m_words[0], (int)m_words[1]}, ICoord2DT{(int)m_words[2], (int)m_words[3]}}; }
+    unsigned asTimestamp() const { return m_words[0]; }
+    unsigned short asWideChar() const { return (unsigned short)(m_words[0] & 0xffffu); }
+};
+
+// GameMessage: the type, the issuing player, the arguments and the list
+// links (ids into the arena; -1 = none).
+struct GameMsgT {
+    int m_type = MSG_INVALID_T;
+    int m_playerIndex = 0;
+    std::vector<GameMsgArgT> m_args;
+    int m_next = -1, m_prev = -1;
+    int m_list = -1; // -1 detached, 0 stream, 1 command list
+
+    // getArgument: the out-of-range answer is the all-zero argument
+    GameMsgArgT getArgument(int i) const
+    {
+        if (i >= 0 && (size_t)i < m_args.size())
+            return m_args[(size_t)i];
+        return GameMsgArgT{};
+    }
+    ArgDataTypeT getArgumentDataType(int i) const
+    {
+        if (i >= 0 && (size_t)i < m_args.size())
+            return (ArgDataTypeT)m_args[(size_t)i].m_type;
+        return ARGDT_UNKNOWN;
+    }
+    unsigned char getArgumentCount() const { return (unsigned char)m_args.size(); }
+
+    // the append family ("if a GameMessage needs more than 255 arguments,
+    // it needs to be split up" — the corpora stay far below)
+    void appendIntegerArgument(int v) { m_args.push_back(GameMsgArgT::integer(v)); }
+    void appendRealArgument(float v) { m_args.push_back(GameMsgArgT::real(v)); }
+    void appendBooleanArgument(bool v) { m_args.push_back(GameMsgArgT::boolean(v)); }
+    void appendObjectIDArgument(int v) { m_args.push_back(GameMsgArgT::objectID(v)); }
+    void appendDrawableIDArgument(int v) { m_args.push_back(GameMsgArgT::drawableID(v)); }
+    void appendTeamIDArgument(unsigned v) { m_args.push_back(GameMsgArgT::teamID(v)); }
+    void appendLocationArgument(const Coord3D &v) { m_args.push_back(GameMsgArgT::location(v)); }
+    void appendPixelArgument(ICoord2DT v) { m_args.push_back(GameMsgArgT::pixel(v)); }
+    void appendPixelRegionArgument(IRegion2DT v) { m_args.push_back(GameMsgArgT::pixelRegion(v)); }
+    void appendTimestampArgument(unsigned v) { m_args.push_back(GameMsgArgT::timestamp(v)); }
+    void appendWideCharArgument(unsigned short v) { m_args.push_back(GameMsgArgT::wideChar(v)); }
+};
+
+// the arena (slots never reused — the memory-pool recycling is unobservable
+// without the freed reads the corpora never make)
+struct MessageArenaT {
+    std::vector<GameMsgT *> m_slots;
+    int alloc(int type, int playerIndex)
+    {
+        GameMsgT *m = new GameMsgT();
+        m->m_type = type;
+        m->m_playerIndex = playerIndex;
+        m_slots.push_back(m);
+        return (int)m_slots.size() - 1;
+    }
+    GameMsgT *get(int id)
+    {
+        GameMsgT *m = m_slots[(size_t)id];
+        if (!m) {
+            fprintf(stderr, "message %d is not live\n", id);
+            abort();
+        }
+        return m;
+    }
+    void free(int id) { delete m_slots[(size_t)id]; m_slots[(size_t)id] = nullptr; }
+};
+
+// GameMessageList: the doubly-linked list over the arena
+struct MessageListT {
+    int m_kind = -1; // 0 stream, 1 command list
+    int m_first = -1, m_last = -1;
+
+    // the list walk (first to last — the dump surface)
+    std::vector<int> ids(MessageArenaT &arena) const
+    {
+        std::vector<int> out;
+        for (int id = m_first; id != -1; id = arena.get(id)->m_next)
+            out.push_back(id);
+        return out;
+    }
+
+    void appendMessage(MessageArenaT &arena, int id)
+    {
+        arena.get(id)->m_next = -1;
+        if (m_last != -1) {
+            arena.get(m_last)->m_next = id;
+            arena.get(id)->m_prev = m_last;
+            m_last = id;
+        } else {
+            // first message
+            m_first = id;
+            m_last = id;
+            arena.get(id)->m_prev = -1;
+        }
+        // note containment within message itself
+        arena.get(id)->m_list = m_kind;
+    }
+
+    void insertMessage(MessageArenaT &arena, int id, int after)
+    {
+        arena.get(id)->m_next = arena.get(after)->m_next;
+        arena.get(id)->m_prev = after;
+        if (arena.get(id)->m_next != -1)
+            arena.get(arena.get(id)->m_next)->m_prev = id;
+        else
+            m_last = id;
+        arena.get(after)->m_next = id;
+        arena.get(id)->m_list = m_kind;
+    }
+
+    void removeMessage(MessageArenaT &arena, int id)
+    {
+        GameMsgT *m = arena.get(id);
+        if (m->m_next != -1)
+            arena.get(m->m_next)->m_prev = m->m_prev;
+        else
+            m_last = m->m_prev;
+        if (m->m_prev != -1)
+            arena.get(m->m_prev)->m_next = m->m_next;
+        else
+            m_first = m->m_next;
+        m->m_list = -1;
+    }
+
+    bool containsMessageOfType(MessageArenaT &arena, int type) const
+    {
+        for (int id = m_first; id != -1; id = arena.get(id)->m_next)
+            if (arena.get(id)->m_type == type)
+                return true;
+        return false;
+    }
+};
+
+// the translator registry entry (the body is the scripted hook)
+struct TranslatorDataT {
+    int m_id;
+    unsigned m_priority;
+};
+
+// MessageStream
+struct MessageStreamT {
+    MessageListT m_list; // kind 0
+    std::vector<TranslatorDataT> m_translators; // priority-sorted, ties keep attach order
+    int m_nextTranslatorID = 1;
+    bool m_playerListPresent = false; // ThePlayerList != nullptr
+
+    MessageStreamT() { m_list.m_kind = 0; }
+
+    bool isReadyForMessages() const { return m_playerListPresent; }
+
+    // attachTranslator: insert before the first strictly-greater priority
+    // (ties keep attach order — the stable placement)
+    int attachTranslator(unsigned priority)
+    {
+        int id = m_nextTranslatorID++;
+        size_t pos = 0;
+        while (pos < m_translators.size() && m_translators[pos].m_priority <= priority)
+            ++pos;
+        m_translators.insert(m_translators.begin() + (long)pos, TranslatorDataT{id, priority});
+        return id;
+    }
+    int findTranslator(int id) const
+    {
+        for (const auto &t : m_translators)
+            if (t.m_id == id)
+                return t.m_id;
+        return -1;
+    }
+    void removeTranslator(int id)
+    {
+        for (size_t i = 0; i < m_translators.size(); ++i)
+            if (m_translators[i].m_id == id) {
+                m_translators.erase(m_translators.begin() + (long)i);
+                break;
+            }
+    }
+};
+
+// CommandList
+struct CommandListT {
+    MessageListT m_list; // kind 1
+    CommandListT() { m_list.m_kind = 1; }
+
+    void appendMessageList(MessageArenaT &arena, int first)
+    {
+        for (int id = first; id != -1;) {
+            int next = arena.get(id)->m_next;
+            m_list.appendMessage(arena, id);
+            id = next;
+        }
+    }
+    void reset(MessageArenaT &arena)
+    {
+        for (int id = m_list.m_first; id != -1;) {
+            int next = arena.get(id)->m_next;
+            arena.free(id);
+            id = next;
+        }
+        m_list.m_first = -1;
+        m_list.m_last = -1;
+    }
+};
+
 struct World {
     GameLogicT logic;
     PartitionManagerT pm;
@@ -3173,9 +3543,14 @@ struct World {
     ScienceStoreT scienceStore; // TheScienceStore
     RankStoreT rankStore;       // TheRankInfoStore
     NameKeyGenT nameKeys;
-    bool m_networkPresent = false; // TheNetwork != null (the newGame local-selection gate)
+    bool m_networkPresent = false; // TheNetwork != null (the newGame local-selection gate, the CRC branch)
     GameLogicHooks hooks;
     std::vector<std::unique_ptr<ObjectT>> objects; // the arena (ids never reused)
+
+    // ---- the GameMessage block ----
+    MessageArenaT msgArena;
+    MessageStreamT messageStream;
+    CommandListT commandList;
 
     World()
     {
@@ -3357,6 +3732,202 @@ struct World {
     }
 
     // GameLogic::update — the ordered walk, transcribed.
+    // ---- the GameMessage block's World surface ----
+
+    // MessageStream::appendMessage — the ctor's local-player stamp
+    int postStreamMessage(int type)
+    {
+        int local = playerList.m_local ? playerList.m_local->m_playerIndex : 0;
+        int id = msgArena.alloc(MSG_INVALID_T, local);
+        messageStream.m_list.appendMessage(msgArena, id);
+        msgArena.get(id)->m_type = type;
+        return id;
+    }
+
+    // the recorder's simulation-playback post (the command-list direct
+    // append — GameLogic.cpp's messageList = TheCommandList branch)
+    int postCommandMessage(int type)
+    {
+        int local = playerList.m_local ? playerList.m_local->m_playerIndex : 0;
+        int id = msgArena.alloc(type, local);
+        commandList.m_list.appendMessage(msgArena, id);
+        return id;
+    }
+
+    // GameLogic::onLogicCrc — the network branch verbatim, the playback
+    // branch as the recorder hook
+    bool onLogicCrc(int playerIndex, unsigned crc)
+    {
+        PlayerT *msgPlayer = playerList.getNthPlayer(playerIndex); // getMessagePlayer
+        if (!msgPlayer)
+            return false;
+        if (m_networkPresent) {
+            if (msgPlayer->m_playerType != PLAYER_HUMAN_T)
+                return false;
+            const int slotIndex = playerListGetSlotIndex(msgPlayer->m_playerIndex);
+            if (slotIndex < 0 || !hooks.m_netConnected[slotIndex])
+                return false;
+            if (playerList.m_local == msgPlayer)
+                logic.m_shouldValidateCRCs = true;
+            logic.cachedCrcSet(msgPlayer->m_playerIndex, crc);
+        } else if (hooks.m_recorderPlayback) {
+            hooks.mev(GameLogicHooks::MEV_RECORDER_CRC, (int)crc, msgPlayer->m_playerIndex, 0);
+        }
+        return true;
+    }
+
+    // GameLogic::onLogicCrcForPlayback
+    bool onLogicCrcForPlayback(unsigned crc)
+    {
+        hooks.mev(GameLogicHooks::MEV_RECORDER_CRC, (int)crc, -1, 1);
+        return true;
+    }
+
+    // MessageStream::isRedundantNetworkMessage — the network-traffic trim
+    bool isRedundantNetworkMessage(int id)
+    {
+        GameMsgT *msg = msgArena.get(id);
+        if (msg->m_type == MSG_DESTROY_SELECTED_GROUP_T) {
+            if (msg->m_next == -1)
+                return false;
+            GameMsgT *next = msgArena.get(msg->m_next);
+            if (next->m_type == MSG_CREATE_SELECTED_GROUP_T || next->m_type == MSG_CREATE_SELECTED_GROUP_NO_SOUND_T) {
+                if (next->getArgumentCount() >= 1) {
+                    const bool newGroup = next->getArgument(0).asBoolean();
+                    if (newGroup)
+                        return true;
+                }
+                return false;
+            }
+            if (next->m_type == MSG_DESTROY_SELECTED_GROUP_T)
+                return true;
+            if (next->m_type >= MSG_SELECT_TEAM0_T && next->m_type <= MSG_SELECT_TEAM0_T + 9)
+                return true;
+            return false;
+        }
+        if (msg->m_type == MSG_SET_REPLAY_CAMERA_T) {
+            for (int n = msg->m_next; n != -1; n = msgArena.get(n)->m_next)
+                if (msgArena.get(n)->m_type == MSG_SET_REPLAY_CAMERA_T)
+                    return true;
+            return false;
+        }
+        return false;
+    }
+
+    // MessageStream::propagateMessages — the two-level walk, the transfer,
+    // the redundant sweep and the clear. The translator bodies are the
+    // scripted hooks (the disposition + the mid-body posts).
+    void propagateMessages()
+    {
+        for (const auto &t : messageStream.m_translators) {
+            for (int id = messageStream.m_list.m_first; id != -1;) {
+                // the scripted body: the disposition, then the posts (the
+                // original's translator appends DURING its body)
+                int disp = 0;
+                auto it = hooks.m_translateDisposition.find(std::make_pair(t.m_id, id));
+                if (it != hooks.m_translateDisposition.end())
+                    disp = it->second;
+                hooks.mev(GameLogicHooks::MEV_TRANSLATE, t.m_id, id, disp);
+                auto pit = hooks.m_translatePosts.find(std::make_pair(t.m_id, id));
+                if (pit != hooks.m_translatePosts.end())
+                    for (int ty : pit->second)
+                        postStreamMessage(ty);
+                if (disp == 1) {
+                    int next = msgArena.get(id)->m_next;
+                    messageStream.m_list.removeMessage(msgArena, id);
+                    msgArena.free(id);
+                    id = next;
+                    continue;
+                }
+                id = msgArena.get(id)->m_next;
+            }
+        }
+
+        // Transfer all messages that reached the end of the stream to
+        // TheCommandList.
+        commandList.appendMessageList(msgArena, messageStream.m_list.m_first);
+
+        // Delete network messages that are redundant (the command-list
+        // adjacency — the post-transfer order).
+        for (int id = commandList.m_list.m_first; id != -1;) {
+            int next = msgArena.get(id)->m_next;
+            if (isRedundantNetworkMessage(id)) {
+                commandList.m_list.removeMessage(msgArena, id);
+                msgArena.free(id);
+            }
+            id = next;
+        }
+
+        // clear the stream
+        messageStream.m_list.m_first = -1;
+        messageStream.m_list.m_last = -1;
+    }
+
+    // GameLogic::processCommandList — the cached-CRC clear, the dispatch
+    // walk (the prologue's getNthPlayer gate, the position hook, the
+    // kernel-owned CRC handlers, the scripted bodies) and the validation
+    // tail.
+    void processCommandList()
+    {
+        logic.cachedCrcClear();
+        logic.m_shouldValidateCRCs = false;
+
+        for (int id = commandList.m_list.m_first; id != -1;) {
+            GameMsgT *msg = msgArena.get(id);
+
+            // logicMessageDispatcher's prologue: getMessagePlayer
+            PlayerT *msgPlayer = playerList.getNthPlayer(msg->m_playerIndex);
+            if (msgPlayer != nullptr) {
+                hooks.mev(GameLogicHooks::MEV_DISPATCH, id, msg->m_type, -1);
+                if (msg->m_type == MSG_LOGIC_CRC_T) {
+                    onLogicCrc(msg->m_playerIndex, (unsigned)msg->getArgument(0).asInteger());
+                } else if (msg->m_type == MSG_LOGIC_CRC_PLAYBACK_T) {
+                    onLogicCrcForPlayback((unsigned)msg->getArgument(0).asInteger());
+                } else {
+                    hooks.mev(GameLogicHooks::MEV_COMMAND, id, msg->m_type, -1);
+                    // the scripted command body (the mid-walk net change)
+                    auto dit = hooks.m_commandDisconnectSlot.find(id);
+                    if (dit != hooks.m_commandDisconnectSlot.end())
+                        hooks.m_netConnected[dit->second] = false;
+                }
+            }
+            id = msgArena.get(id)->m_next; // the loop increment (post-body)
+        }
+
+        if (logic.m_shouldValidateCRCs && !hooks.m_netSawCRCMismatch) {
+            bool sawCRCMismatch = false;
+            int numPlayers = 0;
+            for (int i = 0; i < MAX_SLOTS_T; ++i)
+                if (hooks.m_netConnected[i])
+                    ++numPlayers;
+
+            if ((int)logic.m_cachedCRCs.size() < numPlayers) {
+                sawCRCMismatch = true; // "Not enough CRCs!"
+            } else {
+                bool hasReferenceCRC = false;
+                unsigned referenceCRC = 0;
+                for (const auto &kv : logic.m_cachedCRCs) {
+                    // the Caball009 14/06/2026 bugfix: skip the disconnected
+                    const int slotIndex = playerListGetSlotIndex(kv.first);
+                    if (slotIndex >= 0 && !hooks.m_netConnected[slotIndex])
+                        continue;
+                    const unsigned crc = kv.second;
+                    if (!hasReferenceCRC) {
+                        hasReferenceCRC = true;
+                        referenceCRC = crc;
+                        continue;
+                    }
+                    if (referenceCRC != crc)
+                        sawCRCMismatch = true;
+                }
+            }
+            if (sawCRCMismatch) {
+                hooks.mev(GameLogicHooks::MEV_CRC_MISMATCH, -1, -1, -1);
+                hooks.m_netSawCRCMismatch = true; // setSawCRCMismatch
+            }
+        }
+    }
+
     void update()
     {
         // (LatchRestore<Bool> inUpdateLatch(m_isInUpdate, TRUE))
@@ -3408,6 +3979,7 @@ struct World {
         {
             hooks.ev(GameLogicHooks::EV_COMMANDS, -1, -1);
             hooks.m_hookCommands++;
+            processCommandList();
         }
 
         // (ALLOW_NONSLEEPY_UPDATES is not defined in this build — no normal
@@ -3481,6 +4053,7 @@ struct World {
         // reset the command list, destroying all messages
         {
             hooks.ev(GameLogicHooks::EV_COMMANDS_RESET, -1, -1);
+            commandList.reset(msgArena);
         }
 
         {
@@ -6826,7 +7399,31 @@ static World &freshWorld(float cellSize, const Region2DT &extents)
     // the cost-sorted iterators' object-table stand-in (each corpus owns
     // exactly one World at a time)
     g_queryWorld = w;
+    // TheMessageStream's isReadyForMessages gate: the PlayerList exists
+    // once the engine boots (the World ctor ran playerListInit)
+    w->messageStream.m_playerListPresent = true;
     return *w;
+}
+
+// buildRegion (MessageStream.cpp): the drag-selection rectangle
+static IRegion2DT buildRegionT(ICoord2DT anchor, ICoord2DT dest)
+{
+    IRegion2DT region;
+    if (anchor.x < dest.x) {
+        region.lo.x = anchor.x;
+        region.hi.x = dest.x;
+    } else {
+        region.lo.x = dest.x;
+        region.hi.x = anchor.x;
+    }
+    if (anchor.y < dest.y) {
+        region.lo.y = anchor.y;
+        region.hi.y = dest.y;
+    } else {
+        region.lo.y = dest.y;
+        region.hi.y = anchor.y;
+    }
+    return region;
 }
 
 // --- kernel_ids: the ID counter scheme and the loadPostProcess compaction --
@@ -9376,6 +9973,415 @@ static void corpusPurseRoundtrip(Dumper &d)
     d.line("end");
 }
 
+// --- messages: the GameMessage command-processing block ----------------------
+//
+// The dump surfaces: the argument family (typed appends, the union reads
+// including the punned ones, the out-of-range zero), the list choreography
+// (append/insert/remove/contains), the stream (the translator registry's
+// stable priority order, the propagation walk with the mid-walk destroy
+// and the mid-body posts, the transfer, the redundant-network sweep), the
+// dispatch walk (the player gate, the CRC handlers' gate chain, the
+// validation tail with the Caball009 skip) and the frame-loop integration.
+
+static void dumpMsgEvents(Dumper &d, World &w)
+{
+    for (const auto &e : w.hooks.m_msgEvents) {
+        switch (e[0]) {
+        case GameLogicHooks::MEV_TRANSLATE:
+            d.line("translate t%d m%d %s", e[1], e[2], e[3] ? "destroy" : "keep");
+            break;
+        case GameLogicHooks::MEV_DISPATCH:
+            d.line("dispatch m%d %s", e[1], msgTypeName(e[2]));
+            break;
+        case GameLogicHooks::MEV_COMMAND:
+            d.line("command m%d %s", e[1], msgTypeName(e[2]));
+            break;
+        case GameLogicHooks::MEV_RECORDER_CRC:
+            d.line("recordercrc %x p%d %s", e[1], e[2], e[3] ? "playback" : "live");
+            break;
+        case GameLogicHooks::MEV_CRC_MISMATCH:
+            d.line("crcmismatch");
+            break;
+        }
+    }
+}
+
+static void dumpMessageList(Dumper &d, World &w, const char *tag, MessageListT &list)
+{
+    std::vector<int> ids = list.ids(w.msgArena);
+    d.line("%s n %d", tag, (int)ids.size());
+    for (int id : ids) {
+        GameMsgT *m = w.msgArena.get(id);
+        d.line("m%d %s p%d list %d prev %d next %d args %d", id, msgTypeName(m->m_type),
+               m->m_playerIndex, m->m_list, m->m_prev, m->m_next, (int)m->m_args.size());
+    }
+}
+
+static void dumpCrcCache(Dumper &d, World &w)
+{
+    d.line("validate %d cache %d", w.logic.m_shouldValidateCRCs ? 1 : 0,
+           (int)w.logic.m_cachedCRCs.size());
+    for (const auto &kv : w.logic.m_cachedCRCs)
+        d.line("crc p%d %x", kv.first, kv.second);
+}
+
+static void corpusMessagesArgs(Dumper &d)
+{
+    d.line("corpus messages_args");
+    World &w = freshWorld(10.0f, Region2DT{0, 0, 100, 100});
+
+    // every typed append + its read-back (the union's word layout)
+    int id = w.postStreamMessage(MSG_RAW_MOUSE_POSITION_T);
+    GameMsgT *m = w.msgArena.get(id);
+    m->appendIntegerArgument(-42);
+    m->appendRealArgument(1.5f);
+    m->appendBooleanArgument(true);
+    m->appendObjectIDArgument(7);
+    m->appendDrawableIDArgument(9);
+    m->appendTeamIDArgument(0xDEADBEEFu);
+    m->appendLocationArgument(Coord3D{1.0f, 2.5f, -3.25f});
+    m->appendPixelArgument(ICoord2DT{13, -14});
+    m->appendPixelRegionArgument(IRegion2DT{ICoord2DT{1, 2}, ICoord2DT{30, 40}});
+    m->appendTimestampArgument(1234567u);
+    m->appendWideCharArgument(0x0102u);
+    d.line("count %d", (int)m->getArgumentCount());
+    for (int i = 0; i < 11; ++i) {
+        GameMsgArgT a = m->getArgument(i);
+        d.line("arg %d type %d int %d realbits %08x bool %d oid %d did %d team %x ts %u wc %x",
+               i, (int)a.m_type, a.asInteger(), bits_of(a.asReal()), a.asBoolean() ? 1 : 0,
+               a.asObjectID(), a.asDrawableID(), a.asTeamID(), a.asTimestamp(), a.asWideChar());
+    }
+    // the location/pixel/region reads of the right slots (the floats as
+    // bits — the corpora's platform-stable convention)
+    d.line("loc %08x,%08x,%08x", bits_of(m->getArgument(6).asLocation().x),
+           bits_of(m->getArgument(6).asLocation().y), bits_of(m->getArgument(6).asLocation().z));
+    d.line("pix %d,%d", m->getArgument(7).asPixel().x, m->getArgument(7).asPixel().y);
+    d.line("reg %d,%d %d,%d", m->getArgument(8).asPixelRegion().lo.x, m->getArgument(8).asPixelRegion().lo.y,
+           m->getArgument(8).asPixelRegion().hi.x, m->getArgument(8).asPixelRegion().hi.y);
+    // the out-of-range contract: the zero argument, the UNKNOWN type
+    d.line("oor int %d realbits %08x type %d", m->getArgument(99).asInteger(),
+           bits_of(m->getArgument(99).asReal()), (int)m->getArgumentDataType(99));
+    // the punned reads (the same words re-read as other members — the
+    // integer -42's bits are a sign-bit NaN read as real: pinned as bits,
+    // the decimal formatting of a NaN is a printf artifact both sides
+    // avoid)
+    d.line("pun int-as-real %08x real-as-int %d bool-as-int %d",
+           bits_of(m->getArgument(0).asReal()), m->getArgument(1).asInteger(),
+           m->getArgument(2).asInteger());
+    // the ctor's local-player stamp (the World boots with local = neutral)
+    d.line("player %d ready %d", m->m_playerIndex, w.messageStream.isReadyForMessages() ? 1 : 0);
+    // buildRegion: the four quadrant orders
+    IRegion2DT r1 = buildRegionT(ICoord2DT{10, 10}, ICoord2DT{20, 30});
+    IRegion2DT r2 = buildRegionT(ICoord2DT{20, 30}, ICoord2DT{10, 10});
+    IRegion2DT r3 = buildRegionT(ICoord2DT{-5, 8}, ICoord2DT{5, -8});
+    d.line("reg1 %d,%d %d,%d reg2 %d,%d %d,%d reg3 %d,%d %d,%d",
+           r1.lo.x, r1.lo.y, r1.hi.x, r1.hi.y, r2.lo.x, r2.lo.y, r2.hi.x, r2.hi.y,
+           r3.lo.x, r3.lo.y, r3.hi.x, r3.hi.y);
+    d.line("end");
+}
+
+static void corpusMessagesList(Dumper &d)
+{
+    d.line("corpus messages_list");
+    World &w = freshWorld(10.0f, Region2DT{0, 0, 100, 100});
+
+    // the append/insert/remove choreography over the stream
+    int a = w.postStreamMessage(MSG_FRAME_TICK_T);
+    int b = w.postStreamMessage(MSG_RAW_KEY_DOWN_T);
+    int c = w.postStreamMessage(MSG_CLEAR_GAME_DATA_T);
+    (void)c;
+    dumpMessageList(d, w, "stream", w.messageStream.m_list);
+    // insert after the head
+    int x = w.msgArena.alloc(MSG_NEW_GAME_T, 0);
+    w.messageStream.m_list.insertMessage(w.msgArena, x, a);
+    dumpMessageList(d, w, "stream", w.messageStream.m_list);
+    // remove the middle
+    w.messageStream.m_list.removeMessage(w.msgArena, b);
+    w.msgArena.free(b);
+    dumpMessageList(d, w, "stream", w.messageStream.m_list);
+    // containsMessageOfType
+    d.line("has newgame %d has keydown %d",
+           w.messageStream.m_list.containsMessageOfType(w.msgArena, MSG_NEW_GAME_T) ? 1 : 0,
+           w.messageStream.m_list.containsMessageOfType(w.msgArena, MSG_RAW_KEY_DOWN_T) ? 1 : 0);
+    // the transfer: appendMessageList walks and relinks onto the command list
+    w.commandList.appendMessageList(w.msgArena, w.messageStream.m_list.m_first);
+    dumpMessageList(d, w, "commands", w.commandList.m_list);
+    // the direct command-list append (the recorder's playback post)
+    w.postCommandMessage(MSG_LOGIC_CRC_PLAYBACK_T);
+    dumpMessageList(d, w, "commands", w.commandList.m_list);
+    // the reset: everything dies
+    w.commandList.reset(w.msgArena);
+    dumpMessageList(d, w, "commands", w.commandList.m_list);
+    d.line("end");
+}
+
+static void corpusMessagesStream(Dumper &d)
+{
+    d.line("corpus messages_stream");
+    World &w = freshWorld(10.0f, Region2DT{0, 0, 100, 100});
+
+    // (a) the translator registry: attach order with ties (stable), the
+    // strictly-greater insertion, find/remove
+    int t10 = w.messageStream.attachTranslator(10);
+    int t5a = w.messageStream.attachTranslator(5);
+    int t5b = w.messageStream.attachTranslator(5);
+    int t7 = w.messageStream.attachTranslator(7);
+    int t1 = w.messageStream.attachTranslator(1);
+    d.line("ids %d %d %d %d %d", t10, t5a, t5b, t7, t1);
+    for (const auto &t : w.messageStream.m_translators)
+        d.line("reg t%d p%u", t.m_id, t.m_priority);
+    d.line("find %d %d", w.messageStream.findTranslator(t5b), w.messageStream.findTranslator(99));
+    w.messageStream.removeTranslator(t5a);
+    for (const auto &t : w.messageStream.m_translators)
+        d.line("reg t%d p%u", t.m_id, t.m_priority);
+
+    // (b) the propagation: the per-translator restart, the mid-walk
+    // DESTROY (the last translator kills m4), the mid-body post (t7 posts
+    // a camera while translating m2 — the same-frame tail visitation),
+    // the transfer and the redundant sweep (a lone camera survives)
+    int m1 = w.postStreamMessage(MSG_CREATE_SELECTED_GROUP_T);
+    w.msgArena.get(m1)->appendBooleanArgument(true); // the newGroup flag
+    int m2 = w.postStreamMessage(MSG_FRAME_TICK_T);
+    int m3 = w.postStreamMessage(MSG_PURCHASE_SCIENCE_T);
+    int m4 = w.postStreamMessage(MSG_OBJECT_DESTROYED_T);
+    (void)m2;
+    (void)m3;
+    w.hooks.m_translateDisposition[std::make_pair(t10, m4)] = 1;
+    w.hooks.m_translatePosts[std::make_pair(t7, m2)].push_back(MSG_SET_REPLAY_CAMERA_T);
+    w.propagateMessages();
+    dumpMessageList(d, w, "commands", w.commandList.m_list);
+    dumpMessageList(d, w, "stream", w.messageStream.m_list);
+    dumpMsgEvents(d, w);
+
+    // (c) the redundant sweep patterns: DESTROY+CREATE(true) is redundant,
+    // DESTROY+CREATE(false) is not, DESTROY+DESTROY is, DESTROY+SELECT_TEAM
+    // is
+    w.hooks.m_msgEvents.clear();
+    w.commandList.reset(w.msgArena);
+    w.postStreamMessage(MSG_DESTROY_SELECTED_GROUP_T);
+    int c1 = w.postStreamMessage(MSG_CREATE_SELECTED_GROUP_NO_SOUND_T);
+    w.msgArena.get(c1)->appendBooleanArgument(true);
+    w.postStreamMessage(MSG_DESTROY_SELECTED_GROUP_T);
+    w.postStreamMessage(MSG_SELECT_TEAM5_T);
+    w.propagateMessages();
+    dumpMessageList(d, w, "commands", w.commandList.m_list);
+
+    // (d) the SET_REPLAY_CAMERA dedup: only the LAST survives (each
+    // earlier one sees a later one)
+    w.commandList.reset(w.msgArena);
+    w.postStreamMessage(MSG_SET_REPLAY_CAMERA_T);
+    w.postStreamMessage(MSG_SET_REPLAY_CAMERA_T);
+    w.postStreamMessage(MSG_SET_REPLAY_CAMERA_T);
+    w.propagateMessages();
+    dumpMessageList(d, w, "commands", w.commandList.m_list);
+
+    // (e) the CREATE(false) keeper
+    w.commandList.reset(w.msgArena);
+    w.postStreamMessage(MSG_DESTROY_SELECTED_GROUP_T);
+    int c2 = w.postStreamMessage(MSG_CREATE_SELECTED_GROUP_T);
+    w.msgArena.get(c2)->appendBooleanArgument(false);
+    w.propagateMessages();
+    dumpMessageList(d, w, "commands", w.commandList.m_list);
+    d.line("end");
+}
+
+static void corpusMessagesDispatch(Dumper &d)
+{
+    d.line("corpus messages_dispatch");
+    World &w = freshWorld(10.0f, Region2DT{0, 0, 100, 100});
+
+    // a networked 3-human world: player 0 = neutral (computer), players
+    // 1..3 = humans, player 1 local; slots 0..2 = players 1..3
+    SidesSpecT sides;
+    sides.sides.push_back(SideSpecT{}); // the neutral side
+    sides.sides.push_back(sideSpec("america", true, true, false));
+    sides.sides.push_back(sideSpec("china", true, false, false));
+    sides.sides.push_back(sideSpec("gla", true, false, false));
+    w.m_networkPresent = true;
+    w.playerListNewGame(sides);
+    w.playerListSetSlotIndex(1, 0);
+    w.playerListSetSlotIndex(2, 1);
+    w.playerListSetSlotIndex(3, 2);
+    w.hooks.m_netConnected[0] = true;
+    w.hooks.m_netConnected[1] = true;
+    w.hooks.m_netConnected[2] = true;
+    d.line("local %d types %d %d %d %d", w.playerList.m_local->m_playerIndex,
+           (int)w.playerList.getNthPlayer(0)->m_playerType, (int)w.playerList.getNthPlayer(1)->m_playerType,
+           (int)w.playerList.getNthPlayer(2)->m_playerType, (int)w.playerList.getNthPlayer(3)->m_playerType);
+    d.line("slots %d %d %d", w.playerListGetSlotIndex(1), w.playerListGetSlotIndex(2), w.playerListGetSlotIndex(3));
+
+    // (a) the walk order + the prologue's player gate: a message from a
+    // negative player index is skipped entirely (getNthPlayer's bounds
+    // refusal — the DEBUG_CRASH's release `return`)
+    w.postCommandMessage(MSG_PURCHASE_SCIENCE_T);
+    GameMsgT *bad = w.msgArena.get(w.postCommandMessage(MSG_PURCHASE_SCIENCE_T));
+    bad->m_playerIndex = -5;
+    w.postCommandMessage(MSG_OBJECT_DESTROYED_T);
+    w.processCommandList();
+    dumpMsgEvents(d, w);
+
+    // (b) the CRC gate chain: the disconnected player's CRC is refused
+    // (the slot gate — player 9 exists but carries no slot), the neutral
+    // computer player's is refused (the human gate), the local human's
+    // validates and caches, the other humans' cache
+    w.hooks.m_msgEvents.clear();
+    w.commandList.reset(w.msgArena);
+    int k1 = w.postCommandMessage(MSG_LOGIC_CRC_T);
+    w.msgArena.get(k1)->m_playerIndex = 2; // human, connected, NOT local
+    w.msgArena.get(k1)->appendIntegerArgument(0x11111111);
+    int k2 = w.postCommandMessage(MSG_LOGIC_CRC_T);
+    w.msgArena.get(k2)->m_playerIndex = 1; // the local human
+    w.msgArena.get(k2)->appendIntegerArgument(0x11111111);
+    int k3 = w.postCommandMessage(MSG_LOGIC_CRC_T);
+    w.msgArena.get(k3)->m_playerIndex = 0; // the neutral player — a computer
+    w.msgArena.get(k3)->appendIntegerArgument(0x22222222);
+    int k4 = w.postCommandMessage(MSG_LOGIC_CRC_T);
+    w.msgArena.get(k4)->m_playerIndex = 9; // a pre-created computer player, slot -1
+    w.msgArena.get(k4)->appendIntegerArgument(0x22222222);
+    w.processCommandList();
+    dumpMsgEvents(d, w);
+    dumpCrcCache(d, w);
+
+    // (c) the Caball009 skip: a command body disconnects player 3's slot
+    // MID-WALK — its differing CRC (0x44444444, cached while still
+    // connected) is then SKIPPED by the fix: the connected count drops to
+    // 2, the cache holds 3, and the disconnected player's entry is passed
+    // over without comparison → clean (the (b) verdict's latch is reset —
+    // a fresh network for the fresh frame)
+    w.hooks.m_msgEvents.clear();
+    w.hooks.m_netSawCRCMismatch = false;
+    w.commandList.reset(w.msgArena);
+    int k5 = w.postCommandMessage(MSG_LOGIC_CRC_T);
+    w.msgArena.get(k5)->m_playerIndex = 1;
+    w.msgArena.get(k5)->appendIntegerArgument(0x11111111);
+    int k6 = w.postCommandMessage(MSG_LOGIC_CRC_T);
+    w.msgArena.get(k6)->m_playerIndex = 2;
+    w.msgArena.get(k6)->appendIntegerArgument(0x11111111);
+    int k7 = w.postCommandMessage(MSG_LOGIC_CRC_T);
+    w.msgArena.get(k7)->m_playerIndex = 3;
+    w.msgArena.get(k7)->appendIntegerArgument(0x44444444);
+    int k8 = w.postCommandMessage(MSG_PURCHASE_SCIENCE_T);
+    w.msgArena.get(k8)->m_playerIndex = 1;
+    w.hooks.m_commandDisconnectSlot[k8] = 2; // the scripted body: slot 2 (player 3) drops
+    w.processCommandList();
+    dumpMsgEvents(d, w);
+    dumpCrcCache(d, w);
+    d.line("netmismatch %d", w.hooks.m_netSawCRCMismatch ? 1 : 0);
+    w.hooks.m_netConnected[2] = true; // player 3's slot returns (the fresh frames)
+
+    // (d) the same walk WITHOUT the mid-walk disconnect: player 3's
+    // differing CRC IS compared → the mismatch fires and latches
+    w.hooks.m_msgEvents.clear();
+    w.commandList.reset(w.msgArena);
+    int k9 = w.postCommandMessage(MSG_LOGIC_CRC_T);
+    w.msgArena.get(k9)->m_playerIndex = 1;
+    w.msgArena.get(k9)->appendIntegerArgument(0x11111111);
+    int k10 = w.postCommandMessage(MSG_LOGIC_CRC_T);
+    w.msgArena.get(k10)->m_playerIndex = 2;
+    w.msgArena.get(k10)->appendIntegerArgument(0x11111111);
+    int k11 = w.postCommandMessage(MSG_LOGIC_CRC_T);
+    w.msgArena.get(k11)->m_playerIndex = 3;
+    w.msgArena.get(k11)->appendIntegerArgument(0x44444444);
+    w.processCommandList();
+    dumpMsgEvents(d, w);
+    d.line("netmismatch %d", w.hooks.m_netSawCRCMismatch ? 1 : 0);
+
+    // (e) the latch: a following frame with mismatched CRCs does NOT
+    // re-validate (the gate's !sawCRCMismatch half)
+    w.hooks.m_msgEvents.clear();
+    w.commandList.reset(w.msgArena);
+    int k12 = w.postCommandMessage(MSG_LOGIC_CRC_T);
+    w.msgArena.get(k12)->m_playerIndex = 1;
+    w.msgArena.get(k12)->appendIntegerArgument(0x11111111);
+    int k13 = w.postCommandMessage(MSG_LOGIC_CRC_T);
+    w.msgArena.get(k13)->m_playerIndex = 3;
+    w.msgArena.get(k13)->appendIntegerArgument(0x55555555);
+    w.processCommandList();
+    dumpMsgEvents(d, w);
+    d.line("netmismatch %d", w.hooks.m_netSawCRCMismatch ? 1 : 0);
+
+    // (f) the not-enough-CRCs verdict: 3 connected, only 2 cached (the
+    // neutral's computer refusal rides along)
+    w.hooks.m_msgEvents.clear();
+    w.hooks.m_netSawCRCMismatch = false; // a fresh network (the corpus resets the latch)
+    w.commandList.reset(w.msgArena);
+    int k14 = w.postCommandMessage(MSG_LOGIC_CRC_T);
+    w.msgArena.get(k14)->m_playerIndex = 1;
+    w.msgArena.get(k14)->appendIntegerArgument(0x11111111);
+    int k15 = w.postCommandMessage(MSG_LOGIC_CRC_T);
+    w.msgArena.get(k15)->m_playerIndex = 2;
+    w.msgArena.get(k15)->appendIntegerArgument(0x11111111);
+    w.processCommandList();
+    dumpMsgEvents(d, w);
+    d.line("netmismatch %d", w.hooks.m_netSawCRCMismatch ? 1 : 0);
+
+    // (g) the playback branch: no network, the recorder in playback mode —
+    // the live CRC hands (crc, player, live) and the playback CRC hands
+    // (crc, -1, playback); a no-recorder world hands nothing
+    w.hooks.m_msgEvents.clear();
+    w.commandList.reset(w.msgArena);
+    w.m_networkPresent = false;
+    w.hooks.m_recorderPlayback = true;
+    int p1 = w.postCommandMessage(MSG_LOGIC_CRC_T);
+    w.msgArena.get(p1)->m_playerIndex = 2;
+    w.msgArena.get(p1)->appendIntegerArgument(0x66666666);
+    w.postCommandMessage(MSG_LOGIC_CRC_PLAYBACK_T); // the local player's stamp
+    w.msgArena.get(w.commandList.m_list.m_last)->appendIntegerArgument(0x77777777);
+    w.processCommandList();
+    dumpMsgEvents(d, w);
+    dumpCrcCache(d, w);
+    // the no-recorder world: the dispatch passes, neither branch runs
+    w.hooks.m_msgEvents.clear();
+    w.commandList.reset(w.msgArena);
+    w.hooks.m_recorderPlayback = false;
+    w.postCommandMessage(MSG_LOGIC_CRC_T);
+    w.processCommandList();
+    dumpMsgEvents(d, w);
+    dumpCrcCache(d, w);
+    d.line("end");
+}
+
+static void corpusMessagesRoundtrip(Dumper &d)
+{
+    d.line("corpus messages_roundtrip");
+    World &w = freshWorld(10.0f, Region2DT{0, 0, 100, 100});
+
+    // the full pipeline across frames: post to the stream, propagate (the
+    // transfer + the sweep), the update processes the commands at the
+    // pinned position and resets the list at the tail
+    SidesSpecT sides;
+    sides.sides.push_back(SideSpecT{}); // the neutral side
+    sides.sides.push_back(sideSpec("america", true, false, false));
+    w.playerListNewGame(sides);
+
+    for (int f = 0; f < 3; ++f) {
+        // frame f: one stream message (the second frame's DESTROY+CREATE
+        // pair exercises the sweep)
+        int a = w.postStreamMessage(MSG_PURCHASE_SCIENCE_T);
+        w.msgArena.get(a)->appendIntegerArgument(f);
+        if (f == 1) {
+            w.postStreamMessage(MSG_DESTROY_SELECTED_GROUP_T);
+            int cc = w.postStreamMessage(MSG_CREATE_SELECTED_GROUP_T);
+            w.msgArena.get(cc)->appendBooleanArgument(true);
+        }
+        w.propagateMessages();
+        dumpMessageList(d, w, "commands", w.commandList.m_list);
+        w.hooks.m_msgEvents.clear();
+        w.preUpdate();
+        w.update();
+        dumpMsgEvents(d, w);
+        dumpMessageList(d, w, "commands", w.commandList.m_list);
+        dumpMessageList(d, w, "stream", w.messageStream.m_list);
+    }
+
+    // the out-of-update direct pass: processCommandList without update
+    w.postCommandMessage(MSG_OBJECT_DESTROYED_T);
+    w.hooks.m_msgEvents.clear();
+    w.processCommandList();
+    dumpMsgEvents(d, w);
+    d.line("end");
+}
+
 int main(int argc, char **argv)
 {
     if (argc != 2) {
@@ -9424,6 +10430,11 @@ int main(int argc, char **argv)
     corpusPurseRanks(d);
     corpusPurseSciences(d);
     corpusPurseRoundtrip(d);
+    corpusMessagesArgs(d);
+    corpusMessagesList(d);
+    corpusMessagesStream(d);
+    corpusMessagesDispatch(d);
+    corpusMessagesRoundtrip(d);
     corpusRoundtrip(d);
 
     fclose(out);

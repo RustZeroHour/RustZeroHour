@@ -5099,6 +5099,168 @@ tv pupdate 13 -1 -1
 tv pupdate 14 -1 -1
 tv pupdate 15 -1 -1
 end
+corpus messages_args
+count 11
+arg 0 type 0 int -42 realbits ffffffd6 bool 1 oid -42 did -42 team ffffffd6 ts 4294967254 wc ffd6
+arg 1 type 1 int 1069547520 realbits 3fc00000 bool 1 oid 1069547520 did 1069547520 team 3fc00000 ts 1069547520 wc 0
+arg 2 type 2 int 1 realbits 00000001 bool 1 oid 1 did 1 team 1 ts 1 wc 1
+arg 3 type 3 int 7 realbits 00000007 bool 1 oid 7 did 7 team 7 ts 7 wc 7
+arg 4 type 4 int 9 realbits 00000009 bool 1 oid 9 did 9 team 9 ts 9 wc 9
+arg 5 type 5 int -559038737 realbits deadbeef bool 1 oid -559038737 did -559038737 team deadbeef ts 3735928559 wc beef
+arg 6 type 6 int 1065353216 realbits 3f800000 bool 1 oid 1065353216 did 1065353216 team 3f800000 ts 1065353216 wc 0
+arg 7 type 7 int 13 realbits 0000000d bool 1 oid 13 did 13 team d ts 13 wc d
+arg 8 type 8 int 1 realbits 00000001 bool 1 oid 1 did 1 team 1 ts 1 wc 1
+arg 9 type 9 int 1234567 realbits 0012d687 bool 1 oid 1234567 did 1234567 team 12d687 ts 1234567 wc d687
+arg 10 type 10 int 258 realbits 00000102 bool 1 oid 258 did 258 team 102 ts 258 wc 102
+loc 3f800000,40200000,c0500000
+pix 13,-14
+reg 1,2 30,40
+oor int 0 realbits 00000000 type 11
+pun int-as-real ffffffd6 real-as-int 1069547520 bool-as-int 1
+player 0 ready 1
+reg1 10,10 20,30 reg2 10,10 20,30 reg3 -5,-8 5,8
+end
+corpus messages_list
+stream n 3
+m0 MSG_FRAME_TICK p0 list 0 prev -1 next 1 args 0
+m1 MSG_RAW_KEY_DOWN p0 list 0 prev 0 next 2 args 0
+m2 MSG_CLEAR_GAME_DATA p0 list 0 prev 1 next -1 args 0
+stream n 4
+m0 MSG_FRAME_TICK p0 list 0 prev -1 next 3 args 0
+m3 MSG_NEW_GAME p0 list 0 prev 0 next 1 args 0
+m1 MSG_RAW_KEY_DOWN p0 list 0 prev 3 next 2 args 0
+m2 MSG_CLEAR_GAME_DATA p0 list 0 prev 1 next -1 args 0
+stream n 3
+m0 MSG_FRAME_TICK p0 list 0 prev -1 next 3 args 0
+m3 MSG_NEW_GAME p0 list 0 prev 0 next 2 args 0
+m2 MSG_CLEAR_GAME_DATA p0 list 0 prev 3 next -1 args 0
+has newgame 1 has keydown 0
+commands n 3
+m0 MSG_FRAME_TICK p0 list 1 prev -1 next 3 args 0
+m3 MSG_NEW_GAME p0 list 1 prev 0 next 2 args 0
+m2 MSG_CLEAR_GAME_DATA p0 list 1 prev 3 next -1 args 0
+commands n 4
+m0 MSG_FRAME_TICK p0 list 1 prev -1 next 3 args 0
+m3 MSG_NEW_GAME p0 list 1 prev 0 next 2 args 0
+m2 MSG_CLEAR_GAME_DATA p0 list 1 prev 3 next 4 args 0
+m4 MSG_LOGIC_CRC_PLAYBACK p0 list 1 prev 2 next -1 args 0
+commands n 0
+end
+corpus messages_stream
+ids 1 2 3 4 5
+reg t5 p1
+reg t2 p5
+reg t3 p5
+reg t4 p7
+reg t1 p10
+find 3 -1
+reg t5 p1
+reg t3 p5
+reg t4 p7
+reg t1 p10
+commands n 4
+m0 MSG_CREATE_SELECTED_GROUP p0 list 1 prev -1 next 1 args 1
+m1 MSG_FRAME_TICK p0 list 1 prev 0 next 2 args 0
+m2 MSG_PURCHASE_SCIENCE p0 list 1 prev 1 next 4 args 0
+m4 MSG_SET_REPLAY_CAMERA p0 list 1 prev 2 next -1 args 0
+stream n 0
+translate t5 m0 keep
+translate t5 m1 keep
+translate t5 m2 keep
+translate t5 m3 keep
+translate t3 m0 keep
+translate t3 m1 keep
+translate t3 m2 keep
+translate t3 m3 keep
+translate t4 m0 keep
+translate t4 m1 keep
+translate t4 m2 keep
+translate t4 m3 keep
+translate t4 m4 keep
+translate t1 m0 keep
+translate t1 m1 keep
+translate t1 m2 keep
+translate t1 m3 destroy
+translate t1 m4 keep
+commands n 2
+m6 MSG_CREATE_SELECTED_GROUP_NO_SOUND p0 list 1 prev -1 next 8 args 1
+m8 MSG_SELECT_TEAM5 p0 list 1 prev 6 next -1 args 0
+commands n 1
+m11 MSG_SET_REPLAY_CAMERA p0 list 1 prev -1 next -1 args 0
+commands n 2
+m12 MSG_DESTROY_SELECTED_GROUP p0 list 1 prev -1 next 13 args 0
+m13 MSG_CREATE_SELECTED_GROUP p0 list 1 prev 12 next -1 args 1
+end
+corpus messages_dispatch
+local 1 types 1 0 0 0
+slots 0 1 2
+dispatch m0 MSG_PURCHASE_SCIENCE
+command m0 MSG_PURCHASE_SCIENCE
+dispatch m2 MSG_OBJECT_DESTROYED
+command m2 MSG_OBJECT_DESTROYED
+dispatch m3 MSG_LOGIC_CRC
+dispatch m4 MSG_LOGIC_CRC
+dispatch m5 MSG_LOGIC_CRC
+dispatch m6 MSG_LOGIC_CRC
+crcmismatch
+validate 1 cache 2
+crc p1 11111111
+crc p2 11111111
+dispatch m7 MSG_LOGIC_CRC
+dispatch m8 MSG_LOGIC_CRC
+dispatch m9 MSG_LOGIC_CRC
+dispatch m10 MSG_PURCHASE_SCIENCE
+command m10 MSG_PURCHASE_SCIENCE
+validate 1 cache 3
+crc p1 11111111
+crc p2 11111111
+crc p3 44444444
+netmismatch 0
+dispatch m11 MSG_LOGIC_CRC
+dispatch m12 MSG_LOGIC_CRC
+dispatch m13 MSG_LOGIC_CRC
+crcmismatch
+netmismatch 1
+dispatch m14 MSG_LOGIC_CRC
+dispatch m15 MSG_LOGIC_CRC
+netmismatch 1
+dispatch m16 MSG_LOGIC_CRC
+dispatch m17 MSG_LOGIC_CRC
+crcmismatch
+netmismatch 1
+dispatch m18 MSG_LOGIC_CRC
+recordercrc 66666666 p2 live
+dispatch m19 MSG_LOGIC_CRC_PLAYBACK
+recordercrc 77777777 p-1 playback
+validate 0 cache 0
+dispatch m20 MSG_LOGIC_CRC
+validate 0 cache 0
+end
+corpus messages_roundtrip
+commands n 1
+m0 MSG_PURCHASE_SCIENCE p1 list 1 prev -1 next -1 args 1
+dispatch m0 MSG_PURCHASE_SCIENCE
+command m0 MSG_PURCHASE_SCIENCE
+commands n 0
+stream n 0
+commands n 2
+m1 MSG_PURCHASE_SCIENCE p1 list 1 prev -1 next 3 args 1
+m3 MSG_CREATE_SELECTED_GROUP p1 list 1 prev 1 next -1 args 1
+dispatch m1 MSG_PURCHASE_SCIENCE
+command m1 MSG_PURCHASE_SCIENCE
+dispatch m3 MSG_CREATE_SELECTED_GROUP
+command m3 MSG_CREATE_SELECTED_GROUP
+commands n 0
+stream n 0
+commands n 1
+m4 MSG_PURCHASE_SCIENCE p1 list 1 prev -1 next -1 args 1
+dispatch m4 MSG_PURCHASE_SCIENCE
+command m4 MSG_PURCHASE_SCIENCE
+commands n 0
+stream n 0
+dispatch m5 MSG_OBJECT_DESTROYED
+command m5 MSG_OBJECT_DESTROYED
+end
 corpus kernel_roundtrip
 events 21
 ev objcreated 1

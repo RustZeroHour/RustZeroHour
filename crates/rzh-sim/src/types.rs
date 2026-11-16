@@ -1,7 +1,10 @@
 //! The kernel's shared vocabulary: ids, coordinates, geometry, masks,
 //! sleep times and the frame constants.
 //!
-//! Origin: `Core/GameEngine/Include/Common/GameType.h` (ObjectID),
+//! Origin: `Core/GameEngine/Include/Common/GameType.h` (ObjectID,
+//! DrawableID), `Core/Libraries/Source/Lib/Include/Lib/ICoord2D.h`
+//! (ICoord2D), `Core/Libraries/Source/Lib/Include/Lib/IRegion2D.h`
+//! (IRegion2D),
 //! `Core/GameEngine/Include/Common/GameCommon.h` (MAX_PLAYER_COUNT,
 //! NEVER/FOREVER, the LOGICFRAMES_* constants),
 //! `Core/Libraries/Source/WWVegas/WWLib/WWCommon.h` (WWSyncPerSecond),
@@ -77,6 +80,31 @@ pub type ObjectID = i32;
 
 /// `INVALID_ID` (GameType.h): id 0 — no live object ever carries it.
 pub const INVALID_ID: ObjectID = 0;
+
+/// `DrawableID` (GameType.h — `enum DrawableID : Int`): the client-side
+/// drawable's signed 32-bit id (the GameMessage argument union carries
+/// it; the drawable store itself is the client phase's).
+pub type DrawableID = i32;
+
+/// `ICoord2D` (Lib/ICoord2D.h): the integer 2d coordinate (the
+/// GameMessage pixel arguments).
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub struct ICoord2 {
+    /// The x coordinate.
+    pub x: i32,
+    /// The y coordinate.
+    pub y: i32,
+}
+
+/// `IRegion2D` (Lib/IRegion2D.h): the integer rectangle (the
+/// GameMessage pixel-region arguments — `lo`/`hi` corners).
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub struct IRegion2 {
+    /// The low corner.
+    pub lo: ICoord2,
+    /// The high corner.
+    pub hi: ICoord2,
+}
 
 /// `UpdateSleepTime` (UpdateModule.h): the frame count a module asks to
 /// sleep for. `0` is invalid, `1` means "next frame",

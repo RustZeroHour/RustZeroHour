@@ -28,6 +28,15 @@
 //!   the full `updateTeamStates` walk (the state half with the
 //!   enemy-sighted partition queries), the checksum folding every
 //!   verdict, mask and team-state word.
+//! - `kernel/messages_x300`: 300 GameMessage cycles — each posts 12
+//!   mixed messages to the stream (the pixel/int/bool arguments, the
+//!   destroy/create group pairs, the replay cameras and the CRC
+//!   messages of the rotating players), propagates them through the
+//!   three translators (the id-formula dispositions and the mid-body
+//!   posts), walks the command list (the dispatch and the CRC handlers
+//!   with the validation tail over the connected slots) and resets,
+//!   the checksum folding the survivors, the cache and the latch every
+//!   cycle.
 //! - `kernel/purse_x300`: 300 mixed money/energy/ranks/sciences
 //!   operations over the same corpus promoted with the block's data
 //!   stores and energy values — a quarter the money streams (the
@@ -52,6 +61,7 @@
 use criterion::{BatchSize, Criterion, criterion_group, criterion_main};
 
 use rzh_sim::logic::{Kernel, KernelHost, ObjectSpec, UpdateModuleSpec, UpdateOutcome};
+use rzh_sim::messages::GameMessageType;
 use rzh_sim::partition::Region2;
 use rzh_sim::query::{PartitionFilter, PartitionFilterOnMap};
 use rzh_sim::scheduler::ModuleArena;
@@ -74,6 +84,13 @@ const DISPATCH_CHECKSUM: u64 = 14_539_779_273_077_219_524;
 /// The scripted module bodies (the formula corpus's sleep patterns).
 struct BenchHost {
     sleeps: Vec<(i32, u32, UpdateSleepTime)>,
+    // the GameMessage block's state (the C++ wrapper's hooks): the net
+    // connectivity and latch, the scripted translate dispositions and
+    // posts (the id formulas the wrapper fills per cycle)
+    net_connected: [bool; 8],
+    net_saw_crc_mismatch: bool,
+    translate_disposition: Vec<(u32, u32)>,
+    translate_posts: Vec<(u32, u32)>,
 }
 
 impl KernelHost for BenchHost {
@@ -86,6 +103,38 @@ impl KernelHost for BenchHost {
         }
         outcome
     }
+
+    fn run_translate(
+        &mut self,
+        translator: u32,
+        msg: u32,
+        _data: &rzh_sim::messages::MessageData,
+    ) -> rzh_sim::messages::TranslateOutcome {
+        let mut outcome = rzh_sim::messages::TranslateOutcome::default();
+        if self.translate_disposition.contains(&(translator, msg)) {
+            outcome.disposition = rzh_sim::messages::GameMessageDisposition::DESTROY_MESSAGE;
+        }
+        if self.translate_posts.contains(&(translator, msg)) {
+            // the wrapper's single scripted post type
+            outcome.posts = vec![rzh_sim::messages::MessagePost {
+                ty: GameMessageType::MSG_RAW_KEY_DOWN,
+                args: Vec::new(),
+            }];
+        }
+        outcome
+    }
+
+    fn is_player_connected(&mut self, slot: i32) -> bool {
+        (0..8).contains(&slot) && self.net_connected[slot as usize]
+    }
+
+    fn saw_crc_mismatch(&mut self) -> bool {
+        self.net_saw_crc_mismatch
+    }
+
+    fn on_crc_mismatch(&mut self) {
+        self.net_saw_crc_mismatch = true;
+    }
 }
 
 /// The formula corpus: identical on both sides (the C++ wrapper builds
@@ -97,7 +146,13 @@ fn build_corpus(cell_size: f32, extents: (f32, f32, f32, f32)) -> (Kernel, Bench
         hi_x: extents.2,
         hi_y: extents.3,
     };
-    let mut host = BenchHost { sleeps: Vec::new() };
+    let mut host = BenchHost {
+        sleeps: Vec::new(),
+        net_connected: [false; 8],
+        net_saw_crc_mismatch: false,
+        translate_disposition: Vec::new(),
+        translate_posts: Vec::new(),
+    };
     let mut kernel = Kernel::with_grid(cell_size, region, &mut host);
 
     for i in 0..BENCH_OBJECTS as i32 {
@@ -894,12 +949,162 @@ fn bench_purse(c: &mut Criterion) {
     });
 }
 
+/// The GameMessage block's checksum (pinned at authoring time against
+/// the C++ wrapper — both sides build the identical corpus and cycle
+/// stream).
+const MESSAGES_CHECKSUM: u64 = 6_887_319_234_910_174_045;
+
+/// The messages corpus: the base corpus's world with a 4-player
+/// networked block (the local human p1, two other humans, the
+/// neutral), the slots connected and three translators attached
+/// (priorities 1, 5, 5 — the stable tie).
+fn messages_corpus() -> (Kernel, BenchHost) {
+    let (mut kernel, mut host) = build_corpus(10.0, (0.0, 0.0, 300.0, 300.0));
+    let sides = rzh_sim::players::SidesSpec {
+        sides: vec![
+            rzh_sim::players::SideSpec::default(), // the neutral side
+            rzh_sim::players::SideSpec {
+                player_name: "p1".to_string(),
+                is_human: true,
+                multiplayer_is_local: true,
+                ..Default::default()
+            },
+            rzh_sim::players::SideSpec {
+                player_name: "p2".to_string(),
+                is_human: true,
+                ..Default::default()
+            },
+            rzh_sim::players::SideSpec {
+                player_name: "p3".to_string(),
+                is_human: true,
+                ..Default::default()
+            },
+        ],
+        ..Default::default()
+    };
+    kernel.players.network_present = true;
+    kernel
+        .players
+        .new_game(&sides, &mut kernel.objects, &mut host);
+    kernel.players.set_slot_index(1, 0);
+    kernel.players.set_slot_index(2, 1);
+    kernel.players.set_slot_index(3, 2);
+    host.net_connected = [true, true, true, false, false, false, false, false];
+    kernel.stream.attach_translator(1);
+    kernel.stream.attach_translator(5);
+    kernel.stream.attach_translator(5);
+    (kernel, host)
+}
+
+/// The timed body: 300 message cycles — each posts 12 mixed messages to
+/// the stream, propagates them through the three translators (the
+/// id-formula dispositions and the mid-body posts), walks the command
+/// list (the dispatch and the CRC handlers with the validation tail)
+/// and resets — the checksum folding the survivors, the cache and the
+/// latch every cycle (the C++ wrapper's `run_messages`, formula for
+/// formula).
+fn run_messages(kernel: &mut Kernel, host: &mut BenchHost) -> u64 {
+    let mut sum: u64 = 1_000_003;
+    for c in 0..300u64 {
+        for j in 0..12u32 {
+            let id = match j % 6 {
+                0 => {
+                    let id = kernel.post_stream_message(GameMessageType::MSG_RAW_MOUSE_POSITION);
+                    kernel
+                        .msg_arena
+                        .get_mut(id)
+                        .append_pixel_argument(rzh_sim::types::ICoord2 {
+                            x: (j * 17) as i32,
+                            y: (j * 31) as i32,
+                        });
+                    id
+                }
+                1 => {
+                    let id = kernel.post_stream_message(GameMessageType::MSG_PURCHASE_SCIENCE);
+                    kernel
+                        .msg_arena
+                        .get_mut(id)
+                        .append_integer_argument((c * 31 + u64::from(j)) as i32);
+                    id
+                }
+                2 => kernel.post_stream_message(GameMessageType::MSG_DESTROY_SELECTED_GROUP),
+                3 => {
+                    let id = kernel.post_stream_message(GameMessageType::MSG_CREATE_SELECTED_GROUP);
+                    kernel
+                        .msg_arena
+                        .get_mut(id)
+                        .append_boolean_argument(j % 2 == 0);
+                    id
+                }
+                4 => kernel.post_stream_message(GameMessageType::MSG_SET_REPLAY_CAMERA),
+                _ => {
+                    let id = kernel.post_stream_message(GameMessageType::MSG_LOGIC_CRC);
+                    let m = kernel.msg_arena.get_mut(id);
+                    m.player_index = 1 + (c % 3) as i32;
+                    m.append_integer_argument((0x1000_0000u64 + c * 31 + u64::from(j)) as i32);
+                    id
+                }
+            };
+            // the scripted translator bodies (the id formulas — the C++
+            // wrapper drives the identical ones)
+            if id % 5 == 2 {
+                host.translate_disposition.push((3, id)); // t3, the last
+            }
+            if id % 7 == 3 {
+                host.translate_posts.push((1, id)); // t1 posts the RAW_KEY_DOWN
+            }
+        }
+        kernel.propagate_messages(host);
+        let survivors = kernel.commands.ids(&kernel.msg_arena);
+        sum = sum.wrapping_mul(31).wrapping_add(survivors.len() as u64);
+        for &id in &survivors {
+            sum = sum.wrapping_mul(31).wrapping_add(u64::from(id));
+            sum = sum
+                .wrapping_mul(31)
+                .wrapping_add(kernel.msg_arena.get(id).ty.ordinal() as u64);
+        }
+        kernel.process_command_list(host);
+        sum = sum
+            .wrapping_mul(31)
+            .wrapping_add(kernel.logic.cached_crcs.len() as u64);
+        for (&player, &crc) in &kernel.logic.cached_crcs {
+            sum = sum.wrapping_mul(31).wrapping_add(player as u64);
+            sum = sum.wrapping_mul(31).wrapping_add(u64::from(crc));
+        }
+        sum = sum
+            .wrapping_mul(31)
+            .wrapping_add(u64::from(host.net_saw_crc_mismatch));
+        kernel.commands.reset(&mut kernel.msg_arena);
+        host.translate_disposition.clear();
+        host.translate_posts.clear();
+    }
+    sum
+}
+
+fn bench_messages(c: &mut Criterion) {
+    // the authoring-time lockstep check: the corpus and the cycle
+    // stream are deterministic, so the checksum is too (the C++
+    // wrapper asserts the same value)
+    let (mut kernel, mut host) = messages_corpus();
+    let expected = run_messages(&mut kernel, &mut host);
+    assert_eq!(expected, MESSAGES_CHECKSUM, "re-pin MESSAGES_CHECKSUM");
+
+    c.bench_function("kernel/messages_x300", |b| {
+        b.iter_batched(
+            messages_corpus,
+            |(mut kernel, mut host)| run_messages(&mut kernel, &mut host),
+            BatchSize::PerIteration,
+        )
+    });
+}
+
 criterion_group!(
     benches,
     bench_frame_loop,
     bench_dispatch,
     bench_query,
     bench_players,
-    bench_purse
+    bench_purse,
+    bench_messages
 );
 criterion_main!(benches);

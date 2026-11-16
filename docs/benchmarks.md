@@ -606,7 +606,7 @@ now reads: container 0.62–0.99x, height map 0.53–0.77x, blend tiles
 1.08x, sides 0.98x, layouts 0.37x, fonts 0.23x — all within the §6
 threshold.
 
-#### The game-logic kernel (`kernel/frame_loop_x180`, `kernel/dispatch_x180`, `kernel/query_x300`, `kernel/players_x300`, `kernel/purse_x300`)
+#### The game-logic kernel (`kernel/frame_loop_x180`, `kernel/dispatch_x180`, `kernel/query_x300`, `kernel/players_x300`, `kernel/purse_x300`, `kernel/messages_x300`)
 
 The Phase 3 opener: the WP1 kernel — the frame loop's full walk and the
 sleepy dispatch, since the collide slice also the contact list's
@@ -642,6 +642,7 @@ same setup and flags as the Phase 2 numbers.
 | `kernel/query_x300` | 154.09 µs | 759.98 µs | 0.20x | within |
 | `kernel/players_x300` | 138.29 µs | 186.72 µs | 0.74x | within |
 | `kernel/purse_x300` | 58.34 µs | 52.9 µs | 1.10x | within |
+| `kernel/messages_x300` | 480 µs | 674 µs | 0.71x | within |
 
 The query slice adds the third comparison: 300 mixed spatial queries
 over the same formula corpus settled by one full update (a third
@@ -704,6 +705,20 @@ pointer chains while the port's arena slots index directly, but the
 science store's linear `findScienceInfo` scans and the purchasable
 walks pay the same O(n) on both sides — the retail `ScienceStore.cpp`
 is the same linear walk, so this one is a faithful-C++ baseline too.
+
+The GameMessage slice adds the sixth comparison: 300 command cycles
+over the networked corpus (a 4-player world — the local human, two
+other humans, the neutral — the slots connected, three translators
+attached with a priority tie): each cycle posts 12 mixed messages to
+the stream (the pixel/int/bool arguments, the destroy/create group
+pairs, the replay cameras and the CRC messages of the rotating
+players), propagates them through the translators (the id-formula
+dispositions and the mid-body posts), walks the command list (the
+dispatch and the kernel-owned CRC handlers with the validation tail
+over the connected slots) and resets, the checksum folding the
+survivors, the cache and the latch every cycle. The Rust side reads
+0.71x — the BTreeMap cache and the Vec-based registry beat the
+transcription's std::map and its TranslatorData linked list.
 
 Two structural choices the budget run itself surfaced and paid for,
 before any number was recorded: the host and module-arena surfaces are

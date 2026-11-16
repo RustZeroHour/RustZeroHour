@@ -50,6 +50,7 @@
 #define BENCH_FRAMES 180
 
 // The authoring-time lockstep checksums (the Rust bench asserts the same).
+#define MESSAGES_CHECKSUM 6887319234910174045ULL
 #define FRAME_LOOP_CHECKSUM 16055563144769613415ULL
 #define DISPATCH_CHECKSUM 14539779273077219524ULL
 #define QUERY_CHECKSUM 1025416407242357139ULL
@@ -536,6 +537,103 @@ static uint64_t run_purse(World *w)
         return sum;
 }
 
+// The GameMessage block's bench: a 4-player networked world (the local
+// human p1, two other humans, the neutral), the slots connected, three
+// translators attached (priorities 1, 5, 5 — the stable tie).
+static World *build_messages_corpus()
+{
+        World *w = &freshWorld(10.0f, Region2DT{0, 0, 300, 300});
+        SidesSpecT sides;
+        sides.sides.push_back(SideSpecT{}); // the neutral side
+        sides.sides.push_back(sideSpec("p1", true, true, false));
+        sides.sides.push_back(sideSpec("p2", true, false, false));
+        sides.sides.push_back(sideSpec("p3", true, false, false));
+        w->m_networkPresent = true;
+        w->playerListNewGame(sides);
+        w->playerListSetSlotIndex(1, 0);
+        w->playerListSetSlotIndex(2, 1);
+        w->playerListSetSlotIndex(3, 2);
+        w->hooks.m_netConnected[0] = true;
+        w->hooks.m_netConnected[1] = true;
+        w->hooks.m_netConnected[2] = true;
+        w->messageStream.attachTranslator(1);
+        w->messageStream.attachTranslator(5);
+        w->messageStream.attachTranslator(5);
+        return w;
+}
+
+// The timed body: 300 message cycles — each posts 12 mixed messages to
+// the stream (the pixel/int/bool arguments, the destroy/create group
+// pairs, the replay cameras and the CRC messages of the rotating
+// players), propagates them through the three translators (the
+// id-formula dispositions and the mid-body posts), walks the command
+// list (the dispatch and the kernel-owned CRC handlers with the
+// validation tail over the connected slots) and resets — the checksum
+// folding the survivors, the cache and the latch every cycle.
+static uint64_t run_messages(World *w)
+{
+        uint64_t sum = 1000003ULL;
+        for (int c = 0; c < 300; ++c) {
+                for (int j = 0; j < 12; ++j) {
+                        int id;
+                        switch (j % 6) {
+                        case 0: {
+                                id = w->postStreamMessage(MSG_RAW_MOUSE_POSITION_T);
+                                w->msgArena.get(id)->appendPixelArgument(ICoord2DT{j * 17, j * 31});
+                                break;
+                        }
+                        case 1: {
+                                id = w->postStreamMessage(MSG_PURCHASE_SCIENCE_T);
+                                w->msgArena.get(id)->appendIntegerArgument(c * 31 + j);
+                                break;
+                        }
+                        case 2: {
+                                id = w->postStreamMessage(MSG_DESTROY_SELECTED_GROUP_T);
+                                break;
+                        }
+                        case 3: {
+                                id = w->postStreamMessage(MSG_CREATE_SELECTED_GROUP_T);
+                                w->msgArena.get(id)->appendBooleanArgument((j % 2) == 0);
+                                break;
+                        }
+                        case 4: {
+                                id = w->postStreamMessage(MSG_SET_REPLAY_CAMERA_T);
+                                break;
+                        }
+                        default: {
+                                id = w->postStreamMessage(MSG_LOGIC_CRC_T);
+                                w->msgArena.get(id)->m_playerIndex = 1 + (c % 3);
+                                w->msgArena.get(id)->appendIntegerArgument((int)(0x10000000u + (unsigned)c * 31u + (unsigned)j));
+                                break;
+                        }
+                        }
+                        // the scripted translator bodies (the id formulas —
+                        // the Rust bench drives the identical ones)
+                        if (id % 5 == 2)
+                                w->hooks.m_translateDisposition[std::make_pair(3, id)] = 1; // t3, the last
+                        if (id % 7 == 3)
+                                w->hooks.m_translatePosts[std::make_pair(1, id)].push_back(MSG_RAW_KEY_DOWN_T); // t1
+                }
+                w->propagateMessages();
+                std::vector<int> survivors = w->commandList.m_list.ids(w->msgArena);
+                sum = sum * 31 + (uint64_t)survivors.size();
+                for (int id : survivors) {
+                        sum = sum * 31 + (uint64_t)id;
+                        sum = sum * 31 + (uint64_t)w->msgArena.get(id)->m_type;
+                }
+                w->processCommandList();
+                sum = sum * 31 + (uint64_t)w->logic.m_cachedCRCs.size();
+                for (const auto &kv : w->logic.m_cachedCRCs) {
+                        sum = sum * 31 + (uint64_t)kv.first;
+                        sum = sum * 31 + (uint64_t)kv.second;
+                }
+                sum = sum * 31 + (uint64_t)(w->hooks.m_netSawCRCMismatch ? 1 : 0);
+                w->commandList.reset(w->msgArena);
+                w->hooks.m_msgEvents.clear(); // (the bench host records nothing)
+        }
+        return sum;
+}
+
 // Untimed corpus materialization for the players bench.
 void *bench_kernel_players_build()
 {
@@ -559,6 +657,18 @@ uint64_t bench_kernel_purse(void *world)
 uint64_t bench_kernel_players(void *world)
 {
         return run_players((World *)world);
+}
+
+// Untimed corpus materialization for the messages bench.
+void *bench_kernel_messages_build()
+{
+        return build_messages_corpus();
+}
+
+// The timed body: the GameMessage command-processing cycle.
+uint64_t bench_kernel_messages(void *world)
+{
+        return run_messages((World *)world);
 }
 
 void bench_kernel_teardown(void *world)
@@ -605,6 +715,13 @@ int bench_kernel_verify()
                 uint64_t sum = run_purse(w);
                 delete w;
                 if (sum != PURSE_CHECKSUM)
+                        return 0;
+        }
+        {
+                World *w = build_messages_corpus();
+                uint64_t sum = run_messages(w);
+                delete w;
+                if (sum != MESSAGES_CHECKSUM)
                         return 0;
         }
         return 1;

@@ -998,8 +998,66 @@ the original's own "hmm, wrong" debug assert documents — and the
 purchasable sets against brute force). A fifth bench pins the budget:
 `kernel/purse_x300` (300 mixed block operations over the store-loaded
 corpus, checksum-locked at 12,146,934,425,632,222,704) measured within
-(1.10x — docs/benchmarks.md). The **next slice** per WP order: the
-GameMessage command processing (the last of WP1's remainder).
+(1.10x — docs/benchmarks.md).
+
+The **sixth slice**: the GameMessage command processing — the last of
+WP1's remainder, closing the kernel work package. `MessageStream.h` /
+`MessageStream.cpp` are transcribed whole: the full 288-entry
+release-build `GameMessage::Type` vocabulary (the ordinals verified
+against the preprocessed header — the network block keeps its fixed
+1000..=1999 markers, the debug/cheat blocks are out of the pinned
+release configuration), the argument union as its four 32-bit words
+(the typed appenders, the byte-faithful member reads including the
+punned ones, `getArgument`'s all-zero out-of-range answer), the
+doubly-linked message lists over a never-reusing arena, the
+priority-sorted translator registry with its stable
+insert-before-strictly-greater placement, `propagateMessages` (the
+translator-outer/message-inner walk with the mid-walk DESTROY unlink
+and the mid-body stream posts — the same-frame tail visitation — the
+survivor transfer to TheCommandList, the TheSuperHackers
+redundant-network sweep over the transferred adjacency, the stream
+clear), the CommandList with the recorder's direct-append path, and
+`buildRegion`. With `GameLogic.cpp`'s `processCommandList` (the
+cached-CRC clear, the per-message dispatch walk, and the validation
+tail: the connected-player count over MAX_SLOTS, the not-enough-CRCs
+verdict, the reference-CRC comparison with the Caball009
+disconnected-player skip and the `setSawCRCMismatch` latch) plus the
+`update` wiring (the commands position and the frame-tail reset), and
+`GameLogicDispatch.cpp`'s dispatcher prologue (the `getNthPlayer`
+gate) and the two CRC handlers (`onLogicCrc`'s human/slot/connected
+gate chain with the local-player validate raise and the per-player
+cache write; `onLogicCrcForPlayback`'s recorder hand-off). The
+dispatch bodies of the giant switch are the module framework's — they
+plug in through the host's `run_command`, exactly as the update-module
+bodies do. The pinned quirks: the fixed network ordinals' pre-network
+gap (181 → 1000); the redundant sweep's command-list adjacency (not
+stream adjacency); the DESTROY+CREATE(false) keeper; the
+SET_REPLAY_CAMERA walk that only the LAST camera survives; the
+`m_shouldValidateCRCs` gate (no local-player CRC, no validation, no
+matter how many others arrived); the latch that stops re-validation
+but not caching; the not-enough verdict counting ALL connected slots
+against the arrival-gated cache; the prologue's bounds-only player
+gate (an inactive pre-created player passes, an out-of-range index is
+skipped entirely). The corpora grew to 41 (five new: the argument
+family with the punned and out-of-range reads; the list choreography
+with the insert/remove/transfer/reset dance; the stream with the
+registry's stable order, the propagation walk and every sweep
+pattern; the dispatch with the full CRC gate chain, the Caball009
+skip, the latch and the playback branches; the integration roundtrip
+across frames — the update processes at the pinned position and resets
+at the tail), plus a message property suite in
+`tests/messages_props.rs` (the typed round-trips, the list walk's
+order and bidirectionality, the registry's stable-sorted contract, the
+propagation's conservation, and the CRC validation against an
+independent specification). A sixth bench pins the budget:
+`kernel/messages_x300` (300 message cycles — post, propagate, process,
+reset — over the networked corpus, checksum-locked at
+6,887,319,234,910,174,045) measured 0.71x (480 µs vs 674 µs —
+docs/benchmarks.md). WP1 is **complete**; the **next slice** opens
+WP2's module framework (the Behavior/Update/Die/Damage/Contain/
+Collide/Create/Body/Upgrade/SpecialPower families, the data-driven
+construction from templates, and the sleepy-update scheduling
+semantics the kernel already pins).
 
 Work packages, in order. Develop by **vertical slices**, not by subsystem:
 

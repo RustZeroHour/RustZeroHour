@@ -104,8 +104,16 @@ rank-1 sciences, the exact-integer-lands-one-high ceil arithmetic and
 the lose-everything downgrade; the purchase gates with the cost-0 and
 non-grantable refusals, the parse-order roots and the availability
 choreography; the integration roundtrip's new_game deposits, power
-cascade and mid-run sabotage expiry) and a mixed roundtrip
-(`tests/golden/kernel.txt`, 5,279 lines), plus a
+cascade and mid-run sabotage expiry), the GameMessage command
+processing (the argument union's typed and punned reads with the
+out-of-range zero; the list choreography's insert/remove/transfer/
+reset dance; the translator registry's stable priority order; the
+propagation walk's mid-walk destroy, mid-body posts and
+redundant-network sweep patterns; the CRC handlers' gate chain with
+the Caball009 skip, the latch and the playback branches; the
+integration roundtrip's post/propagate/process/reset cycle across
+frames) and a mixed roundtrip
+(`tests/golden/kernel.txt`, 5,441 lines), plus a
 256-case result-symmetry / unit-normal property test
 (`tests/collide_props.rs`), a 256-case query property suite
 (`tests/query_props.rs` — the sorted drains' monotonicity and tie
@@ -119,14 +127,21 @@ suite (`tests/purse_props.rs` — the wallet's conservation and bucket
 invariants, the energy pool against a signed reference with the
 sabotage gate, the rank ladder's totality and band invariants, the
 purchasable sets against brute force and the availability states'
-exclusivity).
+exclusivity) and a message property suite
+(`tests/messages_props.rs` — the typed argument round-trips, the list
+walk's order and bidirectionality, the translator registry's
+stable-sorted contract, the propagation's conservation and the CRC
+validation against an independent specification with the
+should-validate gate).
 
 Deterministic by construction (plan §3.3): `#![forbid(unsafe_code)]`,
 single-threaded, no I/O, no wall-clock, no `HashMap` iteration, `f32`
 with the original's operation order, objects referenced by id.
 
-The subsystem bodies (script engine, terrain, commands, AI, economy)
-and the module framework are later slices; they plug in through the
-`KernelHost` trait whose call order the kernel pins. WP1's remainder
-after the players/teams/relationships block: the money/energy/ranks/
-sciences block and the GameMessage command processing.
+The subsystem bodies (script engine, terrain, the command dispatch's
+giant switch, AI, economy) and the module framework are later slices;
+they plug in through the `KernelHost` trait whose call order the
+kernel pins. WP1 is complete (the frame loop, the object model, the
+partition manager, the players/teams/relationships block, the
+money/energy/ranks/sciences block and the GameMessage command
+processing); the next slice opens WP2's module framework.
