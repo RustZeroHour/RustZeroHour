@@ -280,8 +280,9 @@ impl SleepyScheduler {
 
     /// The heap invariant check (`validateSleepyUpdate`, debug-only in
     /// the original): every parent's priority is at most its children's,
-    /// and every module's index stamp points at its own slot.
-    #[cfg(debug_assertions)]
+    /// and every module's index stamp points at its own slot. (The port
+    /// keeps it in every profile: the lib never calls it, and the
+    /// release-profile test build asserts through it.)
     pub fn validate(&self, arena: &impl ModuleArena) -> bool {
         for (i, &h) in self.heap.iter().enumerate() {
             if arena.module(h).index_in_logic != i as i32 {
