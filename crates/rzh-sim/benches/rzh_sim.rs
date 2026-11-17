@@ -60,8 +60,9 @@
 
 use criterion::{BatchSize, Criterion, criterion_group, criterion_main};
 
-use rzh_sim::logic::{Kernel, KernelHost, ObjectSpec, UpdateModuleSpec, UpdateOutcome};
+use rzh_sim::logic::{Kernel, KernelHost, ObjectSpec, UpdateOutcome};
 use rzh_sim::messages::GameMessageType;
+use rzh_sim::modules::BehaviorSpec;
 use rzh_sim::partition::Region2;
 use rzh_sim::query::{PartitionFilter, PartitionFilterOnMap};
 use rzh_sim::scheduler::ModuleArena;
@@ -154,6 +155,11 @@ fn build_corpus(cell_size: f32, extents: (f32, f32, f32, f32)) -> (Kernel, Bench
         translate_posts: Vec::new(),
     };
     let mut kernel = Kernel::with_grid(cell_size, region, &mut host);
+    // TheModuleFactory's scripted-module registrations (every corpus
+    // object resolves its classes through the factory)
+    kernel
+        .modules
+        .register_script_modules(&mut kernel.players.name_keys);
 
     for i in 0..BENCH_OBJECTS as i32 {
         let geometry = match i % 4 {
@@ -196,7 +202,9 @@ fn build_corpus(cell_size: f32, extents: (f32, f32, f32, f32)) -> (Kernel, Bench
         };
         let mut modules = Vec::new();
         for m in 0..module_count {
-            modules.push(UpdateModuleSpec {
+            modules.push(BehaviorSpec {
+                name: "ScriptUpdateModule".into(),
+                tag: format!("ModuleTag_Update{m}"),
                 phase,
                 disabled_types_to_process: DisabledMask::default(),
                 ctor_wake: None,
@@ -208,8 +216,7 @@ fn build_corpus(cell_size: f32, extents: (f32, f32, f32, f32)) -> (Kernel, Bench
         let spec = ObjectSpec {
             geometry,
             immobile,
-            modules,
-            colliders: 0,
+            behaviors: modules,
             position: Coord3 {
                 x: 20.0 + (i % 20) as f32 * 13.0 + (i / 20) as f32 * 2.5,
                 y: 20.0 + (i / 20) as f32 * 11.5,
@@ -632,7 +639,7 @@ fn bench_players(c: &mut Criterion) {
 /// The money/energy/ranks/sciences block's checksum (pinned at authoring
 /// time against the C++ wrapper — both sides build the identical corpus
 /// and operation stream).
-const PURSE_CHECKSUM: u64 = 12_146_934_425_632_222_704;
+const PURSE_CHECKSUM: u64 = 15_734_376_335_415_262_704;
 
 /// The purse corpus: the players corpus promoted with the block's data
 /// (the science catalog with chains and costs, the 5-rung rank ladder),
@@ -1098,6 +1105,187 @@ fn bench_messages(c: &mut Criterion) {
     });
 }
 
+/// The module framework's checksum (pinned at authoring time against
+/// the C++ wrapper — both sides build the identical corpus and walk
+/// cycle).
+const MODULES_CHECKSUM: u64 = 1_632_563_042_329_548_879;
+
+/// The module-framework corpus: 300 objects built through the factory
+/// with mixed family lists by formula (the body/contain singletons on
+/// the divisibility gates, the update halves with formula phases and
+/// constructor wakes, the collide/die/damage/create families likewise).
+fn modules_corpus() -> (Kernel, BenchHost) {
+    let region = Region2 {
+        lo_x: 0.0,
+        lo_y: 0.0,
+        hi_x: 300.0,
+        hi_y: 300.0,
+    };
+    let mut host = BenchHost {
+        sleeps: Vec::new(),
+        net_connected: [false; 8],
+        net_saw_crc_mismatch: false,
+        translate_disposition: Vec::new(),
+        translate_posts: Vec::new(),
+    };
+    let mut kernel = Kernel::with_grid(10.0, region, &mut host);
+    kernel
+        .modules
+        .register_script_modules(&mut kernel.players.name_keys);
+    for i in 0..300i32 {
+        let mut behaviors: Vec<BehaviorSpec> = Vec::new();
+        let mut tag = 0i32;
+        let mut mut_tag = |name: &str| {
+            let t = format!("ModuleTag_{i}_{tag}");
+            tag += 1;
+            BehaviorSpec {
+                name: name.into(),
+                tag: t,
+                ..BehaviorSpec::default()
+            }
+        };
+        if i % 5 == 0 {
+            behaviors.push(mut_tag("ScriptBodyModule"));
+        }
+        if i % 6 == 0 {
+            behaviors.push(mut_tag("ScriptContainModule"));
+        }
+        let updates = 1 + (i % 2) as usize;
+        for u in 0..updates {
+            let phase = match (i + u as i32) % 4 {
+                0 => SleepyUpdatePhase::Initial,
+                1 => SleepyUpdatePhase::Physics,
+                3 => SleepyUpdatePhase::Final,
+                _ => SleepyUpdatePhase::Normal,
+            };
+            let mut spec = mut_tag("ScriptUpdateModule");
+            spec.phase = phase;
+            spec.ctor_wake = if i % 10 == 0 {
+                Some(u as u32 + 3)
+            } else {
+                None
+            };
+            behaviors.push(spec);
+        }
+        if i % 3 == 0 {
+            behaviors.push(mut_tag("ScriptCollideModule"));
+        }
+        if i % 4 == 0 {
+            behaviors.push(mut_tag("ScriptDieModule"));
+        }
+        if i % 7 == 0 {
+            behaviors.push(mut_tag("ScriptDamageModule"));
+        }
+        if i % 11 == 0 {
+            behaviors.push(mut_tag("ScriptCreateModule"));
+        }
+        let x = 10.0 + (i % 30) as f32 * 9.0;
+        let y = 10.0 + (i / 30) as f32 * 9.0;
+        let spec = ObjectSpec {
+            geometry: GeometryInfo {
+                geom_type: GeometryType::Sphere,
+                is_small: true,
+                height: 1.0,
+                major_radius: 2.5,
+                minor_radius: 2.5,
+            },
+            immobile: false,
+            behaviors,
+            position: Coord3 { x, y, z: 0.0 },
+            ..ObjectSpec::default()
+        };
+        let id = kernel.create_object(&spec, &mut host);
+        // the scripted sleeps by formula (the update halves)
+        for m in 0..updates {
+            host.sleeps.push((id, m as u32, 1 + ((i + m as i32) % 9)));
+        }
+    }
+    (kernel, host)
+}
+
+/// One module-framework cycle: three rounds of the family walks over
+/// every tenth object (the die walk, the damage trio, build-complete),
+/// a destroy of every 97th object, then ten update frames (the sleepy
+/// dispatch through the factory-built modules). Returns the state
+/// checksum (the heap's packed priorities in order, the behavior
+/// counts, the singleton captures).
+fn run_modules(kernel: &mut Kernel, host: &mut BenchHost) -> u64 {
+    let mut sum = 0u64;
+    for round in 0..3 {
+        let ids: Vec<i32> = kernel.objects.slot_ids();
+        for (n, &id) in ids.iter().enumerate() {
+            if n % 10 != 0 {
+                continue;
+            }
+            let damage = rzh_sim::modules::DamageInfo {
+                source_id: id,
+                death_type: rzh_sim::modules::DeathType::Normal,
+                amount: (round * 7) as f32,
+                ..Default::default()
+            };
+            kernel.object_on_die(host, id, &damage);
+            kernel.object_notify_damage(host, id, &damage);
+            kernel.object_notify_healing(host, id, &damage);
+            kernel.object_notify_body_damage_state_change(
+                host,
+                id,
+                &damage,
+                rzh_sim::modules::BodyDamageType::Pristine,
+                rzh_sim::modules::BodyDamageType::Damaged,
+            );
+            kernel.object_notify_build_complete(host, id);
+        }
+        let ids: Vec<i32> = kernel.objects.slot_ids();
+        for (n, &id) in ids.iter().enumerate() {
+            if n % 97 == 1 {
+                kernel.destroy_object(id, host);
+            }
+        }
+        kernel.process_destroy_list(host);
+        for _ in 0..10 {
+            kernel.pre_update();
+            kernel.update(host);
+        }
+    }
+    // the checksum: the heap's packed priorities in slot order, the
+    // live objects' behavior counts and singleton captures
+    for h in &kernel.logic.scheduler.heap {
+        sum = sum
+            .wrapping_mul(31)
+            .wrapping_add(u64::from(kernel.objects.module(*h).priority()));
+    }
+    for id in kernel.objects.slot_ids() {
+        let obj = kernel.objects.get(id);
+        sum = sum
+            .wrapping_mul(31)
+            .wrapping_add(obj.behaviors.len() as u64);
+        sum = sum
+            .wrapping_mul(31)
+            .wrapping_add(u64::from(obj.body_module.map_or(-1, |m| m as i32) as u32));
+        sum = sum
+            .wrapping_mul(31)
+            .wrapping_add(u64::from(obj.contain_module.map_or(-1, |m| m as i32) as u32));
+    }
+    sum
+}
+
+fn bench_modules(c: &mut Criterion) {
+    // the authoring-time lockstep check: the corpus and the walk cycle
+    // are deterministic, so the checksum is too (the C++ wrapper
+    // asserts the same value)
+    let (mut kernel, mut host) = modules_corpus();
+    let expected = run_modules(&mut kernel, &mut host);
+    assert_eq!(expected, MODULES_CHECKSUM, "re-pin MODULES_CHECKSUM");
+
+    c.bench_function("kernel/modules_x300", |b| {
+        b.iter_batched(
+            modules_corpus,
+            |(mut kernel, mut host)| run_modules(&mut kernel, &mut host),
+            BatchSize::PerIteration,
+        )
+    });
+}
+
 criterion_group!(
     benches,
     bench_frame_loop,
@@ -1105,6 +1293,7 @@ criterion_group!(
     bench_query,
     bench_players,
     bench_purse,
-    bench_messages
+    bench_messages,
+    bench_modules
 );
 criterion_main!(benches);

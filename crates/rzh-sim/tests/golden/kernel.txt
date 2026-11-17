@@ -471,10 +471,13 @@ u o2 m2 pri=00000006 idx=5
 u o3 m0 pri=0000001a idx=6
 u o1 m0 pri=00000016 idx=7
 u o1 m1 pri=0000001e idx=8
-events 23
+events 26
 ev objcreated 1
 ev objcreated 2
 ev objcreated 3
+ev delete 2 0
+ev delete 2 1
+ev delete 2 2
 ev objdestroyed 2
 ev clientframe 0
 ev scripts
@@ -540,7 +543,7 @@ cell 6,7 n=1 shr=1,1,0
 k o3
 cell 7,7 n=1 shr=1,1,0
 k o3
-events 21
+events 24
 ev clientframe 1
 ev scripts
 ev frozen 0
@@ -550,6 +553,9 @@ ev commands
 ev update 3 1
 ev update 3 2
 ev update 1 0
+ev delete 3 0
+ev delete 3 1
+ev delete 3 2
 ev objdestroyed 3
 ev update 1 2
 ev ai
@@ -2436,7 +2442,7 @@ slot 7 p-1
 teamevents 1
 tv local 0 1 -1
 nk empty=1
-nk a=2 b=3 A=4 a2=2 players=2
+nk a=10 b=11 A=12 a2=10 players=10
 teamevents 16
 tv pupdate 0 -1 -1
 tv pupdate 1 -1 -1
@@ -2597,17 +2603,17 @@ players count=4 local=3
 pl 0 name= key=1 type=1 dead=0 obs=0 act=1 dflt=1 slot=-1 npr=1 cash=0 cpm=0 bkt=0 rank=1 skp=0 spp=0 lup=2147483647 ldn=0 nsci=0:0:0 rad=0,0,0 nrg=0,0,0
 pr 0->0 Allies
 pt 0 0 tp1
-pl 1 name=america key=2 type=0 dead=0 obs=0 act=1 dflt=2 slot=-1 npr=1 cash=0 cpm=0 bkt=0 rank=1 skp=0 spp=0 lup=2147483647 ldn=0 nsci=0:0:0 rad=0,0,0 nrg=0,0,0
+pl 1 name=america key=10 type=0 dead=0 obs=0 act=1 dflt=2 slot=-1 npr=1 cash=0 cpm=0 bkt=0 rank=1 skp=0 spp=0 lup=2147483647 ldn=0 nsci=0:0:0 rad=0,0,0 nrg=0,0,0
 pr 1->0 Neutral
 pr 1->1 Allies
 pr 1->2 Enemies
 pt 1 0 tp2
-pl 2 name=china key=3 type=1 dead=0 obs=0 act=1 dflt=3 slot=-1 npr=1 cash=0 cpm=0 bkt=0 rank=1 skp=0 spp=0 lup=2147483647 ldn=0 nsci=0:0:0 rad=0,0,0 nrg=0,0,0
+pl 2 name=china key=11 type=1 dead=0 obs=0 act=1 dflt=3 slot=-1 npr=1 cash=0 cpm=0 bkt=0 rank=1 skp=0 spp=0 lup=2147483647 ldn=0 nsci=0:0:0 rad=0,0,0 nrg=0,0,0
 pr 2->0 Neutral
 pr 2->1 Allies
 pr 2->2 Allies
 pt 2 0 tp3
-pl 3 name=gla key=4 type=1 dead=0 obs=0 act=1 dflt=0 slot=-1 npr=0 cash=0 cpm=0 bkt=0 rank=1 skp=0 spp=0 lup=2147483647 ldn=0 nsci=0:0:0 rad=0,0,0 nrg=0,0,0
+pl 3 name=gla key=12 type=1 dead=0 obs=0 act=1 dflt=0 slot=-1 npr=0 cash=0 cpm=0 bkt=0 rank=1 skp=0 spp=0 lup=2147483647 ldn=0 nsci=0:0:0 rad=0,0,0 nrg=0,0,0
 pr 3->0 Neutral
 pr 3->1 Enemies
 pr 3->2 Enemies
@@ -2645,13 +2651,13 @@ slot 5 p-1
 slot 6 p-1
 slot 7 p-1
 teams nextproto=3 nextid=3 protos=3
-tp 1 name=team key=6 owner=0 single=1 inst=1
+tp 1 name=team key=14 owner=0 single=1 inst=1
 tpi 1 oc=0 od=0 oi=0 oes=0 oac=0 oud=0 thr=00000000 ea=0 pc= pe=0
 t 1 tp1 act=1 cre=1 eo=0 see=0 psee=0 chk=0 cur=0 thr=0 idle=0 mem=0
-tp 2 name=teamamerica key=7 owner=1 single=1 inst=1
+tp 2 name=teamamerica key=15 owner=1 single=1 inst=1
 tpi 2 oc=0 od=0 oi=0 oes=0 oac=0 oud=0 thr=00000000 ea=0 pc= pe=0
 t 2 tp2 act=1 cre=1 eo=0 see=0 psee=0 chk=0 cur=0 thr=0 idle=0 mem=0
-tp 3 name=teamchina key=8 owner=2 single=1 inst=1
+tp 3 name=teamchina key=16 owner=2 single=1 inst=1
 tpi 3 oc=0 od=0 oi=0 oes=0 oac=0 oud=0 thr=00000000 ea=0 pc= pe=0
 t 3 tp3 act=1 cre=1 eo=0 see=0 psee=0 chk=0 cur=0 thr=0 idle=0 mem=0
 teamevents 5
@@ -2674,7 +2680,7 @@ pl 0 name= key=1 type=1 dead=0 obs=0 act=1 dflt=1 slot=-1 npr=1 cash=0 cpm=0 bkt
 pr 0->0 Allies
 pr 0->1 Enemies
 pt 0 0 tp1
-pl 1 name=america key=2 type=0 dead=0 obs=0 act=1 dflt=0 slot=-1 npr=0 cash=0 cpm=0 bkt=0 rank=1 skp=0 spp=0 lup=2147483647 ldn=0 nsci=0:0:0 rad=0,0,0 nrg=0,0,0
+pl 1 name=america key=10 type=0 dead=0 obs=0 act=1 dflt=0 slot=-1 npr=0 cash=0 cpm=0 bkt=0 rank=1 skp=0 spp=0 lup=2147483647 ldn=0 nsci=0:0:0 rad=0,0,0 nrg=0,0,0
 pr 1->0 Neutral
 pr 1->1 Allies
 pl 2 name= key=1 type=1 dead=0 obs=0 act=1 dflt=0 slot=-1 npr=0 cash=0 cpm=0 bkt=0 rank=1 skp=0 spp=0 lup=2147483647 ldn=0 nsci=0:0:0 rad=0,0,0 nrg=0,0,0
@@ -2720,23 +2726,23 @@ tv local 1 1 -1
 nodefault 0
 corpus teams_factory
 teams nextproto=8 nextid=5 protos=7
-tp 1 name=team key=5 owner=0 single=1 inst=1
+tp 1 name=team key=13 owner=0 single=1 inst=1
 tpi 1 oc=0 od=0 oi=0 oes=0 oac=0 oud=0 thr=00000000 ea=0 pc= pe=0
 t 1 tp1 act=1 cre=1 eo=0 see=0 psee=0 chk=0 cur=0 thr=0 idle=0 mem=0
-tp 2 name=teamamerica key=6 owner=1 single=1 inst=1
+tp 2 name=teamamerica key=14 owner=1 single=1 inst=1
 tpi 2 oc=0 od=0 oi=0 oes=0 oac=0 oud=0 thr=00000000 ea=0 pc= pe=0
 t 2 tp2 act=1 cre=1 eo=0 see=0 psee=0 chk=0 cur=0 thr=0 idle=0 mem=0
-tp 3 name=teamchina key=7 owner=2 single=1 inst=1
+tp 3 name=teamchina key=15 owner=2 single=1 inst=1
 tpi 3 oc=0 od=0 oi=0 oes=0 oac=0 oud=0 thr=00000000 ea=0 pc= pe=0
 t 3 tp3 act=1 cre=1 eo=0 see=0 psee=0 chk=0 cur=0 thr=0 idle=0 mem=0
-tp 4 name=americaSquad key=8 owner=1 single=0 inst=0
+tp 4 name=americaSquad key=16 owner=1 single=0 inst=0
 tpi 4 oc=0 od=1 oi=0 oes=0 oac=0 oud=0 thr=3f000000 ea=0 pc= pe=0
-tp 6 name=stray key=10 owner=0 single=1 inst=1
+tp 6 name=stray key=18 owner=0 single=1 inst=1
 tpi 6 oc=0 od=0 oi=0 oes=0 oac=0 oud=0 thr=00000000 ea=0 pc= pe=0
 t 4 tp6 act=0 cre=0 eo=0 see=0 psee=0 chk=0 cur=0 thr=0 idle=0 mem=0
-tp 7 name=prodteam key=11 owner=2 single=0 inst=0
+tp 7 name=prodteam key=19 owner=2 single=0 inst=0
 tpi 7 oc=0 od=0 oi=0 oes=0 oac=0 oud=0 thr=00000000 ea=1 pc=condA pe=1
-tp 8 name=prodmiss key=12 owner=2 single=1 inst=1
+tp 8 name=prodmiss key=20 owner=2 single=1 inst=1
 tpi 8 oc=0 od=0 oi=0 oes=0 oac=0 oud=0 thr=00000000 ea=1 pc=condB pe=0
 t 5 tp8 act=0 cre=0 eo=0 see=0 psee=0 chk=0 cur=0 thr=0 idle=0 mem=0
 teamevents 3
@@ -2752,26 +2758,26 @@ unknown 0 0
 byid t1=1 t2=2 t0=0
 protobyid 1=team 2=teamamerica 99=0
 teams nextproto=8 nextid=8 protos=7
-tp 1 name=team key=5 owner=0 single=1 inst=1
+tp 1 name=team key=13 owner=0 single=1 inst=1
 tpi 1 oc=0 od=0 oi=0 oes=0 oac=0 oud=0 thr=00000000 ea=0 pc= pe=0
 t 1 tp1 act=1 cre=1 eo=0 see=0 psee=0 chk=0 cur=0 thr=0 idle=0 mem=0
-tp 2 name=teamamerica key=6 owner=1 single=1 inst=1
+tp 2 name=teamamerica key=14 owner=1 single=1 inst=1
 tpi 2 oc=0 od=0 oi=0 oes=0 oac=0 oud=0 thr=00000000 ea=0 pc= pe=0
 t 2 tp2 act=1 cre=1 eo=0 see=0 psee=0 chk=0 cur=0 thr=0 idle=0 mem=0
-tp 3 name=teamchina key=7 owner=2 single=1 inst=1
+tp 3 name=teamchina key=15 owner=2 single=1 inst=1
 tpi 3 oc=0 od=0 oi=0 oes=0 oac=0 oud=0 thr=00000000 ea=0 pc= pe=0
 t 3 tp3 act=1 cre=1 eo=0 see=0 psee=0 chk=0 cur=0 thr=0 idle=0 mem=0
-tp 4 name=americaSquad key=8 owner=1 single=0 inst=3
+tp 4 name=americaSquad key=16 owner=1 single=0 inst=3
 tpi 4 oc=0 od=1 oi=0 oes=0 oac=0 oud=0 thr=3f000000 ea=0 pc= pe=0
 t 8 tp4 act=1 cre=1 eo=0 see=0 psee=0 chk=0 cur=0 thr=0 idle=0 mem=0
 t 7 tp4 act=1 cre=1 eo=0 see=0 psee=0 chk=0 cur=0 thr=0 idle=0 mem=0
 t 6 tp4 act=0 cre=0 eo=0 see=0 psee=0 chk=0 cur=0 thr=0 idle=0 mem=0
-tp 6 name=stray key=10 owner=0 single=1 inst=1
+tp 6 name=stray key=18 owner=0 single=1 inst=1
 tpi 6 oc=0 od=0 oi=0 oes=0 oac=0 oud=0 thr=00000000 ea=0 pc= pe=0
 t 4 tp6 act=0 cre=0 eo=0 see=0 psee=0 chk=0 cur=0 thr=0 idle=0 mem=0
-tp 7 name=prodteam key=11 owner=2 single=0 inst=0
+tp 7 name=prodteam key=19 owner=2 single=0 inst=0
 tpi 7 oc=0 od=0 oi=0 oes=0 oac=0 oud=0 thr=00000000 ea=1 pc=condA pe=1
-tp 8 name=prodmiss key=12 owner=2 single=1 inst=1
+tp 8 name=prodmiss key=20 owner=2 single=1 inst=1
 tpi 8 oc=0 od=0 oi=0 oes=0 oac=0 oud=0 thr=00000000 ea=1 pc=condB pe=0
 t 5 tp8 act=0 cre=0 eo=0 see=0 psee=0 chk=0 cur=0 thr=0 idle=0 mem=0
 teamevents 0
@@ -2800,15 +2806,15 @@ players count=4 local=1
 pl 0 name= key=1 type=1 dead=0 obs=0 act=1 dflt=1 slot=-1 npr=1 cash=0 cpm=0 bkt=0 rank=1 skp=0 spp=0 lup=2147483647 ldn=0 nsci=0:0:0 rad=0,0,0 nrg=0,0,0
 pr 0->0 Allies
 pt 0 0 tp1
-pl 1 name=america key=2 type=0 dead=0 obs=0 act=1 dflt=2 slot=-1 npr=2 cash=0 cpm=0 bkt=0 rank=1 skp=0 spp=0 lup=2147483647 ldn=0 nsci=0:0:0 rad=0,0,0 nrg=0,0,0
+pl 1 name=america key=10 type=0 dead=0 obs=0 act=1 dflt=2 slot=-1 npr=2 cash=0 cpm=0 bkt=0 rank=1 skp=0 spp=0 lup=2147483647 ldn=0 nsci=0:0:0 rad=0,0,0 nrg=0,0,0
 pt 1 0 tp2
 pt 1 1 tp5
-pl 2 name=china key=3 type=1 dead=0 obs=0 act=1 dflt=3 slot=-1 npr=2 cash=0 cpm=0 bkt=0 rank=1 skp=0 spp=0 lup=2147483647 ldn=0 nsci=0:0:0 rad=0,0,0 nrg=0,0,0
+pl 2 name=china key=11 type=1 dead=0 obs=0 act=1 dflt=3 slot=-1 npr=2 cash=0 cpm=0 bkt=0 rank=1 skp=0 spp=0 lup=2147483647 ldn=0 nsci=0:0:0 rad=0,0,0 nrg=0,0,0
 pr 2->0 Neutral
 pr 2->2 Allies
 pt 2 0 tp3
 pt 2 1 tp6
-pl 3 name=gla key=4 type=1 dead=0 obs=0 act=1 dflt=4 slot=-1 npr=1 cash=0 cpm=0 bkt=0 rank=1 skp=0 spp=0 lup=2147483647 ldn=0 nsci=0:0:0 rad=0,0,0 nrg=0,0,0
+pl 3 name=gla key=12 type=1 dead=0 obs=0 act=1 dflt=4 slot=-1 npr=1 cash=0 cpm=0 bkt=0 rank=1 skp=0 spp=0 lup=2147483647 ldn=0 nsci=0:0:0 rad=0,0,0 nrg=0,0,0
 pr 3->0 Neutral
 pr 3->3 Allies
 pt 3 0 tp4
@@ -2845,22 +2851,22 @@ slot 5 p-1
 slot 6 p-1
 slot 7 p-1
 teams nextproto=6 nextid=6 protos=6
-tp 1 name=team key=6 owner=0 single=1 inst=1
+tp 1 name=team key=14 owner=0 single=1 inst=1
 tpi 1 oc=0 od=0 oi=0 oes=0 oac=0 oud=0 thr=00000000 ea=0 pc= pe=0
 t 1 tp1 act=1 cre=1 eo=0 see=0 psee=0 chk=0 cur=0 thr=0 idle=0 mem=0
-tp 2 name=teamamerica key=7 owner=1 single=1 inst=1
+tp 2 name=teamamerica key=15 owner=1 single=1 inst=1
 tpi 2 oc=0 od=0 oi=0 oes=0 oac=0 oud=0 thr=00000000 ea=0 pc= pe=0
 t 2 tp2 act=1 cre=1 eo=0 see=0 psee=0 chk=0 cur=0 thr=0 idle=0 mem=0
-tp 3 name=teamchina key=8 owner=2 single=1 inst=1
+tp 3 name=teamchina key=16 owner=2 single=1 inst=1
 tpi 3 oc=0 od=0 oi=0 oes=0 oac=0 oud=0 thr=00000000 ea=0 pc= pe=0
 t 3 tp3 act=1 cre=1 eo=0 see=0 psee=0 chk=0 cur=0 thr=0 idle=0 mem=0
-tp 4 name=teamgla key=9 owner=3 single=1 inst=1
+tp 4 name=teamgla key=17 owner=3 single=1 inst=1
 tpi 4 oc=0 od=0 oi=0 oes=0 oac=0 oud=0 thr=00000000 ea=0 pc= pe=0
 t 4 tp4 act=1 cre=1 eo=0 see=0 psee=0 chk=0 cur=0 thr=0 idle=0 mem=0
-tp 5 name=americaSquad key=10 owner=1 single=0 inst=1
+tp 5 name=americaSquad key=18 owner=1 single=0 inst=1
 tpi 5 oc=0 od=0 oi=0 oes=0 oac=0 oud=0 thr=00000000 ea=0 pc= pe=0
 t 5 tp5 act=1 cre=1 eo=0 see=0 psee=0 chk=0 cur=0 thr=0 idle=0 mem=0
-tp 6 name=chinaSquad key=11 owner=2 single=0 inst=1
+tp 6 name=chinaSquad key=19 owner=2 single=0 inst=1
 tpi 6 oc=0 od=0 oi=0 oes=0 oac=0 oud=0 thr=00000000 ea=0 pc= pe=0
 t 6 tp6 act=1 cre=1 eo=0 see=0 psee=0 chk=0 cur=0 thr=0 idle=0 mem=0
 d0 Enemies
@@ -2881,16 +2887,16 @@ players count=4 local=1
 pl 0 name= key=1 type=1 dead=0 obs=0 act=1 dflt=1 slot=-1 npr=1 cash=0 cpm=0 bkt=0 rank=1 skp=0 spp=0 lup=2147483647 ldn=0 nsci=0:0:0 rad=0,0,0 nrg=0,0,0
 pr 0->0 Allies
 pt 0 0 tp1
-pl 1 name=america key=2 type=0 dead=0 obs=0 act=1 dflt=2 slot=-1 npr=1 cash=0 cpm=0 bkt=0 rank=1 skp=0 spp=0 lup=2147483647 ldn=0 nsci=0:0:0 rad=0,0,0 nrg=0,0,0
+pl 1 name=america key=10 type=0 dead=0 obs=0 act=1 dflt=2 slot=-1 npr=1 cash=0 cpm=0 bkt=0 rank=1 skp=0 spp=0 lup=2147483647 ldn=0 nsci=0:0:0 rad=0,0,0 nrg=0,0,0
 pr 1->2 Enemies
 pt 1 0 tp2
-pl 2 name=china key=3 type=1 dead=0 obs=0 act=1 dflt=3 slot=-1 npr=3 cash=0 cpm=0 bkt=0 rank=1 skp=0 spp=0 lup=2147483647 ldn=0 nsci=0:0:0 rad=0,0,0 nrg=0,0,0
+pl 2 name=china key=11 type=1 dead=0 obs=0 act=1 dflt=3 slot=-1 npr=3 cash=0 cpm=0 bkt=0 rank=1 skp=0 spp=0 lup=2147483647 ldn=0 nsci=0:0:0 rad=0,0,0 nrg=0,0,0
 pr 2->0 Neutral
 pr 2->2 Allies
 pt 2 0 tp3
 pt 2 1 tp6
 pt 2 2 tp5
-pl 3 name=gla key=4 type=1 dead=0 obs=0 act=1 dflt=4 slot=-1 npr=1 cash=0 cpm=0 bkt=0 rank=1 skp=0 spp=0 lup=2147483647 ldn=0 nsci=0:0:0 rad=0,0,0 nrg=0,0,0
+pl 3 name=gla key=12 type=1 dead=0 obs=0 act=1 dflt=4 slot=-1 npr=1 cash=0 cpm=0 bkt=0 rank=1 skp=0 spp=0 lup=2147483647 ldn=0 nsci=0:0:0 rad=0,0,0 nrg=0,0,0
 pr 3->0 Neutral
 pr 3->3 Allies
 pt 3 0 tp4
@@ -2927,24 +2933,24 @@ slot 5 p-1
 slot 6 p-1
 slot 7 p-1
 teams nextproto=6 nextid=6 protos=6
-tp 1 name=team key=6 owner=0 single=1 inst=1
+tp 1 name=team key=14 owner=0 single=1 inst=1
 tpi 1 oc=0 od=0 oi=0 oes=0 oac=0 oud=0 thr=00000000 ea=0 pc= pe=0
 t 1 tp1 act=1 cre=1 eo=0 see=0 psee=0 chk=0 cur=0 thr=0 idle=0 mem=0
-tp 2 name=teamamerica key=7 owner=1 single=1 inst=1
+tp 2 name=teamamerica key=15 owner=1 single=1 inst=1
 tpi 2 oc=0 od=0 oi=0 oes=0 oac=0 oud=0 thr=00000000 ea=0 pc= pe=0
 t 2 tp2 act=1 cre=1 eo=0 see=0 psee=0 chk=0 cur=0 thr=0 idle=0 mem=0
-tp 3 name=teamchina key=8 owner=2 single=1 inst=1
+tp 3 name=teamchina key=16 owner=2 single=1 inst=1
 tpi 3 oc=0 od=0 oi=0 oes=0 oac=0 oud=0 thr=00000000 ea=0 pc= pe=0
 t 3 tp3 act=1 cre=1 eo=0 see=0 psee=0 chk=0 cur=0 thr=0 idle=0 mem=1
 mem t3 o2
-tp 4 name=teamgla key=9 owner=3 single=1 inst=1
+tp 4 name=teamgla key=17 owner=3 single=1 inst=1
 tpi 4 oc=0 od=0 oi=0 oes=0 oac=0 oud=0 thr=00000000 ea=0 pc= pe=0
 t 4 tp4 act=1 cre=1 eo=0 see=0 psee=0 chk=0 cur=0 thr=0 idle=0 mem=0
-tp 5 name=americaSquad key=10 owner=2 single=0 inst=1
+tp 5 name=americaSquad key=18 owner=2 single=0 inst=1
 tpi 5 oc=0 od=0 oi=0 oes=0 oac=0 oud=0 thr=00000000 ea=0 pc= pe=0
 t 5 tp5 act=1 cre=1 eo=0 see=0 psee=0 chk=0 cur=0 thr=0 idle=0 mem=1
 mem t5 o1
-tp 6 name=chinaSquad key=11 owner=2 single=0 inst=1
+tp 6 name=chinaSquad key=19 owner=2 single=0 inst=1
 tpi 6 oc=0 od=0 oi=0 oes=0 oac=0 oud=0 thr=00000000 ea=0 pc= pe=0
 t 6 tp6 act=1 cre=1 eo=0 see=0 psee=0 chk=0 cur=0 thr=0 idle=0 mem=0
 objteams 3
@@ -2977,21 +2983,21 @@ players count=5 local=1
 pl 0 name= key=1 type=1 dead=0 obs=0 act=1 dflt=1 slot=-1 npr=1 cash=0 cpm=0 bkt=0 rank=1 skp=0 spp=0 lup=2147483647 ldn=0 nsci=0:0:0 rad=0,0,0 nrg=0,0,0
 pr 0->0 Allies
 pt 0 0 tp1
-pl 1 name=america key=2 type=0 dead=0 obs=0 act=1 dflt=2 slot=-1 npr=1 cash=0 cpm=0 bkt=0 rank=1 skp=0 spp=0 lup=2147483647 ldn=0 nsci=0:0:0 rad=0,0,0 nrg=0,0,0
+pl 1 name=america key=10 type=0 dead=0 obs=0 act=1 dflt=2 slot=-1 npr=1 cash=0 cpm=0 bkt=0 rank=1 skp=0 spp=0 lup=2147483647 ldn=0 nsci=0:0:0 rad=0,0,0 nrg=0,0,0
 pr 1->0 Neutral
 pr 1->1 Allies
 pr 1->2 Enemies
 pr 1->3 Allies
 pt 1 0 tp2
-pl 2 name=china key=3 type=1 dead=0 obs=0 act=1 dflt=3 slot=-1 npr=1 cash=0 cpm=0 bkt=0 rank=1 skp=0 spp=0 lup=2147483647 ldn=0 nsci=0:0:0 rad=0,0,0 nrg=0,0,0
+pl 2 name=china key=11 type=1 dead=0 obs=0 act=1 dflt=3 slot=-1 npr=1 cash=0 cpm=0 bkt=0 rank=1 skp=0 spp=0 lup=2147483647 ldn=0 nsci=0:0:0 rad=0,0,0 nrg=0,0,0
 pr 2->0 Neutral
 pr 2->2 Allies
 pt 2 0 tp3
-pl 3 name=gla key=4 type=1 dead=0 obs=0 act=1 dflt=4 slot=-1 npr=1 cash=0 cpm=0 bkt=0 rank=1 skp=0 spp=0 lup=2147483647 ldn=0 nsci=0:0:0 rad=0,0,0 nrg=0,0,0
+pl 3 name=gla key=12 type=1 dead=0 obs=0 act=1 dflt=4 slot=-1 npr=1 cash=0 cpm=0 bkt=0 rank=1 skp=0 spp=0 lup=2147483647 ldn=0 nsci=0:0:0 rad=0,0,0 nrg=0,0,0
 pr 3->0 Neutral
 pr 3->3 Allies
 pt 3 0 tp4
-pl 4 name=observer key=5 type=1 dead=1 obs=1 act=0 dflt=5 slot=-1 npr=1 cash=0 cpm=0 bkt=0 rank=1 skp=0 spp=0 lup=2147483647 ldn=0 nsci=0:0:0 rad=0,0,0 nrg=0,0,0
+pl 4 name=observer key=13 type=1 dead=1 obs=1 act=0 dflt=5 slot=-1 npr=1 cash=0 cpm=0 bkt=0 rank=1 skp=0 spp=0 lup=2147483647 ldn=0 nsci=0:0:0 rad=0,0,0 nrg=0,0,0
 pr 4->0 Neutral
 pr 4->4 Allies
 pt 4 0 tp5
@@ -3034,19 +3040,19 @@ refused o1 t1
 teamevents 1
 tv teammember 1 0 1
 teams nextproto=5 nextid=5 protos=5
-tp 1 name=team key=6 owner=0 single=1 inst=1
+tp 1 name=team key=14 owner=0 single=1 inst=1
 tpi 1 oc=0 od=0 oi=0 oes=0 oac=0 oud=0 thr=00000000 ea=0 pc= pe=0
 t 1 tp1 act=1 cre=1 eo=0 see=0 psee=0 chk=0 cur=0 thr=0 idle=0 mem=0
-tp 2 name=teamamerica key=7 owner=1 single=1 inst=1
+tp 2 name=teamamerica key=15 owner=1 single=1 inst=1
 tpi 2 oc=0 od=0 oi=0 oes=0 oac=0 oud=0 thr=00000000 ea=0 pc= pe=0
 t 2 tp2 act=1 cre=1 eo=0 see=0 psee=0 chk=0 cur=0 thr=0 idle=0 mem=0
-tp 3 name=teamchina key=8 owner=2 single=1 inst=1
+tp 3 name=teamchina key=16 owner=2 single=1 inst=1
 tpi 3 oc=0 od=0 oi=0 oes=0 oac=0 oud=0 thr=00000000 ea=0 pc= pe=0
 t 3 tp3 act=1 cre=1 eo=0 see=0 psee=0 chk=0 cur=0 thr=0 idle=0 mem=0
-tp 4 name=teamdead key=9 owner=3 single=1 inst=1
+tp 4 name=teamdead key=17 owner=3 single=1 inst=1
 tpi 4 oc=0 od=0 oi=0 oes=0 oac=0 oud=0 thr=00000000 ea=0 pc= pe=0
 t 4 tp4 act=1 cre=1 eo=0 see=0 psee=0 chk=0 cur=0 thr=0 idle=0 mem=0
-tp 5 name=americaSquad key=10 owner=1 single=0 inst=1
+tp 5 name=americaSquad key=18 owner=1 single=0 inst=1
 tpi 5 oc=1 od=1 oi=1 oes=1 oac=1 oud=1 thr=3ecccccd ea=0 pc= pe=0
 t 5 tp5 act=1 cre=1 eo=0 see=0 psee=0 chk=1 cur=0 thr=0 idle=0 mem=2
 mem t5 o2
@@ -3057,20 +3063,20 @@ tv teammember 1 1 1
 tv capture 1 0 1
 tv teammember 2 1 1
 teams nextproto=5 nextid=5 protos=5
-tp 1 name=team key=6 owner=0 single=1 inst=1
+tp 1 name=team key=14 owner=0 single=1 inst=1
 tpi 1 oc=0 od=0 oi=0 oes=0 oac=0 oud=0 thr=00000000 ea=0 pc= pe=0
 t 1 tp1 act=1 cre=0 eo=0 see=0 psee=0 chk=0 cur=0 thr=0 idle=0 mem=0
-tp 2 name=teamamerica key=7 owner=1 single=1 inst=1
+tp 2 name=teamamerica key=15 owner=1 single=1 inst=1
 tpi 2 oc=0 od=0 oi=0 oes=0 oac=0 oud=0 thr=00000000 ea=0 pc= pe=0
 t 2 tp2 act=1 cre=0 eo=0 see=0 psee=0 chk=0 cur=0 thr=0 idle=0 mem=0
-tp 3 name=teamchina key=8 owner=2 single=1 inst=1
+tp 3 name=teamchina key=16 owner=2 single=1 inst=1
 tpi 3 oc=0 od=0 oi=0 oes=0 oac=0 oud=0 thr=00000000 ea=0 pc= pe=0
 t 3 tp3 act=1 cre=0 eo=0 see=0 psee=0 chk=0 cur=0 thr=0 idle=0 mem=1
 mem t3 o5
-tp 4 name=teamdead key=9 owner=3 single=1 inst=1
+tp 4 name=teamdead key=17 owner=3 single=1 inst=1
 tpi 4 oc=0 od=0 oi=0 oes=0 oac=0 oud=0 thr=00000000 ea=0 pc= pe=0
 t 4 tp4 act=1 cre=0 eo=0 see=0 psee=0 chk=0 cur=0 thr=0 idle=0 mem=0
-tp 5 name=americaSquad key=10 owner=1 single=0 inst=1
+tp 5 name=americaSquad key=18 owner=1 single=0 inst=1
 tpi 5 oc=1 od=1 oi=1 oes=1 oac=1 oud=1 thr=3ecccccd ea=0 pc= pe=0
 t 5 tp5 act=1 cre=0 eo=0 see=1 psee=0 chk=1 cur=2 thr=1 idle=1 mem=2
 mem t5 o2
@@ -3080,20 +3086,20 @@ tv teammember 5 2 1
 tv script 5 oncreate -1
 tv script 5 onenemysighted -1
 teams nextproto=5 nextid=5 protos=5
-tp 1 name=team key=6 owner=0 single=1 inst=1
+tp 1 name=team key=14 owner=0 single=1 inst=1
 tpi 1 oc=0 od=0 oi=0 oes=0 oac=0 oud=0 thr=00000000 ea=0 pc= pe=0
 t 1 tp1 act=1 cre=0 eo=0 see=0 psee=0 chk=0 cur=0 thr=0 idle=0 mem=0
-tp 2 name=teamamerica key=7 owner=1 single=1 inst=1
+tp 2 name=teamamerica key=15 owner=1 single=1 inst=1
 tpi 2 oc=0 od=0 oi=0 oes=0 oac=0 oud=0 thr=00000000 ea=0 pc= pe=0
 t 2 tp2 act=1 cre=0 eo=0 see=0 psee=0 chk=0 cur=0 thr=0 idle=0 mem=0
-tp 3 name=teamchina key=8 owner=2 single=1 inst=1
+tp 3 name=teamchina key=16 owner=2 single=1 inst=1
 tpi 3 oc=0 od=0 oi=0 oes=0 oac=0 oud=0 thr=00000000 ea=0 pc= pe=0
 t 3 tp3 act=1 cre=0 eo=0 see=0 psee=0 chk=0 cur=0 thr=0 idle=0 mem=1
 mem t3 o5
-tp 4 name=teamdead key=9 owner=3 single=1 inst=1
+tp 4 name=teamdead key=17 owner=3 single=1 inst=1
 tpi 4 oc=0 od=0 oi=0 oes=0 oac=0 oud=0 thr=00000000 ea=0 pc= pe=0
 t 4 tp4 act=1 cre=0 eo=0 see=0 psee=0 chk=0 cur=0 thr=0 idle=0 mem=0
-tp 5 name=americaSquad key=10 owner=1 single=0 inst=1
+tp 5 name=americaSquad key=18 owner=1 single=0 inst=1
 tpi 5 oc=1 od=1 oi=1 oes=1 oac=1 oud=1 thr=3ecccccd ea=0 pc= pe=0
 t 5 tp5 act=1 cre=0 eo=0 see=1 psee=1 chk=1 cur=2 thr=1 idle=1 mem=2
 mem t5 o2
@@ -3101,20 +3107,20 @@ mem t5 o1
 teamevents 1
 tv script 5 onidle -1
 teams nextproto=5 nextid=5 protos=5
-tp 1 name=team key=6 owner=0 single=1 inst=1
+tp 1 name=team key=14 owner=0 single=1 inst=1
 tpi 1 oc=0 od=0 oi=0 oes=0 oac=0 oud=0 thr=00000000 ea=0 pc= pe=0
 t 1 tp1 act=1 cre=0 eo=0 see=0 psee=0 chk=0 cur=0 thr=0 idle=0 mem=0
-tp 2 name=teamamerica key=7 owner=1 single=1 inst=1
+tp 2 name=teamamerica key=15 owner=1 single=1 inst=1
 tpi 2 oc=0 od=0 oi=0 oes=0 oac=0 oud=0 thr=00000000 ea=0 pc= pe=0
 t 2 tp2 act=1 cre=0 eo=0 see=0 psee=0 chk=0 cur=0 thr=0 idle=0 mem=0
-tp 3 name=teamchina key=8 owner=2 single=1 inst=1
+tp 3 name=teamchina key=16 owner=2 single=1 inst=1
 tpi 3 oc=0 od=0 oi=0 oes=0 oac=0 oud=0 thr=00000000 ea=0 pc= pe=0
 t 3 tp3 act=1 cre=0 eo=0 see=0 psee=0 chk=0 cur=0 thr=0 idle=0 mem=1
 mem t3 o5
-tp 4 name=teamdead key=9 owner=3 single=1 inst=1
+tp 4 name=teamdead key=17 owner=3 single=1 inst=1
 tpi 4 oc=0 od=0 oi=0 oes=0 oac=0 oud=0 thr=00000000 ea=0 pc= pe=0
 t 4 tp4 act=1 cre=0 eo=0 see=0 psee=0 chk=0 cur=0 thr=0 idle=0 mem=0
-tp 5 name=americaSquad key=10 owner=1 single=0 inst=1
+tp 5 name=americaSquad key=18 owner=1 single=0 inst=1
 tpi 5 oc=1 od=1 oi=1 oes=1 oac=1 oud=1 thr=3ecccccd ea=0 pc= pe=0
 t 5 tp5 act=1 cre=0 eo=0 see=0 psee=1 chk=1 cur=2 thr=1 idle=1 mem=2
 mem t5 o2
@@ -3123,20 +3129,20 @@ teamevents 2
 tv script 5 onallclear -1
 tv script 5 onidle -1
 teams nextproto=5 nextid=5 protos=5
-tp 1 name=team key=6 owner=0 single=1 inst=1
+tp 1 name=team key=14 owner=0 single=1 inst=1
 tpi 1 oc=0 od=0 oi=0 oes=0 oac=0 oud=0 thr=00000000 ea=0 pc= pe=0
 t 1 tp1 act=1 cre=0 eo=0 see=0 psee=0 chk=0 cur=0 thr=0 idle=0 mem=0
-tp 2 name=teamamerica key=7 owner=1 single=1 inst=1
+tp 2 name=teamamerica key=15 owner=1 single=1 inst=1
 tpi 2 oc=0 od=0 oi=0 oes=0 oac=0 oud=0 thr=00000000 ea=0 pc= pe=0
 t 2 tp2 act=1 cre=0 eo=0 see=0 psee=0 chk=0 cur=0 thr=0 idle=0 mem=0
-tp 3 name=teamchina key=8 owner=2 single=1 inst=1
+tp 3 name=teamchina key=16 owner=2 single=1 inst=1
 tpi 3 oc=0 od=0 oi=0 oes=0 oac=0 oud=0 thr=00000000 ea=0 pc= pe=0
 t 3 tp3 act=1 cre=0 eo=0 see=0 psee=0 chk=0 cur=0 thr=0 idle=0 mem=1
 mem t3 o5
-tp 4 name=teamdead key=9 owner=3 single=1 inst=1
+tp 4 name=teamdead key=17 owner=3 single=1 inst=1
 tpi 4 oc=0 od=0 oi=0 oes=0 oac=0 oud=0 thr=00000000 ea=0 pc= pe=0
 t 4 tp4 act=1 cre=0 eo=0 see=0 psee=0 chk=0 cur=0 thr=0 idle=0 mem=0
-tp 5 name=americaSquad key=10 owner=1 single=0 inst=1
+tp 5 name=americaSquad key=18 owner=1 single=0 inst=1
 tpi 5 oc=1 od=1 oi=1 oes=1 oac=1 oud=1 thr=3ecccccd ea=0 pc= pe=0
 t 5 tp5 act=1 cre=0 eo=0 see=0 psee=0 chk=1 cur=0 thr=-1 idle=1 mem=2
 mem t5 o2
@@ -3157,40 +3163,40 @@ tv teammember 3 1 1
 tv capture 3 1 1
 tv teammember 3 1 0
 teams nextproto=5 nextid=5 protos=5
-tp 1 name=team key=6 owner=0 single=1 inst=1
+tp 1 name=team key=14 owner=0 single=1 inst=1
 tpi 1 oc=0 od=0 oi=0 oes=0 oac=0 oud=0 thr=00000000 ea=0 pc= pe=0
 t 1 tp1 act=1 cre=0 eo=0 see=0 psee=0 chk=0 cur=0 thr=0 idle=0 mem=0
-tp 2 name=teamamerica key=7 owner=1 single=1 inst=1
+tp 2 name=teamamerica key=15 owner=1 single=1 inst=1
 tpi 2 oc=0 od=0 oi=0 oes=0 oac=0 oud=0 thr=00000000 ea=0 pc= pe=0
 t 2 tp2 act=1 cre=0 eo=0 see=0 psee=0 chk=0 cur=0 thr=0 idle=0 mem=0
-tp 3 name=teamchina key=8 owner=2 single=1 inst=1
+tp 3 name=teamchina key=16 owner=2 single=1 inst=1
 tpi 3 oc=0 od=0 oi=0 oes=0 oac=0 oud=0 thr=00000000 ea=0 pc= pe=0
 t 3 tp3 act=1 cre=0 eo=0 see=0 psee=0 chk=0 cur=0 thr=0 idle=0 mem=1
 mem t3 o5
-tp 4 name=teamdead key=9 owner=3 single=1 inst=1
+tp 4 name=teamdead key=17 owner=3 single=1 inst=1
 tpi 4 oc=0 od=0 oi=0 oes=0 oac=0 oud=0 thr=00000000 ea=0 pc= pe=0
 t 4 tp4 act=1 cre=0 eo=0 see=0 psee=0 chk=0 cur=0 thr=0 idle=0 mem=0
-tp 5 name=americaSquad key=10 owner=1 single=0 inst=0
+tp 5 name=americaSquad key=18 owner=1 single=0 inst=0
 tpi 5 oc=1 od=1 oi=1 oes=1 oac=1 oud=1 thr=3ecccccd ea=0 pc= pe=0
 teamevents 3
 tv teammember 1 1 0
 tv teammember 2 1 0
 tv teamdestroyed 5 -1 -1
 teams nextproto=5 nextid=6 protos=5
-tp 1 name=team key=6 owner=0 single=1 inst=1
+tp 1 name=team key=14 owner=0 single=1 inst=1
 tpi 1 oc=0 od=0 oi=0 oes=0 oac=0 oud=0 thr=00000000 ea=0 pc= pe=0
 t 1 tp1 act=1 cre=0 eo=0 see=0 psee=0 chk=0 cur=0 thr=0 idle=0 mem=0
-tp 2 name=teamamerica key=7 owner=1 single=1 inst=1
+tp 2 name=teamamerica key=15 owner=1 single=1 inst=1
 tpi 2 oc=0 od=0 oi=0 oes=0 oac=0 oud=0 thr=00000000 ea=0 pc= pe=0
 t 2 tp2 act=1 cre=0 eo=0 see=0 psee=0 chk=0 cur=0 thr=0 idle=0 mem=0
-tp 3 name=teamchina key=8 owner=2 single=1 inst=1
+tp 3 name=teamchina key=16 owner=2 single=1 inst=1
 tpi 3 oc=0 od=0 oi=0 oes=0 oac=0 oud=0 thr=00000000 ea=0 pc= pe=0
 t 3 tp3 act=1 cre=0 eo=0 see=0 psee=0 chk=0 cur=0 thr=0 idle=0 mem=1
 mem t3 o5
-tp 4 name=teamdead key=9 owner=3 single=1 inst=1
+tp 4 name=teamdead key=17 owner=3 single=1 inst=1
 tpi 4 oc=0 od=0 oi=0 oes=0 oac=0 oud=0 thr=00000000 ea=0 pc= pe=0
 t 4 tp4 act=1 cre=0 eo=0 see=0 psee=0 chk=0 cur=0 thr=0 idle=0 mem=0
-tp 5 name=americaSquad key=10 owner=1 single=0 inst=1
+tp 5 name=americaSquad key=18 owner=1 single=0 inst=1
 tpi 5 oc=1 od=1 oi=1 oes=1 oac=1 oud=1 thr=3ecccccd ea=0 pc= pe=0
 t 6 tp5 act=0 cre=0 eo=0 see=0 psee=0 chk=1 cur=0 thr=0 idle=0 mem=0
 corpus players_roundtrip
@@ -3220,25 +3226,25 @@ q enemies hit o4 d=41400000
 q neutral hit o6 d=41a00000
 q onteam hit o3 d=41000000
 teams nextproto=5 nextid=5 protos=5
-tp 1 name=team key=6 owner=0 single=1 inst=1
+tp 1 name=team key=14 owner=0 single=1 inst=1
 tpi 1 oc=0 od=0 oi=0 oes=0 oac=0 oud=0 thr=00000000 ea=0 pc= pe=0
 t 1 tp1 act=1 cre=0 eo=0 see=0 psee=0 chk=0 cur=0 thr=0 idle=0 mem=1
 mem t1 o7
-tp 2 name=teamamerica key=7 owner=1 single=1 inst=1
+tp 2 name=teamamerica key=15 owner=1 single=1 inst=1
 tpi 2 oc=0 od=0 oi=0 oes=0 oac=0 oud=0 thr=00000000 ea=0 pc= pe=0
 t 2 tp2 act=1 cre=0 eo=0 see=0 psee=0 chk=0 cur=0 thr=0 idle=0 mem=2
 mem t2 o2
 mem t2 o1
-tp 3 name=teamchina key=8 owner=2 single=1 inst=1
+tp 3 name=teamchina key=16 owner=2 single=1 inst=1
 tpi 3 oc=0 od=0 oi=0 oes=0 oac=0 oud=0 thr=00000000 ea=0 pc= pe=0
 t 3 tp3 act=1 cre=0 eo=0 see=0 psee=0 chk=0 cur=0 thr=0 idle=0 mem=2
 mem t3 o5
 mem t3 o4
-tp 4 name=teamgla key=9 owner=3 single=1 inst=1
+tp 4 name=teamgla key=17 owner=3 single=1 inst=1
 tpi 4 oc=0 od=0 oi=0 oes=0 oac=0 oud=0 thr=00000000 ea=0 pc= pe=0
 t 4 tp4 act=1 cre=0 eo=0 see=0 psee=0 chk=0 cur=0 thr=0 idle=0 mem=1
 mem t4 o6
-tp 5 name=americaSquad key=10 owner=1 single=0 inst=1
+tp 5 name=americaSquad key=18 owner=1 single=0 inst=1
 tpi 5 oc=0 od=0 oi=0 oes=0 oac=0 oud=0 thr=00000000 ea=0 pc= pe=0
 t 5 tp5 act=1 cre=0 eo=0 see=0 psee=0 chk=0 cur=0 thr=0 idle=0 mem=1
 mem t5 o3
@@ -3253,18 +3259,18 @@ players count=4 local=2
 pl 0 name= key=1 type=1 dead=0 obs=0 act=1 dflt=1 slot=-1 npr=1 cash=0 cpm=0 bkt=0 rank=1 skp=0 spp=0 lup=2147483647 ldn=0 nsci=0:0:0 rad=0,0,0 nrg=0,0,0
 pr 0->0 Allies
 pt 0 0 tp1
-pl 1 name=america key=2 type=0 dead=0 obs=0 act=1 dflt=2 slot=-1 npr=2 cash=0 cpm=0 bkt=0 rank=1 skp=0 spp=0 lup=2147483647 ldn=0 nsci=0:0:0 rad=0,0,0 nrg=0,0,0
+pl 1 name=america key=10 type=0 dead=0 obs=0 act=1 dflt=2 slot=-1 npr=2 cash=0 cpm=0 bkt=0 rank=1 skp=0 spp=0 lup=2147483647 ldn=0 nsci=0:0:0 rad=0,0,0 nrg=0,0,0
 pr 1->0 Neutral
 pr 1->1 Allies
 pr 1->2 Enemies
 pt 1 0 tp2
 pt 1 1 tp5
-pl 2 name=china key=3 type=1 dead=0 obs=0 act=1 dflt=3 slot=-1 npr=1 cash=0 cpm=0 bkt=0 rank=1 skp=0 spp=0 lup=2147483647 ldn=0 nsci=0:0:0 rad=0,0,0 nrg=0,0,0
+pl 2 name=china key=11 type=1 dead=0 obs=0 act=1 dflt=3 slot=-1 npr=1 cash=0 cpm=0 bkt=0 rank=1 skp=0 spp=0 lup=2147483647 ldn=0 nsci=0:0:0 rad=0,0,0 nrg=0,0,0
 pr 2->0 Neutral
 pr 2->1 Enemies
 pr 2->2 Allies
 pt 2 0 tp3
-pl 3 name=gla key=4 type=1 dead=0 obs=0 act=1 dflt=4 slot=-1 npr=1 cash=0 cpm=0 bkt=0 rank=1 skp=0 spp=0 lup=2147483647 ldn=0 nsci=0:0:0 rad=0,0,0 nrg=0,0,0
+pl 3 name=gla key=12 type=1 dead=0 obs=0 act=1 dflt=4 slot=-1 npr=1 cash=0 cpm=0 bkt=0 rank=1 skp=0 spp=0 lup=2147483647 ldn=0 nsci=0:0:0 rad=0,0,0 nrg=0,0,0
 pr 3->0 Neutral
 pr 3->1 Enemies
 pr 3->2 Enemies
@@ -3535,12 +3541,12 @@ players count=3 local=1
 pl 0 name= key=1 type=1 dead=0 obs=0 act=1 dflt=1 slot=-1 npr=1 cash=0 cpm=0 bkt=0 rank=1 skp=0 spp=0 lup=2147483647 ldn=0 nsci=0:0:0 rad=0,0,0 nrg=0,0,0
 pr 0->0 Allies
 pt 0 0 tp1
-pl 1 name=p1 key=2 type=0 dead=0 obs=0 act=1 dflt=2 slot=-1 npr=2 cash=0 cpm=0 bkt=0 rank=1 skp=0 spp=0 lup=2147483647 ldn=0 nsci=0:0:0 rad=2,1,0 nrg=60,20,0
+pl 1 name=p1 key=10 type=0 dead=0 obs=0 act=1 dflt=2 slot=-1 npr=2 cash=0 cpm=0 bkt=0 rank=1 skp=0 spp=0 lup=2147483647 ldn=0 nsci=0:0:0 rad=2,1,0 nrg=60,20,0
 pr 1->0 Neutral
 pr 1->1 Allies
 pt 1 0 tp2
 pt 1 1 tp4
-pl 2 name=p2 key=3 type=1 dead=0 obs=0 act=1 dflt=3 slot=-1 npr=1 cash=0 cpm=0 bkt=0 rank=1 skp=0 spp=0 lup=2147483647 ldn=0 nsci=0:0:0 rad=0,0,0 nrg=0,0,0
+pl 2 name=p2 key=11 type=1 dead=0 obs=0 act=1 dflt=3 slot=-1 npr=1 cash=0 cpm=0 bkt=0 rank=1 skp=0 spp=0 lup=2147483647 ldn=0 nsci=0:0:0 rad=0,0,0 nrg=0,0,0
 pr 2->0 Neutral
 pr 2->2 Allies
 pt 2 0 tp3
@@ -3630,12 +3636,12 @@ players count=3 local=1
 pl 0 name= key=1 type=1 dead=0 obs=0 act=1 dflt=1 slot=-1 npr=1 cash=0 cpm=0 bkt=3 rank=1 skp=0 spp=0 lup=2147483647 ldn=0 nsci=0:0:0 rad=0,0,0 nrg=0,0,0
 pr 0->0 Allies
 pt 0 0 tp1
-pl 1 name=p1 key=2 type=0 dead=0 obs=0 act=1 dflt=2 slot=-1 npr=2 cash=0 cpm=0 bkt=3 rank=1 skp=0 spp=0 lup=2147483647 ldn=0 nsci=0:0:0 rad=2,1,0 nrg=60,20,0
+pl 1 name=p1 key=10 type=0 dead=0 obs=0 act=1 dflt=2 slot=-1 npr=2 cash=0 cpm=0 bkt=3 rank=1 skp=0 spp=0 lup=2147483647 ldn=0 nsci=0:0:0 rad=2,1,0 nrg=60,20,0
 pr 1->0 Neutral
 pr 1->1 Allies
 pt 1 0 tp2
 pt 1 1 tp4
-pl 2 name=p2 key=3 type=1 dead=0 obs=0 act=1 dflt=3 slot=-1 npr=1 cash=0 cpm=0 bkt=3 rank=1 skp=0 spp=0 lup=2147483647 ldn=0 nsci=0:0:0 rad=0,0,0 nrg=0,0,0
+pl 2 name=p2 key=11 type=1 dead=0 obs=0 act=1 dflt=3 slot=-1 npr=1 cash=0 cpm=0 bkt=3 rank=1 skp=0 spp=0 lup=2147483647 ldn=0 nsci=0:0:0 rad=0,0,0 nrg=0,0,0
 pr 2->0 Neutral
 pr 2->2 Allies
 pt 2 0 tp3
@@ -3709,65 +3715,65 @@ tv pupdate 15 -1 -1
 end
 corpus purse_ranks
 scistore n=5
-sc 2 cost=0 grant=0
-scr 2 2
-sc 3 cost=0 grant=0
-scp 3 2
-scr 3 2
-sc 4 cost=0 grant=0
-scp 4 3
-scr 4 2
-sc 5 cost=0 grant=0
-scp 5 4
-scr 5 2
-sc 6 cost=0 grant=0
-scp 6 5
-scr 6 2
+sc 10 cost=0 grant=0
+scr 10 10
+sc 11 cost=0 grant=0
+scp 11 10
+scr 11 10
+sc 12 cost=0 grant=0
+scp 12 11
+scr 12 10
+sc 13 cost=0 grant=0
+scp 13 12
+scr 13 10
+sc 14 cost=0 grant=0
+scp 14 13
+scr 14 10
 rankstore n=5
 rk 1 spn=0 spp=1
-rkg 1 2
+rkg 1 10
 rk 2 spn=100 spp=1
-rkg 2 3
+rkg 2 11
 rk 3 spn=300 spp=2
-rkg 3 4
+rkg 3 12
 rk 4 spn=600 spp=3
-rkg 4 5
+rkg 4 13
 rk 5 spn=1000 spp=4
-rkg 5 6
+rkg 5 14
 teamevents 33
 tv local 0 1 -1
-tv science 0 2 -1
-tv science 0 2 -1
-tv science 1 2 -1
-tv science 1 2 -1
-tv science 2 2 -1
-tv science 2 2 -1
-tv science 3 2 -1
-tv science 3 2 -1
-tv science 4 2 -1
-tv science 4 2 -1
-tv science 5 2 -1
-tv science 5 2 -1
-tv science 6 2 -1
-tv science 6 2 -1
-tv science 7 2 -1
-tv science 7 2 -1
-tv science 8 2 -1
-tv science 8 2 -1
-tv science 9 2 -1
-tv science 9 2 -1
-tv science 10 2 -1
-tv science 10 2 -1
-tv science 11 2 -1
-tv science 11 2 -1
-tv science 12 2 -1
-tv science 12 2 -1
-tv science 13 2 -1
-tv science 13 2 -1
-tv science 14 2 -1
-tv science 14 2 -1
-tv science 15 2 -1
-tv science 15 2 -1
+tv science 0 10 -1
+tv science 0 10 -1
+tv science 1 10 -1
+tv science 1 10 -1
+tv science 2 10 -1
+tv science 2 10 -1
+tv science 3 10 -1
+tv science 3 10 -1
+tv science 4 10 -1
+tv science 4 10 -1
+tv science 5 10 -1
+tv science 5 10 -1
+tv science 6 10 -1
+tv science 6 10 -1
+tv science 7 10 -1
+tv science 7 10 -1
+tv science 8 10 -1
+tv science 8 10 -1
+tv science 9 10 -1
+tv science 9 10 -1
+tv science 10 10 -1
+tv science 10 10 -1
+tv science 11 10 -1
+tv science 11 10 -1
+tv science 12 10 -1
+tv science 12 10 -1
+tv science 13 10 -1
+tv science 13 10 -1
+tv science 14 10 -1
+tv science 14 10 -1
+tv science 15 10 -1
+tv science 15 10 -1
 rank 1 0 1 100 0
 sk 1
 rank 2 100
@@ -3780,10 +3786,10 @@ rank 5 1000 2147483647 1000
 sk 0
 rank 5 1000
 teamevents 4
-tv science 1 3 -1
-tv science 1 4 -1
-tv science 1 5 -1
-tv science 1 6 -1
+tv science 1 11 -1
+tv science 1 12 -1
+tv science 1 13 -1
+tv science 1 14 -1
 sk 0
 skp 5
 sk 0
@@ -3795,17 +3801,17 @@ neg 3 101
 down 1
 rank 2 100 2 nsci=2
 teamevents 11
-tv science 1 2 -1
-tv science 1 2 -1
-tv science 1 2 -1
-tv science 1 2 -1
-tv science 1 2 -1
-tv science 1 2 -1
-tv science 1 3 -1
-tv science 1 4 -1
-tv science 1 2 -1
-tv science 1 2 -1
-tv science 1 3 -1
+tv science 1 10 -1
+tv science 1 10 -1
+tv science 1 10 -1
+tv science 1 10 -1
+tv science 1 10 -1
+tv science 1 10 -1
+tv science 1 11 -1
+tv science 1 12 -1
+tv science 1 10 -1
+tv science 1 10 -1
+tv science 1 11 -1
 same 0
 clamp 1
 rank 5
@@ -3817,74 +3823,74 @@ rank 3
 sk 1
 rank 3 300 (limit=3: the level-up loop stops, the points cap at the ladder's top)
 teamevents 17
-tv science 1 4 -1
-tv science 1 5 -1
-tv science 1 6 -1
-tv science 1 2 -1
-tv science 1 2 -1
-tv science 1 3 -1
-tv science 1 4 -1
-tv science 1 5 -1
-tv science 1 6 -1
-tv science 1 2 -1
-tv science 1 2 -1
-tv science 1 3 -1
-tv science 1 4 -1
-tv science 1 2 -1
-tv science 1 2 -1
-tv science 1 3 -1
-tv science 1 4 -1
+tv science 1 12 -1
+tv science 1 13 -1
+tv science 1 14 -1
+tv science 1 10 -1
+tv science 1 10 -1
+tv science 1 11 -1
+tv science 1 12 -1
+tv science 1 13 -1
+tv science 1 14 -1
+tv science 1 10 -1
+tv science 1 10 -1
+tv science 1 11 -1
+tv science 1 12 -1
+tv science 1 10 -1
+tv science 1 10 -1
+tv science 1 11 -1
+tv science 1 12 -1
 players count=1 local=0
 pl 0 name= key=1 type=1 dead=0 obs=0 act=1 dflt=0 slot=-1 npr=0 cash=0 cpm=0 bkt=0 rank=1 skp=0 spp=1 lup=100 ldn=0 nsci=1:0:0 rad=0,0,0 nrg=0,0,0
 pr 0->0 Allies
-ps 0 2
+ps 0 10
 pl 1 name= key=1 type=1 dead=0 obs=0 act=1 dflt=0 slot=-1 npr=0 cash=0 cpm=0 bkt=0 rank=3 skp=300 spp=4 lup=600 ldn=300 nsci=3:0:0 rad=0,0,0 nrg=0,0,0
 pr 1->1 Allies
-ps 1 2
-ps 1 3
-ps 1 4
+ps 1 10
+ps 1 11
+ps 1 12
 pl 2 name= key=1 type=1 dead=0 obs=0 act=1 dflt=0 slot=-1 npr=0 cash=0 cpm=0 bkt=0 rank=1 skp=0 spp=1 lup=100 ldn=0 nsci=1:0:0 rad=0,0,0 nrg=0,0,0
 pr 2->2 Allies
-ps 2 2
+ps 2 10
 pl 3 name= key=1 type=1 dead=0 obs=0 act=1 dflt=0 slot=-1 npr=0 cash=0 cpm=0 bkt=0 rank=1 skp=0 spp=1 lup=100 ldn=0 nsci=1:0:0 rad=0,0,0 nrg=0,0,0
 pr 3->3 Allies
-ps 3 2
+ps 3 10
 pl 4 name= key=1 type=1 dead=0 obs=0 act=1 dflt=0 slot=-1 npr=0 cash=0 cpm=0 bkt=0 rank=1 skp=0 spp=1 lup=100 ldn=0 nsci=1:0:0 rad=0,0,0 nrg=0,0,0
 pr 4->4 Allies
-ps 4 2
+ps 4 10
 pl 5 name= key=1 type=1 dead=0 obs=0 act=1 dflt=0 slot=-1 npr=0 cash=0 cpm=0 bkt=0 rank=1 skp=0 spp=1 lup=100 ldn=0 nsci=1:0:0 rad=0,0,0 nrg=0,0,0
 pr 5->5 Allies
-ps 5 2
+ps 5 10
 pl 6 name= key=1 type=1 dead=0 obs=0 act=1 dflt=0 slot=-1 npr=0 cash=0 cpm=0 bkt=0 rank=1 skp=0 spp=1 lup=100 ldn=0 nsci=1:0:0 rad=0,0,0 nrg=0,0,0
 pr 6->6 Allies
-ps 6 2
+ps 6 10
 pl 7 name= key=1 type=1 dead=0 obs=0 act=1 dflt=0 slot=-1 npr=0 cash=0 cpm=0 bkt=0 rank=1 skp=0 spp=1 lup=100 ldn=0 nsci=1:0:0 rad=0,0,0 nrg=0,0,0
 pr 7->7 Allies
-ps 7 2
+ps 7 10
 pl 8 name= key=1 type=1 dead=0 obs=0 act=1 dflt=0 slot=-1 npr=0 cash=0 cpm=0 bkt=0 rank=1 skp=0 spp=1 lup=100 ldn=0 nsci=1:0:0 rad=0,0,0 nrg=0,0,0
 pr 8->8 Allies
-ps 8 2
+ps 8 10
 pl 9 name= key=1 type=1 dead=0 obs=0 act=1 dflt=0 slot=-1 npr=0 cash=0 cpm=0 bkt=0 rank=1 skp=0 spp=1 lup=100 ldn=0 nsci=1:0:0 rad=0,0,0 nrg=0,0,0
 pr 9->9 Allies
-ps 9 2
+ps 9 10
 pl 10 name= key=1 type=1 dead=0 obs=0 act=1 dflt=0 slot=-1 npr=0 cash=0 cpm=0 bkt=0 rank=1 skp=0 spp=1 lup=100 ldn=0 nsci=1:0:0 rad=0,0,0 nrg=0,0,0
 pr 10->10 Allies
-ps 10 2
+ps 10 10
 pl 11 name= key=1 type=1 dead=0 obs=0 act=1 dflt=0 slot=-1 npr=0 cash=0 cpm=0 bkt=0 rank=1 skp=0 spp=1 lup=100 ldn=0 nsci=1:0:0 rad=0,0,0 nrg=0,0,0
 pr 11->11 Allies
-ps 11 2
+ps 11 10
 pl 12 name= key=1 type=1 dead=0 obs=0 act=1 dflt=0 slot=-1 npr=0 cash=0 cpm=0 bkt=0 rank=1 skp=0 spp=1 lup=100 ldn=0 nsci=1:0:0 rad=0,0,0 nrg=0,0,0
 pr 12->12 Allies
-ps 12 2
+ps 12 10
 pl 13 name= key=1 type=1 dead=0 obs=0 act=1 dflt=0 slot=-1 npr=0 cash=0 cpm=0 bkt=0 rank=1 skp=0 spp=1 lup=100 ldn=0 nsci=1:0:0 rad=0,0,0 nrg=0,0,0
 pr 13->13 Allies
-ps 13 2
+ps 13 10
 pl 14 name= key=1 type=1 dead=0 obs=0 act=1 dflt=0 slot=-1 npr=0 cash=0 cpm=0 bkt=0 rank=1 skp=0 spp=1 lup=100 ldn=0 nsci=1:0:0 rad=0,0,0 nrg=0,0,0
 pr 14->14 Allies
-ps 14 2
+ps 14 10
 pl 15 name= key=1 type=1 dead=0 obs=0 act=1 dflt=0 slot=-1 npr=0 cash=0 cpm=0 bkt=0 rank=1 skp=0 spp=1 lup=100 ldn=0 nsci=1:0:0 rad=0,0,0 nrg=0,0,0
 pr 15->15 Allies
-ps 15 2
+ps 15 10
 slot 0 p-1
 slot 1 p-1
 slot 2 p-1
@@ -3896,32 +3902,32 @@ slot 7 p-1
 end
 corpus purse_sciences
 scistore n=8
-sc 2 cost=1 grant=1
-scr 2 2
-sc 3 cost=2 grant=1
-scp 3 2
-scr 3 2
-sc 4 cost=3 grant=1
-scp 4 3
-scr 4 2
-sc 5 cost=0 grant=1
-scr 5 5
-sc 6 cost=1 grant=0
-scr 6 6
-sc 7 cost=1 grant=1
-scp 7 8
-sc 9 cost=1 grant=1
-scp 9 4
-scr 9 2
-sc 4 cost=3 grant=1
-scp 4 3
-scr 4 2
+sc 10 cost=1 grant=1
+scr 10 10
+sc 11 cost=2 grant=1
+scp 11 10
+scr 11 10
+sc 12 cost=3 grant=1
+scp 12 11
+scr 12 10
+sc 13 cost=0 grant=1
+scr 13 13
+sc 14 cost=1 grant=0
+scr 14 14
+sc 15 cost=1 grant=1
+scp 15 16
+sc 17 cost=1 grant=1
+scp 17 12
+scr 17 10
+sc 12 cost=3 grant=1
+scp 12 11
+scr 12 10
 rankstore n=0
 unknown valid=0 grant=0 cost=0
 walk n=2 n=1
-can 2
-can 6
-pot 7
+can 10
+can 14
+pot 15
 spp 3
 buy 0
 buy 0
@@ -3936,9 +3942,9 @@ buy 0
 spp 0
 teamevents 5
 tv local 0 1 -1
-tv science 1 2 -1
+tv science 1 10 -1
 tv spent 1 1 -1
-tv science 1 3 -1
+tv science 1 11 -1
 tv spent 1 2 -1
 grant 0
 grant 1
@@ -3955,17 +3961,17 @@ cap 1
 buy 1
 nsci 1
 teamevents 5
-tv science 1 4 -1
-tv science 1 2 -1
-tv science 1 3 -1
+tv science 1 12 -1
+tv science 1 10 -1
+tv science 1 11 -1
 tv spent 1 2 -1
-tv science 1 2 -1
+tv science 1 10 -1
 players count=1 local=0
 pl 0 name= key=1 type=1 dead=0 obs=0 act=1 dflt=0 slot=-1 npr=0 cash=0 cpm=0 bkt=0 rank=1 skp=0 spp=0 lup=2147483647 ldn=0 nsci=0:0:0 rad=0,0,0 nrg=0,0,0
 pr 0->0 Allies
 pl 1 name= key=1 type=1 dead=0 obs=0 act=1 dflt=0 slot=-1 npr=0 cash=0 cpm=0 bkt=0 rank=2 skp=0 spp=3 lup=2147483647 ldn=0 nsci=1:0:0 rad=0,0,0 nrg=0,0,0
 pr 1->1 Allies
-ps 1 2
+ps 1 10
 pl 2 name= key=1 type=1 dead=0 obs=0 act=1 dflt=0 slot=-1 npr=0 cash=0 cpm=0 bkt=0 rank=1 skp=0 spp=0 lup=2147483647 ldn=0 nsci=0:0:0 rad=0,0,0 nrg=0,0,0
 pr 2->2 Allies
 pl 3 name= key=1 type=1 dead=0 obs=0 act=1 dflt=0 slot=-1 npr=0 cash=0 cpm=0 bkt=0 rank=1 skp=0 spp=0 lup=2147483647 ldn=0 nsci=0:0:0 rad=0,0,0 nrg=0,0,0
@@ -4003,132 +4009,132 @@ slot 5 p-1
 slot 6 p-1
 slot 7 p-1
 scistore n=8
-sc 2 cost=1 grant=1
-scr 2 2
-sc 3 cost=2 grant=1
-scp 3 2
-scr 3 2
-sc 4 cost=3 grant=1
-scp 4 3
-scr 4 2
-sc 5 cost=0 grant=1
-scr 5 5
-sc 6 cost=1 grant=0
-scr 6 6
-sc 7 cost=1 grant=1
-scp 7 8
-sc 9 cost=1 grant=1
-scp 9 4
-scr 9 2
-sc 4 cost=3 grant=1
-scp 4 3
-scr 4 2
+sc 10 cost=1 grant=1
+scr 10 10
+sc 11 cost=2 grant=1
+scp 11 10
+scr 11 10
+sc 12 cost=3 grant=1
+scp 12 11
+scr 12 10
+sc 13 cost=0 grant=1
+scr 13 13
+sc 14 cost=1 grant=0
+scr 14 14
+sc 15 cost=1 grant=1
+scp 15 16
+sc 17 cost=1 grant=1
+scp 17 12
+scr 17 10
+sc 12 cost=3 grant=1
+scp 12 11
+scr 12 10
 rankstore n=0
 end
 corpus purse_roundtrip
 teamevents 44
 tv local 0 1 -1
-tv science 0 2 -1
-tv science 0 2 -1
-tv science 1 2 -1
-tv science 1 2 -1
-tv science 2 2 -1
-tv science 2 2 -1
-tv science 3 2 -1
-tv science 3 2 -1
-tv science 4 2 -1
-tv science 4 2 -1
-tv science 5 2 -1
-tv science 5 2 -1
-tv science 6 2 -1
-tv science 6 2 -1
-tv science 7 2 -1
-tv science 7 2 -1
-tv science 8 2 -1
-tv science 8 2 -1
-tv science 9 2 -1
-tv science 9 2 -1
-tv science 10 2 -1
-tv science 10 2 -1
-tv science 11 2 -1
-tv science 11 2 -1
-tv science 12 2 -1
-tv science 12 2 -1
-tv science 13 2 -1
-tv science 13 2 -1
-tv science 14 2 -1
-tv science 14 2 -1
-tv science 15 2 -1
-tv science 15 2 -1
-tv science 1 2 -1
-tv science 1 3 -1
-tv science 1 2 -1
+tv science 0 10 -1
+tv science 0 10 -1
+tv science 1 10 -1
+tv science 1 10 -1
+tv science 2 10 -1
+tv science 2 10 -1
+tv science 3 10 -1
+tv science 3 10 -1
+tv science 4 10 -1
+tv science 4 10 -1
+tv science 5 10 -1
+tv science 5 10 -1
+tv science 6 10 -1
+tv science 6 10 -1
+tv science 7 10 -1
+tv science 7 10 -1
+tv science 8 10 -1
+tv science 8 10 -1
+tv science 9 10 -1
+tv science 9 10 -1
+tv science 10 10 -1
+tv science 10 10 -1
+tv science 11 10 -1
+tv science 11 10 -1
+tv science 12 10 -1
+tv science 12 10 -1
+tv science 13 10 -1
+tv science 13 10 -1
+tv science 14 10 -1
+tv science 14 10 -1
+tv science 15 10 -1
+tv science 15 10 -1
+tv science 1 10 -1
+tv science 1 11 -1
+tv science 1 10 -1
 tv local 0 0 -1
 tv local 1 1 -1
 tv income 2 -1 -1
-tv science 2 2 -1
-tv science 2 2 -1
+tv science 2 10 -1
+tv science 2 10 -1
 tv income 3 -1 -1
-tv science 3 2 -1
-tv science 3 2 -1
+tv science 3 10 -1
+tv science 3 10 -1
 players count=4 local=1
 pl 0 name= key=1 type=1 dead=0 obs=0 act=1 dflt=1 slot=-1 npr=1 cash=0 cpm=0 bkt=0 rank=1 skp=0 spp=1 lup=100 ldn=0 nsci=1:0:0 rad=0,0,0 nrg=0,0,0
 pr 0->0 Allies
 pt 0 0 tp1
-ps 0 2
-pl 1 name=p1 key=4 type=0 dead=0 obs=0 act=1 dflt=2 slot=-1 npr=1 cash=5000 cpm=0 bkt=0 rank=1 skp=0 spp=3 lup=100 ldn=0 nsci=2:0:0 rad=0,0,0 nrg=0,0,0
+ps 0 10
+pl 1 name=p1 key=12 type=0 dead=0 obs=0 act=1 dflt=2 slot=-1 npr=1 cash=5000 cpm=0 bkt=0 rank=1 skp=0 spp=3 lup=100 ldn=0 nsci=2:0:0 rad=0,0,0 nrg=0,0,0
 pr 1->0 Neutral
 pr 1->1 Allies
 pt 1 0 tp2
-ps 1 3
-ps 1 2
-pl 2 name=p2 key=5 type=1 dead=0 obs=0 act=1 dflt=3 slot=-1 npr=2 cash=12000 cpm=0 bkt=0 rank=1 skp=0 spp=1 lup=100 ldn=0 nsci=1:0:0 rad=0,0,0 nrg=0,0,0
+ps 1 11
+ps 1 10
+pl 2 name=p2 key=13 type=1 dead=0 obs=0 act=1 dflt=3 slot=-1 npr=2 cash=12000 cpm=0 bkt=0 rank=1 skp=0 spp=1 lup=100 ldn=0 nsci=1:0:0 rad=0,0,0 nrg=0,0,0
 pr 2->0 Neutral
 pr 2->2 Allies
 pt 2 0 tp3
 pt 2 1 tp5
-ps 2 2
-pl 3 name=p3 key=6 type=1 dead=0 obs=0 act=1 dflt=4 slot=-1 npr=1 cash=12000 cpm=0 bkt=0 rank=1 skp=0 spp=1 lup=100 ldn=0 nsci=1:0:0 rad=0,0,0 nrg=0,0,0
+ps 2 10
+pl 3 name=p3 key=14 type=1 dead=0 obs=0 act=1 dflt=4 slot=-1 npr=1 cash=12000 cpm=0 bkt=0 rank=1 skp=0 spp=1 lup=100 ldn=0 nsci=1:0:0 rad=0,0,0 nrg=0,0,0
 pr 3->0 Neutral
 pr 3->3 Allies
 pt 3 0 tp4
-ps 3 2
+ps 3 10
 pl 4 name= key=1 type=1 dead=0 obs=0 act=1 dflt=0 slot=-1 npr=0 cash=0 cpm=0 bkt=0 rank=1 skp=0 spp=1 lup=100 ldn=0 nsci=1:0:0 rad=0,0,0 nrg=0,0,0
 pr 4->4 Allies
-ps 4 2
+ps 4 10
 pl 5 name= key=1 type=1 dead=0 obs=0 act=1 dflt=0 slot=-1 npr=0 cash=0 cpm=0 bkt=0 rank=1 skp=0 spp=1 lup=100 ldn=0 nsci=1:0:0 rad=0,0,0 nrg=0,0,0
 pr 5->5 Allies
-ps 5 2
+ps 5 10
 pl 6 name= key=1 type=1 dead=0 obs=0 act=1 dflt=0 slot=-1 npr=0 cash=0 cpm=0 bkt=0 rank=1 skp=0 spp=1 lup=100 ldn=0 nsci=1:0:0 rad=0,0,0 nrg=0,0,0
 pr 6->6 Allies
-ps 6 2
+ps 6 10
 pl 7 name= key=1 type=1 dead=0 obs=0 act=1 dflt=0 slot=-1 npr=0 cash=0 cpm=0 bkt=0 rank=1 skp=0 spp=1 lup=100 ldn=0 nsci=1:0:0 rad=0,0,0 nrg=0,0,0
 pr 7->7 Allies
-ps 7 2
+ps 7 10
 pl 8 name= key=1 type=1 dead=0 obs=0 act=1 dflt=0 slot=-1 npr=0 cash=0 cpm=0 bkt=0 rank=1 skp=0 spp=1 lup=100 ldn=0 nsci=1:0:0 rad=0,0,0 nrg=0,0,0
 pr 8->8 Allies
-ps 8 2
+ps 8 10
 pl 9 name= key=1 type=1 dead=0 obs=0 act=1 dflt=0 slot=-1 npr=0 cash=0 cpm=0 bkt=0 rank=1 skp=0 spp=1 lup=100 ldn=0 nsci=1:0:0 rad=0,0,0 nrg=0,0,0
 pr 9->9 Allies
-ps 9 2
+ps 9 10
 pl 10 name= key=1 type=1 dead=0 obs=0 act=1 dflt=0 slot=-1 npr=0 cash=0 cpm=0 bkt=0 rank=1 skp=0 spp=1 lup=100 ldn=0 nsci=1:0:0 rad=0,0,0 nrg=0,0,0
 pr 10->10 Allies
-ps 10 2
+ps 10 10
 pl 11 name= key=1 type=1 dead=0 obs=0 act=1 dflt=0 slot=-1 npr=0 cash=0 cpm=0 bkt=0 rank=1 skp=0 spp=1 lup=100 ldn=0 nsci=1:0:0 rad=0,0,0 nrg=0,0,0
 pr 11->11 Allies
-ps 11 2
+ps 11 10
 pl 12 name= key=1 type=1 dead=0 obs=0 act=1 dflt=0 slot=-1 npr=0 cash=0 cpm=0 bkt=0 rank=1 skp=0 spp=1 lup=100 ldn=0 nsci=1:0:0 rad=0,0,0 nrg=0,0,0
 pr 12->12 Allies
-ps 12 2
+ps 12 10
 pl 13 name= key=1 type=1 dead=0 obs=0 act=1 dflt=0 slot=-1 npr=0 cash=0 cpm=0 bkt=0 rank=1 skp=0 spp=1 lup=100 ldn=0 nsci=1:0:0 rad=0,0,0 nrg=0,0,0
 pr 13->13 Allies
-ps 13 2
+ps 13 10
 pl 14 name= key=1 type=1 dead=0 obs=0 act=1 dflt=0 slot=-1 npr=0 cash=0 cpm=0 bkt=0 rank=1 skp=0 spp=1 lup=100 ldn=0 nsci=1:0:0 rad=0,0,0 nrg=0,0,0
 pr 14->14 Allies
-ps 14 2
+ps 14 10
 pl 15 name= key=1 type=1 dead=0 obs=0 act=1 dflt=0 slot=-1 npr=0 cash=0 cpm=0 bkt=0 rank=1 skp=0 spp=1 lup=100 ldn=0 nsci=1:0:0 rad=0,0,0 nrg=0,0,0
 pr 15->15 Allies
-ps 15 2
+ps 15 10
 slot 0 p-1
 slot 1 p-1
 slot 2 p-1
@@ -4905,60 +4911,60 @@ players count=4 local=1
 pl 0 name= key=1 type=1 dead=0 obs=0 act=1 dflt=1 slot=-1 npr=1 cash=0 cpm=0 bkt=3 rank=1 skp=0 spp=1 lup=100 ldn=0 nsci=1:0:0 rad=0,0,0 nrg=0,0,0
 pr 0->0 Allies
 pt 0 0 tp1
-ps 0 2
-pl 1 name=p1 key=4 type=0 dead=0 obs=0 act=1 dflt=2 slot=-1 npr=1 cash=3200 cpm=0 bkt=3 rank=2 skp=151 spp=5 lup=300 ldn=100 nsci=2:0:0 rad=0,0,0 nrg=0,0,0
+ps 0 10
+pl 1 name=p1 key=12 type=0 dead=0 obs=0 act=1 dflt=2 slot=-1 npr=1 cash=3200 cpm=0 bkt=3 rank=2 skp=151 spp=5 lup=300 ldn=100 nsci=2:0:0 rad=0,0,0 nrg=0,0,0
 pr 1->0 Neutral
 pr 1->1 Allies
 pt 1 0 tp2
-ps 1 3
-ps 1 2
-pl 2 name=p2 key=5 type=1 dead=0 obs=0 act=1 dflt=3 slot=-1 npr=2 cash=12750 cpm=750 bkt=3 rank=1 skp=0 spp=1 lup=100 ldn=0 nsci=1:0:0 rad=1,0,1 nrg=30,35,0
+ps 1 11
+ps 1 10
+pl 2 name=p2 key=13 type=1 dead=0 obs=0 act=1 dflt=3 slot=-1 npr=2 cash=12750 cpm=750 bkt=3 rank=1 skp=0 spp=1 lup=100 ldn=0 nsci=1:0:0 rad=1,0,1 nrg=30,35,0
 pr 2->0 Neutral
 pr 2->2 Allies
 pt 2 0 tp3
 pt 2 1 tp5
-ps 2 2
-pl 3 name=p3 key=6 type=1 dead=0 obs=0 act=1 dflt=4 slot=-1 npr=1 cash=12000 cpm=0 bkt=3 rank=1 skp=0 spp=1 lup=100 ldn=0 nsci=1:0:0 rad=0,0,0 nrg=0,0,0
+ps 2 10
+pl 3 name=p3 key=14 type=1 dead=0 obs=0 act=1 dflt=4 slot=-1 npr=1 cash=12000 cpm=0 bkt=3 rank=1 skp=0 spp=1 lup=100 ldn=0 nsci=1:0:0 rad=0,0,0 nrg=0,0,0
 pr 3->0 Neutral
 pr 3->3 Allies
 pt 3 0 tp4
-ps 3 2
+ps 3 10
 pl 4 name= key=1 type=1 dead=0 obs=0 act=1 dflt=0 slot=-1 npr=0 cash=0 cpm=0 bkt=3 rank=1 skp=0 spp=1 lup=100 ldn=0 nsci=1:0:0 rad=0,0,0 nrg=0,0,0
 pr 4->4 Allies
-ps 4 2
+ps 4 10
 pl 5 name= key=1 type=1 dead=0 obs=0 act=1 dflt=0 slot=-1 npr=0 cash=0 cpm=0 bkt=3 rank=1 skp=0 spp=1 lup=100 ldn=0 nsci=1:0:0 rad=0,0,0 nrg=0,0,0
 pr 5->5 Allies
-ps 5 2
+ps 5 10
 pl 6 name= key=1 type=1 dead=0 obs=0 act=1 dflt=0 slot=-1 npr=0 cash=0 cpm=0 bkt=3 rank=1 skp=0 spp=1 lup=100 ldn=0 nsci=1:0:0 rad=0,0,0 nrg=0,0,0
 pr 6->6 Allies
-ps 6 2
+ps 6 10
 pl 7 name= key=1 type=1 dead=0 obs=0 act=1 dflt=0 slot=-1 npr=0 cash=0 cpm=0 bkt=3 rank=1 skp=0 spp=1 lup=100 ldn=0 nsci=1:0:0 rad=0,0,0 nrg=0,0,0
 pr 7->7 Allies
-ps 7 2
+ps 7 10
 pl 8 name= key=1 type=1 dead=0 obs=0 act=1 dflt=0 slot=-1 npr=0 cash=0 cpm=0 bkt=3 rank=1 skp=0 spp=1 lup=100 ldn=0 nsci=1:0:0 rad=0,0,0 nrg=0,0,0
 pr 8->8 Allies
-ps 8 2
+ps 8 10
 pl 9 name= key=1 type=1 dead=0 obs=0 act=1 dflt=0 slot=-1 npr=0 cash=0 cpm=0 bkt=3 rank=1 skp=0 spp=1 lup=100 ldn=0 nsci=1:0:0 rad=0,0,0 nrg=0,0,0
 pr 9->9 Allies
-ps 9 2
+ps 9 10
 pl 10 name= key=1 type=1 dead=0 obs=0 act=1 dflt=0 slot=-1 npr=0 cash=0 cpm=0 bkt=3 rank=1 skp=0 spp=1 lup=100 ldn=0 nsci=1:0:0 rad=0,0,0 nrg=0,0,0
 pr 10->10 Allies
-ps 10 2
+ps 10 10
 pl 11 name= key=1 type=1 dead=0 obs=0 act=1 dflt=0 slot=-1 npr=0 cash=0 cpm=0 bkt=3 rank=1 skp=0 spp=1 lup=100 ldn=0 nsci=1:0:0 rad=0,0,0 nrg=0,0,0
 pr 11->11 Allies
-ps 11 2
+ps 11 10
 pl 12 name= key=1 type=1 dead=0 obs=0 act=1 dflt=0 slot=-1 npr=0 cash=0 cpm=0 bkt=3 rank=1 skp=0 spp=1 lup=100 ldn=0 nsci=1:0:0 rad=0,0,0 nrg=0,0,0
 pr 12->12 Allies
-ps 12 2
+ps 12 10
 pl 13 name= key=1 type=1 dead=0 obs=0 act=1 dflt=0 slot=-1 npr=0 cash=0 cpm=0 bkt=3 rank=1 skp=0 spp=1 lup=100 ldn=0 nsci=1:0:0 rad=0,0,0 nrg=0,0,0
 pr 13->13 Allies
-ps 13 2
+ps 13 10
 pl 14 name= key=1 type=1 dead=0 obs=0 act=1 dflt=0 slot=-1 npr=0 cash=0 cpm=0 bkt=3 rank=1 skp=0 spp=1 lup=100 ldn=0 nsci=1:0:0 rad=0,0,0 nrg=0,0,0
 pr 14->14 Allies
-ps 14 2
+ps 14 10
 pl 15 name= key=1 type=1 dead=0 obs=0 act=1 dflt=0 slot=-1 npr=0 cash=0 cpm=0 bkt=3 rank=1 skp=0 spp=1 lup=100 ldn=0 nsci=1:0:0 rad=0,0,0 nrg=0,0,0
 pr 15->15 Allies
-ps 15 2
+ps 15 10
 slot 0 p-1
 slot 1 p-1
 slot 2 p-1
@@ -5261,6 +5267,141 @@ stream n 0
 dispatch m5 MSG_OBJECT_DESTROYED
 command m5 MSG_OBJECT_DESTROYED
 end
+corpus mod_factory
+mask ScriptUpdateModule 1
+mask ScriptCollideModule 10
+mask ScriptDieModule 2
+mask ScriptDamageModule 4
+mask ScriptCreateModule 8
+mask ScriptDestroyModule 200
+mask ScriptBodyModule 20
+mask ScriptContainModule 40
+mask NoSuchModule 0
+mask empty 0
+dkey 2 ckey 11
+dkey1 12
+data 0 1 -1
+datalist 2
+d ModuleTag_One 13
+d ModuleTag_Two 14
+mask2 ScriptDieModule 3
+end
+corpus mod_build
+behaviors 10
+b 0 key=11 tag=10 if=20 upd=0 need=0
+b 1 key=13 tag=12 if=1 upd=1 need=0
+b 2 key=15 tag=14 if=10 upd=0 need=0
+b 3 key=17 tag=16 if=2 upd=0 need=0
+b 4 key=13 tag=18 if=1 upd=1 need=0
+b 5 key=20 tag=19 if=40 upd=0 need=0
+b 6 key=22 tag=21 if=8 upd=0 need=1
+b 7 key=24 tag=23 if=4 upd=0 need=0
+b 8 key=26 tag=25 if=200 upd=0 need=0
+b 9 key=13 tag=27 if=1 upd=1 need=0
+singletons 0 5
+datalist 10
+heap 3
+u o1 m9 pri=00000006 idx=0
+u o1 m1 pri=0000001c idx=1
+u o1 m4 pri=00000007 idx=2
+events 2
+ev objcreated 1
+ev createmod 1 6
+b2 2 -1 -1
+end
+corpus mod_walks
+events 3
+ev objcreated 1
+ev createmod 1 4
+ev createmod 1 7
+events 4
+ev die 1 1
+ev dieinfo 0 3
+ev die 1 3
+ev dieinfo 0 3
+events 12
+ev damage 1 2
+ev damagekind 0
+ev damage 1 5
+ev damagekind 0
+ev damage 1 2
+ev damagekind 1
+ev damage 1 5
+ev damagekind 1
+ev damage 1 2
+ev damagekind 2 2
+ev damage 1 5
+ev damagekind 2 2
+flags 1 1
+events 2
+ev buildcomplete 1 4
+ev buildcomplete 1 7
+flags 0 0
+events 10
+ev destroymod 1 6
+ev delete 1 0
+ev delete 1 1
+ev delete 1 2
+ev delete 1 3
+ev delete 1 4
+ev delete 1 5
+ev delete 1 6
+ev delete 1 7
+ev objdestroyed 1
+events 1
+ev destroy 1
+end
+corpus mod_update_bodies
+events 19
+ev objcreated 1
+ev objcreated 2
+ev clientframe 0
+ev scripts
+ev frozen 0
+ev terrain
+ev recorder
+ev commands
+ev ai
+ev build
+ev partition
+ev cellchange 2 60
+ev cellchange 1 60
+ev commandsreset
+ev weaponstore
+ev locomotorstore
+ev victory
+ev sweep
+ev frameinc
+contacts 1
+p o1 o2
+collideevents 2
+cv o2 o1 m2 loc=4241db9d,4241db9d,00000000 nrm=3f3504f3,3f3504f3,80000000
+cv o2 o1 m3 loc=4241db9d,4241db9d,00000000 nrm=3f3504f3,3f3504f3,80000000
+heap 2
+u o2 m0 pri=00000006 idx=0
+u o2 m1 pri=00000006 idx=1
+events 17
+ev clientframe 1
+ev scripts
+ev frozen 0
+ev terrain
+ev recorder
+ev commands
+ev update 2 0
+ev update 2 1
+ev ai
+ev build
+ev partition
+ev commandsreset
+ev weaponstore
+ev locomotorstore
+ev victory
+ev sweep
+ev frameinc
+heap 2
+u o2 m0 pri=0000000e idx=0
+u o2 m1 pri=fffffffe idx=1
+end
 corpus kernel_roundtrip
 events 21
 ev objcreated 1
@@ -5410,7 +5551,8 @@ cell 3,4 n=1 shr=1,1,0
 k o2
 cell 6,5 n=1 shr=1,1,0
 k o1
-events 19
+events 20
+ev delete 3 0
 ev objdestroyed 3
 ev clientframe 5
 ev scripts

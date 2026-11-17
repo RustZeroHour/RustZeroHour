@@ -1053,11 +1053,69 @@ independent specification). A sixth bench pins the budget:
 `kernel/messages_x300` (300 message cycles — post, propagate, process,
 reset — over the networked corpus, checksum-locked at
 6,887,319,234,910,174,045) measured 0.71x (480 µs vs 674 µs —
-docs/benchmarks.md). WP1 is **complete**; the **next slice** opens
-WP2's module framework (the Behavior/Update/Die/Damage/Contain/
-Collide/Create/Body/Upgrade/SpecialPower families, the data-driven
-construction from templates, and the sleepy-update scheduling
-semantics the kernel already pins).
+docs/benchmarks.md). WP1 is **complete**.
+
+WP2 — the module framework — is **complete**: `rzh-sim::modules`
+ports `Common/Module.h` (the `ModuleType` buckets and the
+`ModuleInterfaceType` mask — the twelve family bits, C++ bit
+assignments verbatim), `Common/ModuleFactory.{h,cpp}` (the
+`makeDecoratedNameKey` `'0' + type` prefix through the exact-port
+`NameKeyGenerator`, the `std::map`-keyed registry with
+`addModuleInternal`'s created-or-overwrite insertion,
+`findModuleInterfaceMask`'s 0-on-miss, `newModuleDataFromINI`'s tag
+stamp and append-only `m_moduleDataList`, and `newModule`'s
+mask-vs-interface validation family), the family interfaces
+(`UpdateModule.h`'s `update()` — the scheduling half already WP1's —
+plus `DieModule.h`'s `onDie`, `DamageModule.h`'s `onDamage`/
+`onHealing`/`onBodyDamageStateChange`, `CreateModule.h`'s `onCreate`/
+`onBuildComplete` with the born-TRUE `m_needToRunOnBuildComplete` flag,
+`DestroyModule.h`'s `onDestroy`, `CollideModule.h`'s `onCollide`,
+`BodyModule.h`'s `BodyDamageType` ladder, and `Damage.h`'s
+`DamageType`/`DeathType` vocabularies with `DamageInfo`'s ctor
+defaults), and the walks that dispatch them: `Object.cpp`'s
+constructor (the tag-uniqueness refusal of `addModuleInfo`, the
+behavior-list build in template order, the `m_body`/`m_contain`
+singleton captures with the duplicate refusals — the `m_stealth`/
+`m_ai`/`m_physics` captures wait for their concrete classes),
+`ThingFactory.cpp`'s `newObject` (the onCreate walk between the
+GameLogic registration and the partition registration, the
+sendObjectCreated position moved to the ctor tail),
+`GameLogic.cpp`'s `destroyObject` (the destroy-module walk BEFORE the
+status write, the onDelete sweep over every module after the append),
+`Object::onDie`'s die-first walk, and `ActiveBody`'s damage
+notification trio. The C++ module's vtable becomes a behavior record
+in the object's list — the family acquisition is the mask query (the
+equivalence the factory's own debug asserts pin), and the module
+bodies return effect records the kernel applies in the transcription's
+order (a body never reaches the world directly; the take/put dance
+detaches the body for the call, safe against nested walks by
+construction). The sleepy semantics are preserved byte-exactly: the
+existing 41 corpora replay unchanged through the framework (the
+behavior-list unification keeps the update modules' indices for
+update-only objects, and the collide walk's unified numbering is the
+new `mod_update_bodies` corpus's `cv o2 o1 m2`/`m3` lines). The
+corpora grew to 45 (four new: the factory registry with its decorated
+keys and re-registration; the mixed-family construction with the
+singleton captures and the heap pushes in behavior order; the family
+walks with the die/damage/build/destroy choreography — the destroy
+module before the status, the onDelete sweep, then objdestroyed; the
+update dispatch through factory-built modules with the unified
+collide numbering), plus a module property suite in
+`tests/modules_props.rs` (the mask lattice, the registry's
+determinism and overwrite, the construction invariants over random
+mixed specs, the walks' family filter, and the four refusal unit
+tests — duplicate bodies/containers, duplicate tags, unknown names).
+A seventh bench pins the budget: `kernel/modules_x300` (300 objects
+built through the factory, three rounds of family walks and sleepy
+dispatch — checksum-locked at 1,632,563,042,329,548,879) measured
+0.16x (2.19 ms vs 13.9 ms — docs/benchmarks.md; the transcription's
+O(objects × modules) checksum tail and `std::string` tag churn are
+its own bookkeeping, not the original's). The INI parse of the
+template module lists (`parseModule`'s mask validation, the
+inheritable/overrideable dance and the default-module injection) is
+the rzh-data object model's, a later slice; the concrete module
+bodies (the ~250 headers' classes) follow by census order. The next
+slice: WP3 movement (locomotors, physics, the heightfield).
 
 Work packages, in order. Develop by **vertical slices**, not by subsystem:
 

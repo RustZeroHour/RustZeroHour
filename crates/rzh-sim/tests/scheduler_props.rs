@@ -14,7 +14,8 @@
 
 use proptest::prelude::*;
 
-use rzh_sim::logic::{Kernel, ObjectSpec, UpdateModuleSpec};
+use rzh_sim::logic::{Kernel, ObjectSpec};
+use rzh_sim::modules::BehaviorSpec;
 use rzh_sim::partition::Region2;
 use rzh_sim::scheduler::{ModuleArena, ModuleHandle, SleepyState};
 use rzh_sim::types::{SleepyUpdatePhase, UPDATE_SLEEP_FOREVER};
@@ -171,8 +172,15 @@ fn freeze_gate_stops_before_partition() {
         },
         &mut host,
     );
+    kernel
+        .modules
+        .register_script_modules(&mut kernel.players.name_keys);
     let spec = ObjectSpec {
-        modules: vec![UpdateModuleSpec::default()],
+        behaviors: vec![BehaviorSpec {
+            name: "ScriptUpdateModule".into(),
+            tag: "ModuleTag_Update0".into(),
+            ..Default::default()
+        }],
         ..Default::default()
     };
     #[derive(Default)]

@@ -65,12 +65,11 @@ use std::path::PathBuf;
 use rzh_sim::collide::{
     COLLIDE_TEST_PROCS, CollideInfo, CollideLocAndNormal, geom_collides_with_geom,
 };
-use rzh_sim::logic::{
-    CollideOutcome, Kernel, KernelHost, ObjectSpec, Objects, UpdateModuleSpec, UpdateOutcome,
-};
+use rzh_sim::logic::{CollideOutcome, Kernel, KernelHost, ObjectSpec, Objects, UpdateOutcome};
 use rzh_sim::messages::{
     GameMessageDisposition, GameMessageType, MessagePost, TranslateOutcome, build_region,
 };
+use rzh_sim::modules::BehaviorSpec;
 use rzh_sim::partition::Region2;
 use rzh_sim::players::{GameInfoSpec, SideSpec, SidesSpec, TeamSpec};
 use rzh_sim::query::{
@@ -210,6 +209,15 @@ const EV_STARTNEWGAME: u8 = 17;
 const EV_OBJ_CREATED: u8 = 18;
 const EV_OBJ_DESTROYED: u8 = 19;
 const EV_CELL_CHANGE: u8 = 20;
+// the module framework's family walks (the generator's enum tail)
+const EV_DIE: u8 = 21;
+const EV_DIEINFO: u8 = 22;
+const EV_DAMAGE: u8 = 23;
+const EV_DAMAGEKIND: u8 = 24;
+const EV_CREATEMOD: u8 = 25;
+const EV_BUILDCOMPLETE: u8 = 26;
+const EV_DELETE: u8 = 27;
+const EV_DESTROYMOD: u8 = 28;
 
 // The message-event ids (the generator's `GameLogicHooks::MsgEv`).
 const MEV_TRANSLATE: i64 = 0;
@@ -275,6 +283,14 @@ fn ev_name(e: u8) -> &'static str {
         EV_OBJ_CREATED => "objcreated",
         EV_OBJ_DESTROYED => "objdestroyed",
         EV_CELL_CHANGE => "cellchange",
+        EV_DIE => "die",
+        EV_DIEINFO => "dieinfo",
+        EV_DAMAGE => "damage",
+        EV_DAMAGEKIND => "damagekind",
+        EV_CREATEMOD => "createmod",
+        EV_BUILDCOMPLETE => "buildcomplete",
+        EV_DELETE => "delete",
+        EV_DESTROYMOD => "destroymod",
         _ => "?",
     }
 }
@@ -368,6 +384,58 @@ impl KernelHost for GoldenHost {
     fn on_partition_cell_change(&mut self, id: i32, cell: i32) {
         self.events
             .push((EV_CELL_CHANGE, i64::from(id), i64::from(cell)));
+    }
+
+    fn on_die_module(&mut self, obj: i32, module: u32, damage: &rzh_sim::modules::DamageInfo) {
+        self.events
+            .push((EV_DIE, i64::from(obj), i64::from(module)));
+        self.events.push((
+            EV_DIEINFO,
+            i64::from(damage.source_id),
+            i64::from(damage.death_type.ordinal()),
+        ));
+    }
+
+    fn on_damage_module(
+        &mut self,
+        obj: i32,
+        module: u32,
+        kind: rzh_sim::modules::DamageCallbackKind,
+        damage: &rzh_sim::modules::DamageInfo,
+        old_state: Option<rzh_sim::modules::BodyDamageType>,
+        new_state: Option<rzh_sim::modules::BodyDamageType>,
+    ) {
+        let _ = damage;
+        self.events
+            .push((EV_DAMAGE, i64::from(obj), i64::from(module)));
+        let kind_bits = match kind {
+            rzh_sim::modules::DamageCallbackKind::Damage => 0,
+            rzh_sim::modules::DamageCallbackKind::Healing => 1,
+            rzh_sim::modules::DamageCallbackKind::BodyDamageStateChange => 2,
+        };
+        let old = old_state.map_or(-1, |st| i64::from(st.ordinal()));
+        let new = new_state.map_or(-1, |st| i64::from(st.ordinal()));
+        self.events.push((EV_DAMAGEKIND, kind_bits, old * 10 + new));
+    }
+
+    fn on_create_module(&mut self, obj: i32, module: u32) {
+        self.events
+            .push((EV_CREATEMOD, i64::from(obj), i64::from(module)));
+    }
+
+    fn on_build_complete_module(&mut self, obj: i32, module: u32) {
+        self.events
+            .push((EV_BUILDCOMPLETE, i64::from(obj), i64::from(module)));
+    }
+
+    fn on_delete_module(&mut self, obj: i32, module: u32) {
+        self.events
+            .push((EV_DELETE, i64::from(obj), i64::from(module)));
+    }
+
+    fn on_destroy_module(&mut self, obj: i32, module: u32) {
+        self.events
+            .push((EV_DESTROYMOD, i64::from(obj), i64::from(module)));
     }
 
     fn run_update(&mut self, id: i32, module: u32) -> UpdateOutcome {
@@ -607,7 +675,13 @@ impl Harness {
             translate_posts: Vec::new(),
             command_disconnect_slot: Vec::new(),
         };
-        let kernel = Kernel::with_grid(cell_size, region, &mut host);
+        let mut kernel = Kernel::with_grid(cell_size, region, &mut host);
+        // TheModuleFactory's scripted-module registrations (the golden
+        // corpus's synthetic classes — the generator registers its C++
+        // twins through the same addModule surface)
+        kernel
+            .modules
+            .register_script_modules(&mut kernel.players.name_keys);
         Self {
             kernel,
             host,
@@ -620,7 +694,9 @@ impl Harness {
     }
 
     /// The generator's `createObject` (the ThingFactory::newObject
-    /// shape).
+    /// shape): the update modules first, then the collide modules —
+    /// the corpus worlds never mix the two families on one object, so
+    /// the split mirrors the generator's behavior-list build).
     #[allow(clippy::too_many_arguments)]
     fn create_object(
         &mut self,
@@ -633,20 +709,27 @@ impl Harness {
         phases: &[SleepyUpdatePhase],
         colliders: usize,
     ) -> i32 {
+        let mut behaviors: Vec<BehaviorSpec> = (0..num_updates)
+            .map(|m| BehaviorSpec {
+                name: "ScriptUpdateModule".into(),
+                tag: format!("ModuleTag_Update{m}"),
+                phase: phases.get(m).copied().unwrap_or_default(),
+                disabled_types_to_process: DisabledMask::default(),
+                ctor_wake: ctor_wakes
+                    .get(m)
+                    .copied()
+                    .and_then(|w| if w >= 0 { Some(w as u32) } else { None }),
+            })
+            .collect();
+        behaviors.extend((0..colliders).map(|m| BehaviorSpec {
+            name: "ScriptCollideModule".into(),
+            tag: format!("ModuleTag_Collide{m}"),
+            ..BehaviorSpec::default()
+        }));
         let spec = ObjectSpec {
             geometry,
             immobile,
-            modules: (0..num_updates)
-                .map(|m| UpdateModuleSpec {
-                    phase: phases.get(m).copied().unwrap_or_default(),
-                    disabled_types_to_process: DisabledMask::default(),
-                    ctor_wake: ctor_wakes
-                        .get(m)
-                        .copied()
-                        .and_then(|w| if w >= 0 { Some(w as u32) } else { None }),
-                })
-                .collect(),
-            colliders,
+            behaviors,
             position: rzh_sim::types::Coord3 {
                 x: pos.0,
                 y: pos.1,
@@ -749,7 +832,7 @@ impl Harness {
                 format!(
                     "o id={} upd={} part={} dis={:04x} cellchg={}",
                     obj.id,
-                    obj.updates.len(),
+                    obj.behaviors.iter().filter(|b| b.update.is_some()).count(),
                     part,
                     obj.disabled_mask.bits,
                     obj.cell_change_count
@@ -901,8 +984,13 @@ impl Harness {
         let spec = ObjectSpec {
             geometry,
             immobile,
-            modules: Vec::new(),
-            colliders,
+            behaviors: (0..colliders)
+                .map(|m| BehaviorSpec {
+                    name: "ScriptCollideModule".into(),
+                    tag: format!("ModuleTag_Collide{m}"),
+                    ..BehaviorSpec::default()
+                })
+                .collect(),
             position: Coord3 {
                 x: pos.0,
                 y: pos.1,
@@ -978,6 +1066,11 @@ impl Harness {
             command_disconnect_slot: Vec::new(),
         };
         self.kernel = Kernel::with_grid(cell_size, region, &mut self.host);
+        // TheModuleFactory's scripted-module registrations (the
+        // generator's freshWorld registers them at the same position)
+        self.kernel
+            .modules
+            .register_script_modules(&mut self.kernel.players.name_keys);
     }
 
     /// The generator's z-carrying, angle-carrying object creation (no
@@ -1258,8 +1351,7 @@ impl Harness {
             geometry: GeometryInfo::default(),
             immobile: false,
             powered,
-            modules: Vec::new(),
-            colliders: 0,
+            behaviors: Vec::new(),
             position: Coord3 {
                 x: pos.0,
                 y: pos.1,
@@ -1281,8 +1373,7 @@ impl Harness {
         let spec = ObjectSpec {
             geometry,
             immobile: false,
-            modules: Vec::new(),
-            colliders: 0,
+            behaviors: Vec::new(),
             position: Coord3 {
                 x: pos.0,
                 y: pos.1,
@@ -1631,7 +1722,11 @@ fn corpus_sched_disabled(h: &mut Harness) {
     // module 1 processes EMP-disabled objects; module 0 processes nothing
     let mut emp = DisabledMask::default();
     emp.set(DisabledType::Emp, true);
-    h.kernel.objects.get_mut(a).updates[1].disabled_types_to_process = emp;
+    h.kernel.objects.get_mut(a).behaviors[1]
+        .update
+        .as_mut()
+        .expect("update module")
+        .disabled_types_to_process = emp;
 
     // disable by EMP for 3 frames (from frame 0: mask set, till 3)
     h.kernel.set_disabled_until(a, DisabledType::Emp, 3);
@@ -1746,8 +1841,16 @@ fn corpus_sched_loadpost(h: &mut Harness) {
     h.kernel.awaken_module(b, 1, 2);
     h.dump_heap();
     // the legacy zero frame (a save with when == 0)
-    h.kernel.objects.get_mut(a).updates[1].set_next_call_frame(0);
-    h.kernel.objects.get_mut(b).updates[1].set_next_call_frame(0);
+    h.kernel.objects.get_mut(a).behaviors[1]
+        .update
+        .as_mut()
+        .expect("update module")
+        .set_next_call_frame(0);
+    h.kernel.objects.get_mut(b).behaviors[1]
+        .update
+        .as_mut()
+        .expect("update module")
+        .set_next_call_frame(0);
     h.kernel.load_post_process();
     h.line(&format!(
         "after loadpost nextid {}",
@@ -5679,6 +5782,355 @@ fn corpus_messages_roundtrip(h: &mut Harness) {
     h.line("end");
 }
 
+// --- mod_factory: the registry's lookups -------------------------------
+fn corpus_mod_factory(h: &mut Harness) {
+    h.line("corpus mod_factory");
+    use rzh_sim::modules::{ModuleFactory, ModuleType};
+
+    let names = [
+        "ScriptUpdateModule",
+        "ScriptCollideModule",
+        "ScriptDieModule",
+        "ScriptDamageModule",
+        "ScriptCreateModule",
+        "ScriptDestroyModule",
+        "ScriptBodyModule",
+        "ScriptContainModule",
+    ];
+    let mut keys = std::mem::take(&mut h.kernel.players.name_keys);
+    for name in names {
+        let mask =
+            h.kernel
+                .modules
+                .find_module_interface_mask(&mut keys, name, ModuleType::Behavior);
+        h.line(&format!("mask {name} {:x}", mask.bits()));
+    }
+    let mask = h.kernel.modules.find_module_interface_mask(
+        &mut keys,
+        "NoSuchModule",
+        ModuleType::Behavior,
+    );
+    h.line(&format!("mask NoSuchModule {:x}", mask.bits()));
+    let mask = h
+        .kernel
+        .modules
+        .find_module_interface_mask(&mut keys, "", ModuleType::Behavior);
+    h.line(&format!("mask empty {:x}", mask.bits()));
+    let dkey = ModuleFactory::make_decorated_name_key(
+        &mut keys,
+        "ScriptUpdateModule",
+        ModuleType::Behavior,
+    );
+    let ckey = keys.name_to_key("ScriptUpdateModule");
+    h.line(&format!("dkey {} ckey {}", dkey.ordinal(), ckey.ordinal()));
+    let dkey1 =
+        ModuleFactory::make_decorated_name_key(&mut keys, "ScriptUpdateModule", ModuleType::Draw);
+    h.line(&format!("dkey1 {}", dkey1.ordinal()));
+    let d0 = h.kernel.modules.new_module_data_from_ini(
+        &mut keys,
+        "ScriptDieModule",
+        ModuleType::Behavior,
+        "ModuleTag_One",
+    );
+    let d1 = h.kernel.modules.new_module_data_from_ini(
+        &mut keys,
+        "ScriptDieModule",
+        ModuleType::Behavior,
+        "ModuleTag_Two",
+    );
+    let d2 = h.kernel.modules.new_module_data_from_ini(
+        &mut keys,
+        "NoSuchModule",
+        ModuleType::Behavior,
+        "ModuleTag_Three",
+    );
+    let to_i = |d: Option<usize>| d.map_or(-1, |v| v as i64);
+    h.line(&format!("data {} {} {}", to_i(d0), to_i(d1), to_i(d2)));
+    h.line(&format!("datalist {}", h.kernel.modules.module_data.len()));
+    let data_lines: Vec<(String, u32)> = h
+        .kernel
+        .modules
+        .module_data
+        .iter()
+        .map(|data| {
+            let name = keys.key_to_name(data.module_tag_name_key).unwrap_or(b"?");
+            (
+                String::from_utf8_lossy(name).into_owned(),
+                data.module_tag_name_key.ordinal(),
+            )
+        })
+        .collect();
+    for (name, key) in data_lines {
+        h.line(&format!("d {name} {key}"));
+    }
+    // the re-registration overwrite
+    h.kernel.modules.add_module_internal(
+        &mut keys,
+        "ScriptDieModule",
+        ModuleType::Behavior,
+        rzh_sim::modules::MODULEINTERFACE_DIE.or(rzh_sim::modules::MODULEINTERFACE_UPDATE),
+        |_data| Box::new(rzh_sim::modules::ScriptModule),
+    );
+    let mask = h.kernel.modules.find_module_interface_mask(
+        &mut keys,
+        "ScriptDieModule",
+        ModuleType::Behavior,
+    );
+    h.line(&format!("mask2 ScriptDieModule {:x}", mask.bits()));
+    h.kernel.players.name_keys = keys;
+    h.line("end");
+}
+
+// --- mod_build: the data-driven construction ---------------------------
+fn corpus_mod_build(h: &mut Harness) {
+    h.line("corpus mod_build");
+    use rzh_sim::modules::BehaviorSpec;
+    let g = geom(GeometryType::Sphere, true, 1.0, 5.0, 5.0);
+
+    let spec = |name: &str, tag: &str, phase: SleepyUpdatePhase, wake: i64| BehaviorSpec {
+        name: name.into(),
+        tag: tag.into(),
+        phase,
+        disabled_types_to_process: DisabledMask::default(),
+        ctor_wake: if wake >= 0 { Some(wake as u32) } else { None },
+    };
+    let behaviors = vec![
+        spec("ScriptBodyModule", "ModuleTag_Body", Default::default(), -1),
+        spec(
+            "ScriptUpdateModule",
+            "ModuleTag_U0",
+            SleepyUpdatePhase::Initial,
+            7,
+        ),
+        spec(
+            "ScriptCollideModule",
+            "ModuleTag_C0",
+            Default::default(),
+            -1,
+        ),
+        spec("ScriptDieModule", "ModuleTag_D0", Default::default(), -1),
+        spec(
+            "ScriptUpdateModule",
+            "ModuleTag_U1",
+            SleepyUpdatePhase::Final,
+            -1,
+        ),
+        spec(
+            "ScriptContainModule",
+            "ModuleTag_Contain",
+            Default::default(),
+            -1,
+        ),
+        spec(
+            "ScriptCreateModule",
+            "ModuleTag_Create",
+            Default::default(),
+            -1,
+        ),
+        spec(
+            "ScriptDamageModule",
+            "ModuleTag_Dam",
+            Default::default(),
+            -1,
+        ),
+        spec(
+            "ScriptDestroyModule",
+            "ModuleTag_Des",
+            Default::default(),
+            -1,
+        ),
+        spec("ScriptUpdateModule", "ModuleTag_U2", Default::default(), -1),
+    ];
+    let object_spec = ObjectSpec {
+        geometry: g,
+        immobile: false,
+        behaviors,
+        position: rzh_sim::types::Coord3 {
+            x: 50.0,
+            y: 50.0,
+            z: 0.0,
+        },
+        ..ObjectSpec::default()
+    };
+    let a = h.kernel.create_object(&object_spec, &mut h.host);
+
+    // the behavior list: the identity, the mask, the halves
+    h.line(&format!(
+        "behaviors {}",
+        h.kernel.objects.get(a).behaviors.len()
+    ));
+    let behavior_lines: Vec<(u32, u32, u16, bool, bool)> = h
+        .kernel
+        .objects
+        .get(a)
+        .behaviors
+        .iter()
+        .map(|b| {
+            (
+                b.name_key.ordinal(),
+                b.tag_key.ordinal(),
+                b.interfaces.bits(),
+                b.update.is_some(),
+                b.need_to_run_on_build_complete,
+            )
+        })
+        .collect();
+    for (i, (key, tag, ifc, upd, need)) in behavior_lines.into_iter().enumerate() {
+        h.line(&format!(
+            "b {i} key={key} tag={tag} if={ifc:x} upd={} need={}",
+            u8::from(upd),
+            u8::from(need)
+        ));
+    }
+
+    // the singleton captures
+    h.line(&format!(
+        "singletons {} {}",
+        h.kernel.objects.get(a).body_module.map_or(-1, i64::from),
+        h.kernel.objects.get(a).contain_module.map_or(-1, i64::from)
+    ));
+
+    h.line(&format!("datalist {}", h.kernel.modules.module_data.len()));
+
+    h.dump_heap();
+    h.dump_events();
+
+    // a body-less object carries no singleton
+    let object_spec2 = ObjectSpec {
+        geometry: g,
+        immobile: false,
+        behaviors: vec![spec(
+            "ScriptUpdateModule",
+            "ModuleTag_X",
+            Default::default(),
+            -1,
+        )],
+        position: rzh_sim::types::Coord3 {
+            x: 20.0,
+            y: 20.0,
+            z: 0.0,
+        },
+        ..ObjectSpec::default()
+    };
+    let b = h.kernel.create_object(&object_spec2, &mut h.host);
+    h.line(&format!(
+        "b2 {} {} {}",
+        b,
+        h.kernel.objects.get(b).body_module.map_or(-1, i64::from),
+        h.kernel.objects.get(b).contain_module.map_or(-1, i64::from)
+    ));
+    h.line("end");
+}
+
+// --- mod_walks: the family dispatches ---------------------------------
+fn corpus_mod_walks(h: &mut Harness) {
+    h.line("corpus mod_walks");
+    use rzh_sim::modules::{
+        BehaviorSpec, BodyDamageType, DamageCallbackKind, DamageInfo, DeathType,
+    };
+    let g = geom(GeometryType::Sphere, true, 1.0, 5.0, 5.0);
+
+    let spec = |name: &str, tag: &str| BehaviorSpec {
+        name: name.into(),
+        tag: tag.into(),
+        ..BehaviorSpec::default()
+    };
+    let object_spec = ObjectSpec {
+        geometry: g,
+        immobile: false,
+        behaviors: vec![
+            spec("ScriptUpdateModule", "ModuleTag_U0"),
+            spec("ScriptDieModule", "ModuleTag_D0"),
+            spec("ScriptDamageModule", "ModuleTag_Dam0"),
+            spec("ScriptDieModule", "ModuleTag_D1"),
+            spec("ScriptCreateModule", "ModuleTag_C0"),
+            spec("ScriptDamageModule", "ModuleTag_Dam1"),
+            spec("ScriptDestroyModule", "ModuleTag_Des0"),
+            spec("ScriptCreateModule", "ModuleTag_C1"),
+        ],
+        position: rzh_sim::types::Coord3 {
+            x: 50.0,
+            y: 50.0,
+            z: 0.0,
+        },
+        ..ObjectSpec::default()
+    };
+    let a = h.kernel.create_object(&object_spec, &mut h.host);
+    h.dump_events(); // the create-module walk of the construction
+
+    // onDie: the die modules (1, 3), the damage info echoed per dispatch
+    let dmg = DamageInfo {
+        source_id: a - 1,
+        damage_type: rzh_sim::modules::DamageType::Explosion,
+        death_type: DeathType::Burned,
+        amount: 42.0,
+        kill: false,
+    };
+    h.kernel.object_on_die(&mut h.host, a, &dmg);
+    h.dump_events();
+
+    // the damage trio: onDamage, onHealing, onBodyDamageStateChange
+    h.kernel.object_notify_damage(&mut h.host, a, &dmg);
+    h.kernel.object_notify_healing(&mut h.host, a, &dmg);
+    h.kernel.object_notify_body_damage_state_change(
+        &mut h.host,
+        a,
+        &dmg,
+        BodyDamageType::Pristine,
+        BodyDamageType::ReallyDamaged,
+    );
+    let _ = DamageCallbackKind::Damage; // (the kind vocabulary the hook encodes)
+    h.dump_events();
+
+    // build-complete: ungated, the flag cleared per module
+    h.line(&format!(
+        "flags {} {}",
+        u8::from(h.kernel.objects.get(a).behaviors[4].need_to_run_on_build_complete),
+        u8::from(h.kernel.objects.get(a).behaviors[7].need_to_run_on_build_complete)
+    ));
+    h.kernel.object_notify_build_complete(&mut h.host, a);
+    h.dump_events();
+    h.line(&format!(
+        "flags {} {}",
+        u8::from(h.kernel.objects.get(a).behaviors[4].need_to_run_on_build_complete),
+        u8::from(h.kernel.objects.get(a).behaviors[7].need_to_run_on_build_complete)
+    ));
+
+    // the destroy walk: the destroy module (6) BEFORE the status, the
+    // onDelete walk over EVERY module (0..7), then objdestroyed
+    h.kernel.destroy_object(a, &mut h.host);
+    h.dump_events();
+    h.kernel.process_destroy_list(&mut h.host);
+    h.dump_events();
+    h.line("end");
+}
+
+// --- mod_update_bodies: the sleepy dispatch through the factory-built
+// --- modules, and the collide walk's unified numbering -----------------
+fn corpus_mod_update_bodies(h: &mut Harness) {
+    h.line("corpus mod_update_bodies");
+    let g = geom(GeometryType::Sphere, true, 1.0, 5.0, 5.0);
+
+    // the collide partner first; the mixed object (two updates then two
+    // colliders) is created after and dirtied by its own registration
+    h.create_object(g, false, 0, &[], (52.0, 52.0), 0.0, &[], 0);
+    let a = h.create_object(g, false, 2, &[], (50.0, 50.0), 0.0, &[], 2);
+
+    // the scripted bodies: U0 sleeps 2, U1 sleeps FOREVER
+    h.script_sleep(a, 0, 2);
+    h.script_sleep(a, 1, UPDATE_SLEEP_FOREVER);
+
+    h.update(); // frame 0: no update dispatch yet, the collide halves (2, 3) run
+    h.dump_events();
+    h.dump_contacts();
+    h.dump_collide_events();
+    h.dump_heap();
+    h.update(); // frame 1: both update (behavior indices 0 and 1)
+    h.dump_events();
+    h.dump_heap();
+    h.line("end");
+}
+
 fn corpus_roundtrip(h: &mut Harness) {
     h.line("corpus kernel_roundtrip");
     let g = geom(GeometryType::Sphere, true, 1.0, 2.5, 2.5);
@@ -6407,7 +6859,7 @@ fn corpus_query_iterate(h: &mut Harness) {
 #[test]
 fn kernel_golden() {
     let mut all = String::new();
-    let corpora: [fn(&mut Harness); 41] = [
+    let corpora: [fn(&mut Harness); 45] = [
         corpus_ids,
         corpus_frame,
         corpus_sched_basic,
@@ -6448,6 +6900,10 @@ fn kernel_golden() {
         corpus_messages_stream,
         corpus_messages_dispatch,
         corpus_messages_roundtrip,
+        corpus_mod_factory,
+        corpus_mod_build,
+        corpus_mod_walks,
+        corpus_mod_update_bodies,
         corpus_roundtrip,
     ];
     for corpus in corpora {

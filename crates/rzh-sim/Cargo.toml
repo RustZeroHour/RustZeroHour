@@ -336,7 +336,7 @@
 
 [package]
 name = "rzh-sim"
-description = "Zero Hour deterministic simulation kernel: the frame loop, the object registry with its sleepy-update scheduler, the partition-manager spatial store and its query family, the players/teams block, the money/energy/ranks/sciences block and the GameMessage command processing"
+description = "Zero Hour deterministic simulation kernel: the frame loop, the object registry with its sleepy-update scheduler, the module framework (the Behavior/Update/Die/Damage/Contain/Collide/Create/Body/Upgrade/SpecialPower/Destroy families with their factory-driven construction), the partition-manager spatial store and its query family, the players/teams block, the money/energy/ranks/sciences block and the GameMessage command processing"
 version.workspace = true
 edition.workspace = true
 rust-version.workspace = true

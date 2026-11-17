@@ -66,6 +66,7 @@ use rzh_math::scalar::sqrt;
 use crate::collide;
 use crate::fastmath::{real_to_int_ceil, real_to_int_floor};
 use crate::logic::{GameLogic, KernelHost, Objects};
+use crate::modules::MODULEINTERFACE_COLLIDE;
 use crate::types::{Coord3, GeometryType, MAX_PLAYER_COUNT, ObjectID, ObjectShroudStatus};
 
 /// `ShroudLevel` (PartitionManager.h): the per-cell, per-player counters.
@@ -375,11 +376,11 @@ impl ContactList {
 }
 
 /// `Object::onCollide` (Object.cpp): walk the behavior list, dispatch
-/// every module whose `getCollide()` returns non-null, re-checking
-/// `OBJECT_STATUS_NO_COLLISIONS` each time thru the loop (a collide
-/// module may set it mid-walk — the break). The non-collide behaviors
-/// contribute nothing observable, so the walk is over the collide slots
-/// only.
+/// every module whose `getCollide()` returns non-null (the
+/// COLLIDE-interface carriers — the family membership the module
+/// framework's mask owns), re-checking `OBJECT_STATUS_NO_COLLISIONS`
+/// each time thru the loop (a collide module may set it mid-walk — the
+/// break).
 // (the parameter list is the original's verbatim — the pair, the driver
 // state and the collision site)
 #[allow(clippy::too_many_arguments)]
@@ -394,18 +395,28 @@ fn object_on_collide(
     loc: &Coord3,
     normal: &Coord3,
 ) {
-    let count = objects.get(id).colliders;
+    let count = objects.module_count(id);
     for m in 0..count {
         // check each time thru the loop, in case a collide module sets it
         if objects.get(id).is_no_collisions() {
             break;
         }
+        if !objects.get(id).behaviors[m].implements(MODULEINTERFACE_COLLIDE) {
+            continue;
+        }
 
         host.on_collide_module(id, m as u32, other, loc, normal);
 
-        // the scripted module body (the corpus's three effects, applied
-        // in this order: the absorb, the destroy, the unregister)
-        let outcome = host.run_collide(id, m as u32, other, loc, normal);
+        // the module body (the WP2 framework's dispatch, detached for
+        // the call — the scripted corpus bodies forward to the host's
+        // run_collide)
+        let mut body = objects.take_body(id, m as u32);
+        let ctx = crate::modules::ModuleCtx::new(logic.frame, objects);
+        let outcome = body.on_collide(&ctx, id, m as u32, other, loc, normal, host);
+        objects.put_body(id, m as u32, body);
+
+        // the scripted module body's three effects, applied in this
+        // order: the absorb, the destroy, the unregister
         if outcome.absorb {
             objects.get_mut(id).status |= 1 << crate::types::OBJECT_STATUS_NO_COLLISIONS_BIT;
         }

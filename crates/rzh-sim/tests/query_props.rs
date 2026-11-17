@@ -90,8 +90,7 @@ fn build_world(
         let spec = ObjectSpec {
             geometry: *geometry_ref,
             immobile: false,
-            modules: Vec::new(),
-            colliders: 0,
+            behaviors: Vec::new(),
             position: *pos_ref,
             orientation: *angle_ref,
             ..ObjectSpec::default()

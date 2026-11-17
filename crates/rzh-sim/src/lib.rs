@@ -76,13 +76,23 @@
 //! original's operation order, objects referenced by
 //! [`types::ObjectID`] — never by pointer.
 //!
-//! The module bodies, subsystem walk members (script engine, terrain,
-//! commands' dispatch switch, AI, economy, stores) are later slices;
-//! they plug in through the [`logic::KernelHost`] trait whose call
-//! order this kernel pins. WP1's remainder after the
-//! money/energy/ranks/sciences block: none — the GameMessage command
-//! processing (this slice) closes the kernel work package; the next
-//! slice opens WP2's module framework.
+//! - [`modules`]: the module framework (WP2) — the
+//!   Behavior/Update/Die/Damage/Contain/Collide/Create/Body/Upgrade/
+//!   SpecialPower/Destroy family vocabularies, the [`modules::
+//!   ModuleFactory`] registry with its decorated name keys, and the
+//!   dispatch walks (onDie, the damage trio, onCreate, onBuildComplete,
+//!   the destroy walk and the onDelete sweep) over the objects'
+//!   factory-built behavior lists.
+//!
+//! The module bodies of the concrete classes (the ~250 module headers'
+//! behaviors — the physics, the locomotors, the deaths and heals) and
+//! the subsystem walk members (script engine, terrain, commands'
+//! dispatch switch, AI, economy, stores) are later slices; they plug
+//! in through [`logic::KernelHost`] (whose call order the kernel pins)
+//! and the [`modules::ModuleBehavior`] trait whose dispatch the
+//! framework owns. WP2's remainder: the INI parse of the template
+//! module lists (the rzh-data object model's slice); the next slice
+//! opens WP3 movement.
 
 #![forbid(unsafe_code)]
 
@@ -91,6 +101,7 @@ pub mod energy;
 pub mod fastmath;
 pub mod logic;
 pub mod messages;
+pub mod modules;
 pub mod money;
 pub mod partition;
 pub mod players;

@@ -55,7 +55,8 @@
 #define DISPATCH_CHECKSUM 14539779273077219524ULL
 #define QUERY_CHECKSUM 1025416407242357139ULL
 #define PLAYERS_CHECKSUM 10479098065696129437ULL
-#define PURSE_CHECKSUM 12146934425632222704ULL
+#define PURSE_CHECKSUM 15734376335415262704ULL
+#define MODULES_CHECKSUM 1632563042329548879ULL
 
 // The final-state checksum (the same formula the Rust bench computes).
 static uint64_t kernel_checksum(World &w)
@@ -81,6 +82,10 @@ static World *build_corpus()
         // GameLogic::init's m_nextObjID = 1 (the ids run 1..=120)
         w->logic.setObjectIDCounter(1);
         w->pm.init(10.0f, Region2DT{0, 0, 300, 300});
+        // TheModuleFactory's scripted-module registrations (the Rust
+        // bench's build_corpus registers at the same position — the
+        // interning order is part of the corpus)
+        w->moduleFactory.registerScriptModules(w->nameKeys);
 
         for (int i = 0; i < BENCH_OBJECTS; ++i) {
                 GeometryInfoT geom;
@@ -112,7 +117,7 @@ static World *build_corpus()
                         phases.push_back(phase);
                 ObjectT *obj = w->createObject(geom, immobile, moduleCount, {}, pos, angle, phases);
                 for (int m = 0; m < moduleCount; ++m)
-                        obj->m_updates[(size_t)m].m_scriptedSleep = (m == 0) ? 1 + (i % 30) : 5 + (i % 17);
+                        obj->m_behaviors[(size_t)m].m_update.m_scriptedSleep = (m == 0) ? 1 + (i % 30) : 5 + (i % 17);
         }
         return w;
 }
@@ -659,6 +664,114 @@ uint64_t bench_kernel_players(void *world)
         return run_players((World *)world);
 }
 
+// The module-framework corpus (the Rust bench's formulas, verbatim):
+// 300 objects built through the factory with mixed family lists by
+// formula.
+static World *build_modules_corpus()
+{
+        World *w = new World();
+        w->logic.setObjectIDCounter(1);
+        w->pm.init(10.0f, Region2DT{0, 0, 300, 300});
+        g_queryWorld = w;
+        w->messageStream.m_playerListPresent = true;
+        w->moduleFactory.registerScriptModules(w->nameKeys);
+
+        for (int i = 0; i < 300; ++i) {
+                std::vector<ModuleSpecT> mods;
+                int tag = 0;
+                auto mut_tag = [&](const char *name) {
+                        ModuleSpecT m;
+                        m.m_name = name;
+                        m.m_tag = "ModuleTag_" + std::to_string(i) + "_" + std::to_string(tag);
+                        ++tag;
+                        return m;
+                };
+                if (i % 5 == 0)
+                        mods.push_back(mut_tag("ScriptBodyModule"));
+                if (i % 6 == 0)
+                        mods.push_back(mut_tag("ScriptContainModule"));
+                int updates = 1 + (i % 2);
+                for (int u = 0; u < updates; ++u) {
+                        ModuleSpecT m = mut_tag("ScriptUpdateModule");
+                        m.m_phase = (i + u) % 4; // {INITIAL, PHYSICS, NORMAL, FINAL}
+                        if (i % 10 == 0)
+                                m.m_ctorWake = u + 3;
+                        mods.push_back(m);
+                }
+                if (i % 3 == 0)
+                        mods.push_back(mut_tag("ScriptCollideModule"));
+                if (i % 4 == 0)
+                        mods.push_back(mut_tag("ScriptDieModule"));
+                if (i % 7 == 0)
+                        mods.push_back(mut_tag("ScriptDamageModule"));
+                if (i % 11 == 0)
+                        mods.push_back(mut_tag("ScriptCreateModule"));
+                Coord3D pos;
+                pos.x = 10.0f + (float)(i % 30) * 9.0f;
+                pos.y = 10.0f + (float)(i / 30) * 9.0f;
+                pos.z = 0.0f;
+                GeometryInfoT geom{GEOMETRY_SPHERE, true, 1.0f, 2.5f, 2.5f};
+                ObjectT *obj = w->createObjectFromSpecs(geom, false, mods, pos, 0.0f);
+                for (int m = 0; m < updates; ++m)
+                        obj->m_behaviors[(size_t)m].m_update.m_scriptedSleep = 1 + ((i + m) % 9);
+        }
+        return w;
+}
+
+// One module-framework cycle (the Rust bench's, verbatim): three rounds
+// of the family walks over every tenth live object, a destroy of every
+// 97th, ten update frames; the state checksum (the heap's packed
+// priorities in order, the behavior counts, the singleton captures).
+static uint64_t run_modules(World *w)
+{
+        uint64_t sum = 0;
+        for (int round = 0; round < 3; ++round) {
+                // the live objects in id order (the arena walk)
+                std::vector<ObjectT *> live;
+                for (auto &o : w->objects)
+                        if (!o->isDestroyed())
+                                live.push_back(o.get());
+                for (size_t n = 0; n < live.size(); ++n) {
+                        if (n % 10 != 0)
+                                continue;
+                        ObjectT *obj = live[n];
+                        DamageInfoT dmg;
+                        dmg.m_sourceID = obj->m_id;
+                        dmg.m_amount = (float)(round * 7);
+                        w->objectOnDie(obj, dmg);
+                        w->objectNotifyDamage(obj, dmg, 0);
+                        w->objectNotifyDamage(obj, dmg, 1);
+                        w->objectNotifyDamage(obj, dmg, 2, 0, 1); // PRISTINE -> DAMAGED
+                        w->objectNotifyBuildComplete(obj);
+                }
+                std::vector<ObjectT *> live2;
+                for (auto &o : w->objects)
+                        if (!o->isDestroyed())
+                                live2.push_back(o.get());
+                for (size_t n = 0; n < live2.size(); ++n) {
+                        if (n % 97 == 1)
+                                w->logic.destroyObject(live2[n], &w->hooks);
+                }
+                w->logic.processDestroyList(&w->pm, &w->hooks);
+                for (int f = 0; f < 10; ++f) {
+                        w->preUpdate();
+                        w->update();
+                }
+        }
+        // the checksum: the heap's packed priorities in slot order, the
+        // live objects' behavior counts and singleton captures
+        for (const UpdateModuleT *u : w->logic.m_sleepyUpdates)
+                sum = sum * 31 + (uint64_t)friend_getPriority(u);
+        for (auto &o : w->objects) {
+                if (o->isDestroyed())
+                        continue;
+                sum = sum * 31 + (uint64_t)o->m_behaviors.size();
+                sum = sum * 31 + (uint64_t)(uint32_t)(int32_t)o->m_bodyModule;
+                sum = sum * 31 + (uint64_t)(uint32_t)(int32_t)o->m_containModule;
+        }
+        return sum;
+}
+
 // Untimed corpus materialization for the messages bench.
 void *bench_kernel_messages_build()
 {
@@ -669,6 +782,18 @@ void *bench_kernel_messages_build()
 uint64_t bench_kernel_messages(void *world)
 {
         return run_messages((World *)world);
+}
+
+// Untimed corpus materialization for the module-framework bench.
+void *bench_kernel_modules_build()
+{
+        return build_modules_corpus();
+}
+
+// The timed body: the module-framework cycle.
+uint64_t bench_kernel_modules(void *world)
+{
+        return run_modules((World *)world);
 }
 
 void bench_kernel_teardown(void *world)
@@ -722,6 +847,13 @@ int bench_kernel_verify()
                 uint64_t sum = run_messages(w);
                 delete w;
                 if (sum != MESSAGES_CHECKSUM)
+                        return 0;
+        }
+        {
+                World *w = build_modules_corpus();
+                uint64_t sum = run_modules(w);
+                delete w;
+                if (sum != MODULES_CHECKSUM)
                         return 0;
         }
         return 1;

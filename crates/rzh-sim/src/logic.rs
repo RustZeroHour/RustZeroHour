@@ -45,19 +45,25 @@ use crate::messages::{
     CommandList, GameMessageType, MessageArena, MessageData, MessageID, MessageStream,
     TranslateOutcome,
 };
+use crate::modules::{
+    BehaviorSpec, MODULEINTERFACE_BODY, MODULEINTERFACE_CONTAIN, MODULEINTERFACE_CREATE,
+    MODULEINTERFACE_DAMAGE, MODULEINTERFACE_DESTROY, MODULEINTERFACE_DIE, ModuleBehavior,
+    ModuleCtx, ModuleFactory, ModuleInstance,
+};
 use crate::partition::{PartitionData, PartitionManager, Region2};
 use crate::scheduler::{ModuleArena, ModuleHandle, SleepyScheduler, SleepyState};
 use crate::types::{
     Coord3, DISABLED_COUNT, DISABLED_TYPES, DisabledMask, DisabledType, FOREVER, GeometryInfo,
     INVALID_ID, KINDOF_IMMOBILE_BIT, KINDOF_NO_COLLIDE_BIT, NEVER, OBJECT_STATUS_DESTROYED_BIT,
-    OBJECT_STATUS_NO_COLLISIONS_BIT, ObjectID, SleepyUpdatePhase, UPDATE_SLEEP_NONE,
-    UpdateSleepTime,
+    OBJECT_STATUS_NO_COLLISIONS_BIT, ObjectID, UPDATE_SLEEP_NONE, UpdateSleepTime,
 };
 
 /// The outcome of one update-module body: the sleep length plus the
 /// side effects the corpus model programs (applied by the kernel in the
 /// transcription's order — destroy first, then wake). The WP2 module
-/// framework replaces this with real module bodies.
+/// framework's bodies return these ([`ModuleBehavior::update`]); the
+/// scripted corpus bodies source them from the host's
+/// [`KernelHost::run_update`].
 #[derive(Clone, Copy, Debug)]
 pub struct UpdateOutcome {
     /// The `update()` return code: the frame count to sleep.
@@ -80,8 +86,9 @@ impl Default for UpdateOutcome {
 
 /// The outcome of one collide-module body: the side effects the corpus
 /// model programs (applied by the dispatch in this order — absorb, then
-/// destroy, then unregister). The WP2 module framework replaces this
-/// with real module bodies.
+/// destroy, then unregister). The WP2 module framework's bodies return
+/// these ([`ModuleBehavior::on_collide`]); the scripted corpus bodies
+/// source them from the host's [`KernelHost::run_collide`].
 #[derive(Clone, Copy, Debug, Default)]
 pub struct CollideOutcome {
     /// A `setObjectStatus(OBJECT_STATUS_NO_COLLISIONS)` request — the
@@ -185,7 +192,11 @@ pub trait KernelHost {
     }
 
     /// The collide-module body. Returns the outcome the dispatch applies
-    /// (absorb, then destroy, then unregister).
+    /// (absorb, then destroy, then unregister). The kernel no longer calls
+    /// this directly: the WP2 module framework dispatches the body of the
+    /// module the walk visits (the scripted corpus modules forward here —
+    /// the corpus-driving surface the golden harness keys its scripted
+    /// tables on).
     fn run_collide(
         &mut self,
         id: ObjectID,
@@ -194,12 +205,64 @@ pub trait KernelHost {
         loc: &Coord3,
         normal: &Coord3,
     ) -> CollideOutcome {
+        let _ = (id, module, other, loc, normal);
         CollideOutcome::default()
     }
 
     /// The update-module body. Returns the outcome the kernel applies.
+    /// The kernel no longer calls this directly: the WP2 module framework
+    /// dispatches the body of the module the scheduler wakes (the
+    /// scripted corpus modules forward here — the corpus-driving surface
+    /// the golden harness keys its scripted tables on).
     fn run_update(&mut self, id: ObjectID, module: u32) -> UpdateOutcome {
+        let _ = (id, module);
         UpdateOutcome::default()
+    }
+
+    /// `Object::onDie`'s die-module walk, one dispatch (the observable
+    /// before the body runs) — the framework's family walk surface.
+    fn on_die_module(&mut self, obj: ObjectID, module: u32, damage: &crate::modules::DamageInfo) {
+        let _ = (obj, module, damage);
+    }
+
+    /// The damage-family walks, one dispatch (the observable before the
+    /// body runs): `ActiveBody`'s `onDamage` / `onHealing` /
+    /// `onBodyDamageStateChange` notification loops. The state pair is
+    /// present only for the state-change callback.
+    fn on_damage_module(
+        &mut self,
+        obj: ObjectID,
+        module: u32,
+        kind: crate::modules::DamageCallbackKind,
+        damage: &crate::modules::DamageInfo,
+        old_state: Option<crate::modules::BodyDamageType>,
+        new_state: Option<crate::modules::BodyDamageType>,
+    ) {
+        let _ = (obj, module, kind, damage, old_state, new_state);
+    }
+
+    /// `ThingFactory::newObject`'s create-module walk, one dispatch (the
+    /// observable before the body runs).
+    fn on_create_module(&mut self, obj: ObjectID, module: u32) {
+        let _ = (obj, module);
+    }
+
+    /// `BuildAssistant`'s onBuildComplete walk, one dispatch (the
+    /// observable before the body runs).
+    fn on_build_complete_module(&mut self, obj: ObjectID, module: u32) {
+        let _ = (obj, module);
+    }
+
+    /// `Object::onDestroy`'s onDelete walk, one dispatch — every module,
+    /// not a family (the observable before the body runs).
+    fn on_delete_module(&mut self, obj: ObjectID, module: u32) {
+        let _ = (obj, module);
+    }
+
+    /// `GameLogic::destroyObject`'s destroy-module walk, one dispatch
+    /// (the observable before the body runs).
+    fn on_destroy_module(&mut self, obj: ObjectID, module: u32) {
+        let _ = (obj, module);
     }
 
     /// One `GameMessageTranslator::translateGameMessage` body inside
@@ -326,10 +389,9 @@ pub trait KernelHost {
     }
 }
 
-/// The kernel's object: the registry state, the scheduler's modules and
-/// the spatial-store attachment in one id-addressed record
-/// (`Object`'s kernel half — the behaviors/bodies are the module
-/// framework's).
+/// The kernel's object: the registry state, the module framework's
+/// behavior list, the scheduler's update halves and the spatial-store
+/// attachment in one id-addressed record (`Object`'s kernel half).
 #[derive(Debug)]
 pub struct Object {
     /// `m_id`.
@@ -361,12 +423,21 @@ pub struct Object {
     pub disabled_mask: DisabledMask,
     /// `m_disabledTillFrame[DISABLED_COUNT]` (born NEVER).
     pub disabled_till_frame: [u32; DISABLED_COUNT],
-    /// The update modules (the scheduler state each carries).
-    pub updates: Vec<SleepyState>,
-    /// The behavior list's collide modules — `Object::onCollide`'s walk
-    /// length (the bodies are the host's [`KernelHost::run_collide`];
-    /// the non-collide behaviors contribute nothing observable).
-    pub colliders: usize,
+    /// `m_behaviors` — the module list, built by `Object`'s constructor
+    /// through the module factory (template order; the helper modules
+    /// the original prepends — SMCHelper and friends — are the
+    /// concrete-module slices', each with its gating template read;
+    /// the construction walk and the singleton capture are the
+    /// framework's, below).
+    pub behaviors: Vec<ModuleInstance>,
+    /// `m_body` — the first module carrying the BODY interface (the
+    /// `getBody()` singleton; duplicate bodies are the ctor's
+    /// DEBUG_ASSERTCRASH — the port refuses them under
+    /// `debug_assertions`). `None` = no body module.
+    pub body_module: Option<u32>,
+    /// `m_contain` — the first module carrying the CONTAIN interface
+    /// (the `getContain()` singleton, ditto).
+    pub contain_module: Option<u32>,
     /// The partition data (None until the store registers the object).
     pub partition: Option<PartitionData>,
     /// `onPartitionCellChange()` invocations.
@@ -535,19 +606,43 @@ impl Objects {
         }
     }
 
-    /// `friend_getBehaviorModules()` order: the module list walk.
+    /// `friend_getBehaviorModules()` order: the module list walk bound.
     pub(crate) fn module_count(&self, id: ObjectID) -> usize {
-        self.get(id).updates.len()
+        self.get(id).behaviors.len()
+    }
+
+    /// Detach a module's body for a dispatch (the take/put dance: the
+    /// body runs owned, the slot briefly holds the no-op [`ScriptModule`]
+    /// placeholder). Safe against nested walks by construction — under
+    /// the framework's discipline a body never triggers a walk directly;
+    /// it returns the effects, and the kernel applies them once the body
+    /// is back in place (so no walk can ever observe the placeholder).
+    pub(crate) fn take_body(&mut self, obj: ObjectID, module: u32) -> Box<dyn ModuleBehavior> {
+        std::mem::replace(
+            &mut self.get_mut(obj).behaviors[module as usize].body,
+            Box::new(crate::modules::ScriptModule),
+        )
+    }
+
+    /// Restore a detached body ([`Self::take_body`]'s other half).
+    pub(crate) fn put_body(&mut self, obj: ObjectID, module: u32, body: Box<dyn ModuleBehavior>) {
+        self.get_mut(obj).behaviors[module as usize].body = body;
     }
 }
 
 impl ModuleArena for Objects {
     fn module(&self, handle: ModuleHandle) -> &SleepyState {
-        &self.get(handle.obj).updates[handle.module as usize]
+        self.get(handle.obj).behaviors[handle.module as usize]
+            .update
+            .as_ref()
+            .expect("update module")
     }
 
     fn module_mut(&mut self, handle: ModuleHandle) -> &mut SleepyState {
-        &mut self.get_mut(handle.obj).updates[handle.module as usize]
+        self.get_mut(handle.obj).behaviors[handle.module as usize]
+            .update
+            .as_mut()
+            .expect("update module")
     }
 }
 
@@ -637,6 +732,11 @@ impl GameLogic {
         }
         let count = objects.module_count(id);
         for m in 0..count {
+            // the behavior-list walk, update-carrying modules only (the
+            // `(*b)->getUpdate()` non-null filter of the original)
+            let Some(update) = objects.get(id).behaviors[m].update.as_ref() else {
+                continue;
+            };
             let handle = ModuleHandle {
                 obj: id,
                 module: m as u32,
@@ -644,15 +744,16 @@ impl GameLogic {
             // note that 'when' can be zero here for any update module
             // that didn't bother to call setWakeFrame() in its ctor.
             // this is legal.
-            if objects.module(handle).next_call_frame() == 0 {
+            if update.next_call_frame() == 0 {
                 objects.module_mut(handle).set_next_call_frame(now);
             }
             self.scheduler.push(objects, handle);
         }
     }
 
-    /// `destroyObject`: the destroyed re-refusal, the status, the
-    /// destroy-list append.
+    /// `destroyObject`: the destroyed re-refusal, the destroy-module
+    /// walk, the status, the destroy-list append and `obj->onDestroy()`
+    /// (the onDelete walk over every module).
     pub(crate) fn destroy_object(
         &mut self,
         objects: &mut Objects,
@@ -667,15 +768,47 @@ impl GameLogic {
             return;
         }
 
+        // run the object onDestroy event if provided
+        // (GameLogic::destroyObject's DestroyModuleInterface walk —
+        // BEFORE the status write)
+        let destroy_modules: Vec<u32> = obj
+            .behaviors
+            .iter()
+            .enumerate()
+            .filter(|(_, b)| b.implements(MODULEINTERFACE_DESTROY))
+            .map(|(m, _)| m as u32)
+            .collect();
+        for m in destroy_modules {
+            host.on_destroy_module(id, m);
+            let mut body = objects.take_body(id, m);
+            body.on_destroy(&ModuleCtx::new(self.frame, objects), id, m, host);
+            objects.put_body(id, m, body);
+        }
+
         // mark object as destroyed
         objects.get_mut(id).status |= 1 << OBJECT_STATUS_DESTROYED_BIT;
 
         // add to end of destruction list, in case something is being destroyed and trying to destroy subobjects
         self.objects_to_destroy.push(id);
 
-        // (the DestroyModule onDestroy() bodies and obj->onDestroy() are
-        // the module framework's; the scripted effects cover the
-        // destroy-during-destroy reentrancy)
+        // run any on destroy logic internal to the object
+        // (obj->onDestroy(): the contained-by removal is the contain
+        // slice's; the onDelete walk over EVERY module follows —
+        // "run the onDelete on all modules present so they each have an
+        // opportunity to cleanup anything they need to ... including
+        // talking to any other modules")
+        let count = objects.module_count(id);
+        for m in 0..count {
+            host.on_delete_module(id, m as u32);
+            let mut body = objects.take_body(id, m as u32);
+            body.on_delete(&ModuleCtx::new(self.frame, objects), id, m as u32, host);
+            objects.put_body(id, m as u32, body);
+        }
+
+        // (the radar/trigger-area/script notifications and
+        // sendObjectDestroyed's drawable teardown are the client and
+        // script slices'; the port's host event fires at the position
+        // obj->onDestroy's tail holds it at)
 
         host.on_object_destroyed(id);
     }
@@ -864,6 +997,10 @@ impl GameLogic {
         for &id in &self.obj_list {
             let count = objects.module_count(id);
             for m in 0..count {
+                // the behavior-list walk, update-carrying modules only
+                if objects.get(id).behaviors[m].update.is_none() {
+                    continue;
+                }
                 let handle = ModuleHandle {
                     obj: id,
                     module: m as u32,
@@ -882,7 +1019,7 @@ impl GameLogic {
 }
 
 /// The creation spec (the `ThingFactory::newObject` input: the template
-/// geometry and the module set, distilled to what the kernel consumes).
+/// geometry and the module list, distilled to what the kernel consumes).
 #[derive(Clone, Debug, Default)]
 pub struct ObjectSpec {
     /// The object's geometry.
@@ -891,13 +1028,13 @@ pub struct ObjectSpec {
     pub immobile: bool,
     /// The POWERED kindof bit (the brownout sweep's gate).
     pub powered: bool,
-    /// One entry per update module: its phase, its
-    /// disabled-types-to-process mask and its constructor wake (an
-    /// absolute frame, clamped to now).
-    pub modules: Vec<UpdateModuleSpec>,
-    /// The behavior list's collide modules — `Object::onCollide`'s walk
-    /// length.
-    pub colliders: usize,
+    /// The template's module list — one [`BehaviorSpec`] per module, in
+    /// template order (the `ModuleInfo` nuggets): each entry is resolved
+    /// through the module factory (the class name must be registered;
+    /// the tags must be unique), instanced and appended to the object's
+    /// behavior list. Update-carrying entries consume the phase, the
+    /// disabled-types mask and the constructor wake.
+    pub behaviors: Vec<BehaviorSpec>,
     /// The birth position.
     pub position: crate::types::Coord3,
     /// The birth orientation.
@@ -908,18 +1045,6 @@ pub struct ObjectSpec {
     /// The template's `getEnergyBonus()` (the power-plant upgrade
     /// bonus).
     pub energy_bonus: i32,
-}
-
-/// One update module's birth configuration.
-#[derive(Clone, Debug, Default)]
-pub struct UpdateModuleSpec {
-    /// `getUpdatePhase()`.
-    pub phase: SleepyUpdatePhase,
-    /// `getDisabledTypesToProcess()`.
-    pub disabled_types_to_process: DisabledMask,
-    /// The constructor's `setWakeFrame` (an absolute frame; `None` =
-    /// never woken — registerObject clamps those to now).
-    pub ctor_wake: Option<u32>,
 }
 
 /// `Object::setDisabledUntil`'s kernel half (the `m_disabledTillFrame`
@@ -949,16 +1074,20 @@ pub(crate) fn set_disabled_until_core(
     }
 }
 
-/// The kernel: the logic, the object arena, the partition manager, the
-/// players/teams block and the message system (the stream, the command
-/// list and the arena they share) in one explicit context (plan §3.3
-/// rule 5 — no global state).
+/// The kernel: the logic, the object arena, the module factory, the
+/// partition manager, the players/teams block and the message system
+/// (the stream, the command list and the arena they share) in one
+/// explicit context (plan §3.3 rule 5 — no global state).
 #[derive(Debug, Default)]
 pub struct Kernel {
     /// The game-logic state.
     pub logic: GameLogic,
     /// The object arena.
     pub objects: Objects,
+    /// `TheModuleFactory` — the module registry the data-driven
+    /// construction resolves through (`Object`'s constructor walk and
+    /// the family dispatches).
+    pub modules: ModuleFactory,
     /// The partition manager.
     pub pm: PartitionManager,
     /// The players/teams/relationships block (`ThePlayerList` +
@@ -998,11 +1127,99 @@ impl Kernel {
         kernel
     }
 
-    /// `ThingFactory::newObject`: allocate the id, build the object and
-    /// its modules (with the constructor wakes), register with the
-    /// logic, then with the partition manager.
+    /// `ThingFactory::newObject` + `Object`'s constructor: allocate the
+    /// id, build the object's module list through the factory (the
+    /// tag-uniqueness and singleton-capture checks of
+    /// `ModuleInfo::addModuleInfo` and the ctor, with the constructor
+    /// wakes), register with the logic, run the create-module walk,
+    /// then register with the partition manager.
+    ///
+    /// # Panics
+    ///
+    /// Panics when a module class name is not registered with
+    /// [`Kernel::modules`] (the factory's `Module name '%s' not found`
+    /// crash), when a module tag repeats within the spec (the
+    /// `addModuleInfo` uniqueness crash), or — under `debug_assertions`
+    /// — when two modules carry the BODY (or CONTAIN) interface (the
+    /// ctor's `Duplicate bodies` / `Duplicate containers` crashes).
     pub fn create_object(&mut self, spec: &ObjectSpec, host: &mut dyn KernelHost) -> ObjectID {
         let id = self.logic.allocate_object_id();
+
+        // ModuleInfo::addModuleInfo's tag uniqueness — "there must be a
+        // module tag present, and it must be unique across all module
+        // infos for this thing template" (the debug check of the parse
+        // path, held here where the distilled spec enters)
+        {
+            let mut seen_tags = std::collections::BTreeSet::new();
+            for module_spec in &spec.behaviors {
+                assert!(
+                    seen_tags.insert(module_spec.tag.as_str()),
+                    "addModuleInfo - ERROR defining module '{}' on thing: the tag '{}' \
+                     must be unique among all modules for this object",
+                    module_spec.name,
+                    module_spec.tag
+                );
+            }
+        }
+
+        // "allocate any modules we need to" — the factory walk, in
+        // template order, with the singleton captures (Object.cpp)
+        let mut behaviors: Vec<ModuleInstance> = Vec::with_capacity(spec.behaviors.len());
+        let mut body_module = None;
+        let mut contain_module = None;
+        for module_spec in &spec.behaviors {
+            // newModuleDataFromINI (the tag stamp and the ownership
+            // append), then newModule (the mask, the class key, the
+            // instancing)
+            let data_idx = self
+                .modules
+                .new_module_data_from_ini(
+                    &mut self.players.name_keys,
+                    &module_spec.name,
+                    crate::modules::ModuleType::Behavior,
+                    &module_spec.tag,
+                )
+                .unwrap_or_else(|| panic!("Module name '{}' not found", module_spec.name));
+            let data = self.modules.module_data[data_idx];
+            let instance = self.modules.new_module(
+                &mut self.players.name_keys,
+                &module_spec.name,
+                crate::modules::ModuleType::Behavior,
+                &data,
+                module_spec,
+            );
+
+            // BodyModuleInterface* body = newMod->getBody(); if (body)
+            // DEBUG_ASSERTCRASH(m_body == nullptr, ("Duplicate bodies"))
+            if instance.implements(MODULEINTERFACE_BODY) {
+                debug_assert!(
+                    body_module.is_none(),
+                    "Duplicate bodies ({})",
+                    module_spec.name
+                );
+                if body_module.is_none() {
+                    body_module = Some(behaviors.len() as u32);
+                }
+            }
+            // ContainModuleInterface* contain = newMod->getContain();
+            // ditto
+            if instance.implements(MODULEINTERFACE_CONTAIN) {
+                debug_assert!(
+                    contain_module.is_none(),
+                    "Duplicate containers ({})",
+                    module_spec.name
+                );
+                if contain_module.is_none() {
+                    contain_module = Some(behaviors.len() as u32);
+                }
+            }
+
+            // (the m_stealth / m_ai / m_physics captures key on concrete
+            // classes and specific interfaces — their modules' slices)
+
+            behaviors.push(instance);
+        }
+
         let obj = Object {
             id,
             geometry: spec.geometry,
@@ -1022,12 +1239,9 @@ impl Kernel {
             build_cost: 0.0,
             disabled_mask: DisabledMask::default(),
             disabled_till_frame: [NEVER; DISABLED_COUNT],
-            updates: spec
-                .modules
-                .iter()
-                .map(|m| SleepyState::new(m.phase, m.disabled_types_to_process))
-                .collect(),
-            colliders: spec.colliders,
+            behaviors,
+            body_module,
+            contain_module,
             partition: None,
             cell_change_count: 0,
             team: crate::types::TEAM_ID_INVALID,
@@ -1038,10 +1252,14 @@ impl Kernel {
             ai_idle: false,
         };
         self.objects.put(obj);
+        // "Modules have now been completely created!" (m_modulesReady)
 
         // module constructors may setWakeFrame (the not-in-list path)
         let now = self.logic.frame;
-        for (m, module_spec) in spec.modules.iter().enumerate() {
+        for (m, module_spec) in spec.behaviors.iter().enumerate() {
+            if self.objects.get(id).behaviors[m].update.is_none() {
+                continue; // only update modules carry a wake
+            }
             if let Some(wake) = module_spec.ctor_wake {
                 let when = if wake > now { wake } else { now };
                 self.logic.awaken(&mut self.objects, id, m as u32, when);
@@ -1051,14 +1269,37 @@ impl Kernel {
         // register the object with the GameLogic
         self.logic.register_object(&mut self.objects, id);
 
+        // the ctor tail's sendObjectCreated (the Object ctor's last
+        // statement — before the onCreate walk of ThingFactory::newObject)
+        host.on_object_created(id);
+
+        // "run the create function for the thing" — the create-module
+        // walk, behavior order (ThingFactory::newObject)
+        let count = self.objects.module_count(id);
+        for m in 0..count {
+            if !self.objects.get(id).behaviors[m].implements(MODULEINTERFACE_CREATE) {
+                continue;
+            }
+            host.on_create_module(id, m as u32);
+            let mut body = self.objects.take_body(id, m as u32);
+            body.on_create(
+                &ModuleCtx::new(self.logic.frame, &self.objects),
+                id,
+                m as u32,
+                host,
+            );
+            self.objects.put_body(id, m as u32, body);
+        }
+
         // all objects are part of the partition manager system, add it to that
         // system now
         self.pm.register_object(&mut self.objects, id);
 
-        // (obj->initObject() — the create modules' onCreate() — is the
-        // module framework's)
+        // (obj->initObject() — the upgrade refresh, the battle plans and
+        // the specialpower bits — is the upgrade/weapon/script-engine
+        // slices'; its call position sits here, after the partition
+        // registration)
 
-        host.on_object_created(id);
         id
     }
 
@@ -1206,7 +1447,18 @@ impl Kernel {
                 host.on_update_module(handle.obj, handle.module);
                 self.logic.scheduler.cur_update_module = Some(handle);
 
-                let outcome = host.run_update(handle.obj, handle.module);
+                // the module body (the WP2 framework's dispatch: the
+                // update-carrying behavior the heap entry resolves to,
+                // detached for the call — the scripted corpus bodies
+                // forward to the host's run_update)
+                let mut body = self.objects.take_body(handle.obj, handle.module);
+                let outcome = body.update(
+                    &ModuleCtx::new(self.logic.frame, &self.objects),
+                    handle.obj,
+                    handle.module,
+                    host,
+                );
+                self.objects.put_body(handle.obj, handle.module, body);
                 // the corpus's side-effect order: destroy first, then wake
                 if let Some(victim) = outcome.destroy {
                     self.logic.destroy_object(&mut self.objects, host, victim);
@@ -1282,6 +1534,175 @@ impl Kernel {
     pub fn process_destroy_list(&mut self, host: &mut impl KernelHost) {
         self.logic
             .process_destroy_list(&mut self.objects, &mut self.pm, host);
+    }
+
+    /// `Object::onDie` — "FIRST, call our die modules": the die walk in
+    /// behavior order, dispatching the DIE-carrying modules (the
+    /// radar/drawable/spawner/audio tails of the original are the
+    /// client and later slices').
+    pub fn object_on_die(
+        &mut self,
+        host: &mut dyn KernelHost,
+        obj: ObjectID,
+        damage: &crate::modules::DamageInfo,
+    ) {
+        let count = self.objects.module_count(obj);
+        for m in 0..count {
+            if !self.objects.get(obj).behaviors[m].implements(MODULEINTERFACE_DIE) {
+                continue;
+            }
+            host.on_die_module(obj, m as u32, damage);
+            let mut body = self.objects.take_body(obj, m as u32);
+            body.on_die(
+                &ModuleCtx::new(self.logic.frame, &self.objects),
+                obj,
+                m as u32,
+                damage,
+                host,
+            );
+            self.objects.put_body(obj, m as u32, body);
+        }
+    }
+
+    /// `ActiveBody`'s `onDamage` notification walk — the damage
+    /// callbacks in behavior order (the health-went-down gate that
+    /// guards the call in the original is the body's, the combat
+    /// slice's — this is the walk itself, the body's dispatch surface).
+    pub fn object_notify_damage(
+        &mut self,
+        host: &mut dyn KernelHost,
+        obj: ObjectID,
+        damage: &crate::modules::DamageInfo,
+    ) {
+        self.object_notify_damage_kind(
+            host,
+            obj,
+            damage,
+            crate::modules::DamageCallbackKind::Damage,
+        );
+    }
+
+    /// `ActiveBody`'s `onHealing` notification walk — ditto.
+    pub fn object_notify_healing(
+        &mut self,
+        host: &mut dyn KernelHost,
+        obj: ObjectID,
+        damage: &crate::modules::DamageInfo,
+    ) {
+        self.object_notify_damage_kind(
+            host,
+            obj,
+            damage,
+            crate::modules::DamageCallbackKind::Healing,
+        );
+    }
+
+    /// `ActiveBody`'s `onBodyDamageStateChange` notification walk —
+    /// ditto, with the state pair (the state-change gate is the body's).
+    pub fn object_notify_body_damage_state_change(
+        &mut self,
+        host: &mut dyn KernelHost,
+        obj: ObjectID,
+        damage: &crate::modules::DamageInfo,
+        old_state: crate::modules::BodyDamageType,
+        new_state: crate::modules::BodyDamageType,
+    ) {
+        let count = self.objects.module_count(obj);
+        for m in 0..count {
+            if !self.objects.get(obj).behaviors[m].implements(MODULEINTERFACE_DAMAGE) {
+                continue;
+            }
+            host.on_damage_module(
+                obj,
+                m as u32,
+                crate::modules::DamageCallbackKind::BodyDamageStateChange,
+                damage,
+                Some(old_state),
+                Some(new_state),
+            );
+            let mut body = self.objects.take_body(obj, m as u32);
+            body.on_body_damage_state_change(
+                &ModuleCtx::new(self.logic.frame, &self.objects),
+                obj,
+                m as u32,
+                damage,
+                old_state,
+                new_state,
+                host,
+            );
+            self.objects.put_body(obj, m as u32, body);
+        }
+    }
+
+    /// The damage-family walk body shared by the three notification
+    /// surfaces (the kind distinguishes the observable; the state-change
+    /// callback's extra pair rides its own method).
+    fn object_notify_damage_kind(
+        &mut self,
+        host: &mut dyn KernelHost,
+        obj: ObjectID,
+        damage: &crate::modules::DamageInfo,
+        kind: crate::modules::DamageCallbackKind,
+    ) {
+        let count = self.objects.module_count(obj);
+        for m in 0..count {
+            if !self.objects.get(obj).behaviors[m].implements(MODULEINTERFACE_DAMAGE) {
+                continue;
+            }
+            host.on_damage_module(obj, m as u32, kind, damage, None, None);
+            let mut body = self.objects.take_body(obj, m as u32);
+            match kind {
+                crate::modules::DamageCallbackKind::Damage => {
+                    body.on_damage(
+                        &ModuleCtx::new(self.logic.frame, &self.objects),
+                        obj,
+                        m as u32,
+                        damage,
+                        host,
+                    );
+                }
+                crate::modules::DamageCallbackKind::Healing => {
+                    body.on_healing(
+                        &ModuleCtx::new(self.logic.frame, &self.objects),
+                        obj,
+                        m as u32,
+                        damage,
+                        host,
+                    );
+                }
+                crate::modules::DamageCallbackKind::BodyDamageStateChange => unreachable!(
+                    "the state-change callback carries the state pair — its own method"
+                ),
+            }
+            self.objects.put_body(obj, m as u32, body);
+        }
+    }
+
+    /// `BuildAssistant`'s onBuildComplete walk — the create-carrying
+    /// modules in behavior order, ungated (the should-run flag is the
+    /// module's own: the walk dispatches, then clears the flag — the
+    /// base's `onBuildComplete { m_needToRunOnBuildComplete = FALSE }`).
+    pub fn object_notify_build_complete(&mut self, host: &mut dyn KernelHost, obj: ObjectID) {
+        let count = self.objects.module_count(obj);
+        for m in 0..count {
+            let Some(module) = self.objects.get(obj).behaviors.get(m) else {
+                continue;
+            };
+            if !module.implements(MODULEINTERFACE_CREATE) {
+                continue;
+            }
+            host.on_build_complete_module(obj, m as u32);
+            let mut body = self.objects.take_body(obj, m as u32);
+            body.on_build_complete(
+                &ModuleCtx::new(self.logic.frame, &self.objects),
+                obj,
+                m as u32,
+                host,
+            );
+            self.objects.put_body(obj, m as u32, body);
+            // CreateModule::onBuildComplete: m_needToRunOnBuildComplete = FALSE
+            self.objects.get_mut(obj).behaviors[m].need_to_run_on_build_complete = false;
+        }
     }
 
     /// `TheMessageStream->appendMessage(type)` — the raw-input post

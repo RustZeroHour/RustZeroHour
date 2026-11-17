@@ -606,7 +606,7 @@ now reads: container 0.62–0.99x, height map 0.53–0.77x, blend tiles
 1.08x, sides 0.98x, layouts 0.37x, fonts 0.23x — all within the §6
 threshold.
 
-#### The game-logic kernel (`kernel/frame_loop_x180`, `kernel/dispatch_x180`, `kernel/query_x300`, `kernel/players_x300`, `kernel/purse_x300`, `kernel/messages_x300`)
+#### The game-logic kernel (`kernel/frame_loop_x180`, `kernel/dispatch_x180`, `kernel/query_x300`, `kernel/players_x300`, `kernel/purse_x300`, `kernel/messages_x300`, `kernel/modules_x300`)
 
 The Phase 3 opener: the WP1 kernel — the frame loop's full walk and the
 sleepy dispatch, since the collide slice also the contact list's
@@ -643,6 +643,27 @@ same setup and flags as the Phase 2 numbers.
 | `kernel/players_x300` | 138.29 µs | 186.72 µs | 0.74x | within |
 | `kernel/purse_x300` | 58.34 µs | 52.9 µs | 1.10x | within |
 | `kernel/messages_x300` | 480 µs | 674 µs | 0.71x | within |
+| `kernel/modules_x300` | 2.19 ms | 13.9 ms | 0.16x | within |
+
+The module-framework slice adds the seventh comparison: 300 objects
+built through the factory with mixed family lists by formula (the
+body/contain singletons on the divisibility gates, the update halves
+with formula phases and constructor wakes, the collide/die/damage/
+create families likewise), then three rounds of the family walks over
+every tenth object (the die walk, the damage trio, build-complete), a
+destroy of every 97th and ten update frames of the sleepy dispatch —
+the checksum folding the heap's packed priorities, the behavior counts
+and the singleton captures, 1,632,563,042,329,548,879 on both sides.
+Measured 2026-11-17, same setup and flags as above. The Rust advantage
+is again the transcription's own bookkeeping: every family-walk
+dispatch resolves through the id-indexed arena's behavior list while
+the transcription's `moduleOwner`/`moduleIndexOf` helpers pay an
+O(objects × modules) scan per heap entry at the checksum tail, and the
+corpus build's `std::string` tags churn the allocator where the Rust
+side interns byte slices — the same structural story, at the widest
+relief yet (a faithful-C++ baseline with intrusive behavior lists
+would sit far closer; the 0.16x is the transcription's floor, not the
+original's).
 
 The query slice adds the third comparison: 300 mixed spatial queries
 over the same formula corpus settled by one full update (a third

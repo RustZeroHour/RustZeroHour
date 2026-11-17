@@ -46,6 +46,25 @@
 //     checkDisabledStatus's now >= tillFrame re-enable), the position and
 //     angle change thresholds of reactToTransformChange (0.01) and the
 //     setGeometryInfo unregister/re-register refresh;
+//   - the module framework (Common/Module.h, Common/ModuleFactory.{h,cpp},
+//     GameLogic/Module/*.h, Object.cpp's module half): the
+//     ModuleInterfaceType mask with the twelve family bits, the
+//     ModuleType buckets, the ModuleFactory's decorated name keys
+//     ('0' + type through nameToKey), the std::map-keyed registry with
+//     addModuleInternal's created-or-overwrite insertion and
+//     findModuleInterfaceMask's 0-on-miss, newModuleDataFromINI's tag
+//     stamp and append, the data-driven construction (the
+//     addModuleInfo tag-uniqueness refusal, the behavior-list build in
+//     template order, the m_body/m_contain singleton captures with the
+//     duplicate refusals, the ctor wakes), the family dispatch walks
+//     (ThingFactory's onCreate walk at its sendObjectCreated position,
+//     Object::onDie's die-first walk, ActiveBody's damage notification
+//     trio, BuildAssistant's ungated onBuildComplete walk with the
+//     flag clear, GameLogic::destroyObject's destroy-module walk BEFORE
+//     the status write and Object::onDestroy's onDelete sweep over
+//     every module) and the unified behavior list the sleepy scheduler
+//     and the collide walk index (the update-carrying filter of
+//     registerObject and the COLLIDE-bit dispatch of Object::onCollide);
 //   - PartitionManager.cpp's spatial store: init (the cell-size clamp,
 //     the double-division cellSizeInv, the zero-extent patch, the CEIL
 //     cell counts), shutdown, update (the dirty-module refresh with its
@@ -236,6 +255,7 @@
 #include <memory>
 #include <string>
 #include <vector>
+#include <cassert>
 #include <climits>
 
 // The pinned GameMath sources (TheSuperHackers/GameMath @ 59f7ccd4)
@@ -667,6 +687,85 @@ struct CollideModuleT {
     int m_onCollideUnregisterObj = INVALID_ID; // PartitionManager::unRegisterObject request
 };
 
+// --- the module framework (Common/Module.h, Common/ModuleFactory.h/.cpp,
+// GameLogic/Module/*.h) ------------------------------------------------------
+// ModuleInterfaceType's twelve bits (the declaration order of the
+// original's Int-valued enum).
+enum ModuleInterfaceT {
+    MODULEINTERFACE_T_UPDATE        = 0x0001,
+    MODULEINTERFACE_T_DIE           = 0x0002,
+    MODULEINTERFACE_T_DAMAGE        = 0x0004,
+    MODULEINTERFACE_T_CREATE        = 0x0008,
+    MODULEINTERFACE_T_COLLIDE       = 0x0010,
+    MODULEINTERFACE_T_BODY          = 0x0020,
+    MODULEINTERFACE_T_CONTAIN       = 0x0040,
+    MODULEINTERFACE_T_UPGRADE       = 0x0080,
+    MODULEINTERFACE_T_SPECIAL_POWER = 0x0100,
+    MODULEINTERFACE_T_DESTROY       = 0x0200,
+    MODULEINTERFACE_T_DRAW          = 0x0400,
+    MODULEINTERFACE_T_CLIENT_UPDATE = 0x0800,
+};
+
+// The scripted module classes the corpora instantiate (the registry's
+// entries; the Rust port's ScriptUpdateModule / ScriptCollideModule /
+// ScriptModule twins mirror them — the dispatch is switch-on-classId).
+enum ScriptModuleClass {
+    SCRIPT_CLS_UPDATE = 0,
+    SCRIPT_CLS_COLLIDE,
+    SCRIPT_CLS_DIE,
+    SCRIPT_CLS_DAMAGE,
+    SCRIPT_CLS_CREATE,
+    SCRIPT_CLS_DESTROY,
+    SCRIPT_CLS_BODY,
+    SCRIPT_CLS_CONTAIN,
+};
+
+// ModuleType (Module.h): the buckets a template's module info carries.
+// The object side is one bucket; the drawable types key the registry's
+// decorated names (the client phase registers those).
+enum ModuleTypeT { MODULETYPE_T_BEHAVIOR = 0, MODULETYPE_T_DRAW = 1, MODULETYPE_T_CLIENT_UPDATE = 2 };
+
+// One entry of a template's module list — the ModuleInfo nugget
+// (ThingTemplate.h): the class name, the tag and the birth configuration.
+struct ModuleSpecT {
+    std::string m_name;  // the "Behavior = <name>" of the INI
+    std::string m_tag;   // the module tag (unique per template)
+    int m_phase = PHASE_NORMAL;             // getUpdatePhase() (consumed iff UPDATE)
+    int m_disabledTypes = 0;                // getDisabledTypesToProcess() (ditto)
+    int m_ctorWake = -1;                    // the ctor's setWakeFrame (absolute frame; -1 = none)
+};
+
+// DamageInfo (Damage.h): the damage occurrence the die and damage
+// families forward — the input half's core fields, with the ctor's
+// default values (the full armor/shockwave model is the combat slice's).
+struct DamageInfoT {
+    int m_sourceID = INVALID_ID; // in.m_sourceID
+    int m_damageType = 0;        // in.m_damageType (DAMAGE_EXPLOSION)
+    int m_deathType = 0;         // in.m_deathType (DEATH_NORMAL)
+    float m_amount = 0.0f;       // in.m_amount
+    bool m_kill = false;         // in.m_kill
+};
+
+// BehaviorModuleT: one module on an object — the identity (the class-key,
+// the tag-key), the interface mask, the UpdateModule half (present iff
+// the UPDATE interface), the collide half's scripted fields (iff COLLIDE)
+// and the create family's should-run flag.
+struct BehaviorModuleT {
+    unsigned m_nameKey = 0; // NAMEKEY(class name) — getModuleNameKey()
+    unsigned m_tagKey = 0;  // NAMEKEY(module tag) — getModuleTagNameKey()
+    int m_interfaces = 0;   // getInterfaceMask()
+    bool m_hasUpdate = false; // the UPDATE interface
+    UpdateModuleT m_update;   // the UpdateModule half
+    // the collide half's scripted fields (CollideModuleT's)
+    bool m_onCollideAbsorb = false;
+    int m_onCollideDestroyObj = INVALID_ID;
+    int m_onCollideUnregisterObj = INVALID_ID;
+    // CreateModule::m_needToRunOnBuildComplete (born true iff CREATE)
+    bool m_needBuildComplete = false;
+
+    bool implements(int family) const { return (m_interfaces & family) == family; }
+};
+
 // --- Object (GameLogic/Object.h — the kernel's state half) -----------------
 struct ObjectT {
     int m_id = INVALID_ID;
@@ -682,8 +781,9 @@ struct ObjectT {
     float m_buildCost = 0.0f;     // the template's friend_getBuildCost (the template is rzh-data's)
     DisabledMask m_disabledMask;
     int m_disabledTillFrame[DISABLED_COUNT] = {0};
-    std::vector<UpdateModuleT> m_updates;
-    std::vector<CollideModuleT> m_colliders; // the behavior list's collide modules (onCollide's walk)
+    std::vector<BehaviorModuleT> m_behaviors; // m_behaviors (Object.cpp's ctor build, template order)
+    int m_bodyModule = -1;    // m_body (the first BODY interface; -1 = none)
+    int m_containModule = -1; // m_contain (the first CONTAIN interface; -1 = none)
     int m_partitionData = INVALID_ID; // the object-id handle of the PartitionData
     int m_cellChangeCount = 0;        // onPartitionCellChange() invocations
     TeamIDT m_team = TEAM_ID_T_INVALID; // m_team (the Team* handle; 0 = no team)
@@ -831,8 +931,12 @@ struct GameLogicT {
         unsigned now = getFrame();
         if (now == 0)
             now = 1;
-        for (size_t b = 0; b < obj->m_updates.size(); ++b) {
-            UpdateModuleT *u = &obj->m_updates[b];
+        for (size_t b = 0; b < obj->m_behaviors.size(); ++b) {
+            // the behavior-list walk, update-carrying modules only (the
+            // (*b)->getUpdate() non-null filter of the original)
+            if (!obj->m_behaviors[b].m_hasUpdate)
+                continue;
+            UpdateModuleT *u = &obj->m_behaviors[b].m_update;
             unsigned when = (unsigned)friend_getNextCallFrame(u);
             // note that 'when' can be zero here for any update module
             // that didn't bother to call setWakeFrame() in its ctor.
@@ -1037,6 +1141,10 @@ struct GameLogicHooks {
         EV_UPDATE, EV_AI, EV_BUILD, EV_PARTITION, EV_DESTROY, EV_COMMANDS_RESET,
         EV_WEAPONSTORE, EV_LOCOMOTORSTORE, EV_VICTORY, EV_SWEEP, EV_FRAME_INC,
         EV_STARTNEWGAME, EV_OBJ_CREATED, EV_OBJ_DESTROYED, EV_CELL_CHANGE,
+        // the module framework's family walks (one event per dispatched
+        // module; the damage kind/state pair rides the follow-up event)
+        EV_DIE, EV_DIEINFO, EV_DAMAGE, EV_DAMAGEKIND, EV_CREATEMOD, EV_BUILDCOMPLETE,
+        EV_DELETE, EV_DESTROYMOD,
     };
     void ev(int e, int a = -1, int b = -1) { m_events.push_back({e, a, b}); }
 
@@ -2383,8 +2491,13 @@ void GameLogicT::destroyObject(ObjectT *obj, GameLogicHooks *hooks)
         return;
 
     // run the object onDestroy event if provided
-    // (the DestroyModule bodies are later slices; the scripted effects
-    // cover the destroy-during-destroy reentrancy)
+    // (GameLogic::destroyObject's DestroyModuleInterface walk — BEFORE
+    // the status write)
+    for (size_t i = 0; i < obj->m_behaviors.size(); ++i) {
+        if (!obj->m_behaviors[i].implements(MODULEINTERFACE_T_DESTROY))
+            continue;
+        hooks->ev(GameLogicHooks::EV_DESTROYMOD, obj->m_id, (int)i);
+    }
 
     // mark object as destroyed
     obj->m_status |= (1u << OBJECT_STATUS_DESTROYED_BIT);
@@ -2393,7 +2506,17 @@ void GameLogicT::destroyObject(ObjectT *obj, GameLogicHooks *hooks)
     m_objectsToDestroy.push_back(obj);
 
     // run any on destroy logic internal to the object
-    // (obj->onDestroy() — later slices)
+    // (obj->onDestroy(): the contained-by removal is the contain slice's;
+    // the onDelete walk over EVERY module follows — "run the onDelete on
+    // all modules present so they each have an opportunity to cleanup
+    // anything they need to ... including talking to any other modules")
+    for (size_t i = 0; i < obj->m_behaviors.size(); ++i)
+        hooks->ev(GameLogicHooks::EV_DELETE, obj->m_id, (int)i);
+
+    // (the radar/trigger-area/script notifications and
+    // sendObjectDestroyed's drawable teardown are the client and script
+    // slices'; the hook event fires at the position obj->onDestroy's
+    // tail holds it at)
 
     hooks->ev(GameLogicHooks::EV_OBJ_DESTROYED, obj->m_id, -1);
     hooks->m_hookObjectDestroyedMsgs++;
@@ -2645,6 +2768,100 @@ struct NameKeyGenT {
         m_buckets.emplace_back(name, m_nextID++);
         m_sockets[hash].push_back((unsigned)(m_buckets.size() - 1));
         return m_buckets.back().second;
+    }
+};
+
+// --- ModuleFactory (Common/ModuleFactory.h/.cpp) -----------------------------
+// The registry the data-driven construction resolves through: the
+// decorated-keyed template map (std::map<NameKeyType, ModuleTemplate>),
+// the per-class interface masks and the module-data list (the factory
+// owns every ModuleData for the app's lifetime).
+struct ModuleFactoryT {
+    struct Template {
+        int m_classId = -1;   // the scripted class (the create proc's identity)
+        int m_interfaces = 0; // m_whichInterfaces
+    };
+    std::map<unsigned, Template> m_moduleTemplateMap;
+    std::vector<std::pair<std::string, unsigned>> m_moduleDataList; // (tag, tagKey)
+
+    // makeDecoratedNameKey: tmp[0] = '0' + (int)type; strcpy(&tmp[1], name)
+    static unsigned makeDecoratedNameKey(NameKeyGenT &keys, const std::string &name, int type)
+    {
+        std::string decorated(1, (char)('0' + type));
+        decorated += name;
+        return keys.nameToKey(decorated);
+    }
+
+    // addModuleInternal (the addModule macro's expansion): the
+    // decorated-keyed entry, created-or-overwritten
+    void addModuleInternal(NameKeyGenT &keys, const std::string &name, int type,
+                           int interfaces, int classId)
+    {
+        m_moduleTemplateMap[makeDecoratedNameKey(keys, name, type)] = Template{classId, interfaces};
+    }
+
+    // findModuleInterfaceMask: 0 on an empty name or an unknown name
+    int findModuleInterfaceMask(NameKeyGenT &keys, const std::string &name, int type)
+    {
+        if (name.empty())
+            return 0;
+        auto it = m_moduleTemplateMap.find(makeDecoratedNameKey(keys, name, type));
+        return it == m_moduleTemplateMap.end() ? 0 : it->second.m_interfaces;
+    }
+
+    // newModuleDataFromINI: the tag stamp (NAMEKEY(moduleTag)) and the
+    // ownership append; -1 on an empty name or an unknown name
+    int newModuleDataFromINI(NameKeyGenT &keys, const std::string &name, int type,
+                             const std::string &tag)
+    {
+        if (name.empty())
+            return -1;
+        if (m_moduleTemplateMap.find(makeDecoratedNameKey(keys, name, type)) == m_moduleTemplateMap.end())
+            return -1;
+        m_moduleDataList.emplace_back(tag, keys.nameToKey(tag));
+        return (int)m_moduleDataList.size() - 1;
+    }
+
+    // newModule: "allocate a new action class instance given the name" —
+    // the class key, the tag key (from the data), the mask, the update
+    // half (iff UPDATE) and the create flag (iff CREATE)
+    BehaviorModuleT newModule(NameKeyGenT &keys, const ModuleSpecT &spec, int type)
+    {
+        auto it = m_moduleTemplateMap.find(makeDecoratedNameKey(keys, spec.m_name, type));
+        assert(it != m_moduleTemplateMap.end()); // the caller resolved the mask first
+        BehaviorModuleT b;
+        b.m_nameKey = keys.nameToKey(spec.m_name); // NAMEKEY(#cls)
+        b.m_interfaces = it->second.m_interfaces;
+        b.m_hasUpdate = (b.m_interfaces & MODULEINTERFACE_T_UPDATE) != 0;
+        if (b.m_hasUpdate) {
+            b.m_update.m_phase = spec.m_phase;
+            b.m_update.m_disabledTypesToProcess.bits = (unsigned)spec.m_disabledTypes;
+        }
+        // CreateModule's ctor: m_needToRunOnBuildComplete(TRUE)
+        b.m_needBuildComplete = (b.m_interfaces & MODULEINTERFACE_T_CREATE) != 0;
+        return b;
+    }
+
+    // The scripted corpus classes (the registrations the Rust port's
+    // ModuleFactory::register_script_modules mirrors)
+    void registerScriptModules(NameKeyGenT &keys)
+    {
+        addModuleInternal(keys, "ScriptUpdateModule", MODULETYPE_T_BEHAVIOR,
+                          MODULEINTERFACE_T_UPDATE, SCRIPT_CLS_UPDATE);
+        addModuleInternal(keys, "ScriptCollideModule", MODULETYPE_T_BEHAVIOR,
+                          MODULEINTERFACE_T_COLLIDE, SCRIPT_CLS_COLLIDE);
+        addModuleInternal(keys, "ScriptDieModule", MODULETYPE_T_BEHAVIOR,
+                          MODULEINTERFACE_T_DIE, SCRIPT_CLS_DIE);
+        addModuleInternal(keys, "ScriptDamageModule", MODULETYPE_T_BEHAVIOR,
+                          MODULEINTERFACE_T_DAMAGE, SCRIPT_CLS_DAMAGE);
+        addModuleInternal(keys, "ScriptCreateModule", MODULETYPE_T_BEHAVIOR,
+                          MODULEINTERFACE_T_CREATE, SCRIPT_CLS_CREATE);
+        addModuleInternal(keys, "ScriptDestroyModule", MODULETYPE_T_BEHAVIOR,
+                          MODULEINTERFACE_T_DESTROY, SCRIPT_CLS_DESTROY);
+        addModuleInternal(keys, "ScriptBodyModule", MODULETYPE_T_BEHAVIOR,
+                          MODULEINTERFACE_T_BODY, SCRIPT_CLS_BODY);
+        addModuleInternal(keys, "ScriptContainModule", MODULETYPE_T_BEHAVIOR,
+                          MODULEINTERFACE_T_CONTAIN, SCRIPT_CLS_CONTAIN);
     }
 };
 
@@ -3543,6 +3760,7 @@ struct World {
     ScienceStoreT scienceStore; // TheScienceStore
     RankStoreT rankStore;       // TheRankInfoStore
     NameKeyGenT nameKeys;
+    ModuleFactoryT moduleFactory; // TheModuleFactory
     bool m_networkPresent = false; // TheNetwork != null (the newGame local-selection gate, the CRC branch)
     GameLogicHooks hooks;
     std::vector<std::unique_ptr<ObjectT>> objects; // the arena (ids never reused)
@@ -3601,10 +3819,41 @@ struct World {
     // the phases and the optional constructor wakes — the not-in-list
     // awaken path — and the collide modules the behavior list carries),
     // the GameLogic registration, then the partition registration.
+    // The legacy corpus driver: the synthetic update modules first (with
+    // their phases and constructor wakes), then the collide modules —
+    // the corpus worlds never mix the two families on one object.
     ObjectT *createObject(const GeometryInfoT &geom, bool immobile, int numUpdates,
                           const std::vector<int> &ctorWakes, const Coord3D &pos = {}, float angle = 0.0f,
                           const std::vector<int> &phases = {}, int numColliders = 0,
                           bool powered = false, int energyProduction = 0, int energyBonus = 0)
+    {
+        std::vector<ModuleSpecT> mods;
+        for (int i = 0; i < numUpdates; ++i) {
+            ModuleSpecT m;
+            m.m_name = "ScriptUpdateModule";
+            m.m_tag = "ModuleTag_Update" + std::to_string(i);
+            m.m_phase = (i < (int)phases.size()) ? phases[(size_t)i] : PHASE_NORMAL;
+            m.m_ctorWake = (i < (int)ctorWakes.size()) ? ctorWakes[(size_t)i] : -1;
+            mods.push_back(m);
+        }
+        for (int i = 0; i < numColliders; ++i) {
+            ModuleSpecT m;
+            m.m_name = "ScriptCollideModule";
+            m.m_tag = "ModuleTag_Collide" + std::to_string(i);
+            mods.push_back(m);
+        }
+        return createObjectFromSpecs(geom, immobile, mods, pos, angle, powered, energyProduction, energyBonus);
+    }
+
+    // ThingFactory::newObject + Object's constructor (the module half):
+    // the id allocation, the factory walk that builds the behavior list
+    // (the tag uniqueness, the singleton captures), the constructor
+    // wakes, the GameLogic registration, the sendObjectCreated position
+    // (the ctor tail), the onCreate walk and the partition registration.
+    ObjectT *createObjectFromSpecs(const GeometryInfoT &geom, bool immobile,
+                                   const std::vector<ModuleSpecT> &mods,
+                                   const Coord3D &pos = {}, float angle = 0.0f,
+                                   bool powered = false, int energyProduction = 0, int energyBonus = 0)
     {
         ObjectT *obj = new ObjectT();
         objects.emplace_back(obj);
@@ -3617,41 +3866,141 @@ struct World {
             obj->m_disabledTillFrame[i] = NEVER;
         obj->m_energyProduction = energyProduction;
         obj->m_energyBonus = energyBonus;
-        obj->m_updates.resize((size_t)numUpdates);
-        for (int i = 0; i < numUpdates && i < (int)phases.size(); ++i)
-            obj->m_updates[(size_t)i].m_phase = phases[(size_t)i];
-        obj->m_colliders.resize((size_t)numColliders);
+
+        // assign unique object id (the ctor's early allocation — before
+        // the module build)
         obj->m_id = logic.allocateObjectID();
 
+        // ModuleInfo::addModuleInfo's tag uniqueness ("it must be unique
+        // across all module infos for this thing template") — the
+        // parse-path debug check, held where the distilled spec enters
+        for (size_t i = 0; i < mods.size(); ++i)
+            for (size_t j = i + 1; j < mods.size(); ++j)
+                assert(mods[i].m_tag != mods[j].m_tag);
+
+        // "allocate any modules we need to" — the factory walk, in
+        // template order, with the singleton captures (Object.cpp)
+        for (const ModuleSpecT &spec : mods) {
+            // newModuleDataFromINI (the tag stamp + the ownership
+            // append), then newModule (the mask, the class key, the
+            // instancing)
+            int dataIdx = moduleFactory.newModuleDataFromINI(nameKeys, spec.m_name,
+                                                             MODULETYPE_T_BEHAVIOR, spec.m_tag);
+            assert(dataIdx >= 0); // findModuleTemplate's miss (DEBUG_CRASH upstream)
+            BehaviorModuleT b = moduleFactory.newModule(nameKeys, spec, MODULETYPE_T_BEHAVIOR);
+            b.m_tagKey = moduleFactory.m_moduleDataList[(size_t)dataIdx].second;
+
+            // BodyModuleInterface* body = newMod->getBody(); if (body)
+            // DEBUG_ASSERTCRASH(m_body == nullptr, ("Duplicate bodies"))
+            if (b.implements(MODULEINTERFACE_T_BODY)) {
+                assert(obj->m_bodyModule == -1);
+                if (obj->m_bodyModule == -1)
+                    obj->m_bodyModule = (int)obj->m_behaviors.size();
+            }
+            // ContainModuleInterface* contain = newMod->getContain(); ditto
+            if (b.implements(MODULEINTERFACE_T_CONTAIN)) {
+                assert(obj->m_containModule == -1);
+                if (obj->m_containModule == -1)
+                    obj->m_containModule = (int)obj->m_behaviors.size();
+            }
+            obj->m_behaviors.push_back(b);
+        }
+        // "Modules have now been completely created!" (m_modulesReady)
+
         // module constructors may setWakeFrame (the not-in-list path)
-        for (int i = 0; i < numUpdates; ++i) {
-            int wake = (i < (int)ctorWakes.size()) ? ctorWakes[(size_t)i] : -1;
-            if (wake >= 0) {
+        for (size_t i = 0; i < mods.size(); ++i) {
+            if (!obj->m_behaviors[i].m_hasUpdate)
+                continue;
+            if (mods[i].m_ctorWake >= 0) {
                 unsigned now = logic.getFrame();
-                logic.friend_awakenUpdateModule(obj, &obj->m_updates[(size_t)i],
-                                                (unsigned)wake > now ? (unsigned)wake : now);
+                logic.friend_awakenUpdateModule(obj, &obj->m_behaviors[i].m_update,
+                                                (unsigned)mods[i].m_ctorWake > now
+                                                    ? (unsigned)mods[i].m_ctorWake
+                                                    : now);
             }
         }
 
+        // register the object with the GameLogic
         logic.registerObject(obj);
-        pm.registerObject(obj);
+
+        // the ctor tail's sendObjectCreated (the Object ctor's last
+        // statement — before the onCreate walk of ThingFactory::newObject)
         hooks.ev(GameLogicHooks::EV_OBJ_CREATED, obj->m_id, -1);
         hooks.m_hookObjectCreatedMsgs++;
+
+        // "run the create function for the thing" — the create-module
+        // walk, behavior order (ThingFactory::newObject)
+        for (size_t i = 0; i < obj->m_behaviors.size(); ++i) {
+            if (!obj->m_behaviors[i].implements(MODULEINTERFACE_T_CREATE))
+                continue;
+            hooks.ev(GameLogicHooks::EV_CREATEMOD, obj->m_id, (int)i);
+        }
+
+        // all objects are part of the partition manager system, add it to that
+        // system now
+        pm.registerObject(obj);
+
+        // (obj->initObject() — the upgrade refresh, the battle plans and
+        // the specialpower bits — is the upgrade/weapon/script-engine
+        // slices'; its call position sits here, after the partition
+        // registration)
+
         return obj;
+    }
+
+    // Object::onDie (Object.cpp): "FIRST, call our die modules" — the
+    // die walk in behavior order (the radar/drawable/spawner/audio tails
+    // are the client and later slices').
+    void objectOnDie(ObjectT *obj, const DamageInfoT &damage)
+    {
+        for (size_t i = 0; i < obj->m_behaviors.size(); ++i) {
+            if (!obj->m_behaviors[i].implements(MODULEINTERFACE_T_DIE))
+                continue;
+            hooks.ev(GameLogicHooks::EV_DIE, obj->m_id, (int)i);
+            hooks.ev(GameLogicHooks::EV_DIEINFO, damage.m_sourceID, damage.m_deathType);
+        }
+    }
+
+    // ActiveBody's onDamage / onHealing / onBodyDamageStateChange
+    // notification walks (the health-went-down and state-change gates
+    // are the body's, the combat slice's — these are the walks).
+    void objectNotifyDamage(ObjectT *obj, const DamageInfoT &damage, int kind,
+                            int oldState = -1, int newState = -1)
+    {
+        for (size_t i = 0; i < obj->m_behaviors.size(); ++i) {
+            if (!obj->m_behaviors[i].implements(MODULEINTERFACE_T_DAMAGE))
+                continue;
+            hooks.ev(GameLogicHooks::EV_DAMAGE, obj->m_id, (int)i);
+            hooks.ev(GameLogicHooks::EV_DAMAGEKIND, kind, oldState * 10 + newState);
+            (void)damage; // (the info's echo is the die family's observable here)
+        }
+    }
+
+    // BuildAssistant's onBuildComplete walk — the create-carrying
+    // modules in behavior order, ungated; the should-run flag is the
+    // module's own (the base's onBuildComplete clears it).
+    void objectNotifyBuildComplete(ObjectT *obj)
+    {
+        for (size_t i = 0; i < obj->m_behaviors.size(); ++i) {
+            if (!obj->m_behaviors[i].implements(MODULEINTERFACE_T_CREATE))
+                continue;
+            hooks.ev(GameLogicHooks::EV_BUILDCOMPLETE, obj->m_id, (int)i);
+            obj->m_behaviors[i].m_needBuildComplete = false; // m_needToRunOnBuildComplete = FALSE
+        }
     }
 
     // UpdateModule::setWakeFrame(obj, wakeDelay) — the delay form.
     void setWakeFrame(ObjectT *obj, int modIndex, int wakeDelay)
     {
         unsigned now = logic.getFrame();
-        logic.friend_awakenUpdateModule(obj, &obj->m_updates[(size_t)modIndex], now + (unsigned)wakeDelay);
+        logic.friend_awakenUpdateModule(obj, &obj->m_behaviors[(size_t)modIndex].m_update, now + (unsigned)wakeDelay);
     }
 
     // The scripted update body: the return code plus the programmed side
     // effects (run where the original's module body would run them).
     int runUpdate(ObjectT *obj, int modIndex)
     {
-        UpdateModuleT *u = &obj->m_updates[(size_t)modIndex];
+        UpdateModuleT *u = &obj->m_behaviors[(size_t)modIndex].m_update;
         if (u->m_onUpdateDestroyObj != INVALID_ID) {
             ObjectT *victim = object(u->m_onUpdateDestroyObj);
             if (victim)
@@ -3660,7 +4009,7 @@ struct World {
         if (u->m_onUpdateWakeObj != INVALID_ID && u->m_onUpdateWakeMod >= 0) {
             ObjectT *other = object(u->m_onUpdateWakeObj);
             if (other)
-                logic.friend_awakenUpdateModule(other, &other->m_updates[(size_t)u->m_onUpdateWakeMod],
+                logic.friend_awakenUpdateModule(other, &other->m_behaviors[(size_t)u->m_onUpdateWakeMod].m_update,
                                                 (unsigned)u->m_onUpdateWakeWhen);
         }
         return u->m_scriptedSleep;
@@ -4120,8 +4469,10 @@ struct World {
 
         // go through all objects, examine each update module and put it on the appropriate update list
         for (ObjectT *obj : logic.m_objList) {
-            for (size_t b = 0; b < obj->m_updates.size(); ++b) {
-                UpdateModuleT *u = &obj->m_updates[b];
+            for (size_t b = 0; b < obj->m_behaviors.size(); ++b) {
+                if (!obj->m_behaviors[b].m_hasUpdate)
+                    continue;
+                UpdateModuleT *u = &obj->m_behaviors[b].m_update;
 
                 // check each update module
                 unsigned when = (unsigned)friend_getNextCallFrame(u);
@@ -4144,8 +4495,8 @@ int GameLogicT::moduleOwner(const UpdateModuleT *u) const
 {
     for (auto &pair : m_objHash) {
         ObjectT *o = pair.second;
-        for (size_t i = 0; i < o->m_updates.size(); ++i)
-            if (&o->m_updates[i] == u)
+        for (size_t i = 0; i < o->m_behaviors.size(); ++i)
+            if (o->m_behaviors[i].m_hasUpdate && &o->m_behaviors[i].m_update == u)
                 return o->m_id;
     }
     return INVALID_ID;
@@ -4154,8 +4505,8 @@ int GameLogicT::moduleIndexOf(const UpdateModuleT *u) const
 {
     for (auto &pair : m_objHash) {
         ObjectT *o = pair.second;
-        for (size_t i = 0; i < o->m_updates.size(); ++i)
-            if (&o->m_updates[i] == u)
+        for (size_t i = 0; i < o->m_behaviors.size(); ++i)
+            if (o->m_behaviors[i].m_hasUpdate && &o->m_behaviors[i].m_update == u)
                 return (int)i;
     }
     return -1;
@@ -4208,17 +4559,19 @@ bool World::collidesWith(int thisId, int thatId, CollideLocAndNormal *cinfo)
 // nothing observable, so the walk is over the collide slots only.
 static void objectOnCollide(World &w, ObjectT *obj, ObjectT *other, const Coord3D *loc, const Coord3D *normal)
 {
-    for (size_t i = 0; i < obj->m_colliders.size(); ++i) {
+    for (size_t i = 0; i < obj->m_behaviors.size(); ++i) {
         // check each time thru the loop, in case a collide module sets it
         if (obj->isNoCollisions()) {
             break;
         }
+        if (!obj->m_behaviors[i].implements(MODULEINTERFACE_T_COLLIDE))
+            continue;
 
         w.hooks.collideEv(obj->m_id, other->m_id, (int)i, *loc, *normal);
 
         // the scripted module body (the corpus's three effects, applied
         // in this order: the absorb, the destroy, the unregister)
-        CollideModuleT &cm = obj->m_colliders[i];
+        BehaviorModuleT &cm = obj->m_behaviors[i];
         if (cm.m_onCollideAbsorb)
             obj->m_status |= (1u << OBJECT_STATUS_NO_COLLISIONS_BIT);
         if (cm.m_onCollideDestroyObj != INVALID_ID) {
@@ -5170,6 +5523,14 @@ static const char *evName(int e)
     case GameLogicHooks::EV_OBJ_CREATED: return "objcreated";
     case GameLogicHooks::EV_OBJ_DESTROYED: return "objdestroyed";
     case GameLogicHooks::EV_CELL_CHANGE: return "cellchange";
+    case GameLogicHooks::EV_DIE: return "die";
+    case GameLogicHooks::EV_DIEINFO: return "dieinfo";
+    case GameLogicHooks::EV_DAMAGE: return "damage";
+    case GameLogicHooks::EV_DAMAGEKIND: return "damagekind";
+    case GameLogicHooks::EV_CREATEMOD: return "createmod";
+    case GameLogicHooks::EV_BUILDCOMPLETE: return "buildcomplete";
+    case GameLogicHooks::EV_DELETE: return "delete";
+    case GameLogicHooks::EV_DESTROYMOD: return "destroymod";
     default: return "?";
     }
 }
@@ -7149,9 +7510,14 @@ static void dumpRegistry(Dumper &d, World &w)
     d.line("frame %u", w.logic.getFrame());
     d.line("nextid %d", w.logic.m_nextObjID);
     d.line("objlist %d", (int)w.logic.m_objList.size());
-    for (ObjectT *o : w.logic.m_objList)
-        d.line("o id=%d upd=%d part=%d dis=%04x cellchg=%d", o->m_id, (int)o->m_updates.size(),
+    for (ObjectT *o : w.logic.m_objList) {
+        int updCount = 0;
+        for (const BehaviorModuleT &b : o->m_behaviors)
+            if (b.m_hasUpdate)
+                updCount++;
+        d.line("o id=%d upd=%d part=%d dis=%04x cellchg=%d", o->m_id, updCount,
                o->m_partitionData, o->m_disabledMask.bits, o->m_cellChangeCount);
+    }
     d.line("destroylist %d", (int)w.logic.m_objectsToDestroy.size());
     for (ObjectT *o : w.logic.m_objectsToDestroy)
         d.line("d id=%d", o->m_id);
@@ -7402,6 +7768,10 @@ static World &freshWorld(float cellSize, const Region2DT &extents)
     // TheMessageStream's isReadyForMessages gate: the PlayerList exists
     // once the engine boots (the World ctor ran playerListInit)
     w->messageStream.m_playerListPresent = true;
+    // TheModuleFactory's scripted-module registrations (the corpus's
+    // synthetic classes — the module worlds and the legacy drivers
+    // resolve their names through them)
+    w->moduleFactory.registerScriptModules(w->nameKeys);
     return *w;
 }
 
@@ -7522,10 +7892,10 @@ static void corpusSchedBasic(Dumper &d)
 
     // scripted sleeps: a returns 1 (run every frame), a's second 7;
     // b's first 3, b's second FOREVER (the saturation: 0 + FOREVER)
-    a->m_updates[0].m_scriptedSleep = 1;
-    a->m_updates[1].m_scriptedSleep = 7;
-    b->m_updates[0].m_scriptedSleep = 3;
-    b->m_updates[1].m_scriptedSleep = UPDATE_SLEEP_FOREVER;
+    a->m_behaviors[0].m_update.m_scriptedSleep = 1;
+    a->m_behaviors[1].m_update.m_scriptedSleep = 7;
+    b->m_behaviors[0].m_update.m_scriptedSleep = 3;
+    b->m_behaviors[1].m_update.m_scriptedSleep = UPDATE_SLEEP_FOREVER;
 
     for (int f = 0; f < 6; ++f) {
         w.preUpdate();
@@ -7549,7 +7919,7 @@ static void corpusSchedTies(Dumper &d)
     ObjectT *a = w.createObject(g, false, 5, {});
     dumpHeap(d, w);
     for (int i = 0; i < 5; ++i)
-        a->m_updates[(size_t)i].m_scriptedSleep = 2;
+        a->m_behaviors[(size_t)i].m_update.m_scriptedSleep = 2;
 
     // frame 1: all five run (packed priorities equal — the array order
     // decides), each requeued at 1+2=3
@@ -7575,7 +7945,7 @@ static void corpusSchedPhases(Dumper &d)
     ObjectT *a = w.createObject(g, false, 4, {}, Coord3D{0, 0, 0}, 0.0f,
                                 {PHASE_FINAL, PHASE_INITIAL, PHASE_NORMAL, PHASE_PHYSICS});
     for (int i = 0; i < 4; ++i)
-        a->m_updates[(size_t)i].m_scriptedSleep = 5;
+        a->m_behaviors[(size_t)i].m_update.m_scriptedSleep = 5;
 
     w.update(); // frame 0 → 1
     w.update(); // 1 → 2
@@ -7597,7 +7967,7 @@ static void corpusSchedAwaken(Dumper &d)
     GeometryInfoT g{GEOMETRY_SPHERE, true, 1, 1, 1};
     ObjectT *a = w.createObject(g, false, 3, {});
     for (int i = 0; i < 3; ++i)
-        a->m_updates[(size_t)i].m_scriptedSleep = 10;
+        a->m_behaviors[(size_t)i].m_update.m_scriptedSleep = 10;
 
     w.update(); // frame 0 → 1; all wake at 1, run, sleep to 11
     dumpHeap(d, w);
@@ -7605,18 +7975,18 @@ static void corpusSchedAwaken(Dumper &d)
     unsigned now = w.logic.getFrame();
     // the easy return: waking exactly at the current wake frame — no change
     w.setWakeFrame(a, 0, 10); // when = 11 == nextCallFrame
-    d.line("m0frame %d", friend_getNextCallFrame(&a->m_updates[0]));
+    d.line("m0frame %d", friend_getNextCallFrame(&a->m_behaviors[0].m_update));
     // the subtle case: nextCallFrame == now && when == now + 1 → refusal
-    w.logic.friend_awakenUpdateModule(a, &a->m_updates[1], now); // set to now
-    d.line("m1frame %d", friend_getNextCallFrame(&a->m_updates[1]));
-    w.logic.friend_awakenUpdateModule(a, &a->m_updates[1], now + 1); // refused
-    d.line("m1frame %d", friend_getNextCallFrame(&a->m_updates[1]));
+    w.logic.friend_awakenUpdateModule(a, &a->m_behaviors[1].m_update, now); // set to now
+    d.line("m1frame %d", friend_getNextCallFrame(&a->m_behaviors[1].m_update));
+    w.logic.friend_awakenUpdateModule(a, &a->m_behaviors[1].m_update, now + 1); // refused
+    d.line("m1frame %d", friend_getNextCallFrame(&a->m_behaviors[1].m_update));
     // a wake further out: accepted, rebalanced
-    w.logic.friend_awakenUpdateModule(a, &a->m_updates[2], now + 30);
+    w.logic.friend_awakenUpdateModule(a, &a->m_behaviors[2].m_update, now + 30);
     dumpHeap(d, w);
     // the saturation: waking past FOREVER clamps to FOREVER
-    w.logic.friend_awakenUpdateModule(a, &a->m_updates[0], 0x7ffffff0u);
-    d.line("m0pri %08x", (unsigned)friend_getPriority(&a->m_updates[0]));
+    w.logic.friend_awakenUpdateModule(a, &a->m_behaviors[0].m_update, 0x7ffffff0u);
+    d.line("m0pri %08x", (unsigned)friend_getPriority(&a->m_behaviors[0].m_update));
     // frameToSleepTime: the min-of-four and the past-frame fallback
     d.line("fts %d", w.logic.frameToSleepTime(5, 9, 3, 7));
     d.line("fts %d", w.logic.frameToSleepTime(now, (unsigned)FOREVER));
@@ -7631,12 +8001,12 @@ static void corpusSchedDisabled(Dumper &d)
     World &w = freshWorld(10.0f, Region2DT{0, 0, 100, 100});
     GeometryInfoT g{GEOMETRY_SPHERE, true, 1, 1, 1};
     ObjectT *a = w.createObject(g, false, 2, {1, 1}, Coord3D{50, 50, 0}, 0.0f);
-    a->m_updates[0].m_scriptedSleep = 4;
-    a->m_updates[1].m_scriptedSleep = 4;
+    a->m_behaviors[0].m_update.m_scriptedSleep = 4;
+    a->m_behaviors[1].m_update.m_scriptedSleep = 4;
     // module 1 processes EMP-disabled objects; module 0 processes nothing
     DisabledMask emp;
     emp.set(DISABLED_EMP, true);
-    a->m_updates[1].m_disabledTypesToProcess = emp;
+    a->m_behaviors[1].m_update.m_disabledTypesToProcess = emp;
 
     // disable by EMP for 3 frames (from frame 0: mask set, till 3)
     w.setDisabledUntil(a, DISABLED_EMP, 3);
@@ -7683,13 +8053,13 @@ static void corpusSchedDestroy(Dumper &d)
     ObjectT *c = w.createObject(g, false, 3, {}, Coord3D{70, 70, 0}, 0.0f);
     for (ObjectT *o : {a, b, c})
         for (int i = 0; i < 3; ++i)
-            o->m_updates[(size_t)i].m_scriptedSleep = 100;
+            o->m_behaviors[(size_t)i].m_update.m_scriptedSleep = 100;
     // stagger the wakes so the heap interleaves them
-    w.logic.friend_awakenUpdateModule(a, &a->m_updates[0], 5);
-    w.logic.friend_awakenUpdateModule(b, &b->m_updates[0], 4);
-    w.logic.friend_awakenUpdateModule(c, &c->m_updates[0], 6);
-    w.logic.friend_awakenUpdateModule(b, &b->m_updates[1], 3);
-    w.logic.friend_awakenUpdateModule(a, &a->m_updates[1], 7);
+    w.logic.friend_awakenUpdateModule(a, &a->m_behaviors[0].m_update, 5);
+    w.logic.friend_awakenUpdateModule(b, &b->m_behaviors[0].m_update, 4);
+    w.logic.friend_awakenUpdateModule(c, &c->m_behaviors[0].m_update, 6);
+    w.logic.friend_awakenUpdateModule(b, &b->m_behaviors[1].m_update, 3);
+    w.logic.friend_awakenUpdateModule(a, &a->m_behaviors[1].m_update, 7);
     dumpHeap(d, w);
 
     // destroy b: the destroy list processes at the next update's tail; the
@@ -7703,8 +8073,8 @@ static void corpusSchedDestroy(Dumper &d)
 
     // destroy-during-destroy: a's module 0 requests c's destruction from
     // inside its update (the same-pass append)
-    a->m_updates[0].m_onUpdateDestroyObj = c->m_id;
-    w.logic.friend_awakenUpdateModule(a, &a->m_updates[0], w.logic.getFrame());
+    a->m_behaviors[0].m_update.m_onUpdateDestroyObj = c->m_id;
+    w.logic.friend_awakenUpdateModule(a, &a->m_behaviors[0].m_update, w.logic.getFrame());
     w.update();
     dumpEvents(d, w);
     dumpRegistry(d, w);
@@ -7723,7 +8093,7 @@ static void corpusSchedDestroyCap(Dumper &d)
     // stated contract; not replayed.)
     ObjectT *a = w.createObject(g, false, 256, {}, Coord3D{50, 50, 0}, 0.0f);
     for (int i = 0; i < 256; ++i)
-        a->m_updates[(size_t)i].m_scriptedSleep = 100;
+        a->m_behaviors[(size_t)i].m_update.m_scriptedSleep = 100;
     d.line("heap %d", (int)w.logic.m_sleepyUpdates.size());
     w.logic.destroyObject(a, &w.hooks);
     w.update();
@@ -7746,15 +8116,15 @@ static void corpusSchedLoadpost(Dumper &d)
         w.hooks.m_events.clear();
     }
     // set raw wake frames as a save would load them
-    w.logic.friend_awakenUpdateModule(a, &a->m_updates[0], 40);
-    w.logic.friend_awakenUpdateModule(a, &a->m_updates[1], 1); // (the legacy-zero clamp target)
-    w.logic.friend_awakenUpdateModule(a, &a->m_updates[2], 12);
-    w.logic.friend_awakenUpdateModule(b, &b->m_updates[0], 9);
-    w.logic.friend_awakenUpdateModule(b, &b->m_updates[1], 2);
+    w.logic.friend_awakenUpdateModule(a, &a->m_behaviors[0].m_update, 40);
+    w.logic.friend_awakenUpdateModule(a, &a->m_behaviors[1].m_update, 1); // (the legacy-zero clamp target)
+    w.logic.friend_awakenUpdateModule(a, &a->m_behaviors[2].m_update, 12);
+    w.logic.friend_awakenUpdateModule(b, &b->m_behaviors[0].m_update, 9);
+    w.logic.friend_awakenUpdateModule(b, &b->m_behaviors[1].m_update, 2);
     dumpHeap(d, w);
     // the legacy zero frame (a save with when == 0) — the rebuild clamps to now(≥1)
-    friend_setNextCallFrame(&a->m_updates[1], 0);
-    friend_setNextCallFrame(&b->m_updates[1], 0);
+    friend_setNextCallFrame(&a->m_behaviors[1].m_update, 0);
+    friend_setNextCallFrame(&b->m_behaviors[1].m_update, 0);
     w.loadPostProcess();
     d.line("after loadpost nextid %d", w.logic.m_nextObjID);
     dumpHeap(d, w);
@@ -8287,13 +8657,13 @@ static void corpusCollideProcess(Dumper &d)
     b->m_status &= ~(1u << OBJECT_STATUS_NO_COLLISIONS_BIT);
     w.pm.makeDirty(w.pm.findModule(a->m_id), true);
     w.pm.makeDirty(w.pm.findModule(b->m_id), true);
-    a->m_colliders[0].m_onCollideAbsorb = true;
+    a->m_behaviors[0].m_onCollideAbsorb = true;
     w.pm.update(&w.hooks);
     dumpCollideEvents(d, w);
     w.pm.update(&w.hooks);
     dumpCollideEvents(d, w);
     dumpPartition(d, w);
-    a->m_colliders[0].m_onCollideAbsorb = false;
+    a->m_behaviors[0].m_onCollideAbsorb = false;
     a->m_status &= ~(1u << OBJECT_STATUS_NO_COLLISIONS_BIT);
 
     // (e) the destroyed-absorb: c's first collider destroys e during the
@@ -8304,7 +8674,7 @@ static void corpusCollideProcess(Dumper &d)
     // dispatches first.)
     ObjectT *c = w.createObject(sph, false, 0, {}, Coord3D{20.0f, 50.0f, 0.0f}, 0.0f, {}, 1);
     ObjectT *e = w.createObject(sph, false, 0, {}, Coord3D{22.0f, 52.0f, 0.0f}, 0.0f, {}, 1);
-    c->m_colliders[0].m_onCollideDestroyObj = e->m_id;
+    c->m_behaviors[0].m_onCollideDestroyObj = e->m_id;
     w.pm.update(&w.hooks);
     dumpCollideEvents(d, w);
     dumpRegistry(d, w);
@@ -8320,7 +8690,7 @@ static void corpusCollideProcess(Dumper &d)
     ObjectT *f = w.createObject(sph, false, 0, {}, Coord3D{20.0f, 20.0f, 0.0f}, 0.0f, {}, 1);
     ObjectT *g = w.createObject(sph, false, 0, {}, Coord3D{25.0f, 25.0f, 0.0f}, 0.0f, {}, 1);
     ObjectT *h = w.createObject(sph, false, 0, {}, Coord3D{30.0f, 30.0f, 0.0f}, 0.0f, {}, 1);
-    g->m_colliders[0].m_onCollideUnregisterObj = h->m_id;
+    g->m_behaviors[0].m_onCollideUnregisterObj = h->m_id;
     w.pm.update(&w.hooks);
     dumpContacts(d, w);
     dumpCollideEvents(d, w);
@@ -8980,6 +9350,218 @@ static void corpusPlayersRoundtrip(Dumper &d)
     dumpObjectTeams(d, w);
 }
 
+// ============================================================================
+// The module framework corpora (WP2): the factory registry, the
+// data-driven construction and the family walks.
+// ============================================================================
+
+// mod_factory: the registry's lookups — the per-class masks, the
+// decorated keys, the unknown-name and empty-name misses, the data list
+// and the re-registration overwrite.
+static void corpusModFactory(Dumper &d)
+{
+    d.line("corpus mod_factory");
+    World &w = freshWorld(10.0f, Region2DT{0, 0, 100, 100});
+    const char *names[8] = {"ScriptUpdateModule", "ScriptCollideModule", "ScriptDieModule",
+                            "ScriptDamageModule", "ScriptCreateModule", "ScriptDestroyModule",
+                            "ScriptBodyModule", "ScriptContainModule"};
+    for (int i = 0; i < 8; ++i)
+        d.line("mask %s %x", names[i],
+               w.moduleFactory.findModuleInterfaceMask(w.nameKeys, names[i], MODULETYPE_T_BEHAVIOR));
+    // the miss family: an unknown name and an empty name
+    d.line("mask NoSuchModule %x",
+           w.moduleFactory.findModuleInterfaceMask(w.nameKeys, "NoSuchModule", MODULETYPE_T_BEHAVIOR));
+    d.line("mask empty %x", w.moduleFactory.findModuleInterfaceMask(w.nameKeys, "", MODULETYPE_T_BEHAVIOR));
+    // the keys: the decorated registry key vs the undecorated class key
+    // (the '0' + type prefix goes through the same interning)
+    d.line("dkey %u ckey %u",
+           ModuleFactoryT::makeDecoratedNameKey(w.nameKeys, "ScriptUpdateModule", MODULETYPE_T_BEHAVIOR),
+           w.nameKeys.nameToKey("ScriptUpdateModule"));
+    // the type digit separates the buckets: the draw-typed name differs
+    d.line("dkey1 %u",
+           ModuleFactoryT::makeDecoratedNameKey(w.nameKeys, "ScriptUpdateModule", MODULETYPE_T_DRAW));
+    // the data list: the tag stamp and the append (a fresh key per tag)
+    int d0 = w.moduleFactory.newModuleDataFromINI(w.nameKeys, "ScriptDieModule",
+                                                  MODULETYPE_T_BEHAVIOR, "ModuleTag_One");
+    int d1 = w.moduleFactory.newModuleDataFromINI(w.nameKeys, "ScriptDieModule",
+                                                  MODULETYPE_T_BEHAVIOR, "ModuleTag_Two");
+    int d2 = w.moduleFactory.newModuleDataFromINI(w.nameKeys, "NoSuchModule",
+                                                  MODULETYPE_T_BEHAVIOR, "ModuleTag_Three");
+    d.line("data %d %d %d", d0, d1, d2);
+    d.line("datalist %d", (int)w.moduleFactory.m_moduleDataList.size());
+    for (auto &e : w.moduleFactory.m_moduleDataList)
+        d.line("d %s %u", e.first.c_str(), e.second);
+    // the re-registration overwrite (addModuleInternal's created-or-
+    // overwritten entry)
+    w.moduleFactory.addModuleInternal(w.nameKeys, "ScriptDieModule", MODULETYPE_T_BEHAVIOR,
+                                      MODULEINTERFACE_T_DIE | MODULEINTERFACE_T_UPDATE, SCRIPT_CLS_DIE);
+    d.line("mask2 ScriptDieModule %x",
+           w.moduleFactory.findModuleInterfaceMask(w.nameKeys, "ScriptDieModule", MODULETYPE_T_BEHAVIOR));
+    d.line("end");
+}
+
+// mod_build: the data-driven construction — a mixed-family template
+// walked through the factory, with the singleton captures, the ctor
+// wakes and the heap the update modules land on.
+static void corpusModBuild(Dumper &d)
+{
+    d.line("corpus mod_build");
+    World &w = freshWorld(10.0f, Region2DT{0, 0, 100, 100});
+    GeometryInfoT g{GEOMETRY_SPHERE, true, 1, 5.0f, 5.0f};
+
+    std::vector<ModuleSpecT> mods;
+    auto spec = [](const char *name, const char *tag, int phase = PHASE_NORMAL, int wake = -1) {
+        ModuleSpecT m;
+        m.m_name = name;
+        m.m_tag = tag;
+        m.m_phase = phase;
+        m.m_ctorWake = wake;
+        return m;
+    };
+    mods.push_back(spec("ScriptBodyModule", "ModuleTag_Body"));
+    mods.push_back(spec("ScriptUpdateModule", "ModuleTag_U0", PHASE_INITIAL, 7));
+    mods.push_back(spec("ScriptCollideModule", "ModuleTag_C0"));
+    mods.push_back(spec("ScriptDieModule", "ModuleTag_D0"));
+    mods.push_back(spec("ScriptUpdateModule", "ModuleTag_U1", PHASE_FINAL));
+    mods.push_back(spec("ScriptContainModule", "ModuleTag_Contain"));
+    mods.push_back(spec("ScriptCreateModule", "ModuleTag_Create"));
+    mods.push_back(spec("ScriptDamageModule", "ModuleTag_Dam"));
+    mods.push_back(spec("ScriptDestroyModule", "ModuleTag_Des"));
+    mods.push_back(spec("ScriptUpdateModule", "ModuleTag_U2"));
+
+    ObjectT *a = w.createObjectFromSpecs(g, false, mods, Coord3D{50, 50, 0}, 0.0f);
+
+    // the behavior list: the identity, the mask, the halves
+    d.line("behaviors %d", (int)a->m_behaviors.size());
+    for (size_t i = 0; i < a->m_behaviors.size(); ++i)
+        d.line("b %d key=%u tag=%u if=%x upd=%d need=%d", (int)i, a->m_behaviors[i].m_nameKey,
+               a->m_behaviors[i].m_tagKey, a->m_behaviors[i].m_interfaces,
+               a->m_behaviors[i].m_hasUpdate ? 1 : 0,
+               a->m_behaviors[i].m_needBuildComplete ? 1 : 0);
+
+    // the singleton captures (the FIRST body / contain)
+    d.line("singletons %d %d", a->m_bodyModule, a->m_containModule);
+
+    // the data list the factory owns (one per module spec entry)
+    d.line("datalist %d", (int)w.moduleFactory.m_moduleDataList.size());
+
+    // the heap: the update modules in behavior order, the U0 ctor wake
+    dumpHeap(d, w);
+    dumpEvents(d, w);
+
+    // the second object: a second body module would trip the duplicate
+    // assert (the debug-only refusal — stated, not scripted); a
+    // body-less object carries no singleton
+    std::vector<ModuleSpecT> mods2;
+    mods2.push_back(spec("ScriptUpdateModule", "ModuleTag_X"));
+    ObjectT *b = w.createObjectFromSpecs(g, false, mods2, Coord3D{20, 20, 0}, 0.0f);
+    d.line("b2 %d %d %d", b->m_id, b->m_bodyModule, b->m_containModule);
+    d.line("end");
+}
+
+// mod_walks: the family dispatches — die, the damage trio,
+// build-complete (with the flag clear) and the destroy walk's position
+// (the destroy modules BEFORE the status, the onDelete walk over every
+// module, then the destroyed event).
+static void corpusModWalks(Dumper &d)
+{
+    d.line("corpus mod_walks");
+    World &w = freshWorld(10.0f, Region2DT{0, 0, 100, 100});
+    GeometryInfoT g{GEOMETRY_SPHERE, true, 1, 5.0f, 5.0f};
+
+    // a mixed object: update, die, damage, die again, create, damage
+    // again, destroy, create again — the walks must dispatch only their
+    // family's members, in behavior order
+    std::vector<ModuleSpecT> mods;
+    ModuleSpecT m;
+    m.m_name = "ScriptUpdateModule", m.m_tag = "ModuleTag_U0", mods.push_back(m);
+    m.m_name = "ScriptDieModule", m.m_tag = "ModuleTag_D0", mods.push_back(m);
+    m.m_name = "ScriptDamageModule", m.m_tag = "ModuleTag_Dam0", mods.push_back(m);
+    m.m_name = "ScriptDieModule", m.m_tag = "ModuleTag_D1", mods.push_back(m);
+    m.m_name = "ScriptCreateModule", m.m_tag = "ModuleTag_C0", mods.push_back(m);
+    m.m_name = "ScriptDamageModule", m.m_tag = "ModuleTag_Dam1", mods.push_back(m);
+    m.m_name = "ScriptDestroyModule", m.m_tag = "ModuleTag_Des0", mods.push_back(m);
+    m.m_name = "ScriptCreateModule", m.m_tag = "ModuleTag_C1", mods.push_back(m);
+    ObjectT *a = w.createObjectFromSpecs(g, false, mods, Coord3D{50, 50, 0}, 0.0f);
+    dumpEvents(d, w); // the create-module walk of the construction
+
+    // onDie: the die modules (1, 3), the damage info echoed per dispatch
+    DamageInfoT dmg;
+    dmg.m_sourceID = a->m_id - 1;
+    dmg.m_deathType = 3; // DEATH_BURNED
+    dmg.m_amount = 42.0f;
+    w.objectOnDie(a, dmg);
+    dumpEvents(d, w);
+
+    // the damage trio: onDamage, onHealing, onBodyDamageStateChange
+    w.objectNotifyDamage(a, dmg, 0);
+    w.objectNotifyDamage(a, dmg, 1);
+    w.objectNotifyDamage(a, dmg, 2, 0, 2); // PRISTINE -> REALLYDAMAGED
+    dumpEvents(d, w);
+
+    // build-complete: ungated, the flag cleared per module
+    d.line("flags %d %d", a->m_behaviors[4].m_needBuildComplete ? 1 : 0,
+           a->m_behaviors[7].m_needBuildComplete ? 1 : 0);
+    w.objectNotifyBuildComplete(a);
+    dumpEvents(d, w);
+    d.line("flags %d %d", a->m_behaviors[4].m_needBuildComplete ? 1 : 0,
+           a->m_behaviors[7].m_needBuildComplete ? 1 : 0);
+
+    // the destroy walk: the destroy module (6) BEFORE the status, the
+    // onDelete walk over EVERY module (0..7), then objdestroyed
+    w.logic.destroyObject(a, &w.hooks);
+    dumpEvents(d, w);
+    w.logic.processDestroyList(&w.pm, &w.hooks);
+    dumpEvents(d, w);
+    d.line("end");
+}
+
+// mod_update_bodies: the sleepy dispatch through the factory-built
+// modules — a mixed update+collider object whose collide half carries
+// indices AFTER the update modules (the unified numbering), the
+// scripted sleep/destroy/wake effects, and the collide walk's
+// family-filtered dispatch.
+static void corpusModUpdateBodies(Dumper &d)
+{
+    d.line("corpus mod_update_bodies");
+    World &w = freshWorld(10.0f, Region2DT{0, 0, 100, 100});
+    GeometryInfoT g{GEOMETRY_SPHERE, true, 1, 5.0f, 5.0f};
+
+    // the collide partner first: a plain object at (52, 52); the mixed
+    // object (two updates then two colliders — behavior indices 0,1 are
+    // updates; 2,3 are colliders) is created after and dirtied by its
+    // own registration, so the contact processing walks ITS collide
+    // halves against the partner
+    w.createObject(g, false, 0, {}, Coord3D{52, 52, 0}, 0.0f);
+    std::vector<ModuleSpecT> mods;
+    ModuleSpecT m;
+    m.m_name = "ScriptUpdateModule", m.m_tag = "ModuleTag_U0", mods.push_back(m);
+    m.m_name = "ScriptUpdateModule", m.m_tag = "ModuleTag_U1", mods.push_back(m);
+    m.m_name = "ScriptCollideModule", m.m_tag = "ModuleTag_C0", mods.push_back(m);
+    m.m_name = "ScriptCollideModule", m.m_tag = "ModuleTag_C1", mods.push_back(m);
+    ObjectT *a = w.createObjectFromSpecs(g, false, mods, Coord3D{50, 50, 0}, 0.0f);
+
+    // the scripted bodies: U0 sleeps 2, U1 sleeps FOREVER
+    a->m_behaviors[0].m_update.m_scriptedSleep = 2;
+    a->m_behaviors[1].m_update.m_scriptedSleep = UPDATE_SLEEP_FOREVER;
+
+    w.update(); // frame 0: the wake-at-1 clamp means no update dispatch
+                // yet, but the partition refresh collects the pair and
+                // dispatches the COLLIDE halves (indices 2, 3 — the
+                // unified numbering, not a per-family counter)
+    dumpEvents(d, w);
+    dumpContacts(d, w);
+    dumpCollideEvents(d, w);
+    dumpHeap(d, w);
+    w.update(); // frame 1: both update (behavior indices 0 and 1)
+    dumpEvents(d, w);
+    dumpHeap(d, w);
+    d.line("end");
+}
+
+// ============================================================================
+// The integration corpus: everything above on one world, across frames.
+// ============================================================================
 static void corpusRoundtrip(Dumper &d)
 {
     d.line("corpus kernel_roundtrip");
@@ -8989,12 +9571,12 @@ static void corpusRoundtrip(Dumper &d)
 
     // a small mover with a module (waking every 2 frames)
     ObjectT *a = w.createObject(g, false, 1, {}, Coord3D{51.0f, 51.0f, 0.0f}, 0.0f);
-    a->m_updates[0].m_scriptedSleep = 2;
+    a->m_behaviors[0].m_update.m_scriptedSleep = 2;
     // a big rotated immobile structure
     w.createObject(big, true, 0, {}, Coord3D{35.0f, 35.0f, 0.0f}, 0.4f);
     // a far mover with a module (every frame)
     ObjectT *c = w.createObject(g, false, 1, {}, Coord3D{90.0f, 12.0f, 0.0f}, 0.0f);
-    c->m_updates[0].m_scriptedSleep = 1;
+    c->m_behaviors[0].m_update.m_scriptedSleep = 1;
 
     for (int f = 0; f < 5; ++f) {
         // move a little each frame
@@ -10435,6 +11017,10 @@ int main(int argc, char **argv)
     corpusMessagesStream(d);
     corpusMessagesDispatch(d);
     corpusMessagesRoundtrip(d);
+    corpusModFactory(d);
+    corpusModBuild(d);
+    corpusModWalks(d);
+    corpusModUpdateBodies(d);
     corpusRoundtrip(d);
 
     fclose(out);
