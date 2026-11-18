@@ -104,6 +104,7 @@ pub mod messages;
 pub mod modules;
 pub mod money;
 pub mod partition;
+pub mod physics;
 pub mod players;
 pub mod query;
 pub mod scheduler;

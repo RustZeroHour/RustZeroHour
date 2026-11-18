@@ -335,6 +335,12 @@ pub const KINDOF_IMMOBILE_BIT: u32 = 2;
 /// collide family refuses pairs where either side carries it.
 pub const KINDOF_NO_COLLIDE_BIT: u32 = 27;
 
+/// The kindof bitset's `KINDOF_PROJECTILE` (KindOf.h, ordinal 22 in the
+/// Zero Hour non-retail configuration: "Instead of being a ground or air
+/// unit, this object is special"). The physics braking branch treats
+/// projectiles differently from other objects.
+pub const KINDOF_PROJECTILE_BIT: u32 = 22;
+
 /// The kindof bitset's `KINDOF_POWERED` (KindOf.h — ordinal 66 in the
 /// script-engine slice's generated `KINDOF_NAMES` table, the Zero Hour
 /// configuration: "This object gets the Underpowered disabled condition
@@ -498,6 +504,14 @@ pub const OBJECT_STATUS_DESTROYED_BIT: u32 = 24;
 /// gates consult it: the processContactList pre-gate and the mid-walk
 /// break of `Object::onCollide`.
 pub const OBJECT_STATUS_NO_COLLISIONS_BIT: u32 = 25;
+
+/// The `OBJECT_STATUS_BRAKING` bit position (ObjectStatusTypes.h:
+/// "Object is braking, and subverts the physics" — the real ordinal is 15;
+/// the model-internal numbering continues past NO_COLLISIONS, pinned by the
+/// golden dump only). PhysicsBehavior::update skips position integration
+/// while this is set (the locomotor subverts the physics to brake onto a
+/// destination exactly).
+pub const OBJECT_STATUS_BRAKING_BIT: u32 = 26;
 
 /// `hash2ints` (PartitionManager.cpp): the symmetric pair hash the
 /// contact list's dedup buckets key on — `[a, b]` always hashes to the

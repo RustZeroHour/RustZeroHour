@@ -41,6 +41,8 @@
 
 use std::collections::{BTreeMap, VecDeque};
 
+use rzh_math::Matrix3D;
+
 use crate::messages::{
     CommandList, GameMessageType, MessageArena, MessageData, MessageID, MessageStream,
     TranslateOutcome,
@@ -60,14 +62,18 @@ use crate::types::{
 
 /// The outcome of one update-module body: the sleep length plus the
 /// side effects the corpus model programs (applied by the kernel in the
-/// transcription's order — destroy first, then wake). The WP2 module
-/// framework's bodies return these ([`ModuleBehavior::update`]); the
-/// scripted corpus bodies source them from the host's
+/// transcription's order — transform first, then destroy, then wake). The
+/// WP2 module framework's bodies return these ([`ModuleBehavior::update`]);
+/// the scripted corpus bodies source them from the host's
 /// [`KernelHost::run_update`].
 #[derive(Clone, Copy, Debug)]
 pub struct UpdateOutcome {
     /// The `update()` return code: the frame count to sleep.
     pub sleep: UpdateSleepTime,
+    /// A new object transform (position + orientation) the body computed.
+    /// Applied to the object by the kernel (`setTransformMatrix`); `None`
+    /// leaves the transform untouched.
+    pub transform: Option<Matrix3D>,
     /// A `GameLogic::destroyObject` request issued from inside the body.
     pub destroy: Option<ObjectID>,
     /// A `setWakeFrame` on another module, as an absolute frame.
@@ -78,6 +84,7 @@ impl Default for UpdateOutcome {
     fn default() -> Self {
         Self {
             sleep: UPDATE_SLEEP_NONE,
+            transform: None,
             destroy: None,
             wake: None,
         }
@@ -127,6 +134,21 @@ pub trait KernelHost {
 
     /// `TheTerrainLogic->UPDATE()`.
     fn on_terrain_update(&mut self) {}
+
+    /// `TheGlobalData->m_gravity` — acceleration due to gravity, in
+    /// distance per logic frame squared (the Zero Hour default is -1.0).
+    /// The physics module applies this every frame it runs.
+    fn gravity(&mut self) -> f32 {
+        -1.0
+    }
+
+    /// `TheTerrainLogic->getLayerHeight(x, y, layer)` — the ground height
+    /// at a world xy position on the given layer. The physics module clamps
+    /// objects to it and bounces off it. Defaults to flat terrain at z = 0.
+    fn ground_height(&mut self, x: f32, y: f32, layer: i32) -> f32 {
+        let _ = (x, y, layer);
+        0.0
+    }
 
     /// The recorder/CRC block (the generation gates need
     /// TheRecorder/TheGameInfo — later slices; the position is pinned).
@@ -398,10 +420,20 @@ pub struct Object {
     pub id: ObjectID,
     /// `m_geometryInfo`.
     pub geometry: GeometryInfo,
-    /// The position.
+    /// The position (the transform's translation, kept in sync by the
+    /// physics module).
     pub position: crate::types::Coord3,
-    /// The orientation (the facing angle, radians).
+    /// The orientation (the facing angle, radians — the transform's Z
+    /// rotation, kept in sync by the physics module).
     pub orientation: f32,
+    /// The object's homogeneous transform (position + full orientation,
+    /// including roll/pitch the yaw-only `orientation` cannot express).
+    /// The physics module integrates into this; the partition/store use
+    /// `position`/`orientation`.
+    pub transform: Matrix3D,
+    /// The object's layer (the `Layer` enum — `LAYER_GROUND` = 0). The
+    /// physics module queries ground height per layer.
+    pub layer: i32,
     /// `m_kindof` (the bitset — `KindOfMaskType`, a 122-entry
     /// `BitFlags` in the original; the port's `u128` carries the real
     /// ordinals: the IMMOBILE, NO_COLLIDE and POWERED bits are what
@@ -591,7 +623,7 @@ impl Objects {
     }
 
     /// Insert an object into its id's slot.
-    pub(crate) fn put(&mut self, obj: Object) {
+    pub fn put(&mut self, obj: Object) {
         let idx = obj.id as usize;
         if self.slots.len() <= idx {
             self.slots.resize_with(idx + 1, || None);
@@ -1225,6 +1257,19 @@ impl Kernel {
             geometry: spec.geometry,
             position: spec.position,
             orientation: spec.orientation,
+            // the transform is born at the birth position facing the birth
+            // orientation (roll and pitch start flat)
+            transform: {
+                let mut t = Matrix3D::identity();
+                t.set_translation(rzh_math::Vector3::new(
+                    spec.position.x,
+                    spec.position.y,
+                    spec.position.z,
+                ));
+                t.rotate_z(spec.orientation);
+                t
+            },
+            layer: 0,
             kindof: u128::from(if spec.immobile {
                 1u32 << KINDOF_IMMOBILE_BIT
             } else {
@@ -1459,7 +1504,19 @@ impl Kernel {
                     host,
                 );
                 self.objects.put_body(handle.obj, handle.module, body);
-                // the corpus's side-effect order: destroy first, then wake
+                // the corpus's side-effect order: transform first, then
+                // destroy, then wake (a body that moves and dies in the same
+                // frame has its position applied before it is removed)
+                if let Some(transform) = outcome.transform {
+                    let obj = self.objects.get_mut(handle.obj);
+                    obj.position = crate::types::Coord3 {
+                        x: transform.translation().x,
+                        y: transform.translation().y,
+                        z: transform.translation().z,
+                    };
+                    obj.orientation = transform.z_rotation();
+                    obj.transform = transform;
+                }
                 if let Some(victim) = outcome.destroy {
                     self.logic.destroy_object(&mut self.objects, host, victim);
                 }

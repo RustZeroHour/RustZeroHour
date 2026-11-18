@@ -60,15 +60,17 @@
 
 use criterion::{BatchSize, Criterion, criterion_group, criterion_main};
 
-use rzh_sim::logic::{Kernel, KernelHost, ObjectSpec, UpdateOutcome};
+use rzh_math::{Matrix3D, Vector3};
+use rzh_sim::logic::{Kernel, KernelHost, Object, ObjectSpec, Objects, UpdateOutcome};
 use rzh_sim::messages::GameMessageType;
-use rzh_sim::modules::BehaviorSpec;
+use rzh_sim::modules::{BehaviorSpec, ModuleCtx};
 use rzh_sim::partition::Region2;
+use rzh_sim::physics::{PhysicsBehavior, PhysicsBehaviorModuleData};
 use rzh_sim::query::{PartitionFilter, PartitionFilterOnMap};
 use rzh_sim::scheduler::ModuleArena;
 use rzh_sim::types::{
-    Coord3, DisabledMask, DistanceCalculationType, GeometryInfo, GeometryType, IterOrderType,
-    SleepyUpdatePhase, UpdateSleepTime,
+    Coord3, DISABLED_COUNT, DisabledMask, DistanceCalculationType, GeometryInfo, GeometryType,
+    IterOrderType, NEVER, ObjectID, SleepyUpdatePhase, TEAM_ID_INVALID, UpdateSleepTime,
 };
 
 /// The bench corpus size (the scale of the other map benches' corpora).
@@ -1286,6 +1288,128 @@ fn bench_modules(c: &mut Criterion) {
     });
 }
 
+/// The physics integrator's per-frame cost over a settled corpus of moving
+/// objects. The checksum pins the final state of a deterministic gravity
+/// run so the bench can't accidentally skip work; it is authored against
+/// this Rust port until the C++ differential wrapper is extended to
+/// physics (plan §6).
+const PHYSICS_CHECKSUM: u64 = 16_244_990_565_882_331_136;
+
+/// The bench corpus size and frame count for the physics integrator.
+const BENCH_PHYSICS_OBJECTS: usize = 300;
+const BENCH_PHYSICS_FRAMES: u32 = 60;
+
+/// A settled physics corpus: `BENCH_PHYSICS_OBJECTS` objects at varying
+/// heights, each carrying a `PhysicsBehavior` body, over flat terrain.
+fn physics_corpus() -> (Vec<Object>, Vec<PhysicsBehavior>) {
+    let mut objects = Vec::with_capacity(BENCH_PHYSICS_OBJECTS);
+    let mut bodies = Vec::with_capacity(BENCH_PHYSICS_OBJECTS);
+    let data = PhysicsBehaviorModuleData::new();
+    for i in 0..BENCH_PHYSICS_OBJECTS {
+        let height = 10.0 + (i as f32) * 0.5;
+        let mut transform = Matrix3D::identity();
+        transform.set_translation(Vector3 {
+            x: (i as f32) * 2.0,
+            y: 0.0,
+            z: height,
+        });
+        objects.push(Object {
+            id: i as ObjectID + 1,
+            geometry: GeometryInfo::default(),
+            position: Coord3 {
+                x: (i as f32) * 2.0,
+                y: 0.0,
+                z: height,
+            },
+            orientation: 0.0,
+            transform,
+            layer: 0,
+            kindof: 0,
+            status: 0,
+            private_status: 0,
+            build_cost: 0.0,
+            disabled_mask: DisabledMask::none(),
+            disabled_till_frame: [NEVER; DISABLED_COUNT],
+            behaviors: Vec::new(),
+            body_module: None,
+            contain_module: None,
+            partition: None,
+            cell_change_count: 0,
+            team: TEAM_ID_INVALID,
+            energy_production: 0,
+            energy_bonus: 0,
+            vision_range: 0.0,
+            has_ai: false,
+            ai_idle: false,
+        });
+        bodies.push(PhysicsBehavior::new(&data));
+    }
+    (objects, bodies)
+}
+
+/// Runs `BENCH_PHYSICS_FRAMES` frames of the integrator over the corpus and
+/// folds the final positions into a checksum.
+fn run_physics(objects: Vec<Object>, mut bodies: Vec<PhysicsBehavior>) -> u64 {
+    let mut arena = Objects::default();
+    for object in objects {
+        arena.put(object);
+    }
+    let mut host = BenchHost {
+        sleeps: Vec::new(),
+        net_connected: [false; 8],
+        net_saw_crc_mismatch: false,
+        translate_disposition: Vec::new(),
+        translate_posts: Vec::new(),
+    };
+    let mut sum: u64 = 0;
+    for _ in 0..BENCH_PHYSICS_FRAMES {
+        for (i, body) in bodies.iter_mut().enumerate() {
+            let obj = (i as ObjectID) + 1;
+            let outcome = {
+                let ctx = ModuleCtx::new(0, &arena);
+                body.update(&ctx, obj, 0, &mut host)
+            };
+            if let Some(transform) = outcome.transform {
+                let object = arena.get_mut(obj);
+                let t = transform.translation();
+                object.position = Coord3 {
+                    x: t.x,
+                    y: t.y,
+                    z: t.z,
+                };
+                object.orientation = transform.z_rotation();
+                object.transform = transform;
+            }
+            let object = arena.get(obj);
+            sum = sum
+                .wrapping_mul(31)
+                .wrapping_add(object.position.x.to_bits() as u64)
+                .wrapping_mul(31)
+                .wrapping_add(object.position.y.to_bits() as u64)
+                .wrapping_mul(31)
+                .wrapping_add(object.position.z.to_bits() as u64);
+        }
+    }
+    sum
+}
+
+fn bench_physics(c: &mut Criterion) {
+    // the authoring-time lockstep check: the corpus and the frame stream are
+    // deterministic, so the checksum is too (re-pin when the integrator
+    // changes)
+    let (objects, bodies) = physics_corpus();
+    let expected = run_physics(objects, bodies);
+    assert_eq!(expected, PHYSICS_CHECKSUM, "re-pin PHYSICS_CHECKSUM");
+
+    c.bench_function("kernel/physics_x300", |b| {
+        b.iter_batched(
+            physics_corpus,
+            |(objects, bodies)| run_physics(objects, bodies),
+            BatchSize::PerIteration,
+        )
+    });
+}
+
 criterion_group!(
     benches,
     bench_frame_loop,
@@ -1294,6 +1418,7 @@ criterion_group!(
     bench_players,
     bench_purse,
     bench_messages,
-    bench_modules
+    bench_modules,
+    bench_physics
 );
 criterion_main!(benches);

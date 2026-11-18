@@ -117,6 +117,7 @@ use std::fmt::Debug;
 
 use rzh_util::namekey::{NameKey, NameKeyGenerator};
 
+use crate::physics::{PhysicsBehavior, PhysicsBehaviorModuleData};
 use crate::scheduler::SleepyState;
 use crate::types::{Coord3, DisabledMask, INVALID_ID, ObjectID, SleepyUpdatePhase};
 
@@ -1052,6 +1053,20 @@ impl ModuleFactory {
             ModuleType::Behavior,
             MODULEINTERFACE_CONTAIN,
             |_data| Box::new(ScriptModule),
+        );
+    }
+
+    /// Registers the `PhysicsBehaviorModule` class (UPDATE | COLLIDE, the
+    /// physics phase). Its data-driven fields (mass, friction, ...) are
+    /// parsed by the rzh-ini physics block when that slice lands; until
+    /// then the constructor defaults apply.
+    pub fn register_physics_module(&mut self, keys: &mut NameKeyGenerator) {
+        self.add_module_internal(
+            keys,
+            "PhysicsBehaviorModule",
+            ModuleType::Behavior,
+            MODULEINTERFACE_UPDATE.or(MODULEINTERFACE_COLLIDE),
+            |_data| Box::new(PhysicsBehavior::new(&PhysicsBehaviorModuleData::new())),
         );
     }
 }
